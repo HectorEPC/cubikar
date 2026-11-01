@@ -1053,13 +1053,43 @@ export function updatePortalHeaderUserArea(user) {
 }
 
 // ==========================================
-// USUARIO EN LA BARRA SUPERIOR DEL ESPACIO DE TRABAJO
+// USUARIO Y MENÚ DESPLEGABLE EN EL ESPACIO DE TRABAJO
 // ==========================================
+export function toggleUserDropdown(e) {
+  if (e) e.stopPropagation();
+  const dropdown = document.getElementById('workspace-user-dropdown');
+  if (dropdown) {
+    dropdown.classList.toggle('hidden');
+  }
+}
+
+export function closeUserDropdown() {
+  const dropdown = document.getElementById('workspace-user-dropdown');
+  if (dropdown && !dropdown.classList.contains('hidden')) {
+    dropdown.classList.add('hidden');
+  }
+}
+
+// Cerrar el menú desplegable si se hace clic fuera de él
+document.addEventListener('click', (e) => {
+  const wrapper = document.getElementById('user-menu-wrapper');
+  if (wrapper && !wrapper.contains(e.target)) {
+    closeUserDropdown();
+  }
+});
+
 function updateWorkspaceHeaderUser(user) {
   const nameEl = document.getElementById('workspace-user-name');
   const avatarEl = document.getElementById('workspace-user-avatar');
+  const dropNameEl = document.getElementById('dropdown-user-name');
+  const dropEmailEl = document.getElementById('dropdown-user-email');
+  const dropAvatarEl = document.getElementById('dropdown-user-avatar');
+
   if (user) {
     if (nameEl) nameEl.innerText = user.name;
     if (avatarEl) avatarEl.src = user.avatar;
+    if (dropNameEl) dropNameEl.innerText = user.name;
+    if (dropEmailEl) dropEmailEl.innerText = user.email;
+    if (dropAvatarEl) dropAvatarEl.src = user.avatar;
   }
 }

@@ -47,60 +47,117 @@
 
     <!-- Header & Navigation Tabs -->
     <header class="bg-slate-900 text-white p-3 shadow-md flex justify-between items-center shrink-0">
-      <div class="flex items-center gap-3 sm:gap-4">
-        <!-- Botón para volver a Mis Proyectos -->
-        <button onclick="goToProjectsDashboard()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-blue-400 text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 font-semibold transition shadow-xs cursor-pointer shrink-0" title="Volver al panel de Mis Proyectos">
-          <i class="fa-solid fa-layer-group text-blue-400"></i>
-          <span class="hidden md:inline">Mis Proyectos</span>
-        </button>
-
-        <div class="h-5 w-px bg-slate-700 hidden sm:block"></div>
-      <!-- Logo y Nombre de la Empresa Personalizables -->
-      <div class="flex items-center gap-2.5">
-        <!-- Contenedor del Logo (Sombrero amarillo o Imagen subida) -->
-        <div class="relative group cursor-pointer" onclick="triggerCompanyLogoUpload()" title="Haz clic para subir o cambiar el logotipo de la empresa">
-          <input type="file" id="company-logo-input" accept="image/*" class="hidden" onchange="handleCompanyLogoUpload(event)">
-          
-          <div id="company-logo-container" class="flex items-center justify-center w-11 h-11 min-w-[44px] aspect-square rounded-lg bg-slate-800/80 border border-slate-700 hover:border-blue-400 transition overflow-hidden p-0.5">
-            <!-- Icono por defecto (sombrero amarillo) -->
-            <i id="default-company-icon" class="fa-solid fa-helmet-safety text-amber-400 text-2xl"></i>
-            <!-- Imagen de logo personalizada (cuadrada) -->
-            <img id="custom-company-logo" src="" alt="Logo Empresa" class="w-full h-full object-contain rounded hidden">
-          </div>
-
-          <!-- Overlay al pasar el mouse -->
-          <div class="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-[10px] text-white pointer-events-none">
-            <i class="fa-solid fa-camera"></i>
-          </div>
-
-          <!-- Botón para quitar logo y volver al sombrero amarillo -->
-          <button type="button" id="btn-remove-company-logo" onclick="removeCompanyLogo(event)" 
-                  class="hidden absolute -top-1.5 -right-1.5 bg-red-600 hover:bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] shadow-sm transition" 
-                  title="Quitar logo y volver al sombrero amarillo">
-            <i class="fa-solid fa-xmark"></i>
+      <div class="flex items-center gap-2.5 sm:gap-3">
+        <!-- Usuario Activo con Menú Desplegable (Lado Izquierdo) -->
+        <div class="relative" id="user-menu-wrapper">
+          <button type="button" id="workspace-user-btn" onclick="toggleUserDropdown(event)" 
+                  class="flex items-center gap-2 bg-slate-800/95 hover:bg-slate-800 border border-slate-700 hover:border-blue-400 p-1 pl-2 pr-2.5 rounded-full cursor-pointer transition select-none shadow-xs group" 
+                  title="Opciones de perfil y proyectos">
+            <div class="w-7 h-7 rounded-full overflow-hidden border border-blue-400 bg-white shrink-0 shadow-xs">
+              <img id="workspace-user-avatar" src="" class="w-full h-full object-cover" alt="Perfil">
+            </div>
+            <span id="workspace-user-name" class="text-xs font-bold text-white max-w-[120px] truncate group-hover:text-blue-300 transition">Usuario</span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:text-blue-400 transition ml-0.5"></i>
           </button>
 
-          <!-- Botón para reajustar y encuadrar logo existente -->
-          <button type="button" id="btn-header-adjust-logo" onclick="event.stopPropagation(); openCurrentLogoAdjuster()" 
-                  class="hidden absolute -bottom-1.5 -right-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] shadow-sm transition" 
-                  title="Ajustar encuadre y zoom del logotipo actual">
-            <i class="fa-solid fa-crop-simple"></i>
-          </button>
+          <!-- Dropdown Desplegable del Usuario -->
+          <div id="workspace-user-dropdown" class="hidden absolute left-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-100">
+            
+            <!-- Encabezado del Menú con Info del Usuario -->
+            <div class="px-3.5 py-2.5 border-b border-slate-100 flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-full overflow-hidden border border-blue-400 bg-slate-100 shrink-0 shadow-xs">
+                <img id="dropdown-user-avatar" src="" class="w-full h-full object-cover" alt="Perfil">
+              </div>
+              <div class="min-w-0 flex-1">
+                <span id="dropdown-user-name" class="font-bold text-xs text-slate-900 block truncate">Usuario</span>
+                <span id="dropdown-user-email" class="text-[11px] text-slate-500 font-mono block truncate">usuario@correo.com</span>
+              </div>
+            </div>
+
+            <!-- Opción con ÉNFASIS ESPECIAL: Mis Proyectos -->
+            <div class="p-2">
+              <button type="button" onclick="goToProjectsDashboard()" 
+                      class="w-full text-left p-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center justify-between shadow-md shadow-blue-500/25 transition active:scale-98 cursor-pointer group">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-white shrink-0">
+                    <i class="fa-solid fa-layer-group text-sm"></i>
+                  </div>
+                  <div>
+                    <span class="block leading-tight text-white font-black text-xs">Mis Proyectos</span>
+                    <span class="block text-[10px] text-blue-100 font-normal">Panel principal y cambiar de obra</span>
+                  </div>
+                </div>
+                <i class="fa-solid fa-arrow-right text-xs text-white/80 group-hover:translate-x-0.5 transition"></i>
+              </button>
+            </div>
+
+            <div class="border-t border-slate-100 my-1"></div>
+
+            <!-- Opción: Editar Perfil -->
+            <button type="button" onclick="closeUserDropdown(); openProfileModal()" 
+                    class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-700 flex items-center gap-2.5 transition cursor-pointer">
+              <i class="fa-solid fa-user-pen text-slate-400 text-xs w-4 text-center"></i>
+              <span>Editar Perfil</span>
+            </button>
+
+            <!-- Opción: Cerrar Sesión -->
+            <button type="button" onclick="closeUserDropdown(); logoutUser()" 
+                    class="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition cursor-pointer">
+              <i class="fa-solid fa-power-off text-rose-500 text-xs w-4 text-center"></i>
+              <span>Cerrar Sesión</span>
+            </button>
+
+          </div>
         </div>
 
-        <!-- Nombre de la Empresa Editable (Cubre todo el espacio vertical del título) -->
-        <div class="flex items-center gap-1.5 group">
-          <input type="text" id="header-company-name" value="Sistema de Control de Obra" 
-                 oninput="syncCompanyName(this.value)"
-                 onchange="updateCompanyName(this.value)"
-                 placeholder="Nombre de la Empresa" 
-                 title="Haz clic para editar el nombre de la empresa" 
-                 class="font-black text-lg sm:text-xl text-white bg-transparent border-b border-transparent hover:border-slate-500 focus:border-blue-400 focus:bg-slate-800/90 rounded px-2 py-1 outline-none transition w-64 sm:w-80 md:w-96 lg:w-[450px] truncate tracking-tight">
-          <button type="button" onclick="document.getElementById('header-company-name').focus()" class="text-slate-500 hover:text-slate-300 opacity-0 group-hover:opacity-100 transition text-xs p-1" title="Editar nombre de la empresa">
-            <i class="fa-solid fa-pen text-xs"></i>
-          </button>
+        <div class="h-6 w-px bg-slate-700 hidden sm:block"></div>
+
+        <!-- Logo y Nombre de la Empresa Personalizables -->
+        <div class="flex items-center gap-2">
+          <!-- Contenedor del Logo (Sombrero amarillo o Imagen subida) -->
+          <div class="relative group cursor-pointer" onclick="triggerCompanyLogoUpload()" title="Haz clic para subir o cambiar el logotipo de la empresa">
+            <input type="file" id="company-logo-input" accept="image/*" class="hidden" onchange="handleCompanyLogoUpload(event)">
+            
+            <div id="company-logo-container" class="flex items-center justify-center w-10 h-10 min-w-[40px] aspect-square rounded-lg bg-slate-800/80 border border-slate-700 hover:border-blue-400 transition overflow-hidden p-0.5">
+              <!-- Icono por defecto (sombrero amarillo) -->
+              <i id="default-company-icon" class="fa-solid fa-helmet-safety text-amber-400 text-xl"></i>
+              <!-- Imagen de logo personalizada (cuadrada) -->
+              <img id="custom-company-logo" src="" alt="Logo Empresa" class="w-full h-full object-contain rounded hidden">
+            </div>
+
+            <!-- Overlay al pasar el mouse -->
+            <div class="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-[10px] text-white pointer-events-none">
+              <i class="fa-solid fa-camera"></i>
+            </div>
+
+            <!-- Botón para quitar logo y volver al sombrero amarillo -->
+            <button type="button" id="btn-remove-company-logo" onclick="removeCompanyLogo(event)" 
+                    class="hidden absolute -top-1.5 -right-1.5 bg-red-600 hover:bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] shadow-sm transition" 
+                    title="Quitar logo y volver al sombrero amarillo">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- Botón para reajustar y encuadrar logo existente -->
+            <button type="button" id="btn-header-adjust-logo" onclick="event.stopPropagation(); openCurrentLogoAdjuster()" 
+                    class="hidden absolute -bottom-1.5 -right-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] shadow-sm transition" 
+                    title="Ajustar encuadre y zoom del logotipo actual">
+              <i class="fa-solid fa-crop-simple"></i>
+            </button>
+          </div>
+
+          <!-- Nombre de la Empresa Editable (Recortado a la mitad de largo) -->
+          <div class="flex items-center gap-1 group">
+            <input type="text" id="header-company-name" value="Sistema de Control de Obra" 
+                   oninput="syncCompanyName(this.value)"
+                   onchange="updateCompanyName(this.value)"
+                   placeholder="Nombre Empresa" 
+                   title="Haz clic para editar el nombre de la empresa" 
+                   class="font-black text-sm sm:text-base text-white bg-transparent border-b border-transparent hover:border-slate-500 focus:border-blue-400 focus:bg-slate-800/90 rounded px-1.5 py-0.5 outline-none transition w-32 sm:w-40 md:w-48 lg:w-56 truncate tracking-tight">
+            <button type="button" onclick="document.getElementById('header-company-name').focus()" class="text-slate-500 hover:text-slate-300 opacity-0 group-hover:opacity-100 transition text-xs p-0.5" title="Editar nombre de la empresa">
+              <i class="fa-solid fa-pen text-[10px]"></i>
+            </button>
+          </div>
         </div>
-      </div>
 
       <!-- Navigation Tabs -->
       <nav class="flex bg-slate-800 p-1 rounded-lg ml-4 border border-slate-700">
@@ -139,19 +196,6 @@
       <!-- Modal Configuración Global -->
       <button onclick="openSettingsModal('general')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs p-1.5 rounded transition cursor-pointer" title="Configuración de Sobrecostos, IA y Datos">
         <i class="fa-solid fa-gear text-sm"></i>
-      </button>
-
-      <!-- Usuario Activo en Espacio de Trabajo -->
-      <div id="workspace-user-pill" class="flex items-center gap-2 bg-slate-800 border border-slate-700 hover:border-slate-600 p-1 pl-2.5 rounded-full cursor-pointer transition select-none ml-1" onclick="openProfileModal()" title="Ver y editar mi perfil">
-        <span id="workspace-user-name" class="text-xs font-semibold text-white max-w-[120px] truncate hidden sm:inline">Usuario</span>
-        <div class="w-6 h-6 rounded-full overflow-hidden border border-blue-400 bg-white shrink-0">
-          <img id="workspace-user-avatar" src="" class="w-full h-full object-cover" alt="Perfil">
-        </div>
-      </div>
-
-      <!-- Salir / Cambiar de Usuario -->
-      <button onclick="logoutUser()" class="text-slate-400 hover:text-rose-400 text-xs p-1.5 transition cursor-pointer" title="Cerrar sesión / Cambiar de usuario">
-        <i class="fa-solid fa-power-off"></i>
       </button>
     </div>
   </header>

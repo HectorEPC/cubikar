@@ -187,7 +187,9 @@ import {
   selectProfileAvatar,
   handleProfilePhotoUpload,
   saveProfileChanges,
-  logoutUser
+  logoutUser,
+  toggleUserDropdown,
+  closeUserDropdown
 } from './modules/portal/portalController.js';
 
 // Exponer funciones públicas al objeto global window para compatibilidad total con eventos inline del HTML
@@ -368,7 +370,9 @@ Object.assign(window, {
   selectProfileAvatar,
   handleProfilePhotoUpload,
   saveProfileChanges,
-  logoutUser
+  logoutUser,
+  toggleUserDropdown,
+  closeUserDropdown
 });
 
 // Atajos de teclado: Alt + Flecha Arriba / Abajo para mover la fila seleccionada
