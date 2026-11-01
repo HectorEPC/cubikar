@@ -580,11 +580,8 @@ export function renderPortalDashboard() {
         </div>
 
         <div class="flex items-center gap-2">
-          <button onclick="openProfileModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer">
+          <button onclick="openProfileModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer" title="Ver y editar los datos de tu perfil">
             <i class="fa-solid fa-user-pen"></i> Editar Mi Perfil
-          </button>
-          <button onclick="openNuevoProyectoModal()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center gap-2 cursor-pointer">
-            <i class="fa-solid fa-plus"></i> Nuevo Proyecto
           </button>
         </div>
       </div>
@@ -592,20 +589,24 @@ export function renderPortalDashboard() {
       <!-- Barra de Filtros y Acomodo con Botones -->
       <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
         
-        <!-- Fila Superior: Buscador y Contador -->
+        <!-- Fila Superior: Buscador, Contador y Botón Nuevo Proyecto a la Derecha -->
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div class="relative flex-1 max-w-md">
             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
               <i class="fa-solid fa-magnifying-glass text-xs"></i>
             </span>
             <input type="text" id="project-search" oninput="onProjectSearchInput(this.value)" value="${currentSearchQuery}" placeholder="Buscar por nombre, empresa, tipo o ubicación..." 
-                   class="w-full pl-9 pr-3 py-1.5 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs">
+                   class="w-full pl-9 pr-3 py-2 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs">
           </div>
 
-          <div class="flex items-center gap-2 self-end sm:self-auto">
+          <div class="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
             <span class="text-xs text-slate-500 font-bold font-mono" id="projects-counter-badge">${projects.length} proyectos</span>
-            <button id="btn-reset-filters" type="button" onclick="resetProjectFilters()" class="${(currentCompanyFilter !== 'all' || currentTipoObraFilter !== 'all' || currentSearchQuery !== '' || currentSortMode !== 'date-desc') ? '' : 'hidden'} text-[11px] text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-2.5 py-1 font-semibold transition cursor-pointer">
+            <button id="btn-reset-filters" type="button" onclick="resetProjectFilters()" class="${(currentCompanyFilter !== 'all' || currentTipoObraFilter !== 'all' || currentSearchQuery !== '' || currentSortMode !== 'date-desc') ? '' : 'hidden'} text-[11px] text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-2.5 py-1.5 font-semibold transition cursor-pointer">
               <i class="fa-solid fa-rotate-left mr-1"></i> Limpiar filtros
+            </button>
+            <button onclick="openNuevoProyectoModal()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-md shadow-blue-600/25 transition flex items-center gap-2 cursor-pointer" title="Crear un nuevo proyecto de obra">
+              <i class="fa-solid fa-plus text-xs"></i>
+              <span>Nuevo Proyecto</span>
             </button>
           </div>
         </div>
