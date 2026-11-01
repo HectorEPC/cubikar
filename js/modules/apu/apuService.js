@@ -8,7 +8,7 @@ import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from './ap
 export function filterMatriz(tipo) {
   state.currentMatrizFilter = tipo;
   
-  const filterKeys = ['Todos', 'Material', 'Mano-de-Obra', 'Equipo', 'Subcontrato'];
+  const filterKeys = ['Todos', 'Material', 'Mano-de-Obra', 'Herramienta', 'Equipo', 'Maquinaria', 'Subcontrato'];
   filterKeys.forEach(key => {
     const btn = document.getElementById(`filter-matriz-${key}`);
     if (btn) {

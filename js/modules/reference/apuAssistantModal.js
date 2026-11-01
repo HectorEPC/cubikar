@@ -69,7 +69,7 @@ export function setApuAssistantFilter(tipo) {
     filterSelect.value = tipo;
   }
 
-  const filterBtns = ['Todos', 'Material', 'Mano-de-Obra', 'Equipo'];
+  const filterBtns = ['Todos', 'Material', 'Mano-de-Obra', 'Herramienta', 'Equipo', 'Maquinaria', 'Subcontrato'];
   filterBtns.forEach(key => {
     const btn = document.getElementById(`apu-filter-btn-${key}`);
     if (btn) {
@@ -168,7 +168,10 @@ function renderApuAssistantResults(items) {
 
     let tipoColor = 'text-blue-700 bg-blue-50 border-blue-200';
     if (item.tipo === 'Mano de Obra') tipoColor = 'text-amber-700 bg-amber-50 border-amber-200';
-    if (item.tipo === 'Equipo') tipoColor = 'text-purple-700 bg-purple-50 border-purple-200';
+    else if (item.tipo === 'Herramienta') tipoColor = 'text-orange-700 bg-orange-50 border-orange-200';
+    else if (item.tipo === 'Equipo') tipoColor = 'text-purple-700 bg-purple-50 border-purple-200';
+    else if (item.tipo === 'Maquinaria') tipoColor = 'text-rose-700 bg-rose-50 border-rose-200';
+    else if (item.tipo === 'Subcontrato') tipoColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
 
     // Rendimiento o consumo sugerido para 1 unidad de concepto
     let defaultQty = '1.0000';
@@ -238,7 +241,9 @@ export function addInsumoToApuMatrix(resultIndex) {
   // Mapear al tipo estándar de la app
   let normalizedTipo = 'Material';
   if (item.tipo === 'Mano de Obra') normalizedTipo = 'Mano de Obra';
-  else if (item.tipo === 'Equipo' || item.tipo === 'Maquinaria') normalizedTipo = 'Equipo';
+  else if (item.tipo === 'Herramienta') normalizedTipo = 'Herramienta';
+  else if (item.tipo === 'Equipo') normalizedTipo = 'Equipo';
+  else if (item.tipo === 'Maquinaria') normalizedTipo = 'Maquinaria';
   else if (item.tipo === 'Subcontrato') normalizedTipo = 'Subcontrato';
 
   node.insumos.push({

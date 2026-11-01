@@ -30,7 +30,7 @@ export function renderAPUInsumos(node) {
 
   const fragment = document.createDocumentFragment();
 
-  let sumMat = 0, sumMO = 0, sumEq = 0, sumSub = 0;
+  let sumMat = 0, sumMO = 0, sumHerr = 0, sumEq = 0, sumMaq = 0, sumSub = 0;
   let visibleCount = 0;
 
   node.insumos.forEach((ins, idx) => {
@@ -40,7 +40,9 @@ export function renderAPUInsumos(node) {
     
     if (ins.tipo === 'Material') sumMat = round2(sumMat + total);
     else if (ins.tipo === 'Mano de Obra') sumMO = round2(sumMO + total);
+    else if (ins.tipo === 'Herramienta') sumHerr = round2(sumHerr + total);
     else if (ins.tipo === 'Equipo') sumEq = round2(sumEq + total);
+    else if (ins.tipo === 'Maquinaria') sumMaq = round2(sumMaq + total);
     else if (ins.tipo === 'Subcontrato') sumSub = round2(sumSub + total);
 
     // Filtro activo por tipo en la matriz
@@ -65,7 +67,9 @@ export function renderAPUInsumos(node) {
           <select onchange="updateInsumo(${idx}, 'tipo', this.value)" class="text-[8px] text-slate-500 bg-transparent cursor-pointer">
             <option value="Material" ${ins.tipo === 'Material' ? 'selected' : ''}>Material</option>
             <option value="Mano de Obra" ${ins.tipo === 'Mano de Obra' ? 'selected' : ''}>M. Obra</option>
+            <option value="Herramienta" ${ins.tipo === 'Herramienta' ? 'selected' : ''}>Herramienta</option>
             <option value="Equipo" ${ins.tipo === 'Equipo' ? 'selected' : ''}>Equipo</option>
+            <option value="Maquinaria" ${ins.tipo === 'Maquinaria' ? 'selected' : ''}>Maquinaria</option>
             <option value="Subcontrato" ${ins.tipo === 'Subcontrato' ? 'selected' : ''}>Subcontrato</option>
           </select>
         </div>
@@ -75,9 +79,9 @@ export function renderAPUInsumos(node) {
       </td>
       <td class="p-1 border-b border-slate-100 text-right w-16 min-w-[65px] align-top pt-1.5">
         <input type="number" step="0.01" min="0" value="${Number(ins.cantidad || 0).toFixed(2)}" 
-               title="Consumo unitario para 1 ${node.unidad || 'ud'} de concepto" 
-               onchange="updateInsumo(${idx}, 'cantidad', parseFloat(this.value)||0)" 
-               class="w-full bg-transparent text-right text-[10px] font-mono focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1">
+                title="Consumo unitario para 1 ${node.unidad || 'ud'} de concepto" 
+                onchange="updateInsumo(${idx}, 'cantidad', parseFloat(this.value)||0)" 
+                class="w-full bg-transparent text-right text-[10px] font-mono focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1">
       </td>
       <td class="p-1 border-b border-slate-100 text-right w-24 min-w-[90px] align-top pt-1.5">
         <div class="flex items-center justify-end">
@@ -109,7 +113,7 @@ export function renderAPUInsumos(node) {
 
   tbody.replaceChildren(fragment);
 
-  const totalCD = round2(sumMat + sumMO + sumEq + sumSub);
+  const totalCD = round2(sumMat + sumMO + sumHerr + sumEq + sumMaq + sumSub);
   node.costoDirecto = totalCD;
 
   const factor = getFactorSobrecosto();
@@ -120,8 +124,12 @@ export function renderAPUInsumos(node) {
   if (sumMatEl) sumMatEl.innerText = formatMoney(sumMat);
   const sumMoEl = document.getElementById('apu-sum-mo');
   if (sumMoEl) sumMoEl.innerText = formatMoney(sumMO);
+  const sumHerrEl = document.getElementById('apu-sum-herr');
+  if (sumHerrEl) sumHerrEl.innerText = formatMoney(sumHerr);
   const sumEqEl = document.getElementById('apu-sum-eq');
   if (sumEqEl) sumEqEl.innerText = formatMoney(sumEq);
+  const sumMaqEl = document.getElementById('apu-sum-maq');
+  if (sumMaqEl) sumMaqEl.innerText = formatMoney(sumMaq);
   const sumSubEl = document.getElementById('apu-sum-sub');
   if (sumSubEl) sumSubEl.innerText = formatMoney(sumSub);
   

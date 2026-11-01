@@ -423,7 +423,7 @@
         <div id="matriz-section-content" class="space-y-3">
 
         <!-- Breakdown Summary Grid con Íconos (Clic para filtrar Matriz) -->
-        <div class="grid grid-cols-2 gap-1.5 text-center text-[10px]">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-center text-[10px]">
           <div onclick="filterMatriz('Material')" class="bg-blue-50 hover:bg-blue-100/70 border border-blue-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Materiales">
             <div class="flex items-center gap-1 text-blue-700 font-bold text-[9px]">
               <i class="fa-solid fa-cubes"></i>
@@ -440,12 +440,28 @@
             <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-mo">$0.00</span>
           </div>
 
-          <div onclick="filterMatriz('Equipo')" class="bg-purple-50 hover:bg-purple-100/70 border border-purple-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Equipo / Herramienta">
+          <div onclick="filterMatriz('Herramienta')" class="bg-orange-50 hover:bg-orange-100/70 border border-orange-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Herramienta">
+            <div class="flex items-center gap-1 text-orange-700 font-bold text-[9px]">
+              <i class="fa-solid fa-wrench"></i>
+              <span>HERRAMIENTA</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-herr">$0.00</span>
+          </div>
+
+          <div onclick="filterMatriz('Equipo')" class="bg-purple-50 hover:bg-purple-100/70 border border-purple-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Equipo">
             <div class="flex items-center gap-1 text-purple-700 font-bold text-[9px]">
               <i class="fa-solid fa-screwdriver-wrench"></i>
-              <span>EQUIPO / HERR.</span>
+              <span>EQUIPO</span>
             </div>
             <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-eq">$0.00</span>
+          </div>
+
+          <div onclick="filterMatriz('Maquinaria')" class="bg-rose-50 hover:bg-rose-100/70 border border-rose-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Maquinaria">
+            <div class="flex items-center gap-1 text-rose-700 font-bold text-[9px]">
+              <i class="fa-solid fa-tractor"></i>
+              <span>MAQUINARIA</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-maq">$0.00</span>
           </div>
 
           <div onclick="filterMatriz('Subcontrato')" class="bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Subcontratos">
@@ -513,7 +529,9 @@
             <button onclick="filterMatriz('Todos')" id="filter-matriz-Todos" class="px-2 py-0.5 rounded bg-blue-600 text-white border border-blue-600 shadow-xs transition">Todos</button>
             <button onclick="filterMatriz('Material')" id="filter-matriz-Material" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Materiales</button>
             <button onclick="filterMatriz('Mano de Obra')" id="filter-matriz-Mano-de-Obra" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Mano de Obra</button>
-            <button onclick="filterMatriz('Equipo')" id="filter-matriz-Equipo" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Equipo / Herr.</button>
+            <button onclick="filterMatriz('Herramienta')" id="filter-matriz-Herramienta" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Herramienta</button>
+            <button onclick="filterMatriz('Equipo')" id="filter-matriz-Equipo" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Equipo</button>
+            <button onclick="filterMatriz('Maquinaria')" id="filter-matriz-Maquinaria" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Maquinaria</button>
             <button onclick="filterMatriz('Subcontrato')" id="filter-matriz-Subcontrato" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Subcontratos</button>
           </div>
 
@@ -1077,8 +1095,8 @@
       <!-- Modal Body -->
       <div class="p-5 overflow-y-auto flex-1 space-y-4">
         
-        <!-- Breakdown Summary Grid con 4 Tarjetas Interactivas -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 text-center">
+        <!-- Breakdown Summary Grid con 6 Tarjetas Interactivas -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-center">
           <div onclick="filterModalMatriz('Material')" id="modal-card-mat" class="bg-blue-50/80 hover:bg-blue-100/90 border border-blue-200 p-2.5 rounded-lg flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar por Materiales">
             <div class="flex items-center gap-1.5 text-blue-700 font-bold text-xs">
               <i class="fa-solid fa-cubes text-sm"></i>
@@ -1095,12 +1113,28 @@
             <span class="font-bold font-mono text-slate-800 text-sm mt-1" id="modal-apu-sum-mo">$0.00</span>
           </div>
 
-          <div onclick="filterModalMatriz('Equipo')" id="modal-card-eq" class="bg-purple-50/80 hover:bg-purple-100/90 border border-purple-200 p-2.5 rounded-lg flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar por Equipo / Herramienta">
+          <div onclick="filterModalMatriz('Herramienta')" id="modal-card-herr" class="bg-orange-50/80 hover:bg-orange-100/90 border border-orange-200 p-2.5 rounded-lg flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar por Herramienta">
+            <div class="flex items-center gap-1.5 text-orange-700 font-bold text-xs">
+              <i class="fa-solid fa-wrench text-sm"></i>
+              <span>HERRAMIENTA</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 text-sm mt-1" id="modal-apu-sum-herr">$0.00</span>
+          </div>
+
+          <div onclick="filterModalMatriz('Equipo')" id="modal-card-eq" class="bg-purple-50/80 hover:bg-purple-100/90 border border-purple-200 p-2.5 rounded-lg flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar por Equipo">
             <div class="flex items-center gap-1.5 text-purple-700 font-bold text-xs">
               <i class="fa-solid fa-screwdriver-wrench text-sm"></i>
-              <span>EQUIPO / HERR.</span>
+              <span>EQUIPO</span>
             </div>
             <span class="font-bold font-mono text-slate-800 text-sm mt-1" id="modal-apu-sum-eq">$0.00</span>
+          </div>
+
+          <div onclick="filterModalMatriz('Maquinaria')" id="modal-card-maq" class="bg-rose-50/80 hover:bg-rose-100/90 border border-rose-200 p-2.5 rounded-lg flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar por Maquinaria">
+            <div class="flex items-center gap-1.5 text-rose-700 font-bold text-xs">
+              <i class="fa-solid fa-tractor text-sm"></i>
+              <span>MAQUINARIA</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 text-sm mt-1" id="modal-apu-sum-maq">$0.00</span>
           </div>
 
           <div onclick="filterModalMatriz('Subcontrato')" id="modal-card-sub" class="bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-200 p-2.5 rounded-lg flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar por Subcontratos">
@@ -1146,7 +1180,9 @@
                 <button onclick="filterModalMatriz('Todos')" id="modal-filter-Todos" class="px-2.5 py-1 rounded bg-blue-600 text-white border border-blue-600 shadow-xs transition">Todos</button>
                 <button onclick="filterModalMatriz('Material')" id="modal-filter-Material" class="px-2.5 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Materiales</button>
                 <button onclick="filterModalMatriz('Mano de Obra')" id="modal-filter-Mano-de-Obra" class="px-2.5 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Mano de Obra</button>
-                <button onclick="filterModalMatriz('Equipo')" id="modal-filter-Equipo" class="px-2.5 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Equipo / Herr.</button>
+                <button onclick="filterModalMatriz('Herramienta')" id="modal-filter-Herramienta" class="px-2.5 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Herramienta</button>
+                <button onclick="filterModalMatriz('Equipo')" id="modal-filter-Equipo" class="px-2.5 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Equipo</button>
+                <button onclick="filterModalMatriz('Maquinaria')" id="modal-filter-Maquinaria" class="px-2.5 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Maquinaria</button>
                 <button onclick="filterModalMatriz('Subcontrato')" id="modal-filter-Subcontrato" class="px-2.5 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Subcontratos</button>
               </div>
             </div>
@@ -1737,7 +1773,9 @@
                     <option value="Concepto">Conceptos / Matrices</option>
                     <option value="Material">Materiales</option>
                     <option value="Mano de Obra">Mano de Obra</option>
-                    <option value="Equipo">Maquinaria y Equipo</option>
+                    <option value="Herramienta">Herramienta</option>
+                    <option value="Equipo">Equipo</option>
+                    <option value="Maquinaria">Maquinaria</option>
                     <option value="Subcontrato">Subcontratos</option>
                   </select>
                 </div>
@@ -1868,7 +1906,10 @@
               <option value="Concepto">Conceptos / Matrices</option>
               <option value="Material">Materiales</option>
               <option value="Mano de Obra">Mano de Obra</option>
-              <option value="Equipo">Maquinaria / Equipo</option>
+              <option value="Herramienta">Herramienta</option>
+              <option value="Equipo">Equipo</option>
+              <option value="Maquinaria">Maquinaria</option>
+              <option value="Subcontrato">Subcontratos</option>
             </select>
           </div>
 
@@ -1947,8 +1988,17 @@
           <button id="apu-filter-btn-Mano-de-Obra" onclick="setApuAssistantFilter('Mano de Obra')" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
             <i class="fa-solid fa-hard-hat text-[10px]"></i> Mano de Obra
           </button>
+          <button id="apu-filter-btn-Herramienta" onclick="setApuAssistantFilter('Herramienta')" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+            <i class="fa-solid fa-wrench text-[10px]"></i> Herramienta
+          </button>
           <button id="apu-filter-btn-Equipo" onclick="setApuAssistantFilter('Equipo')" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
             <i class="fa-solid fa-screwdriver-wrench text-[10px]"></i> Equipo
+          </button>
+          <button id="apu-filter-btn-Maquinaria" onclick="setApuAssistantFilter('Maquinaria')" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+            <i class="fa-solid fa-tractor text-[10px]"></i> Maquinaria
+          </button>
+          <button id="apu-filter-btn-Subcontrato" onclick="setApuAssistantFilter('Subcontrato')" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+            <i class="fa-solid fa-file-signature text-[10px]"></i> Subcontrato
           </button>
           <button id="apu-filter-btn-Todos" onclick="setApuAssistantFilter('Todos')" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
             Todos

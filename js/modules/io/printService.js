@@ -569,8 +569,10 @@ export function printApuMatrix() {
   const rubros = [
     { key: 'Material', label: '1. MATERIALES', icon: '📦' },
     { key: 'Mano de Obra', label: '2. MANO DE OBRA', icon: '👷' },
-    { key: 'Equipo', label: '3. MAQUINARIA, EQUIPO Y HERRAMIENTA', icon: '🚜' },
-    { key: 'Subcontrato', label: '4. SUBCONTRATOS Y TRABAJOS ESPECIALIZADOS', icon: '📑' }
+    { key: 'Herramienta', label: '3. HERRAMIENTA', icon: '🔧' },
+    { key: 'Equipo', label: '4. EQUIPO', icon: '🛠️' },
+    { key: 'Maquinaria', label: '5. MAQUINARIA', icon: '🚜' },
+    { key: 'Subcontrato', label: '6. SUBCONTRATOS Y TRABAJOS ESPECIALIZADOS', icon: '📑' }
   ];
 
   let totalCostoDirecto = 0;
@@ -578,6 +580,10 @@ export function printApuMatrix() {
 
   rubros.forEach(rubro => {
     const items = insumos.filter(ins => (ins.tipo || 'Material') === rubro.key);
+    // Si es maquinaria o subcontrato y no tiene insumos, no saturar el formato impreso
+    if (items.length === 0 && (rubro.key === 'Maquinaria' || rubro.key === 'Subcontrato')) {
+      return;
+    }
     let subtotalRubro = 0;
 
     matrizRowsHtml.push(`

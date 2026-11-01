@@ -90,7 +90,7 @@ export function filterModalMatriz(tipo) {
 
 // Actualizar aspecto de los botones de filtro dentro de la ventana modal
 function updateModalFilterButtons(activeTipo) {
-  const filterKeys = ['Todos', 'Material', 'Mano-de-Obra', 'Equipo', 'Subcontrato'];
+  const filterKeys = ['Todos', 'Material', 'Mano-de-Obra', 'Herramienta', 'Equipo', 'Maquinaria', 'Subcontrato'];
   filterKeys.forEach(key => {
     const btn = document.getElementById(`modal-filter-${key}`);
     if (btn) {
@@ -140,7 +140,7 @@ export function renderModalMatriz(node) {
   }
 
   // 2. Cálculos de subtotales por rubro
-  let sumMat = 0, sumMO = 0, sumEq = 0, sumSub = 0;
+  let sumMat = 0, sumMO = 0, sumHerr = 0, sumEq = 0, sumMaq = 0, sumSub = 0;
   let visibleCount = 0;
 
   node.insumos.forEach(ins => {
@@ -150,7 +150,9 @@ export function renderModalMatriz(node) {
 
     if (ins.tipo === 'Material') sumMat = round2(sumMat + total);
     else if (ins.tipo === 'Mano de Obra') sumMO = round2(sumMO + total);
+    else if (ins.tipo === 'Herramienta') sumHerr = round2(sumHerr + total);
     else if (ins.tipo === 'Equipo') sumEq = round2(sumEq + total);
+    else if (ins.tipo === 'Maquinaria') sumMaq = round2(sumMaq + total);
     else if (ins.tipo === 'Subcontrato') sumSub = round2(sumSub + total);
   });
 
@@ -159,8 +161,12 @@ export function renderModalMatriz(node) {
   if (sumMatEl) sumMatEl.innerText = formatMoney(sumMat);
   const sumMoEl = document.getElementById('modal-apu-sum-mo');
   if (sumMoEl) sumMoEl.innerText = formatMoney(sumMO);
+  const sumHerrEl = document.getElementById('modal-apu-sum-herr');
+  if (sumHerrEl) sumHerrEl.innerText = formatMoney(sumHerr);
   const sumEqEl = document.getElementById('modal-apu-sum-eq');
   if (sumEqEl) sumEqEl.innerText = formatMoney(sumEq);
+  const sumMaqEl = document.getElementById('modal-apu-sum-maq');
+  if (sumMaqEl) sumMaqEl.innerText = formatMoney(sumMaq);
   const sumSubEl = document.getElementById('modal-apu-sum-sub');
   if (sumSubEl) sumSubEl.innerText = formatMoney(sumSub);
 
@@ -194,7 +200,9 @@ export function renderModalMatriz(node) {
                   class="text-xs text-slate-700 bg-transparent border border-slate-200 hover:border-slate-300 rounded px-1.5 py-1 focus:bg-white focus:ring-1 focus:ring-blue-500 font-sans cursor-pointer w-full">
             <option value="Material" ${ins.tipo === 'Material' ? 'selected' : ''}>Material</option>
             <option value="Mano de Obra" ${ins.tipo === 'Mano de Obra' ? 'selected' : ''}>Mano de Obra</option>
-            <option value="Equipo" ${ins.tipo === 'Equipo' ? 'selected' : ''}>Equipo / Herr.</option>
+            <option value="Herramienta" ${ins.tipo === 'Herramienta' ? 'selected' : ''}>Herramienta</option>
+            <option value="Equipo" ${ins.tipo === 'Equipo' ? 'selected' : ''}>Equipo</option>
+            <option value="Maquinaria" ${ins.tipo === 'Maquinaria' ? 'selected' : ''}>Maquinaria</option>
             <option value="Subcontrato" ${ins.tipo === 'Subcontrato' ? 'selected' : ''}>Subcontrato</option>
           </select>
         </td>
@@ -250,7 +258,7 @@ export function renderModalMatriz(node) {
   }
 
   // 4. Totales Financieros
-  const totalCD = round2(sumMat + sumMO + sumEq + sumSub);
+  const totalCD = round2(sumMat + sumMO + sumHerr + sumEq + sumMaq + sumSub);
   node.costoDirecto = totalCD;
 
   const factor = getFactorSobrecosto();
@@ -321,14 +329,22 @@ function renderModalExplosion(node) {
     const totalImporteObra = round2(cantidadTotalObra * costoUnit);
     grandTotalObra = round2(grandTotalObra + totalImporteObra);
 
+    let tipoBadgeClass = "bg-slate-100 text-slate-700 border-slate-200";
+    if (ins.tipo === 'Material') tipoBadgeClass = "bg-blue-50 text-blue-700 border-blue-200";
+    else if (ins.tipo === 'Mano de Obra') tipoBadgeClass = "bg-amber-50 text-amber-700 border-amber-200";
+    else if (ins.tipo === 'Herramienta') tipoBadgeClass = "bg-orange-50 text-orange-700 border-orange-200";
+    else if (ins.tipo === 'Equipo') tipoBadgeClass = "bg-purple-50 text-purple-700 border-purple-200";
+    else if (ins.tipo === 'Maquinaria') tipoBadgeClass = "bg-rose-50 text-rose-700 border-rose-200";
+    else if (ins.tipo === 'Subcontrato') tipoBadgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
+
     const tr = document.createElement('tr');
     tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
     tr.innerHTML = `
       <td class="p-2.5 font-semibold text-slate-700 text-xs align-middle">
         ${ins.clave || '-'}
       </td>
-      <td class="p-2.5 text-xs text-slate-600 align-middle">
-        <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-sans font-medium">
+      <td class="p-2.5 text-xs align-middle">
+        <span class="px-2 py-0.5 rounded border text-[11px] font-sans font-medium ${tipoBadgeClass}">
           ${ins.tipo || 'Material'}
         </span>
       </td>

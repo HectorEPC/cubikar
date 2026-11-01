@@ -16,15 +16,21 @@ export function normalizeInsumoText(text) {
     .trim();
 }
 
+// Helper para mapear rubros a las 4 tablas de consolidación general (Agrupando Herramienta y Maquinaria en Equipo/Maquinaria/Herramienta)
+export function normalizeConsolidatedTipo(t) {
+  if (t === 'Herramienta' || t === 'Maquinaria') return 'Equipo';
+  return ['Material', 'Mano de Obra', 'Equipo', 'Subcontrato'].includes(t) ? t : 'Material';
+}
+
 // Generar una clave de agrupación robusta para un insumo
 export function getInsumoConsolidationKey(ins) {
-  const tipo = ['Material', 'Mano de Obra', 'Equipo', 'Subcontrato'].includes(ins.tipo) ? ins.tipo : 'Material';
+  const tipo = normalizeConsolidatedTipo(ins.tipo);
   const cleanDesc = normalizeInsumoText(ins.descripcion || '');
   const cleanUnid = normalizeInsumoText(ins.unidad || 'pza');
   
   // Clave del catálogo: si es un código formal de catálogo de referencia (ej. G300206-1000, 310300-3150, EFc0237, etc.)
   const clave = (ins.clave || '').trim();
-  const isGeneric = !clave || /^(mat|mo|eq|sub|ins)[-_]?\d+$/i.test(clave);
+  const isGeneric = !clave || /^(mat|mo|eq|sub|ins|herr|maq)[-_]?\d+$/i.test(clave);
 
   // Si tiene clave oficial de catálogo y unidad congruente
   if (!isGeneric) {
@@ -65,7 +71,7 @@ export function getConsolidatedDataMap() {
 
           if (node.insumos && node.insumos.length > 0) {
             node.insumos.forEach(ins => {
-              const tipo = ['Material', 'Mano de Obra', 'Equipo', 'Subcontrato'].includes(ins.tipo) ? ins.tipo : 'Material';
+              const tipo = normalizeConsolidatedTipo(ins.tipo);
               const key = getInsumoConsolidationKey(ins);
               if (!key) return;
 

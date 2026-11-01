@@ -223,8 +223,14 @@ function renderSearchResultsTable(items) {
       tipoBadge = '<span class="text-[9px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">Material</span>';
     } else if (item.tipo === 'Mano de Obra') {
       tipoBadge = '<span class="text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">M. Obra</span>';
+    } else if (item.tipo === 'Herramienta') {
+      tipoBadge = '<span class="text-[9px] font-bold text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">Herramienta</span>';
     } else if (item.tipo === 'Equipo') {
       tipoBadge = '<span class="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">Equipo</span>';
+    } else if (item.tipo === 'Maquinaria') {
+      tipoBadge = '<span class="text-[9px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">Maquinaria</span>';
+    } else if (item.tipo === 'Subcontrato') {
+      tipoBadge = '<span class="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Subcontrato</span>';
     } else {
       tipoBadge = '<span class="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Concepto</span>';
     }

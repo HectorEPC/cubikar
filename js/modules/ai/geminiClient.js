@@ -142,7 +142,7 @@ Instrucciones prioritarias con Google Search:
 1. Realiza búsquedas en Google de los precios actuales de mercado en México para los materiales comerciales que componen este concepto (puestos en obra).
 2. Busca los salarios de cuadrillas (oficiales + peones) con Factor de Salario Real y sus rendimientos por cada 1 ${node.unidad} según tabuladores CMIC / Neodata / Opus.
 3. Determina el equipo, maquinaria y herramienta requerida.
-4. Clasifica los insumos estrictamente en 4 rubros: "Material", "Mano de Obra", "Equipo" y "Subcontrato".
+4. Clasifica los insumos en los rubros: "Material", "Mano de Obra", "Herramienta", "Equipo", "Maquinaria" o "Subcontrato".
 5. Al final de tu análisis, devuelve OBLIGATORIAMENTE un bloque de código JSON con esta estructura exacta:
 \`\`\`json
 {
@@ -247,7 +247,9 @@ Instrucciones prioritarias con Google Search:
           let cleanTipo = 'Material';
           const t = (item.tipo || '').toLowerCase();
           if (t.includes('mano') || t.includes('obra') || t === 'mo') cleanTipo = 'Mano de Obra';
-          else if (t.includes('equipo') || t.includes('herr') || t === 'eq') cleanTipo = 'Equipo';
+          else if (t.includes('herr')) cleanTipo = 'Herramienta';
+          else if (t.includes('maq')) cleanTipo = 'Maquinaria';
+          else if (t.includes('equipo') || t === 'eq') cleanTipo = 'Equipo';
           else if (t.includes('subcontrat') || t === 'sub') cleanTipo = 'Subcontrato';
 
           return {
