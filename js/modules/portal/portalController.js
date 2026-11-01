@@ -589,16 +589,89 @@ export function renderPortalDashboard() {
         </div>
       </div>
 
-      <!-- Barra de Búsqueda y Filtros -->
-      <div class="flex items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
-        <div class="relative flex-1 max-w-md">
-          <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
-            <i class="fa-solid fa-magnifying-glass text-xs"></i>
-          </span>
-          <input type="text" id="project-search" oninput="filterProjectCards(this.value)" placeholder="Buscar por proyecto, empresa o ubicación..." 
-                 class="w-full pl-9 pr-3 py-1.5 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs">
+      <!-- Barra de Filtros y Acomodo con Botones -->
+      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+        
+        <!-- Fila Superior: Buscador y Contador -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div class="relative flex-1 max-w-md">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
+              <i class="fa-solid fa-magnifying-glass text-xs"></i>
+            </span>
+            <input type="text" id="project-search" oninput="onProjectSearchInput(this.value)" value="${currentSearchQuery}" placeholder="Buscar por nombre, empresa, tipo o ubicación..." 
+                   class="w-full pl-9 pr-3 py-1.5 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs">
+          </div>
+
+          <div class="flex items-center gap-2 self-end sm:self-auto">
+            <span class="text-xs text-slate-500 font-bold font-mono" id="projects-counter-badge">${projects.length} proyectos</span>
+            <button id="btn-reset-filters" type="button" onclick="resetProjectFilters()" class="${(currentCompanyFilter !== 'all' || currentTipoObraFilter !== 'all' || currentSearchQuery !== '' || currentSortMode !== 'date-desc') ? '' : 'hidden'} text-[11px] text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-2.5 py-1 font-semibold transition cursor-pointer">
+              <i class="fa-solid fa-rotate-left mr-1"></i> Limpiar filtros
+            </button>
+          </div>
         </div>
-        <span class="text-xs text-slate-500 font-bold font-mono" id="projects-counter-badge">${projects.length} proyectos</span>
+
+        <!-- Fila Inferior: Barra de Botones de Filtrar y Acomodar -->
+        <div class="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100 text-xs">
+          
+          <!-- FILTRAR POR: Empresa y Tipo de Obra -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-0.5">
+              <i class="fa-solid fa-filter text-[10px]"></i> Filtrar por:
+            </span>
+
+            <!-- Botón / Selector Empresa -->
+            <div id="wrapper-filter-company" class="flex items-center ${currentCompanyFilter !== 'all' ? 'bg-blue-50 border-blue-400 text-blue-900 font-semibold' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'} border rounded-xl px-2.5 py-1 transition shadow-2xs">
+              <i class="fa-solid fa-building text-blue-600 text-[11px] mr-1.5"></i>
+              <span class="text-[11px] text-slate-500 mr-1.5 hidden sm:inline">Empresa:</span>
+              <select id="filter-company-select" onchange="setCompanyFilter(this.value)" class="bg-transparent font-semibold text-xs focus:outline-none cursor-pointer pr-1">
+                <option value="all">Todas las empresas</option>
+                ${renderCompanyOptionsHTML(projects)}
+              </select>
+            </div>
+
+            <!-- Botón / Selector Tipo de Obra -->
+            <div id="wrapper-filter-tipo" class="flex items-center ${currentTipoObraFilter !== 'all' ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-semibold' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'} border rounded-xl px-2.5 py-1 transition shadow-2xs">
+              <i class="fa-solid fa-trowel-bricks text-emerald-600 text-[11px] mr-1.5"></i>
+              <span class="text-[11px] text-slate-500 mr-1.5 hidden sm:inline">Tipo de Obra:</span>
+              <select id="filter-tipo-select" onchange="setTipoObraFilter(this.value)" class="bg-transparent font-semibold text-xs focus:outline-none cursor-pointer pr-1">
+                <option value="all" ${currentTipoObraFilter === 'all' ? 'selected' : ''}>Todos los tipos</option>
+                <option value="Edificación" ${currentTipoObraFilter === 'Edificación' ? 'selected' : ''}>Edificación</option>
+                <option value="Vivienda" ${currentTipoObraFilter === 'Vivienda' ? 'selected' : ''}>Vivienda</option>
+                <option value="Obra Civil" ${currentTipoObraFilter === 'Obra Civil' ? 'selected' : ''}>Obra Civil</option>
+                <option value="Infraestructura" ${currentTipoObraFilter === 'Infraestructura' ? 'selected' : ''}>Infraestructura</option>
+                <option value="Remodelación" ${currentTipoObraFilter === 'Remodelación' ? 'selected' : ''}>Remodelación</option>
+                <option value="Industrial" ${currentTipoObraFilter === 'Industrial' ? 'selected' : ''}>Industrial / Comercial</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- ACOMODAR POR: Fecha de Creación y De la A a la Z -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-0.5">
+              <i class="fa-solid fa-arrow-down-short-wide text-[10px]"></i> Acomodar:
+            </span>
+
+            <!-- Botón Fecha de Creación -->
+            <button type="button" id="btn-sort-date" onclick="toggleSortDate()" 
+                    class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${currentSortMode.startsWith('date') ? 'bg-blue-600 border-blue-600 text-white font-bold shadow-sm' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs'}" 
+                    title="Acomodar conforme a la fecha de creación">
+              <i class="fa-regular fa-calendar-days text-[11px]"></i>
+              <span>Fecha de creación</span>
+              <i id="icon-sort-date" class="fa-solid ${currentSortMode === 'date-asc' ? 'fa-arrow-up' : 'fa-arrow-down'} text-[10px]"></i>
+            </button>
+
+            <!-- Botón De la A a la Z -->
+            <button type="button" id="btn-sort-az" onclick="toggleSortAZ()" 
+                    class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${currentSortMode.startsWith('az') ? 'bg-blue-600 border-blue-600 text-white font-bold shadow-sm' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs'}" 
+                    title="Acomodar alfabéticamente de la A a la Z por nombre de proyecto">
+              <i class="fa-solid ${currentSortMode === 'az-desc' ? 'fa-arrow-up-z-a' : 'fa-arrow-down-a-z'} text-[11px]"></i>
+              <span>De la A a la Z</span>
+              <i id="icon-sort-az" class="fa-solid ${currentSortMode === 'az-desc' ? 'fa-arrow-up' : 'fa-arrow-down'} text-[10px] ${currentSortMode.startsWith('az') ? '' : 'hidden'}"></i>
+            </button>
+          </div>
+
+        </div>
+
       </div>
 
       <!-- Cuadrícula de Proyectos -->
@@ -654,9 +727,162 @@ export function renderMemberAvatarsHTML(members, projId) {
   return avatarsHtml + extraHtml;
 }
 
-export function renderProjectCardsHTML(filterQuery = '') {
-  const projects = getProjectsList();
-  if (projects.length === 0) {
+// ==========================================
+// FILTROS Y ORDENAMIENTO EN "MIS PROYECTOS"
+// ==========================================
+let currentSearchQuery = '';
+let currentCompanyFilter = 'all';
+let currentTipoObraFilter = 'all';
+let currentSortMode = 'date-desc'; // 'date-desc' | 'date-asc' | 'az-asc' | 'az-desc'
+
+export function onProjectSearchInput(value) {
+  currentSearchQuery = (value || '').trim();
+  refreshProjectsGridUI();
+}
+
+export function setCompanyFilter(company) {
+  currentCompanyFilter = company || 'all';
+  refreshProjectsGridUI();
+}
+
+export function setTipoObraFilter(tipo) {
+  currentTipoObraFilter = tipo || 'all';
+  refreshProjectsGridUI();
+}
+
+export function toggleSortDate() {
+  if (currentSortMode === 'date-desc') {
+    currentSortMode = 'date-asc';
+    showToast('Acomodado: Proyectos más antiguos primero');
+  } else {
+    currentSortMode = 'date-desc';
+    showToast('Acomodado: Proyectos más recientes primero');
+  }
+  refreshProjectsGridUI();
+}
+
+export function toggleSortAZ() {
+  if (currentSortMode === 'az-asc') {
+    currentSortMode = 'az-desc';
+    showToast('Acomodado: De la Z a la A');
+  } else {
+    currentSortMode = 'az-asc';
+    showToast('Acomodado: De la A a la Z');
+  }
+  refreshProjectsGridUI();
+}
+
+export function resetProjectFilters() {
+  currentSearchQuery = '';
+  currentCompanyFilter = 'all';
+  currentTipoObraFilter = 'all';
+  currentSortMode = 'date-desc';
+
+  const searchInput = document.getElementById('project-search');
+  if (searchInput) searchInput.value = '';
+
+  const compSelect = document.getElementById('filter-company-select');
+  if (compSelect) compSelect.value = 'all';
+
+  const tipoSelect = document.getElementById('filter-tipo-select');
+  if (tipoSelect) tipoSelect.value = 'all';
+
+  refreshProjectsGridUI();
+  showToast('Filtros restablecidos');
+}
+
+export function refreshProjectsGridUI() {
+  const grid = document.getElementById('projects-grid');
+  if (grid) {
+    grid.innerHTML = renderProjectCardsHTML();
+  }
+  updateSortButtonsUI();
+}
+
+function updateSortButtonsUI() {
+  const btnDate = document.getElementById('btn-sort-date');
+  const btnAZ = document.getElementById('btn-sort-az');
+  const iconDate = document.getElementById('icon-sort-date');
+  const iconAZ = document.getElementById('icon-sort-az');
+  const btnReset = document.getElementById('btn-reset-filters');
+  const compWrapper = document.getElementById('wrapper-filter-company');
+  const tipoWrapper = document.getElementById('wrapper-filter-tipo');
+
+  const isFiltered = currentCompanyFilter !== 'all' || currentTipoObraFilter !== 'all' || currentSearchQuery !== '' || currentSortMode !== 'date-desc';
+  if (btnReset) {
+    if (isFiltered) {
+      btnReset.classList.remove('hidden');
+    } else {
+      btnReset.classList.add('hidden');
+    }
+  }
+
+  if (compWrapper) {
+    if (currentCompanyFilter !== 'all') {
+      compWrapper.className = "flex items-center bg-blue-50 border border-blue-400 text-blue-900 font-semibold rounded-xl px-2.5 py-1 transition shadow-2xs";
+    } else {
+      compWrapper.className = "flex items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl px-2.5 py-1 transition shadow-2xs";
+    }
+  }
+
+  if (tipoWrapper) {
+    if (currentTipoObraFilter !== 'all') {
+      tipoWrapper.className = "flex items-center bg-emerald-50 border border-emerald-400 text-emerald-900 font-semibold rounded-xl px-2.5 py-1 transition shadow-2xs";
+    } else {
+      tipoWrapper.className = "flex items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl px-2.5 py-1 transition shadow-2xs";
+    }
+  }
+
+  if (btnDate && iconDate) {
+    if (currentSortMode.startsWith('date')) {
+      btnDate.className = "px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer bg-blue-600 border-blue-600 text-white shadow-sm active:scale-95";
+      if (currentSortMode === 'date-desc') {
+        iconDate.className = "fa-solid fa-arrow-down text-[11px]";
+        btnDate.title = "Acomodado: Más recientes primero (clic para más antiguos)";
+      } else {
+        iconDate.className = "fa-solid fa-arrow-up text-[11px]";
+        btnDate.title = "Acomodado: Más antiguos primero (clic para más recientes)";
+      }
+    } else {
+      btnDate.className = "px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs active:scale-95";
+      iconDate.className = "fa-solid fa-arrow-down text-slate-400 text-[10px]";
+      btnDate.title = "Clic para acomodar conforme a la fecha de creación";
+    }
+  }
+
+  if (btnAZ && iconAZ) {
+    if (currentSortMode.startsWith('az')) {
+      btnAZ.className = "px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer bg-blue-600 border-blue-600 text-white shadow-sm active:scale-95";
+      iconAZ.classList.remove('hidden');
+      if (currentSortMode === 'az-asc') {
+        iconAZ.className = "fa-solid fa-arrow-down text-[10px]";
+        btnAZ.title = "Acomodado: De la A a la Z (clic para Z a la A)";
+      } else {
+        iconAZ.className = "fa-solid fa-arrow-up text-[10px]";
+        btnAZ.title = "Acomodado: De la Z a la A (clic para A a la Z)";
+      }
+    } else {
+      btnAZ.className = "px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs active:scale-95";
+      iconAZ.classList.add('hidden');
+      btnAZ.title = "Clic para acomodar alfabéticamente de la A a la Z";
+    }
+  }
+}
+
+export function renderCompanyOptionsHTML(projects) {
+  const list = projects || getProjectsList();
+  const companies = Array.from(new Set(list.map(p => (p.companyName || '').trim()).filter(Boolean)));
+  companies.sort((a, b) => a.localeCompare(b, 'es'));
+  return companies.map(c => `
+    <option value="${c.replace(/"/g, '&quot;')}" ${currentCompanyFilter.toLowerCase() === c.toLowerCase() ? 'selected' : ''}>
+      ${c}
+    </option>
+  `).join('');
+}
+
+export function renderProjectCardsHTML() {
+  const allProjects = getProjectsList();
+  if (allProjects.length === 0) {
     return `
       <div class="col-span-full bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
         <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl mx-auto">
@@ -671,18 +897,63 @@ export function renderProjectCardsHTML(filterQuery = '') {
     `;
   }
 
-  const q = filterQuery.toLowerCase().trim();
-  const filtered = projects.filter(p => {
-    if (!q) return true;
-    return (p.projectName && p.projectName.toLowerCase().includes(q)) ||
-           (p.companyName && p.companyName.toLowerCase().includes(q)) ||
-           (p.projectLocation && p.projectLocation.toLowerCase().includes(q));
+  let filtered = [...allProjects];
+
+  // 1. Filtrar por búsqueda de texto
+  if (currentSearchQuery) {
+    const q = currentSearchQuery.toLowerCase().trim();
+    filtered = filtered.filter(p =>
+      (p.projectName && p.projectName.toLowerCase().includes(q)) ||
+      (p.companyName && p.companyName.toLowerCase().includes(q)) ||
+      (p.projectLocation && p.projectLocation.toLowerCase().includes(q)) ||
+      (p.tipoObra && p.tipoObra.toLowerCase().includes(q))
+    );
+  }
+
+  // 2. Filtrar por Empresa
+  if (currentCompanyFilter && currentCompanyFilter !== 'all') {
+    filtered = filtered.filter(p => p.companyName && p.companyName.toLowerCase() === currentCompanyFilter.toLowerCase());
+  }
+
+  // 3. Filtrar por Tipo de Obra
+  if (currentTipoObraFilter && currentTipoObraFilter !== 'all') {
+    filtered = filtered.filter(p => p.tipoObra && p.tipoObra.toLowerCase() === currentTipoObraFilter.toLowerCase());
+  }
+
+  // 4. Acomodar / Ordenar
+  filtered.sort((a, b) => {
+    if (currentSortMode === 'date-desc') {
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    }
+    if (currentSortMode === 'date-asc') {
+      return (a.createdAt || '').localeCompare(b.createdAt || '');
+    }
+    if (currentSortMode === 'az-asc') {
+      return (a.projectName || '').localeCompare(b.projectName || '', 'es', { sensitivity: 'base' });
+    }
+    if (currentSortMode === 'az-desc') {
+      return (b.projectName || '').localeCompare(a.projectName || '', 'es', { sensitivity: 'base' });
+    }
+    return 0;
   });
+
+  // Actualizar contador en el DOM si existe
+  const counterEl = document.getElementById('projects-counter-badge');
+  if (counterEl) {
+    counterEl.textContent = `${filtered.length} de ${allProjects.length} proyectos`;
+  }
 
   if (filtered.length === 0) {
     return `
-      <div class="col-span-full bg-white rounded-3xl border border-slate-200 p-8 text-center text-xs text-slate-500">
-        No se encontraron proyectos que coincidan con "<strong>${filterQuery}</strong>".
+      <div class="col-span-full bg-white rounded-3xl border border-slate-200 p-10 text-center text-xs text-slate-500 space-y-3">
+        <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center text-xl mx-auto">
+          <i class="fa-solid fa-filter-circle-xmark"></i>
+        </div>
+        <p class="font-semibold text-slate-700">No se encontraron proyectos con los filtros aplicados.</p>
+        <p class="text-slate-400 text-[11px]">Intenta seleccionar otra empresa, tipo de obra o término de búsqueda.</p>
+        <button onclick="resetProjectFilters()" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 rounded-xl font-bold transition cursor-pointer">
+          <i class="fa-solid fa-rotate-left text-xs"></i> Restablecer filtros
+        </button>
       </div>
     `;
   }
@@ -690,18 +961,28 @@ export function renderProjectCardsHTML(filterQuery = '') {
   return filtered.map(proj => `
     <div class="bg-white rounded-2xl border border-slate-200 hover:border-blue-400 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col group">
       
-      <!-- Encabezado de la Tarjeta con Logo y Empresa -->
+      <!-- Encabezado de la Tarjeta con Logo, Empresa, Tipo de Obra y Fecha -->
       <div class="p-4 border-b border-slate-100 flex items-start gap-3 bg-slate-50/50">
         <div class="w-11 h-11 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
           ${proj.companyLogo ? `<img src="${proj.companyLogo}" class="max-h-full max-w-full object-contain">` : `<i class="fa-solid fa-building text-slate-400"></i>`}
         </div>
         <div class="min-w-0 flex-1">
-          <span class="text-[10px] text-blue-600 font-bold uppercase tracking-wider block truncate">${proj.companyName}</span>
+          <div class="flex items-center justify-between gap-1 mb-0.5">
+            <span class="text-[10px] text-blue-600 font-bold uppercase tracking-wider block truncate">${proj.companyName}</span>
+            <span class="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+              <i class="fa-solid fa-tag text-[8px] text-blue-500"></i> ${proj.tipoObra || 'Edificación'}
+            </span>
+          </div>
           <h3 class="font-bold text-sm text-slate-900 truncate group-hover:text-blue-700 transition" title="${proj.projectName}">${proj.projectName}</h3>
-          <p class="text-[11px] text-slate-500 truncate flex items-center gap-1 mt-0.5">
-            <i class="fa-solid fa-location-dot text-rose-500 text-[10px]"></i>
-            <span title="${proj.projectLocation}">${proj.projectLocation}</span>
-          </p>
+          <div class="flex items-center justify-between text-[11px] text-slate-500 mt-1 gap-2">
+            <p class="truncate flex items-center gap-1" title="${proj.projectLocation}">
+              <i class="fa-solid fa-location-dot text-rose-500 text-[10px]"></i>
+              <span class="truncate">${proj.projectLocation}</span>
+            </p>
+            <span class="text-[10px] text-slate-400 font-mono shrink-0 flex items-center gap-1" title="Fecha de creación: ${proj.createdAt || '---'}">
+              <i class="fa-regular fa-calendar text-[10px]"></i> ${proj.createdAt || '---'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -765,8 +1046,7 @@ export function renderProjectCardsHTML(filterQuery = '') {
 }
 
 export function filterProjectCards(query) {
-  const grid = document.getElementById('projects-grid');
-  if (grid) grid.innerHTML = renderProjectCardsHTML(query);
+  onProjectSearchInput(query);
 }
 
 // ==========================================
@@ -949,6 +1229,7 @@ export function finalizeCreateProject() {
   const company = document.getElementById('wiz-company-name').value.trim();
   const project = document.getElementById('wiz-project-name').value.trim();
   const location = document.getElementById('wiz-project-location').value.trim();
+  const tipoObra = (document.getElementById('wiz-project-tipo') && document.getElementById('wiz-project-tipo').value) || 'Edificación';
   const currency = document.getElementById('wiz-currency-select').value;
   const symbol = document.getElementById('wiz-currency-symbol').value.trim();
   const apply = document.getElementById('wiz-apply-sobrecosto').checked;
@@ -964,6 +1245,7 @@ export function finalizeCreateProject() {
     companyLogo: wizardData.logo,
     projectName: project,
     projectLocation: location,
+    tipoObra: tipoObra,
     currency,
     currencySymbol: symbol,
     applySobrecosto: apply,

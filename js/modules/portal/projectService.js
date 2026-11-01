@@ -118,6 +118,29 @@ export function getProjectsList() {
           ];
           changed = true;
         }
+
+        // Asignar tipo de obra si no cuenta con él
+        if (!p.tipoObra) {
+          const nameLower = (p.projectName || '').toLowerCase();
+          if (nameLower.includes('torre') || nameLower.includes('corporativ') || nameLower.includes('edificio')) {
+            p.tipoObra = 'Edificación';
+          } else if (nameLower.includes('residencia') || nameLower.includes('casa') || nameLower.includes('vivienda') || nameLower.includes('lomas')) {
+            p.tipoObra = 'Vivienda';
+          } else if (nameLower.includes('puente') || nameLower.includes('cimentac') || nameLower.includes('pilot')) {
+            p.tipoObra = 'Obra Civil';
+          } else if (nameLower.includes('vial') || nameLower.includes('carreter') || nameLower.includes('parque')) {
+            p.tipoObra = 'Infraestructura';
+          } else {
+            p.tipoObra = 'Edificación';
+          }
+          changed = true;
+        }
+
+        // Asignar fecha de creación si no cuenta con ella
+        if (!p.createdAt) {
+          p.createdAt = new Date().toISOString().slice(0, 10);
+          changed = true;
+        }
       });
       if (changed) saveProjectsList(list);
       return list;
@@ -186,13 +209,14 @@ function initializeDefaultProjects() {
     companyLogo: proj1Settings.companyLogo,
     projectName: proj1Settings.projectName,
     projectLocation: proj1Settings.projectLocation,
+    tipoObra: 'Vivienda',
     currency: proj1Settings.currency,
     currencySymbol: proj1Settings.currencySymbol,
     factorSobrecosto: f1,
     totalPresupuesto: calculateTreeTotal(proj1Tree),
     conceptCount: countTreeConcepts(proj1Tree),
     partidasCount: countTreePartidas(proj1Tree),
-    createdAt: new Date().toISOString().slice(0, 10)
+    createdAt: '2026-09-15'
   });
 
   // Proyecto de Muestra 2 (Torre Corporativa Reforma)
@@ -254,13 +278,14 @@ function initializeDefaultProjects() {
     companyLogo: proj2Settings.companyLogo,
     projectName: proj2Settings.projectName,
     projectLocation: proj2Settings.projectLocation,
+    tipoObra: 'Edificación',
     currency: proj2Settings.currency,
     currencySymbol: proj2Settings.currencySymbol,
     factorSobrecosto: 1.2215,
     totalPresupuesto: calculateTreeTotal(proj2Tree),
     conceptCount: countTreeConcepts(proj2Tree),
     partidasCount: countTreePartidas(proj2Tree),
-    createdAt: new Date().toISOString().slice(0, 10)
+    createdAt: '2026-10-10'
   });
 
   saveProjectsList(initialProjects);
@@ -305,6 +330,7 @@ export function createNewProject(params) {
     companyLogo: projSettings.companyLogo,
     projectName: projSettings.projectName,
     projectLocation: projSettings.projectLocation,
+    tipoObra: params.tipoObra || 'Edificación',
     currency: projSettings.currency,
     currencySymbol: projSettings.currencySymbol,
     factorSobrecosto: f,
