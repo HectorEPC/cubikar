@@ -60,6 +60,10 @@ import {
   toggleSelectAllInsumos,
   updateCostoUnitarioGeneral,
   combinarInsumosSeleccionados,
+  openCombinarModal,
+  closeCombinarModal,
+  selectCombinarTarget,
+  ejecutarCombinacionInsumos,
   filterInsumosCategoryView,
   toggleInsumoCard
 } from './modules/insumosGenerales/insumosView.js';
@@ -199,6 +203,10 @@ Object.assign(window, {
   toggleSelectAllInsumos,
   updateCostoUnitarioGeneral,
   combinarInsumosSeleccionados,
+  openCombinarModal,
+  closeCombinarModal,
+  selectCombinarTarget,
+  ejecutarCombinacionInsumos,
   filterInsumosCategoryView,
   toggleInsumoCard,
 

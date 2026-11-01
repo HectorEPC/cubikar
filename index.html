@@ -67,7 +67,7 @@
       <!-- Navigation Tabs -->
       <nav class="flex bg-slate-800 p-1 rounded-lg ml-4 border border-slate-700">
         <button id="tab-btn-cat" onclick="switchTab('cat')" class="px-3 py-1 rounded text-xs font-semibold bg-blue-600 text-white transition flex items-center gap-1.5">
-          <i class="fa-solid fa-list-check"></i> TAB1-CAT-BASE
+          <i class="fa-solid fa-list-check"></i> CATÁLOGO BASE
         </button>
         <button id="tab-btn-insumos" onclick="switchTab('insumos')" class="px-3 py-1 rounded text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5">
           <i class="fa-solid fa-boxes-stacked"></i> INSUMOS GENERALES
@@ -1863,6 +1863,81 @@
 
     </div>
   </div>
+
+  <!-- Modal: Combinar Insumos en Insumos Generales -->
+  <div id="modal-combinar-insumos" onclick="if(event.target === this) closeCombinarModal()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Encabezado del modal -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white p-4 flex justify-between items-center shrink-0 border-b border-slate-700">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400">
+            <i class="fa-solid fa-object-group text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm tracking-wide flex items-center gap-2">
+              <span>Combinar Insumos</span>
+              <span id="combinar-modal-badge-tipo" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-600 text-white">Material</span>
+            </h3>
+            <p class="text-[11px] text-slate-300 mt-0.5">Selecciona el concepto definitivo con el que deseas quedarte.</p>
+          </div>
+        </div>
+        <button onclick="closeCombinarModal()" class="text-slate-400 hover:text-white p-1 rounded transition" title="Cerrar ventana">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Cuerpo del modal -->
+      <div class="p-4 overflow-y-auto space-y-3.5 custom-scroll flex-1">
+        <!-- Indicador explicativo -->
+        <div class="bg-blue-50/80 border border-blue-200 rounded-lg p-3 text-xs text-slate-700 flex items-start gap-2.5">
+          <i class="fa-solid fa-circle-info text-blue-600 text-sm mt-0.5 shrink-0"></i>
+          <div class="space-y-1">
+            <p class="font-semibold text-blue-950">El concepto elegido reemplazará a los demás en todas las matrices APU:</p>
+            <p class="text-slate-600 leading-relaxed">
+              Se actualizará la clave, descripción, unidad y costo unitario. <strong class="text-slate-900 font-semibold">Cada matriz conservará el valor de la cantidad de consumo que tenía en sus respectivos espacios.</strong>
+            </p>
+          </div>
+        </div>
+
+        <!-- Contenedor dinámico de opciones -->
+        <div>
+          <div class="text-[11px] font-bold uppercase text-slate-500 tracking-wider mb-2 flex justify-between items-center">
+            <span>Opciones seleccionadas para combinar:</span>
+            <span id="combinar-modal-count" class="text-blue-700 font-bold font-mono">0 elementos</span>
+          </div>
+          <div id="combinar-modal-items-list" class="space-y-2">
+            <!-- Renglones inyectados dinámicamente -->
+          </div>
+        </div>
+
+        <!-- Opción de fusionar duplicados dentro de la misma matriz -->
+        <div class="pt-2 border-t border-slate-200">
+          <label class="flex items-start gap-2.5 p-2.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-lg text-xs text-slate-700 cursor-pointer select-none transition">
+            <input type="checkbox" id="combinar-merge-same-matrix" checked class="mt-0.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+            <div class="space-y-0.5">
+              <span class="font-bold text-slate-800">Unificar renglones coincidentes en una misma matriz</span>
+              <p class="text-[11px] text-slate-500 leading-normal">
+                Si un concepto de obra contiene dos o más de estos insumos en su propio APU, se fusionarán en un solo renglón sumando sus consumos unitarios. Si se desmarca, se conservará cada renglón por separado con su cantidad original.
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Pie del modal con acciones -->
+      <div class="bg-slate-100 px-4 py-3 border-t border-slate-200 flex justify-between items-center shrink-0">
+        <button onclick="closeCombinarModal()" class="px-3.5 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-200 rounded-lg text-xs font-semibold transition">
+          Cancelar
+        </button>
+        <button id="btn-ejecutar-combinacion" onclick="ejecutarCombinacionInsumos()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-object-group"></i> Confirmar y Combinar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Entrada Modular Principal ES6 -->
   <script type="module" src="js/app.js"></script>
 </body>

@@ -3,10 +3,14 @@ import { saveState } from '../../state/history.js';
 import { showToast } from '../../ui/notifications.js';
 import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js';
 import { getFactorSobrecosto, updateGrandTotal } from '../../core/calculations.js';
-import { getConsolidatedDataMap } from './insumosConsolidator.js';
+import { getConsolidatedDataMap, normalizeInsumoText } from './insumosConsolidator.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
+import { findNodeById } from '../catalog/treeService.js';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js';
+import { updateModalIfOpen } from '../apu/matrizModal.js';
 
 let globalConsolidatedMap = {};
+let activeCombinarContext = null;
 
 // Renderizado global de la pestaña de Insumos Generales
 export function renderInsumosGenerales() {
@@ -147,52 +151,212 @@ export function updateCostoUnitarioGeneral(tipo, key, newCosto) {
   updateGrandTotal();
 }
 
-// Unificar insumos seleccionados bajo el primero
+// Iniciar flujo interactivo para combinar insumos seleccionados
 export function combinarInsumosSeleccionados(tipo) {
   const checkboxes = document.querySelectorAll(`.row-checkbox-${tipo}:checked`);
   if (checkboxes.length < 2) {
-    showToast('Selecciona al menos 2 renglones con casillas Checkbox', 'warning');
+    showToast(`Selecciona al menos 2 insumos de ${tipo} con casilla Checkbox para poder combinarlos`, 'warning');
     return;
   }
 
-  if (!confirm(`¿Deseas unificar los ${checkboxes.length} insumos seleccionados? Se agruparán bajo la descripción y costo del primer elemento.`)) {
-    return;
-  }
+  const itemsMap = globalConsolidatedMap[tipo] || {};
+  const selectedItems = [];
 
-  saveState();
-  const itemsMap = globalConsolidatedMap[tipo];
-  let primaryItem = null;
-  let targetSources = [];
-
-  checkboxes.forEach((cb, idx) => {
+  checkboxes.forEach(cb => {
     const key = cb.dataset.key;
     const item = itemsMap[key];
-    if (item) {
-      if (idx === 0) {
-        primaryItem = item;
-      } else {
-        targetSources = targetSources.concat(item.sources);
-      }
+    if (item && !selectedItems.some(i => i.key === item.key)) {
+      selectedItems.push(item);
     }
   });
 
-  if (primaryItem && targetSources.length > 0) {
-    targetSources.forEach(src => {
-      src.insumo.descripcion = primaryItem.descripcion;
-      src.insumo.unidad = primaryItem.unidad;
-      src.insumo.costoUnitario = round2(primaryItem.costoUnitario);
-      src.insumo.clave = primaryItem.clave;
-      if (src.node && src.node.insumos) {
-        const cd = round2(src.node.insumos.reduce((s, i) => s + round2((i.cantidad || 0) * (i.costoUnitario || 0)), 0));
-        src.node.costoDirecto = cd;
-        src.node.precioUnitario = round2(cd * getFactorSobrecosto());
-      }
-    });
-    showToast('Insumos combinados con éxito', 'success');
+  if (selectedItems.length < 2) {
+    showToast('No se encontraron suficientes insumos válidos seleccionados', 'warning');
+    return;
   }
 
+  openCombinarModal(tipo, selectedItems);
+}
+
+// Abrir ventana modal con las opciones de insumos a combinar
+export function openCombinarModal(tipo, selectedItems) {
+  activeCombinarContext = { tipo, selectedItems };
+  const modal = document.getElementById('modal-combinar-insumos');
+  if (!modal) return;
+
+  const badgeTipo = document.getElementById('combinar-modal-badge-tipo');
+  if (badgeTipo) {
+    badgeTipo.innerText = tipo;
+    const colorClasses = {
+      'Material': 'bg-blue-600 text-white',
+      'Mano de Obra': 'bg-amber-600 text-white',
+      'Equipo': 'bg-purple-600 text-white',
+      'Subcontrato': 'bg-emerald-600 text-white'
+    };
+    badgeTipo.className = `text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded shadow-xs ${colorClasses[tipo] || 'bg-blue-600 text-white'}`;
+  }
+
+  const countEl = document.getElementById('combinar-modal-count');
+  if (countEl) countEl.innerText = `${selectedItems.length} insumos seleccionados`;
+
+  const listEl = document.getElementById('combinar-modal-items-list');
+  if (listEl) {
+    listEl.innerHTML = selectedItems.map((item, idx) => `
+      <label class="combinar-item-card flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition select-none ${idx === 0 ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-300' : 'border-slate-200 hover:border-slate-300 bg-white'}" onclick="selectCombinarTarget('${item.key}')">
+        <input type="radio" name="target-insumo-key" value="${item.key}" ${idx === 0 ? 'checked' : ''} class="mt-1 text-blue-600 focus:ring-blue-500 cursor-pointer" onchange="selectCombinarTarget('${item.key}')">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap mb-1">
+            <span class="font-mono font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">${item.clave}</span>
+            <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">${item.unidad}</span>
+            <span class="text-xs font-bold font-mono text-blue-700 ml-auto">${getCurrencySymbol()}${Number(item.costoUnitario || 0).toFixed(2)} / ${item.unidad}</span>
+          </div>
+          <div class="font-semibold text-slate-800 text-xs leading-snug break-words">${item.descripcion}</div>
+          <div class="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500 flex-wrap font-sans">
+            <span class="flex items-center gap-1 text-slate-600 font-medium">
+              <i class="fa-solid fa-cubes text-[10px] text-slate-400"></i> Vol. en obra: <strong class="text-slate-800 font-mono">${formatQty(item.cantidadTotal)} ${item.unidad}</strong>
+            </span>
+            <span class="flex items-center gap-1 text-slate-600 font-medium">
+              <i class="fa-solid fa-calculator text-[10px] text-slate-400"></i> Matrices: <strong class="text-blue-700">${item.sources.length}</strong>
+            </span>
+            <span class="font-mono font-bold text-slate-700 ml-auto">
+              Importe total: ${formatMoney(item.totalImporte)}
+            </span>
+          </div>
+        </div>
+      </label>
+    `).join('');
+  }
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+// Cerrar ventana modal de combinación
+export function closeCombinarModal() {
+  const modal = document.getElementById('modal-combinar-insumos');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+  activeCombinarContext = null;
+}
+
+// Selección visual y de radio button del concepto definitivo
+export function selectCombinarTarget(key) {
+  const radio = document.querySelector(`input[name="target-insumo-key"][value="${key}"]`);
+  if (radio) radio.checked = true;
+
+  const cards = document.querySelectorAll('.combinar-item-card');
+  cards.forEach(card => {
+    const r = card.querySelector('input[type="radio"]');
+    if (r && r.checked) {
+      card.className = "combinar-item-card flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition select-none border-blue-500 bg-blue-50/50 ring-1 ring-blue-300";
+    } else {
+      card.className = "combinar-item-card flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition select-none border-slate-200 hover:border-slate-300 bg-white";
+    }
+  });
+}
+
+// Ejecutar combinación: el concepto elegido reemplaza a los demás en sus espacios de matriz, conservando su cantidad
+export function ejecutarCombinacionInsumos() {
+  if (!activeCombinarContext) return;
+  const { tipo, selectedItems } = activeCombinarContext;
+
+  const selectedRadio = document.querySelector('input[name="target-insumo-key"]:checked');
+  if (!selectedRadio) {
+    showToast('Selecciona el concepto con el que deseas quedarte', 'warning');
+    return;
+  }
+
+  const chosenKey = selectedRadio.value;
+  const chosenItem = selectedItems.find(i => i.key === chosenKey);
+  if (!chosenItem) {
+    showToast('Concepto elegido no encontrado', 'error');
+    return;
+  }
+
+  const mergeSameMatrix = Boolean(document.getElementById('combinar-merge-same-matrix')?.checked);
+
+  // Guardar estado actual en el historial para permitir Deshacer (Ctrl+Z)
+  saveState();
+
+  const otherItems = selectedItems.filter(i => i.key !== chosenKey);
+  const affectedNodes = new Set();
+  let totalReplacedSlots = 0;
+
+  // 1. Reemplazar los insumos a eliminar en los espacios de cada matriz manteniendo su cantidad
+  otherItems.forEach(item => {
+    (item.sources || []).forEach(src => {
+      if (src.insumo && src.node) {
+        src.insumo.clave = chosenItem.clave;
+        src.insumo.descripcion = chosenItem.descripcion;
+        src.insumo.unidad = chosenItem.unidad;
+        src.insumo.costoUnitario = round2(chosenItem.costoUnitario);
+        src.insumo.tipo = chosenItem.tipo || tipo;
+        // src.insumo.cantidad se conserva intacta con el valor que tenía en su respectivo espacio
+
+        affectedNodes.add(src.node);
+        totalReplacedSlots++;
+      }
+    });
+  });
+
+  // 2. Si se activó fusionar en la misma matriz APU
+  if (mergeSameMatrix) {
+    affectedNodes.forEach(node => {
+      if (!Array.isArray(node.insumos) || node.insumos.length <= 1) return;
+
+      const cleanChosenDesc = normalizeInsumoText(chosenItem.descripcion);
+      const matches = node.insumos.filter(ins => 
+        ins.clave === chosenItem.clave && 
+        normalizeInsumoText(ins.descripcion) === cleanChosenDesc &&
+        (ins.tipo || tipo) === (chosenItem.tipo || tipo)
+      );
+
+      if (matches.length > 1) {
+        const primary = matches[0];
+        let sumQty = round2(primary.cantidad || 0);
+
+        for (let i = 1; i < matches.length; i++) {
+          sumQty = round2(sumQty + round2(matches[i].cantidad || 0));
+          const idx = node.insumos.indexOf(matches[i]);
+          if (idx !== -1) {
+            node.insumos.splice(idx, 1);
+          }
+        }
+        primary.cantidad = sumQty;
+      }
+    });
+  }
+
+  // 3. Recalcular costos directos y precios unitarios en todos los nodos afectados
+  affectedNodes.forEach(node => {
+    if (Array.isArray(node.insumos)) {
+      const cd = round2(node.insumos.reduce((sum, i) => sum + round2((i.cantidad || 0) * (i.costoUnitario || 0)), 0));
+      node.costoDirecto = cd;
+      node.precioUnitario = round2(cd * getFactorSobrecosto());
+    }
+  });
+
+  // Cerrar el modal
+  closeCombinarModal();
+
+  // 4. Actualizar vistas globales y tablas
+  updateGrandTotal();
   renderInsumosGenerales();
   renderTAB1();
+
+  // Si hay un concepto abierto en la vista o modal de APU, actualizarlo
+  if (state.activeSelectedId) {
+    const activeNode = findNodeById(state.treeData, state.activeSelectedId);
+    if (activeNode) {
+      renderAPUInsumos(activeNode);
+      renderInsumosUnitarios(activeNode);
+      updateModalIfOpen(activeNode);
+    }
+  }
+
+  showToast(`Insumos combinados con éxito: se conservó "${chosenItem.descripcion.slice(0, 32)}..." reemplazando en ${totalReplacedSlots} espacios y preservando sus cantidades.`, 'success');
 }
 
 // Filtrar visualización de tarjetas de categorías
@@ -245,3 +409,13 @@ export function toggleInsumoCard(catId) {
     if (icon) icon.className = "fa-solid fa-chevron-down text-xs";
   }
 }
+
+// Cerrar modal de combinación con tecla Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('modal-combinar-insumos');
+    if (modal && !modal.classList.contains('hidden')) {
+      closeCombinarModal();
+    }
+  }
+});
