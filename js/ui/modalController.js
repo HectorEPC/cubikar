@@ -1,5 +1,4 @@
-import { state, persistLocalData } from '../state/store.js';
-import { SETTINGS_KEY } from '../config/constants.js';
+import { state, persistLocalData, persistSettings } from '../state/store.js';
 import { defaultTreeData } from '../config/defaultData.js';
 import { saveState, updateUndoRedoButtons } from '../state/history.js';
 import { showToast } from './notifications.js';
@@ -228,12 +227,7 @@ export function saveSettings() {
   const compSub = (document.getElementById('cfg-company-subtitle')?.value || '').trim();
   state.settings.companySubtitle = compSub;
   renderBrandingUI();
-
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
-  } catch (e) {
-    console.error('Error guardando settings:', e);
-  }
+  persistSettings();
 
   // Recalcular precios unitarios de todos los conceptos con APU
   const factor = getFactorSobrecosto();

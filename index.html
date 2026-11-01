@@ -15,9 +15,46 @@
   <!-- Toast Container -->
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-  <!-- Header & Navigation Tabs -->
-  <header class="bg-slate-900 text-white p-3 shadow-md flex justify-between items-center shrink-0">
-    <div class="flex items-center gap-4">
+  <!-- ========================================== -->
+  <!-- VISTA: PORTAL DE INICIO Y PROYECTOS -->
+  <!-- ========================================== -->
+  <div id="view-portal" class="min-h-screen bg-slate-900 text-slate-800 flex flex-col antialiased selection:bg-blue-600 selection:text-white hidden">
+    <!-- Barra Superior del Portal -->
+    <header class="bg-slate-950 text-white border-b border-slate-800 px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-md">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+          <i class="fa-solid fa-hard-hat text-sm"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-black text-sm tracking-tight text-white">SISTEMA DE CONTROL DE OBRA</span>
+            <span class="bg-blue-600/30 text-blue-400 border border-blue-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded font-mono uppercase">Portal Multi-Proyecto</span>
+          </div>
+          <p class="text-[10px] text-slate-400">Presupuestos Base, APU e Insumos Generales</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Contenedor Principal Dinámico (Login / Registro / Dashboard) -->
+    <main class="flex-1 flex flex-col justify-center p-3 sm:p-6" id="portal-main-container">
+    </main>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- VISTA: ESPACIO DE TRABAJO DEL PROYECTO -->
+  <!-- ========================================== -->
+  <div id="workspace-container" class="flex-1 flex flex-col h-screen overflow-hidden">
+
+    <!-- Header & Navigation Tabs -->
+    <header class="bg-slate-900 text-white p-3 shadow-md flex justify-between items-center shrink-0">
+      <div class="flex items-center gap-3 sm:gap-4">
+        <!-- Botón para volver a Mis Proyectos -->
+        <button onclick="goToProjectsDashboard()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-blue-400 text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 font-semibold transition shadow-xs cursor-pointer shrink-0" title="Volver al panel de Mis Proyectos">
+          <i class="fa-solid fa-layer-group text-blue-400"></i>
+          <span class="hidden md:inline">Mis Proyectos</span>
+        </button>
+
+        <div class="h-5 w-px bg-slate-700 hidden sm:block"></div>
       <!-- Logo y Nombre de la Empresa Personalizables -->
       <div class="flex items-center gap-2.5">
         <!-- Contenedor del Logo (Sombrero amarillo o Imagen subida) -->
@@ -100,8 +137,21 @@
       </button>
 
       <!-- Modal Configuración Global -->
-      <button onclick="openSettingsModal('general')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs p-1.5 rounded transition" title="Configuración de Sobrecostos, IA y Datos">
+      <button onclick="openSettingsModal('general')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs p-1.5 rounded transition cursor-pointer" title="Configuración de Sobrecostos, IA y Datos">
         <i class="fa-solid fa-gear text-sm"></i>
+      </button>
+
+      <!-- Usuario Activo en Espacio de Trabajo -->
+      <div id="workspace-user-pill" class="flex items-center gap-2 bg-slate-800 border border-slate-700 hover:border-slate-600 p-1 pl-2.5 rounded-full cursor-pointer transition select-none ml-1" onclick="openProfileModal()" title="Ver y editar mi perfil">
+        <span id="workspace-user-name" class="text-xs font-semibold text-white max-w-[120px] truncate hidden sm:inline">Usuario</span>
+        <div class="w-6 h-6 rounded-full overflow-hidden border border-blue-400 bg-white shrink-0">
+          <img id="workspace-user-avatar" src="" class="w-full h-full object-cover" alt="Perfil">
+        </div>
+      </div>
+
+      <!-- Salir / Cambiar de Usuario -->
+      <button onclick="logoutUser()" class="text-slate-400 hover:text-rose-400 text-xs p-1.5 transition cursor-pointer" title="Cerrar sesión / Cambiar de usuario">
+        <i class="fa-solid fa-power-off"></i>
       </button>
     </div>
   </header>
@@ -823,6 +873,7 @@
 
     </div>
   </div>
+  </div> <!-- /#workspace-container -->
 
   <!-- Modal Especializado: Google Search Grounding con Gemini -->
   <div id="modal-ai-generator" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
@@ -1971,6 +2022,330 @@
         </button>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: SELECTOR RÁPIDO DE GOOGLE GMAIL -->
+  <!-- ========================================== -->
+  <div id="modal-google-auth" class="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="p-5 text-center border-b border-slate-100 bg-slate-50/50">
+        <svg class="w-8 h-8 mx-auto mb-2" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <h3 class="font-bold text-sm text-slate-900">Acceder con Google</h3>
+        <p class="text-[11px] text-slate-500 mt-0.5">Selecciona tu cuenta Gmail para auto-rellenar tus datos</p>
+      </div>
+
+      <div class="p-3 space-y-1.5 overflow-y-auto max-h-72 text-xs">
+        <button type="button" onclick="selectGoogleAccount(0)" class="w-full text-left p-2.5 rounded-xl hover:bg-blue-50/60 border border-slate-200 hover:border-blue-300 transition flex items-center gap-3 group cursor-pointer">
+          <div class="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-white shrink-0 shadow-xs">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" class="w-full h-full object-cover" alt="Carlos Gómez">
+          </div>
+          <div class="min-w-0 flex-1">
+            <strong class="font-semibold text-slate-900 block truncate group-hover:text-blue-700 transition">Arq. Carlos Alberto Gómez</strong>
+            <span class="text-slate-500 text-[11px] block truncate font-mono">carlos.gomez.arq@gmail.com</span>
+          </div>
+          <i class="fa-solid fa-chevron-right text-slate-300 group-hover:text-blue-500 text-xs"></i>
+        </button>
+
+        <button type="button" onclick="selectGoogleAccount(1)" class="w-full text-left p-2.5 rounded-xl hover:bg-blue-50/60 border border-slate-200 hover:border-blue-300 transition flex items-center gap-3 group cursor-pointer">
+          <div class="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-white shrink-0 shadow-xs">
+            <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80" class="w-full h-full object-cover" alt="Mariana Torres">
+          </div>
+          <div class="min-w-0 flex-1">
+            <strong class="font-semibold text-slate-900 block truncate group-hover:text-blue-700 transition">Ing. Mariana Torres Morales</strong>
+            <span class="text-slate-500 text-[11px] block truncate font-mono">mariana.torres.costos@gmail.com</span>
+          </div>
+          <i class="fa-solid fa-chevron-right text-slate-300 group-hover:text-blue-500 text-xs"></i>
+        </button>
+
+        <!-- Ingresar cuenta personalizada de Gmail -->
+        <div class="pt-2 border-t border-slate-100">
+          <div class="p-3 bg-slate-50 rounded-xl space-y-2 border border-slate-200">
+            <span class="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+              <i class="fa-brands fa-google text-blue-500"></i> O ingresa tu propia cuenta @gmail.com:
+            </span>
+            <input type="text" id="custom-google-name" placeholder="Tu Nombre Completo" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs bg-white font-medium focus:ring-1 focus:ring-blue-500">
+            <input type="email" id="custom-google-email" placeholder="tu-usuario@gmail.com" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs bg-white font-mono focus:ring-1 focus:ring-blue-500">
+            <button type="button" onclick="submitCustomGoogleAccount()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-2 rounded-lg transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer">
+              <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i> Conectar y Auto-rellenar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-2.5 bg-slate-100 border-t border-slate-200 text-center">
+        <button type="button" onclick="closeGoogleAuthModal()" class="text-xs font-semibold text-slate-500 hover:text-slate-700 cursor-pointer">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: ASISTENTE NUEVO PROYECTO (2 PASOS) -->
+  <!-- ========================================== -->
+  <div id="modal-nuevo-proyecto" class="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Encabezado Modal -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white p-4 flex justify-between items-center shrink-0 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
+            <i class="fa-solid fa-folder-plus text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm tracking-wide">Crear Nuevo Proyecto</h3>
+            <p class="text-[11px] text-slate-300">Asistente de configuración inicial en 2 pasos</p>
+          </div>
+        </div>
+        <button onclick="closeNuevoProyectoModal()" class="text-slate-400 hover:text-white p-1 rounded transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Indicador de Pasos -->
+      <div class="bg-slate-100 border-b border-slate-200 px-6 py-2.5 flex items-center justify-between text-xs font-semibold">
+        <div class="flex items-center gap-2" id="step-indicator-1">
+          <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold">1</span>
+          <span class="text-blue-900 font-bold">1. Información del Proyecto</span>
+        </div>
+        <i class="fa-solid fa-arrow-right text-slate-400 text-xs"></i>
+        <div class="flex items-center gap-2 opacity-50" id="step-indicator-2">
+          <span class="w-6 h-6 rounded-full bg-slate-400 text-white flex items-center justify-center text-[11px] font-bold">2</span>
+          <span class="text-slate-600">2. Sobrecosto y Moneda</span>
+        </div>
+      </div>
+
+      <!-- Contenido del Asistente -->
+      <div class="p-5 flex-1 overflow-y-auto space-y-4 custom-scroll text-xs">
+        
+        <!-- PASO 1: INFORMACIÓN -->
+        <div id="wizard-step-1" class="space-y-4">
+          <div class="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 flex items-start gap-2.5">
+            <i class="fa-solid fa-circle-info text-blue-600 mt-0.5"></i>
+            <div>
+              <strong class="font-semibold">Pestaña INFORMACIÓN del Proyecto</strong>
+              <p class="text-[11px] text-blue-700">Esta información se vinculará de forma permanente al encabezado, a la pestaña CATÁLOGO BASE y a la pestaña INSUMOS GENERALES.</p>
+            </div>
+          </div>
+
+          <!-- Logo -->
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Logotipo de la Empresa / Obra</label>
+            <div class="flex items-center gap-3">
+              <div class="w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+                <img id="wizard-logo-img" src="" alt="Logo" class="w-full h-full object-contain p-1 hidden">
+                <i id="wizard-logo-fallback" class="fa-solid fa-image text-slate-400 text-xl"></i>
+              </div>
+              <div class="space-y-1.5 flex-1">
+                <div class="flex flex-wrap gap-2">
+                  <label class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold px-2.5 py-1.5 rounded-lg cursor-pointer transition flex items-center gap-1.5 shadow-xs">
+                    <i class="fa-solid fa-upload text-blue-600"></i> Subir Logo
+                    <input type="file" accept="image/*" class="hidden" onchange="handleWizardLogoFile(event)">
+                  </label>
+                  <button type="button" onclick="setSampleLogo('shield')" class="bg-white hover:bg-blue-50 text-slate-700 border border-slate-200 text-[11px] px-2 py-1.5 rounded-lg transition cursor-pointer">Muestra 1</button>
+                  <button type="button" onclick="setSampleLogo('building')" class="bg-white hover:bg-blue-50 text-slate-700 border border-slate-200 text-[11px] px-2 py-1.5 rounded-lg transition cursor-pointer">Muestra 2</button>
+                  <button type="button" onclick="clearWizardLogo()" class="text-slate-400 hover:text-rose-500 text-[11px] px-1 py-1.5 transition cursor-pointer">Quitar</button>
+                </div>
+                <p class="text-[10px] text-slate-500">Formatos recomendados: PNG o JPG transparentes.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nombre Empresa -->
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Nombre de la Empresa *</label>
+            <input type="text" id="wiz-company-name" placeholder="Ej. Constructora del Valle S.A. de C.V." 
+                   class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+
+          <!-- Nombre Proyecto -->
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Nombre del Proyecto *</label>
+            <input type="text" id="wiz-project-name" placeholder="Ej. Construcción de Complejo Residencial Palmas" 
+                   class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+
+          <!-- Ubicación -->
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Ubicación de la Obra *</label>
+            <input type="text" id="wiz-project-location" placeholder="Ej. Av. Insurgentes Sur 1450, Benito Juárez, CDMX" 
+                   class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+        </div>
+
+        <!-- PASO 2: SOBRECOSTO Y MONEDA -->
+        <div id="wizard-step-2" class="space-y-4 hidden">
+          <div class="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-amber-900 flex items-start gap-2.5">
+            <i class="fa-solid fa-coins text-amber-600 mt-0.5"></i>
+            <div>
+              <strong class="font-semibold">Configuración Económica y Sobrecosto</strong>
+              <p class="text-[11px] text-amber-700">Define la divisa de los presupuestos y los porcentajes reglamentarios para el cálculo de Precios Unitarios (APU).</p>
+            </div>
+          </div>
+
+          <!-- Divisa -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Moneda del Proyecto</label>
+              <select id="wiz-currency-select" onchange="onWizardCurrencyChange(this.value)" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white font-medium">
+                <option value="MXN" data-sym="$">MXN - Peso Mexicano ($)</option>
+                <option value="USD" data-sym="$">USD - Dólar Estadounidense ($)</option>
+                <option value="EUR" data-sym="€">EUR - Euro (€)</option>
+                <option value="COP" data-sym="$">COP - Peso Colombiano ($)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Símbolo Monetario</label>
+              <input type="text" id="wiz-currency-symbol" value="$" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono font-bold bg-slate-50">
+            </div>
+          </div>
+
+          <!-- Sobrecosto Check & Porcentajes -->
+          <div class="border border-slate-200 rounded-xl p-3.5 space-y-3 bg-slate-50/50">
+            <div class="flex items-center justify-between">
+              <label class="font-bold text-slate-800 flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="wiz-apply-sobrecosto" checked onchange="updateWizardFactorPreview()" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
+                <span>Aplicar Factor de Sobrecosto a Matrices APU</span>
+              </label>
+              <span class="text-[11px] text-blue-700 font-mono font-bold" id="wiz-factor-preview">1.2584 (+25.84%)</span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">% Indirectos</label>
+                <input type="number" id="wiz-indirectos" value="12.00" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">% Financiamiento</label>
+                <input type="number" id="wiz-financiamiento" value="1.50" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">% Utilidad</label>
+                <input type="number" id="wiz-utilidad" value="10.00" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">% Cargos Adic.</label>
+                <input type="number" id="wiz-adicionales" value="0.50" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
+              </div>
+            </div>
+          </div>
+
+          <!-- Plantilla Inicial -->
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Contenido Inicial del Proyecto</label>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <label class="p-2.5 bg-slate-50 border-2 border-blue-500 rounded-lg cursor-pointer flex items-start gap-2 select-none" id="lbl-tpl-demo">
+                <input type="radio" name="wiz-template" value="demo" checked onchange="updateTemplateSelection()" class="mt-0.5 text-blue-600">
+                <div>
+                  <strong class="block text-slate-900 font-semibold">Con Catálogo Base de Muestra</strong>
+                  <span class="text-[10px] text-slate-500">Incluye partidas de Cimentación, Estructuras y Acabados con insumos.</span>
+                </div>
+              </label>
+              <label class="p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer flex items-start gap-2 select-none" id="lbl-tpl-blank">
+                <input type="radio" name="wiz-template" value="blank" onchange="updateTemplateSelection()" class="mt-0.5 text-blue-600">
+                <div>
+                  <strong class="block text-slate-900 font-semibold">Proyecto en Blanco</strong>
+                  <span class="text-[10px] text-slate-500">Para comenzar a estructurar desde cero o importar catálogo propio.</span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Pie del Modal con Navegación -->
+      <div class="bg-slate-100 p-3.5 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <button type="button" id="btn-wiz-prev" onclick="goToWizardStep(1)" class="hidden px-3.5 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-200 rounded-lg text-xs font-semibold transition cursor-pointer">
+          <i class="fa-solid fa-arrow-left mr-1"></i> Anterior
+        </button>
+        <button type="button" id="btn-wiz-cancel" onclick="closeNuevoProyectoModal()" class="px-3.5 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-200 rounded-lg text-xs font-semibold transition cursor-pointer">
+          Cancelar
+        </button>
+
+        <div class="ml-auto flex items-center gap-2">
+          <button type="button" id="btn-wiz-next" onclick="goToWizardStep(2)" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition cursor-pointer">
+            Siguiente: Sobrecosto <i class="fa-solid fa-arrow-right ml-1"></i>
+          </button>
+          <button type="button" id="btn-wiz-finish" onclick="finalizeCreateProject()" class="hidden px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition cursor-pointer">
+            <i class="fa-solid fa-check mr-1"></i> Crear Proyecto
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: EDITAR PERFIL DE USUARIO -->
+  <!-- ========================================== -->
+  <div id="modal-perfil-usuario" class="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden flex flex-col">
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
+        <h3 class="font-bold text-sm flex items-center gap-2">
+          <i class="fa-solid fa-user-gear text-blue-400"></i> Mi Perfil Profesional
+        </h3>
+        <button onclick="closeProfileModal()" class="text-slate-400 hover:text-white cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-4 space-y-3.5 overflow-y-auto max-h-[75vh] custom-scroll text-xs">
+        <!-- Avatar Preview y Selector Dinámico según Sexo -->
+        <div class="flex items-center gap-3.5 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+          <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-blue-500 bg-white flex items-center justify-center shadow-sm shrink-0">
+            <img id="profile-edit-avatar-img" src="" alt="Avatar" class="w-full h-full object-cover">
+          </div>
+          <div class="space-y-1.5 flex-1">
+            <span class="font-bold text-slate-800 text-xs block">Foto / Avatar de Perfil</span>
+            <div class="flex flex-wrap gap-1">
+              <button onclick="selectProfileAvatar('avatar-m')" class="px-2 py-0.5 bg-white border border-slate-200 hover:border-blue-400 rounded text-[10px] cursor-pointer">👷‍♂️ Arq. Masc.</button>
+              <button onclick="selectProfileAvatar('avatar-f')" class="px-2 py-0.5 bg-white border border-slate-200 hover:border-blue-400 rounded text-[10px] cursor-pointer">👷‍♀️ Arq. Fem.</button>
+              <button onclick="selectProfileAvatar('avatar-neutral')" class="px-2 py-0.5 bg-white border border-slate-200 hover:border-blue-400 rounded text-[10px] cursor-pointer">👷 Neutral</button>
+            </div>
+            <label class="inline-block text-[10px] text-blue-600 hover:underline cursor-pointer">
+              <i class="fa-solid fa-camera mr-0.5"></i> Subir foto personalizada
+              <input type="file" accept="image/*" class="hidden" onchange="handleProfilePhotoUpload(event)">
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nombre Completo *</label>
+          <input type="text" id="profile-edit-name" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Correo Electrónico *</label>
+          <input type="email" id="profile-edit-email" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Sexo *</label>
+            <select id="profile-edit-sexo" onchange="onProfileEditSexoChange(this.value)" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white">
+              <option value="Masculino">Masculino</option>
+              <option value="Femenino">Femenino</option>
+              <option value="Otro">Otro / Prefiero no decir</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Fecha de Nacimiento *</label>
+            <input type="date" id="profile-edit-dob" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs">
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-slate-100 p-3 border-t border-slate-200 flex justify-end gap-2">
+        <button onclick="closeProfileModal()" class="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg cursor-pointer">Cancelar</button>
+        <button onclick="saveProfileChanges()" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow cursor-pointer">Guardar Cambios</button>
+      </div>
     </div>
   </div>
 

@@ -150,6 +150,46 @@ import {
   applyAdjustedLogo
 } from './ui/brandingController.js';
 
+import {
+  initPortal,
+  renderPortalAuth,
+  updatePortalHeaderUserArea,
+  switchAuthTab,
+  setRegSexo,
+  handleCustomPhotoUpload,
+  handleRegisterSubmit,
+  handleLoginSubmit,
+  quickLoginWithSavedUser,
+  triggerGoogleSignIn,
+  closeGoogleAuthModal,
+  selectGoogleAccount,
+  submitCustomGoogleAccount,
+  renderPortalDashboard,
+  filterProjectCards,
+  openProjectInWorkspace,
+  openProjectInNewTab,
+  goToProjectsDashboard,
+  duplicateProjectAction,
+  deleteProjectAction,
+  openNuevoProyectoModal,
+  closeNuevoProyectoModal,
+  goToWizardStep,
+  handleWizardLogoFile,
+  setSampleLogo,
+  clearWizardLogo,
+  onWizardCurrencyChange,
+  updateWizardFactorPreview,
+  updateTemplateSelection,
+  finalizeCreateProject,
+  openProfileModal,
+  closeProfileModal,
+  onProfileEditSexoChange,
+  selectProfileAvatar,
+  handleProfilePhotoUpload,
+  saveProfileChanges,
+  logoutUser
+} from './modules/portal/portalController.js';
+
 // Exponer funciones públicas al objeto global window para compatibilidad total con eventos inline del HTML
 Object.assign(window, {
   // Store & History
@@ -289,7 +329,46 @@ Object.assign(window, {
   // Print Services
   printTab1Catalog,
   printApuMatrix,
-  printInsumosGenerales
+  printInsumosGenerales,
+
+  // Portal, Perfil y Multi-Proyecto
+  initPortal,
+  renderPortalAuth,
+  updatePortalHeaderUserArea,
+  switchAuthTab,
+  setRegSexo,
+  handleCustomPhotoUpload,
+  handleRegisterSubmit,
+  handleLoginSubmit,
+  quickLoginWithSavedUser,
+  triggerGoogleSignIn,
+  closeGoogleAuthModal,
+  selectGoogleAccount,
+  submitCustomGoogleAccount,
+  renderPortalDashboard,
+  filterProjectCards,
+  openProjectInWorkspace,
+  openProjectInNewTab,
+  goToProjectsDashboard,
+  duplicateProjectAction,
+  deleteProjectAction,
+  openNuevoProyectoModal,
+  closeNuevoProyectoModal,
+  goToWizardStep,
+  handleWizardLogoFile,
+  setSampleLogo,
+  clearWizardLogo,
+  onWizardCurrencyChange,
+  updateWizardFactorPreview,
+  updateTemplateSelection,
+  finalizeCreateProject,
+  openProfileModal,
+  closeProfileModal,
+  onProfileEditSexoChange,
+  selectProfileAvatar,
+  handleProfilePhotoUpload,
+  saveProfileChanges,
+  logoutUser
 });
 
 // Atajos de teclado: Alt + Flecha Arriba / Abajo para mover la fila seleccionada
@@ -312,9 +391,12 @@ setHistoryRenderCallback(() => {
 });
 
 // Inicialización de la aplicación al cargar el módulo
-initStore();
-initBranding();
-initPanelResizer();
-renderTAB1();
-updateUndoRedoButtons();
-openReferenceDb().catch(err => console.warn('IndexedDB reference DB:', err));
+const isWorkspaceActive = initPortal();
+if (isWorkspaceActive) {
+  initStore();
+  initBranding();
+  initPanelResizer();
+  renderTAB1();
+  updateUndoRedoButtons();
+  openReferenceDb().catch(err => console.warn('IndexedDB reference DB:', err));
+}

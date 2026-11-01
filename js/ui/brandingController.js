@@ -1,8 +1,7 @@
 // js/ui/brandingController.js
 // Controlador para personalización de Nombre de Empresa, Proyecto, Ubicación y Logotipo con visor interactivo, recorte y zoom
 
-import { state } from '../state/store.js';
-import { SETTINGS_KEY } from '../config/constants.js';
+import { state, persistSettings } from '../state/store.js';
 import { showToast } from './notifications.js';
 
 // Dimensiones estándar del área de recorte para el logotipo (cuadrado 1:1)
@@ -27,14 +26,6 @@ const adjusterState = {
   listenersAttached: false
 };
 
-// Guardar configuración en localStorage
-function persistSettings() {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
-  } catch (e) {
-    console.error('Error guardando branding en settings:', e);
-  }
-}
 
 // Inicializar y renderizar branding al cargar la app
 export function initBranding() {

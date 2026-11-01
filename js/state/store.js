@@ -1,5 +1,6 @@
-import { STORAGE_KEY, SETTINGS_KEY } from '../config/constants.js';
+import { getStorageKey, getSettingsKey, getActiveProjectId } from '../config/constants.js';
 import { defaultTreeData, defaultSettings } from '../config/defaultData.js';
+import { syncActiveProjectSummary } from '../modules/portal/projectService.js';
 
 // Estado global reactivo y centralizado de la aplicación
 export const state = {
@@ -15,7 +16,7 @@ export const state = {
 export function initStore() {
   // Cargar configuración
   try {
-    const savedSettings = localStorage.getItem(SETTINGS_KEY);
+    const savedSettings = localStorage.getItem(getSettingsKey());
     if (savedSettings) {
       state.settings = Object.assign({}, defaultSettings, JSON.parse(savedSettings));
     } else {
@@ -28,7 +29,7 @@ export function initStore() {
 
   // Cargar árbol de catálogo
   try {
-    const savedData = localStorage.getItem(STORAGE_KEY);
+    const savedData = localStorage.getItem(getStorageKey());
     if (savedData) {
       state.treeData = JSON.parse(savedData);
     } else {
@@ -87,6 +88,16 @@ export function initStore() {
   roundNodesTo2Decimals(state.treeData);
 }
 
+// Persistencia de configuración en localStorage
+export function persistSettings() {
+  try {
+    localStorage.setItem(getSettingsKey(), JSON.stringify(state.settings));
+    syncActiveProjectSummary(getActiveProjectId(), state.treeData, state.settings);
+  } catch (e) {
+    console.error('Error guardando configuración:', e);
+  }
+}
+
 // Persistencia en localStorage con debounce de 300ms
 let persistTimer = null;
 export function persistLocalData(immediate = false) {
@@ -94,7 +105,8 @@ export function persistLocalData(immediate = false) {
     if (persistTimer) clearTimeout(persistTimer);
     persistTimer = null;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.treeData));
+      localStorage.setItem(getStorageKey(), JSON.stringify(state.treeData));
+      syncActiveProjectSummary(getActiveProjectId(), state.treeData, state.settings);
     } catch (e) {
       console.error('Error guardando en localStorage:', e);
     }
@@ -103,7 +115,8 @@ export function persistLocalData(immediate = false) {
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.treeData));
+      localStorage.setItem(getStorageKey(), JSON.stringify(state.treeData));
+      syncActiveProjectSummary(getActiveProjectId(), state.treeData, state.settings);
     } catch (e) {
       console.error('Error guardando en localStorage:', e);
     }

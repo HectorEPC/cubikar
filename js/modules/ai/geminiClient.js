@@ -1,5 +1,4 @@
-import { state } from '../../state/store.js';
-import { SETTINGS_KEY } from '../../config/constants.js';
+import { state, persistSettings } from '../../state/store.js';
 import { saveState } from '../../state/history.js';
 import { showToast } from '../../ui/notifications.js';
 import { findNodeById, getNodeHierarchyPath } from '../catalog/treeService.js';
@@ -102,11 +101,9 @@ export async function executeAiGeneration() {
 
   // Guardar API Key para futuros usos
   state.settings.apiKey = apiKeyInput;
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
-    const cfgInput = document.getElementById('cfg-api-key');
-    if (cfgInput) cfgInput.value = apiKeyInput;
-  } catch (e) {}
+  persistSettings();
+  const cfgInput = document.getElementById('cfg-api-key');
+  if (cfgInput) cfgInput.value = apiKeyInput;
 
   if (errorBox) errorBox.classList.add('hidden');
   if (loadingBox) loadingBox.classList.remove('hidden');
