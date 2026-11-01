@@ -79,7 +79,11 @@ export function toggleAiModalKeyVisibility() {
 }
 
 // Modal de Configuración General
-export function openSettingsModal(tab = 'sobrecosto') {
+export function openSettingsModal(tab = 'informacion') {
+  let targetTab = tab;
+  if (!targetTab || targetTab === 'general' || targetTab === 'empresa') {
+    targetTab = 'informacion';
+  }
   const modalEl = document.getElementById('settings-modal');
   if (modalEl) modalEl.classList.remove('hidden');
 
@@ -122,7 +126,7 @@ export function openSettingsModal(tab = 'sobrecosto') {
   updateCurrencyPreview();
   updateCalculatedFactorPreview();
   renderBrandingUI();
-  switchSettingsTab(tab);
+  switchSettingsTab(targetTab);
 }
 
 // Actualizar campos al cambiar el selector de moneda
@@ -161,11 +165,15 @@ export function closeSettingsModal() {
 }
 
 export function switchSettingsTab(tab) {
-  const tabs = ['sobrecosto', 'empresa', 'ia', 'datos'];
+  let activeTab = tab;
+  if (!activeTab || activeTab === 'general' || activeTab === 'empresa') {
+    activeTab = 'informacion';
+  }
+  const tabs = ['informacion', 'sobrecosto', 'ia', 'datos'];
   tabs.forEach(t => {
     const view = document.getElementById(`modal-view-${t}`);
     const btn = document.getElementById(`modal-tab-${t}`);
-    if (t === tab) {
+    if (t === activeTab) {
       if (view) view.classList.remove('hidden');
       if (btn) btn.className = "py-2 px-3 border-b-2 border-blue-600 text-blue-600 flex items-center gap-1.5";
     } else {

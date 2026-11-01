@@ -157,6 +157,44 @@ export function updateCompanyName(name) {
   showToast('Nombre de la empresa guardado', 'success');
 }
 
+// Sincronización en vivo bidireccional entre pestaña INFORMACIÓN, CATÁLOGO BASE, INSUMOS GENERALES y Encabezado
+export function syncCompanyName(val) {
+  if (!state.settings) state.settings = {};
+  state.settings.companyName = val || '';
+  persistSettings();
+
+  const hName = document.getElementById('header-company-name');
+  if (hName && hName.value !== val) hName.value = val;
+  const cName = document.getElementById('cfg-company-name');
+  if (cName && cName.value !== val) cName.value = val;
+}
+
+export function syncProjectName(val) {
+  if (!state.settings) state.settings = {};
+  state.settings.projectName = val || '';
+  persistSettings();
+
+  const catP = document.getElementById('header-project-name');
+  if (catP && catP.value !== val) catP.value = val;
+  const insP = document.getElementById('insumos-project-name');
+  if (insP && insP.value !== val) insP.value = val;
+  const cfgP = document.getElementById('cfg-project-name');
+  if (cfgP && cfgP.value !== val) cfgP.value = val;
+}
+
+export function syncProjectLocation(val) {
+  if (!state.settings) state.settings = {};
+  state.settings.projectLocation = val || '';
+  persistSettings();
+
+  const catL = document.getElementById('header-project-location');
+  if (catL && catL.value !== val) catL.value = val;
+  const insL = document.getElementById('insumos-project-location');
+  if (insL && insL.value !== val) insL.value = val;
+  const cfgL = document.getElementById('cfg-project-location');
+  if (cfgL && cfgL.value !== val) cfgL.value = val;
+}
+
 // Actualizar nombre del proyecto
 export function updateProjectName(name) {
   const cleanProject = (name || '').trim() || 'Proyecto de Obra Base';

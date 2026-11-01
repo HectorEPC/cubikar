@@ -132,8 +132,11 @@ import {
 import {
   initBranding,
   updateCompanyName,
+  syncCompanyName,
   updateProjectName,
+  syncProjectName,
   updateProjectLocation,
+  syncProjectLocation,
   updateCompanySubtitle,
   triggerCompanyLogoUpload,
   handleCompanyLogoUpload,
@@ -266,8 +269,11 @@ Object.assign(window, {
   // Branding (Empresa, Proyecto, Ubicación y Logo interactivo)
   initBranding,
   updateCompanyName,
+  syncCompanyName,
   updateProjectName,
+  syncProjectName,
   updateProjectLocation,
+  syncProjectLocation,
   updateCompanySubtitle,
   triggerCompanyLogoUpload,
   handleCompanyLogoUpload,
