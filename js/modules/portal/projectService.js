@@ -346,7 +346,7 @@ export function createNewProject(params) {
         role: 'editar'
       }
     ],
-    createdAt: new Date().toISOString().slice(0, 10)
+    createdAt: params.createdAt || new Date().toISOString().slice(0, 10)
   };
 
   const list = getProjectsList();

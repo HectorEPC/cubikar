@@ -2222,17 +2222,31 @@
                    class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
           </div>
 
-          <!-- Tipo de Obra -->
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Tipo de Obra *</label>
-            <select id="wiz-project-tipo" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
-              <option value="Edificación">Edificación (Torres, Corporativos, Departamentos)</option>
-              <option value="Vivienda">Vivienda (Residencial, Casas, Fraccionamientos)</option>
-              <option value="Obra Civil">Obra Civil (Puentes, Cimentaciones, Pavimentaciones)</option>
-              <option value="Infraestructura">Infraestructura (Vialidades, Redes, Servicios)</option>
-              <option value="Remodelación">Remodelación y Acabados</option>
-              <option value="Industrial">Industrial / Comercial (Naves, Bodegas, Centros)</option>
-            </select>
+          <!-- Tipo de Proyecto y Fecha de Creación -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-tag text-blue-600 text-[11px]"></i>
+                <span>Tipo de Proyecto *</span>
+              </label>
+              <select id="wiz-project-tipo" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <option value="Edificación">Edificación (Torres, Corporativos, Departamentos)</option>
+                <option value="Vivienda">Vivienda (Residencial, Casas, Fraccionamientos)</option>
+                <option value="Obra Civil">Obra Civil (Puentes, Cimentaciones, Pavimentaciones)</option>
+                <option value="Infraestructura">Infraestructura (Vialidades, Redes, Servicios)</option>
+                <option value="Remodelación">Remodelación y Acabados</option>
+                <option value="Industrial">Industrial / Comercial (Naves, Bodegas, Centros)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <i class="fa-regular fa-calendar-days text-blue-600 text-[11px]"></i>
+                <span>Fecha de Creación *</span>
+              </label>
+              <input type="date" id="wiz-project-created-at" 
+                     class="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+            </div>
           </div>
         </div>
 

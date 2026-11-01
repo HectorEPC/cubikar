@@ -1097,9 +1097,13 @@ export function openNuevoProyectoModal() {
   const cName = document.getElementById('wiz-company-name');
   const pName = document.getElementById('wiz-project-name');
   const pLoc = document.getElementById('wiz-project-location');
+  const pTipo = document.getElementById('wiz-project-tipo');
+  const pDate = document.getElementById('wiz-project-created-at');
   if (cName) cName.value = '';
   if (pName) pName.value = '';
   if (pLoc) pLoc.value = '';
+  if (pTipo) pTipo.value = 'Edificación';
+  if (pDate) pDate.value = new Date().toISOString().slice(0, 10);
   
   goToWizardStep(1);
   const modal = document.getElementById('modal-nuevo-proyecto');
@@ -1230,6 +1234,7 @@ export function finalizeCreateProject() {
   const project = document.getElementById('wiz-project-name').value.trim();
   const location = document.getElementById('wiz-project-location').value.trim();
   const tipoObra = (document.getElementById('wiz-project-tipo') && document.getElementById('wiz-project-tipo').value) || 'Edificación';
+  const createdAt = (document.getElementById('wiz-project-created-at') && document.getElementById('wiz-project-created-at').value) || new Date().toISOString().slice(0, 10);
   const currency = document.getElementById('wiz-currency-select').value;
   const symbol = document.getElementById('wiz-currency-symbol').value.trim();
   const apply = document.getElementById('wiz-apply-sobrecosto').checked;
@@ -1246,6 +1251,7 @@ export function finalizeCreateProject() {
     projectName: project,
     projectLocation: location,
     tipoObra: tipoObra,
+    createdAt: createdAt,
     currency,
     currencySymbol: symbol,
     applySobrecosto: apply,
