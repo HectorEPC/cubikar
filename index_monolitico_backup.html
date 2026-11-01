@@ -1,0 +1,3204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Obra - TAB1-CAT-BASE e Insumos Generales</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .selected-row { background-color: #e0f2fe !important; border-left: 4px solid #0284c7; }
+    .dropdown-menu { display: none; }
+    .dropdown-container:hover .dropdown-menu { display: block; }
+    textarea.desc-input {
+      resize: none;
+      field-sizing: content;
+      min-height: 24px;
+    }
+    /* Barras de desplazamiento horizontal y vertical personalizadas, nítidas y siempre visibles */
+    ::-webkit-scrollbar {
+      height: 10px;
+      width: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #e2e8f0;
+      border-radius: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 6px;
+      border: 2px solid #e2e8f0;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #94a3b8 #e2e8f0;
+    }
+    .custom-scroll-x {
+      overflow-x: auto !important;
+      scrollbar-gutter: stable;
+    }
+    .color-picker-dot {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      border-radius: 50%;
+      cursor: pointer;
+      padding: 0;
+      background: none;
+      vertical-align: middle;
+    }
+    .color-picker-dot::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+    .color-picker-dot::-webkit-color-swatch {
+      border: none;
+      border-radius: 50%;
+    }
+    .color-picker-dot::-moz-color-swatch {
+      border: none;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans h-screen flex flex-col text-slate-800">
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Header & Navigation Tabs -->
+  <header class="bg-slate-900 text-white p-3 shadow-md flex justify-between items-center shrink-0">
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-helmet-safety text-amber-400 text-xl"></i>
+        <div>
+          <h1 class="font-bold text-base leading-none">Sistema de Control de Obra</h1>
+          <span class="text-[11px] text-slate-400">Presupuestos Base, APU y Google Search Grounding</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex bg-slate-800 p-1 rounded-lg ml-4 border border-slate-700">
+        <button id="tab-btn-cat" onclick="switchTab('cat')" class="px-3 py-1 rounded text-xs font-semibold bg-blue-600 text-white transition flex items-center gap-1.5">
+          <i class="fa-solid fa-list-check"></i> TAB1-CAT-BASE
+        </button>
+        <button id="tab-btn-insumos" onclick="switchTab('insumos')" class="px-3 py-1 rounded text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5">
+          <i class="fa-solid fa-boxes-stacked"></i> INSUMOS GENERALES
+        </button>
+      </nav>
+    </div>
+
+    <!-- Actions & Config Buttons -->
+    <div class="flex items-center gap-2">
+      <!-- Indicador Factor Sobrecosto -->
+      <button onclick="openSettingsModal('sobrecosto')" id="badge-sobrecosto" class="text-xs px-2.5 py-1 rounded border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center gap-1.5 transition">
+        <i class="fa-solid fa-percent text-amber-400 text-[10px]"></i>
+        <span id="label-factor-sobrecosto">Sobrecosto: Inactivo</span>
+      </button>
+
+      <!-- Importar CSV -->
+      <label class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 font-medium shadow-sm transition cursor-pointer" title="Importar catálogo desde archivo CSV">
+        <i class="fa-solid fa-file-import text-blue-400"></i> Importar CSV
+        <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="importData(event)">
+      </label>
+
+      <!-- Exportar CSV -->
+      <button onclick="exportData()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 font-medium shadow-sm transition">
+        <i class="fa-solid fa-file-excel"></i> Exportar CSV
+      </button>
+
+      <!-- Modal Configuración Global -->
+      <button onclick="openSettingsModal('general')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs p-1.5 rounded transition" title="Configuración de Sobrecostos, IA y Datos">
+        <i class="fa-solid fa-gear text-sm"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Pestaña 1: TAB1-CAT-BASE & APU -->
+  <div id="view-cat" class="flex-1 flex overflow-hidden p-3 gap-3">
+
+    <!-- TAB1-CAT-BASE Table Section (3/4 de la pantalla) -->
+    <div id="tb1-container" class="flex-1 bg-white rounded-lg shadow border border-slate-200 flex flex-col transition-all duration-300">
+      
+      <!-- Barra de Acciones Globales Superior -->
+      <div class="p-2 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button onclick="addRootRow()" class="bg-blue-600 hover:bg-blue-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Agregar Partida Principal">
+            <i class="fa-solid fa-plus text-[10px]"></i> Agregar Partida
+          </button>
+          
+          <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+
+          <button onclick="undoAction()" id="btn-undo" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed" title="Regresar anterior (Deshacer)">
+            <i class="fa-solid fa-rotate-left text-[10px]"></i> Anterior
+          </button>
+          <button onclick="redoAction()" id="btn-redo" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed" title="Ir después (Rehacer)">
+            <i class="fa-solid fa-rotate-right text-[10px]"></i> Después
+          </button>
+
+          <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+
+          <button onclick="duplicarSelectedRow()" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Duplicar renglón seleccionado">
+            <i class="fa-solid fa-clone text-[10px]"></i> Duplicar
+          </button>
+          <button onclick="copiarSelectedRow()" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Copiar renglón seleccionado">
+            <i class="fa-solid fa-copy text-[10px]"></i> Copiar
+          </button>
+          <button onclick="pegarSelectedRow()" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Pegar renglón copiado">
+            <i class="fa-solid fa-paste text-[10px]"></i> Pegar
+          </button>
+
+          <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+
+          <button onclick="moverSelectedRow('up')" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Mover fila hacia arriba">
+            <i class="fa-solid fa-arrow-up text-[10px]"></i> Mover Arriba
+          </button>
+          <button onclick="moverSelectedRow('down')" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Mover fila hacia abajo">
+            <i class="fa-solid fa-arrow-down text-[10px]"></i> Mover Abajo
+          </button>
+
+          <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+
+          <button onclick="deleteSelectedRow()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Eliminar renglones seleccionados">
+            <i class="fa-solid fa-trash text-[10px]"></i> Eliminar Fila
+          </button>
+        </div>
+
+        <div class="text-right flex items-center gap-3">
+          <span class="text-[10px] text-slate-400 flex items-center gap-1">
+            <i class="fa-solid fa-floppy-disk text-emerald-500"></i> Auto-guardado local activo
+          </span>
+          <span class="text-[10px] text-slate-600 font-mono font-medium" id="selected-row-status">Seleccione una fila para acciones</span>
+        </div>
+      </div>
+
+      <!-- Info Sub-bar -->
+      <div class="p-2.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-slate-700 text-xs uppercase tracking-wide">TAB1-CAT-BASE - Catálogo Base de Obra</span>
+          <span class="bg-slate-200 text-slate-600 text-[10px] px-2 py-0.5 rounded-full font-mono" id="total-items">0 ítems</span>
+          <span class="bg-blue-100 text-blue-700 font-bold text-[10px] px-2 py-0.5 rounded-full font-mono hidden" id="selected-items-badge">0 sel.</span>
+        </div>
+        <div class="flex items-center gap-4 text-right">
+          <div id="costo-directo-total-container" class="hidden">
+            <span class="text-[9px] text-slate-500 block leading-tight">Costo Directo Total</span>
+            <span class="text-xs font-bold text-slate-600 font-mono" id="direct-total">$0.00</span>
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-500 block leading-tight">Monto Total Presupuestado</span>
+            <span class="text-base font-bold text-emerald-700 font-mono" id="grand-total">$0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table Scrollable Area con barra horizontal activa -->
+      <div class="flex-1 overflow-auto">
+        <table class="w-full text-left text-xs border-collapse min-w-[920px]">
+          <thead class="bg-slate-100 text-slate-600 uppercase text-[10px] font-semibold sticky top-0 border-b border-slate-200 z-10">
+            <tr>
+              <th class="p-2 w-10 text-center" title="Color de Fila y Sub-filas">
+                <i class="fa-solid fa-palette text-slate-500 text-[11px]"></i>
+              </th>
+              <th class="p-2 w-8 text-center">
+                <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this.checked)" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+              </th>
+              <th class="p-2 w-12 text-center">Niv</th>
+              <th class="p-2 w-20">Clave</th>
+              <th class="p-2 text-justify">Descripción de Concepto</th>
+              <th class="p-2 w-14 text-center">Unid</th>
+              <th class="p-2 w-20 text-right">Cant.</th>
+              <th class="p-2 w-28 text-right">Precio Unit.</th>
+              <th class="p-2 w-28 text-right">Total</th>
+              <th class="p-2 w-24 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tb1-body" class="divide-y divide-slate-100 font-mono">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Separador Arrastrable para Redimensionar el Panel APU -->
+    <div id="panel-resizer" class="w-2.5 hover:w-3.5 bg-slate-300 hover:bg-blue-600 active:bg-blue-700 cursor-col-resize transition-all rounded-full flex items-center justify-center shrink-0 hidden select-none shadow-sm z-20 group relative" title="Arrastra hacia la izquierda o derecha para cambiar el tamaño de la Matriz">
+      <div class="h-10 w-1 bg-slate-400 group-hover:bg-white rounded-full flex flex-col justify-between py-1">
+        <span class="w-1 h-1 bg-white/80 rounded-full block mx-auto"></span>
+        <span class="w-1 h-1 bg-white/80 rounded-full block mx-auto"></span>
+        <span class="w-1 h-1 bg-white/80 rounded-full block mx-auto"></span>
+      </div>
+    </div>
+
+    <!-- APU Side Panel Redimensionable -->
+    <div id="apu-panel" class="w-[480px] min-w-[320px] max-w-[85vw] bg-white rounded-lg shadow border border-slate-200 flex flex-col hidden shrink-0 overflow-hidden">
+      
+      <!-- APU Header -->
+      <div class="p-2.5 bg-slate-800 text-white rounded-t-lg flex justify-between items-center shrink-0">
+        <div class="overflow-hidden pr-2">
+          <div class="flex items-center gap-1.5">
+            <span class="bg-amber-400 text-slate-900 font-bold text-[9px] px-1 py-0.5 rounded font-mono" id="apu-clave">---</span>
+            <h2 class="font-bold text-xs text-slate-100 truncate" id="apu-title">Matriz de Precio Unitario</h2>
+          </div>
+          <p class="text-[10px] text-slate-300 mt-0.5 truncate italic" id="apu-desc">Sin concepto seleccionado</p>
+        </div>
+        
+        <!-- Botón Cerrar -->
+        <div class="flex items-center gap-1 shrink-0">
+          <button onclick="closeApuPanel()" class="text-slate-400 hover:text-white text-base leading-none p-1 rounded hover:bg-slate-700 transition" title="Cerrar panel APU">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- APU Body -->
+      <div class="flex-1 overflow-auto p-2 space-y-3">
+        
+        <!-- Encabezado MATRIZ con Botón IA Google Search Grounding -->
+        <div class="flex justify-between items-center border-b border-slate-200 pb-1">
+          <span class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+            <i class="fa-solid fa-calculator text-blue-600"></i> MATRIZ
+          </span>
+          <div class="flex items-center gap-1">
+            <button onclick="openAiGeneratorModal()" id="btn-ai-apu" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-[9px] px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95" title="Buscar costos y llenar matriz con Google Search Grounding">
+              <i class="fa-brands fa-google text-amber-300 text-[10px]"></i>
+              <span>Google Search IA</span>
+            </button>
+            <button onclick="addInsumo()" class="bg-slate-800 hover:bg-slate-700 text-white text-[9px] px-1.5 py-1 rounded flex items-center gap-1 shadow-sm">
+              <i class="fa-solid fa-plus text-[8px]"></i> + Insumo
+            </button>
+          </div>
+        </div>
+
+        <!-- Breakdown Summary Grid con Íconos (Clic para filtrar Matriz) -->
+        <div class="grid grid-cols-2 gap-1.5 text-center text-[10px]">
+          <div onclick="filterMatriz('Material')" class="bg-blue-50 hover:bg-blue-100/70 border border-blue-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Materiales">
+            <div class="flex items-center gap-1 text-blue-700 font-bold text-[9px]">
+              <i class="fa-solid fa-cubes"></i>
+              <span>MATERIALES</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-mat">$0.00</span>
+          </div>
+
+          <div onclick="filterMatriz('Mano de Obra')" class="bg-amber-50 hover:bg-amber-100/70 border border-amber-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Mano de Obra">
+            <div class="flex items-center gap-1 text-amber-700 font-bold text-[9px]">
+              <i class="fa-solid fa-hard-hat"></i>
+              <span>MANO DE OBRA</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-mo">$0.00</span>
+          </div>
+
+          <div onclick="filterMatriz('Equipo')" class="bg-purple-50 hover:bg-purple-100/70 border border-purple-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Equipo / Herramienta">
+            <div class="flex items-center gap-1 text-purple-700 font-bold text-[9px]">
+              <i class="fa-solid fa-screwdriver-wrench"></i>
+              <span>EQUIPO / HERR.</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-eq">$0.00</span>
+          </div>
+
+          <div onclick="filterMatriz('Subcontrato')" class="bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Subcontratos">
+            <div class="flex items-center gap-1 text-emerald-700 font-bold text-[9px]">
+              <i class="fa-solid fa-file-signature"></i>
+              <span>SUBCONTRATOS</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-sub">$0.00</span>
+          </div>
+        </div>
+
+        <!-- Banner Google Search Grounding: Búsquedas, Fuentes y Sugerencias -->
+        <div id="apu-grounding-box" class="p-2.5 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border border-blue-200 rounded-lg text-[10px] hidden space-y-2 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-blue-900 flex items-center gap-1.5 text-[9px] uppercase tracking-wider">
+              <i class="fa-brands fa-google text-blue-600"></i> Google Search Grounding
+            </span>
+            <button onclick="dismissGroundingBox()" class="text-slate-400 hover:text-slate-700 text-xs">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          
+          <!-- Búsquedas en Google realizadas -->
+          <div id="apu-grounding-queries-container" class="hidden">
+            <span class="text-[9px] font-semibold text-slate-600 block mb-1">Búsquedas en Google realizadas:</span>
+            <div id="apu-grounding-queries" class="flex flex-wrap gap-1"></div>
+          </div>
+
+          <!-- Fuentes web consultadas -->
+          <div id="apu-grounding-sources-container" class="hidden">
+            <span class="text-[9px] font-semibold text-slate-600 block mb-1">Fuentes y cotizaciones consultadas:</span>
+            <div id="apu-grounding-sources" class="flex flex-wrap gap-1"></div>
+          </div>
+
+          <!-- Sugerencia técnica -->
+          <div id="apu-grounding-tips-container" class="hidden pt-1.5 border-t border-blue-200/60">
+            <div class="flex items-start gap-1.5 text-indigo-950">
+              <i class="fa-solid fa-lightbulb text-amber-500 mt-0.5 shrink-0 text-[10px]"></i>
+              <p id="apu-grounding-tips" class="text-[10px] leading-snug font-sans"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seccion: Tabla de Matriz de Precio Unitario -->
+        <div class="space-y-1.5">
+          <div class="flex flex-wrap items-center justify-between gap-1">
+            <span class="text-[10px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1">
+              <i class="fa-solid fa-filter text-blue-600 text-[9px]"></i> Filtrar Matriz:
+            </span>
+            <span class="text-[9px] text-slate-400 italic font-sans flex items-center gap-1">
+              <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Desplazar horizontalmente
+            </span>
+          </div>
+
+          <!-- Botones Filtro por Rubro para MATRIZ -->
+          <div class="flex flex-wrap gap-1 text-[8px] font-semibold">
+            <button onclick="filterMatriz('Todos')" id="filter-matriz-Todos" class="px-2 py-0.5 rounded bg-blue-600 text-white border border-blue-600 shadow-xs transition">Todos</button>
+            <button onclick="filterMatriz('Material')" id="filter-matriz-Material" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Materiales</button>
+            <button onclick="filterMatriz('Mano de Obra')" id="filter-matriz-Mano-de-Obra" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Mano de Obra</button>
+            <button onclick="filterMatriz('Equipo')" id="filter-matriz-Equipo" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Equipo / Herr.</button>
+            <button onclick="filterMatriz('Subcontrato')" id="filter-matriz-Subcontrato" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Subcontratos</button>
+          </div>
+
+          <div class="border border-slate-200 rounded overflow-x-auto custom-scroll-x bg-white shadow-sm">
+            <table class="w-full text-left text-[10px] border-collapse font-mono min-w-[580px]">
+              <thead class="bg-slate-100 text-slate-600 text-[9px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-1.5 min-w-[190px] text-justify">Descripción / Rubro</th>
+                  <th class="p-1.5 w-14 min-w-[50px] text-center">Unidad</th>
+                  <th class="p-1.5 w-16 min-w-[65px] text-right">Cantidad</th>
+                  <th class="p-1.5 w-24 min-w-[90px] text-right">Costo U.</th>
+                  <th class="p-1.5 w-20 min-w-[80px] text-right">Total</th>
+                  <th class="p-1 w-6 min-w-[24px] text-center"></th>
+                </tr>
+              </thead>
+              <tbody id="apu-insumos-body" class="divide-y divide-slate-100">
+                <!-- Dynamic insumos -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total Costo Directo y Precio Unitario Calculado -->
+          <div class="mt-1.5 space-y-1">
+            <div class="p-1.5 bg-slate-50 border border-slate-200 rounded flex justify-between items-center text-[10px]">
+              <span class="text-slate-600 font-medium">Costo Directo (C.D.):</span>
+              <span class="font-bold text-slate-800 font-mono" id="apu-calculated-cd">$0.00</span>
+            </div>
+            <div id="apu-sobrecosto-row" class="p-1.5 bg-amber-50 border border-amber-200 rounded flex justify-between items-center text-[10px] hidden">
+              <span class="text-amber-800 font-medium" id="apu-sobrecosto-tag">Sobrecosto (+0%):</span>
+              <span class="font-bold text-amber-900 font-mono" id="apu-calculated-sobrecosto">$0.00</span>
+            </div>
+            <div class="p-2 bg-blue-50 border border-blue-200 rounded flex justify-between items-center">
+              <span class="text-[10px] font-bold text-blue-900">Precio Unitario Final:</span>
+              <span class="text-xs font-bold text-blue-700 font-mono" id="apu-calculated-pu">$0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seccion: Insumos Unitarios (Resumen Obra) -->
+        <div class="pt-2 border-t border-slate-200 space-y-1.5">
+          <div class="flex justify-between items-center">
+            <span class="text-[10px] font-bold text-blue-800 uppercase flex items-center gap-1">
+              <i class="fa-solid fa-boxes-stacked text-[10px]"></i> Insumos Unitarios (Resumen Obra)
+            </span>
+            <span class="text-[9px] text-slate-400 italic font-sans flex items-center gap-1">
+              <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Desplazar horizontalmente
+            </span>
+          </div>
+
+          <!-- Botones Filtro por Rubro -->
+          <div class="flex flex-wrap gap-1 text-[8px] font-semibold">
+            <button onclick="filterInsumos('Todos')" id="filter-Todos" class="px-1.5 py-0.5 rounded bg-blue-600 text-white border border-blue-600">Todos</button>
+            <button onclick="filterInsumos('Material')" id="filter-Material" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Materiales</button>
+            <button onclick="filterInsumos('Mano de Obra')" id="filter-Mano-de-Obra" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Mano Obra</button>
+            <button onclick="filterInsumos('Equipo')" id="filter-Equipo" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Equipo/Herr</button>
+            <button onclick="filterInsumos('Subcontrato')" id="filter-Subcontrato" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Subcontrato</button>
+          </div>
+
+          <!-- Tabla de Resumen Insumos Unitarios -->
+          <div class="border border-slate-200 rounded overflow-x-auto custom-scroll-x bg-white shadow-sm">
+            <table class="w-full text-left text-[10px] border-collapse font-mono min-w-[520px]">
+              <thead class="bg-slate-100 text-slate-600 text-[8px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-1 border-b border-slate-200 w-16 min-w-[60px]">Insumo</th>
+                  <th class="p-1 border-b border-slate-200 min-w-[170px] text-justify">Descripción</th>
+                  <th class="p-1 border-b border-slate-200 w-16 min-w-[70px] text-right">Cant. Obra</th>
+                  <th class="p-1 border-b border-slate-200 w-10 min-w-[45px] text-center">Unid</th>
+                  <th class="p-1 border-b border-slate-200 w-20 min-w-[85px] text-right">Total ($)</th>
+                </tr>
+              </thead>
+              <tbody id="insumos-unitarios-body" class="divide-y divide-slate-100">
+                <!-- Calculated Insumos Unitarios -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total de Insumos Unitarios (Resumen Obra) -->
+          <div class="p-2 bg-blue-50 border border-blue-200 rounded flex justify-between items-center shrink-0">
+            <span class="text-[10px] font-bold text-blue-900">Total Importe Obra:</span>
+            <span class="text-xs font-bold text-emerald-700 font-mono" id="insumos-unitarios-total">$0.00</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Pestaña 2: INSUMOS GENERALES -->
+  <div id="view-insumos" class="flex-1 flex flex-col overflow-hidden p-3 hidden">
+    <div class="bg-white rounded-lg shadow border border-slate-200 flex flex-col h-full overflow-hidden">
+      
+      <!-- Insumos Generales Header con Filtros Rápidos de Vista -->
+      <div class="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap justify-between items-center gap-3 shrink-0">
+        <div>
+          <h2 class="font-bold text-slate-800 text-sm uppercase tracking-wide flex items-center gap-2">
+            <i class="fa-solid fa-boxes-stacked text-blue-600"></i> INSUMOS GENERALES (Conceptos Seleccionados)
+          </h2>
+          <p class="text-[11px] text-slate-500 mt-0.5">Suma consolidada únicamente de los conceptos marcados con Checkbox en TAB1-CAT-BASE.</p>
+        </div>
+
+        <!-- Controles para agrandar / filtrar áreas de tablas -->
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-1 bg-slate-200 p-0.5 rounded-lg border border-slate-300 text-[11px] font-medium" title="Filtrar vista para enfocar una categoría">
+            <button onclick="filterInsumosCategoryView('all')" id="btn-view-cat-all" class="px-2.5 py-1 rounded bg-white text-slate-900 font-semibold shadow-sm transition">Todas</button>
+            <button onclick="filterInsumosCategoryView('Material')" id="btn-view-cat-Material" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Materiales</button>
+            <button onclick="filterInsumosCategoryView('Mano de Obra')" id="btn-view-cat-MO" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Mano de Obra</button>
+            <button onclick="filterInsumosCategoryView('Equipo')" id="btn-view-cat-Equipo" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Equipo/Herr</button>
+            <button onclick="filterInsumosCategoryView('Subcontrato')" id="btn-view-cat-Sub" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Subcontratos</button>
+          </div>
+
+          <div class="h-5 w-[1px] bg-slate-300"></div>
+
+          <div class="text-right">
+            <span class="text-[10px] text-slate-500 block leading-tight">Monto Total de Insumos</span>
+            <span class="text-lg font-bold text-emerald-700 font-mono" id="insumos-generales-grand-total">$0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Insumos Generales Scrollable Area -->
+      <div class="flex-1 overflow-auto p-3 space-y-4">
+        
+        <!-- Table Materiales -->
+        <div id="card-insumos-Material" class="border border-blue-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
+          <div class="bg-blue-50 px-3 py-2 border-b border-blue-200 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+              <button onclick="toggleInsumoCard('Material')" class="text-blue-700 hover:text-blue-900 p-1 rounded hover:bg-blue-100 transition" title="Contraer / Expandir tabla de Materiales">
+                <i id="card-chevron-Material" class="fa-solid fa-chevron-up text-xs"></i>
+              </button>
+              <span class="font-bold text-blue-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-cubes"></i> MATERIALES
+              </span>
+              <span class="text-[10px] text-blue-600/70 italic hidden sm:inline flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Barra horizontal inferior
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                  <i class="fa-solid fa-search text-[10px]"></i>
+                </span>
+                <input type="text" id="search-Material" oninput="filterInsumosGeneralesTable('Material')" placeholder="Buscar descripción..." class="text-xs bg-white border border-blue-300 rounded pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 w-44 font-sans">
+              </div>
+              <button onclick="combinarInsumosSeleccionados('Material')" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition" title="Combina las líneas seleccionadas con Checkbox">
+                <i class="fa-solid fa-object-group text-[10px]"></i> Combinar
+              </button>
+              <span class="font-bold font-mono text-xs text-blue-900 ml-2" id="cat-sum-materiales">$0.00</span>
+            </div>
+          </div>
+          <div id="card-body-Material" class="overflow-x-auto w-full custom-scroll-x">
+            <table class="w-full text-left text-xs border-collapse font-mono min-w-[960px]">
+              <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2 w-10 min-w-[40px] text-center sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                    <input type="checkbox" id="check-all-Material" onchange="toggleSelectAllInsumos('Material', this.checked)" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+                  </th>
+                  <th class="p-2 w-28 min-w-[100px]">Clave</th>
+                  <th class="p-2 min-w-[280px]">Descripción</th>
+                  <th class="p-2 w-28 min-w-[110px] text-right">Costo U.</th>
+                  <th class="p-2 w-16 min-w-[65px] text-center">Unidad</th>
+                  <th class="p-2 w-28 min-w-[105px] text-right">Cantidad</th>
+                  <th class="p-2 w-32 min-w-[120px] text-right">Total ($)</th>
+                </tr>
+              </thead>
+              <tbody id="body-insumos-materiales" class="divide-y divide-slate-100">
+                <!-- Dynamic Materiales -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Table Mano de Obra -->
+        <div id="card-insumos-Mano-de-Obra" class="border border-amber-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
+          <div class="bg-amber-50 px-3 py-2 border-b border-amber-200 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+              <button onclick="toggleInsumoCard('Mano-de-Obra')" class="text-amber-700 hover:text-amber-900 p-1 rounded hover:bg-amber-100 transition" title="Contraer / Expandir tabla de Mano de Obra">
+                <i id="card-chevron-Mano-de-Obra" class="fa-solid fa-chevron-up text-xs"></i>
+              </button>
+              <span class="font-bold text-amber-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-hard-hat"></i> MANO DE OBRA
+              </span>
+              <span class="text-[10px] text-amber-600/70 italic hidden sm:inline flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Barra horizontal inferior
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                  <i class="fa-solid fa-search text-[10px]"></i>
+                </span>
+                <input type="text" id="search-Mano de Obra" oninput="filterInsumosGeneralesTable('Mano de Obra')" placeholder="Buscar descripción..." class="text-xs bg-white border border-amber-300 rounded pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500 w-44 font-sans">
+              </div>
+              <button onclick="combinarInsumosSeleccionados('Mano de Obra')" class="bg-amber-600 hover:bg-amber-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition" title="Combina las líneas seleccionadas con Checkbox">
+                <i class="fa-solid fa-object-group text-[10px]"></i> Combinar
+              </button>
+              <span class="font-bold font-mono text-xs text-amber-900 ml-2" id="cat-sum-mo">$0.00</span>
+            </div>
+          </div>
+          <div id="card-body-Mano-de-Obra" class="overflow-x-auto w-full custom-scroll-x">
+            <table class="w-full text-left text-xs border-collapse font-mono min-w-[960px]">
+              <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2 w-10 min-w-[40px] text-center sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                    <input type="checkbox" id="check-all-Mano de Obra" onchange="toggleSelectAllInsumos('Mano de Obra', this.checked)" class="rounded text-amber-600 focus:ring-amber-500 cursor-pointer">
+                  </th>
+                  <th class="p-2 w-28 min-w-[100px]">Clave</th>
+                  <th class="p-2 min-w-[280px]">Descripción</th>
+                  <th class="p-2 w-28 min-w-[110px] text-right">Costo U.</th>
+                  <th class="p-2 w-16 min-w-[65px] text-center">Unidad</th>
+                  <th class="p-2 w-28 min-w-[105px] text-right">Cantidad</th>
+                  <th class="p-2 w-32 min-w-[120px] text-right">Total ($)</th>
+                </tr>
+              </thead>
+              <tbody id="body-insumos-mo" class="divide-y divide-slate-100">
+                <!-- Dynamic Mano de Obra -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Table Equipo / Herramienta -->
+        <div id="card-insumos-Equipo" class="border border-purple-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
+          <div class="bg-purple-50 px-3 py-2 border-b border-purple-200 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+              <button onclick="toggleInsumoCard('Equipo')" class="text-purple-700 hover:text-purple-900 p-1 rounded hover:bg-purple-100 transition" title="Contraer / Expandir tabla de Equipo">
+                <i id="card-chevron-Equipo" class="fa-solid fa-chevron-up text-xs"></i>
+              </button>
+              <span class="font-bold text-purple-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-screwdriver-wrench"></i> EQUIPO / HERR.
+              </span>
+              <span class="text-[10px] text-purple-600/70 italic hidden sm:inline flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Barra horizontal inferior
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                  <i class="fa-solid fa-search text-[10px]"></i>
+                </span>
+                <input type="text" id="search-Equipo" oninput="filterInsumosGeneralesTable('Equipo')" placeholder="Buscar descripción..." class="text-xs bg-white border border-purple-300 rounded pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-500 w-44 font-sans">
+              </div>
+              <button onclick="combinarInsumosSeleccionados('Equipo')" class="bg-purple-600 hover:bg-purple-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition" title="Combina las líneas seleccionadas con Checkbox">
+                <i class="fa-solid fa-object-group text-[10px]"></i> Combinar
+              </button>
+              <span class="font-bold font-mono text-xs text-purple-900 ml-2" id="cat-sum-equipo">$0.00</span>
+            </div>
+          </div>
+          <div id="card-body-Equipo" class="overflow-x-auto w-full custom-scroll-x">
+            <table class="w-full text-left text-xs border-collapse font-mono min-w-[960px]">
+              <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2 w-10 min-w-[40px] text-center sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                    <input type="checkbox" id="check-all-Equipo" onchange="toggleSelectAllInsumos('Equipo', this.checked)" class="rounded text-purple-600 focus:ring-purple-500 cursor-pointer">
+                  </th>
+                  <th class="p-2 w-28 min-w-[100px]">Clave</th>
+                  <th class="p-2 min-w-[280px]">Descripción</th>
+                  <th class="p-2 w-28 min-w-[110px] text-right">Costo U.</th>
+                  <th class="p-2 w-16 min-w-[65px] text-center">Unidad</th>
+                  <th class="p-2 w-28 min-w-[105px] text-right">Cantidad</th>
+                  <th class="p-2 w-32 min-w-[120px] text-right">Total ($)</th>
+                </tr>
+              </thead>
+              <tbody id="body-insumos-equipo" class="divide-y divide-slate-100">
+                <!-- Dynamic Equipo -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Table Subcontratos -->
+        <div id="card-insumos-Subcontrato" class="border border-emerald-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
+          <div class="bg-emerald-50 px-3 py-2 border-b border-emerald-200 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+              <button onclick="toggleInsumoCard('Subcontrato')" class="text-emerald-700 hover:text-emerald-900 p-1 rounded hover:bg-emerald-100 transition" title="Contraer / Expandir tabla de Subcontratos">
+                <i id="card-chevron-Subcontrato" class="fa-solid fa-chevron-up text-xs"></i>
+              </button>
+              <span class="font-bold text-emerald-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-file-signature"></i> SUBCONTRATOS
+              </span>
+              <span class="text-[10px] text-emerald-600/70 italic hidden sm:inline flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Barra horizontal inferior
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                  <i class="fa-solid fa-search text-[10px]"></i>
+                </span>
+                <input type="text" id="search-Subcontrato" oninput="filterInsumosGeneralesTable('Subcontrato')" placeholder="Buscar descripción..." class="text-xs bg-white border border-emerald-300 rounded pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-44 font-sans">
+              </div>
+              <button onclick="combinarInsumosSeleccionados('Subcontrato')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition" title="Combina las líneas seleccionadas con Checkbox">
+                <i class="fa-solid fa-object-group text-[10px]"></i> Combinar
+              </button>
+              <span class="font-bold font-mono text-xs text-emerald-900 ml-2" id="cat-sum-subcontratos">$0.00</span>
+            </div>
+          </div>
+          <div id="card-body-Subcontrato" class="overflow-x-auto w-full custom-scroll-x">
+            <table class="w-full text-left text-xs border-collapse font-mono min-w-[960px]">
+              <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2 w-10 min-w-[40px] text-center sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                    <input type="checkbox" id="check-all-Subcontrato" onchange="toggleSelectAllInsumos('Subcontrato', this.checked)" class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                  </th>
+                  <th class="p-2 w-28 min-w-[100px]">Clave</th>
+                  <th class="p-2 min-w-[280px]">Descripción</th>
+                  <th class="p-2 w-28 min-w-[110px] text-right">Costo U.</th>
+                  <th class="p-2 w-16 min-w-[65px] text-center">Unidad</th>
+                  <th class="p-2 w-28 min-w-[105px] text-right">Cantidad</th>
+                  <th class="p-2 w-32 min-w-[120px] text-right">Total ($)</th>
+                </tr>
+              </thead>
+              <tbody id="body-insumos-subcontratos" class="divide-y divide-slate-100">
+                <!-- Dynamic Subcontratos -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal Especializado: Google Search Grounding con Gemini -->
+  <div id="modal-ai-generator" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col">
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white px-4 py-3 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300">
+            <i class="fa-brands fa-google text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-xs leading-none">Google Search Grounding para APU</h3>
+            <span class="text-[10px] text-blue-200/80">Búsqueda de costos de mercado y rendimientos en vivo</span>
+          </div>
+        </div>
+        <button onclick="closeAiGeneratorModal()" class="text-slate-400 hover:text-white text-base">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 space-y-3 text-xs">
+        <!-- Fila seleccionada en TAB1-CAT-BASE -->
+        <div class="p-3 bg-blue-50/50 border border-blue-200/80 rounded-lg space-y-1.5">
+          <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+            <span id="ai-modal-path" class="truncate font-sans font-medium text-slate-600">Partida > Subpartida</span>
+            <span id="ai-modal-clave" class="bg-blue-600 text-white font-bold px-1.5 py-0.5 rounded text-[9px]">---</span>
+          </div>
+          <p id="ai-modal-desc" class="font-bold text-slate-900 text-xs leading-snug">Descripción del concepto</p>
+          <div class="flex items-center gap-4 text-[10px] text-slate-600 pt-1 border-t border-blue-200/60">
+            <span>Unidad base: <strong id="ai-modal-unid" class="text-blue-800 font-mono font-bold">m2</strong></span>
+            <span>Cantidad en catálogo: <strong id="ai-modal-cant" class="text-slate-800 font-mono">1.00</strong></span>
+          </div>
+        </div>
+
+        <!-- Entrada de API Key -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center">
+            <label class="font-semibold text-slate-700 text-[11px] flex items-center gap-1">
+              <i class="fa-solid fa-key text-blue-600"></i> Google Gemini API Key
+            </label>
+            <div class="flex items-center gap-2">
+              <button onclick="testGeminiConnection()" class="text-[10px] text-slate-600 hover:text-blue-700 font-medium flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded border border-slate-200 transition">
+                <i class="fa-solid fa-vial text-[8px]"></i> Probar Clave
+              </button>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-blue-600 hover:underline flex items-center gap-1">
+                <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i> Obtener clave gratuita
+              </a>
+            </div>
+          </div>
+          <div class="flex gap-1.5">
+            <input type="password" id="ai-modal-api-key" placeholder="Pega tu API Key de Gemini aquí (AIzaSy...)" class="flex-1 border border-slate-300 rounded p-1.5 text-xs font-mono focus:border-blue-500 focus:outline-none">
+            <button onclick="toggleAiModalKeyVisibility()" class="bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2.5 py-1 rounded text-slate-600">
+              <i id="ai-key-eye-icon" class="fa-solid fa-eye text-xs"></i>
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-500 leading-tight">
+            La IA activará <strong>Google Search Grounding</strong> para consultar cotizaciones en México (MXN) para <strong><span id="ai-modal-unid-hint">esta unidad</span></strong>, desglosando Materiales, Mano de Obra con cuadrillas y Equipo.
+          </p>
+        </div>
+
+        <!-- Indicador de Carga / Spinner -->
+        <div id="ai-modal-loading" class="hidden p-3 bg-blue-50 border border-blue-200 rounded-lg text-center space-y-2">
+          <div class="flex items-center justify-center gap-2 text-blue-800 font-semibold text-xs">
+            <i class="fa-solid fa-circle-notch fa-spin text-blue-600"></i>
+            <span id="ai-modal-loading-text">Buscando cotizaciones en internet con Google Search...</span>
+          </div>
+          <div class="w-full bg-blue-200 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-blue-600 h-1.5 rounded-full animate-pulse w-3/4"></div>
+          </div>
+          <span class="text-[9px] text-slate-500 block">Consultando tiendas, distribuidores y tabuladores de rendimientos</span>
+        </div>
+
+        <!-- Mensaje de Error (si ocurre) -->
+        <div id="ai-modal-error" class="hidden p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-[11px] flex items-start gap-2">
+          <i class="fa-solid fa-triangle-exclamation text-rose-500 mt-0.5 shrink-0"></i>
+          <div class="flex-1">
+            <span class="font-bold block" id="ai-modal-error-title">No se pudo consultar Google Search Grounding</span>
+            <span id="ai-modal-error-msg" class="text-[10px]">Verifica tu API Key o conexión a internet.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="bg-slate-50 px-4 py-3 border-t border-slate-200 flex flex-wrap justify-between items-center gap-2">
+        <button onclick="executeLocalGeneration()" id="btn-ai-modal-local" class="text-slate-600 hover:text-slate-800 hover:bg-slate-200 px-3 py-1.5 rounded font-medium text-xs transition flex items-center gap-1.5">
+          <i class="fa-solid fa-database text-[10px]"></i> Usar Catálogo Local
+        </button>
+        <div class="flex gap-2">
+          <button onclick="closeAiGeneratorModal()" class="px-3 py-1.5 bg-white border border-slate-300 rounded text-slate-700 hover:bg-slate-100 font-medium text-xs">
+            Cancelar
+          </button>
+          <button onclick="executeAiGeneration()" id="btn-ai-modal-run" class="px-4 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded font-medium shadow-sm transition text-xs flex items-center gap-1.5 hover:scale-105 active:scale-95">
+            <i class="fa-brands fa-google text-[10px] text-amber-300"></i> Buscar en Google y Llenar Matriz
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Configuración General (Sobrecosto, Gemini API, Datos) -->
+  <div id="settings-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col">
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
+        <h3 class="font-bold text-sm flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-blue-400"></i> Configuración del Sistema
+        </h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white text-base">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Nav Tabs -->
+      <div class="flex border-b border-slate-200 bg-slate-50 text-xs font-semibold px-4 pt-2">
+        <button onclick="switchSettingsTab('sobrecosto')" id="modal-tab-sobrecosto" class="py-2 px-3 border-b-2 border-blue-600 text-blue-600 flex items-center gap-1.5">
+          <i class="fa-solid fa-percent"></i> Factor Sobrecosto
+        </button>
+        <button onclick="switchSettingsTab('ia')" id="modal-tab-ia" class="py-2 px-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> IA Gemini
+        </button>
+        <button onclick="switchSettingsTab('datos')" id="modal-tab-datos" class="py-2 px-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+          <i class="fa-solid fa-database"></i> Gestión de Datos
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 overflow-y-auto max-h-[70vh] space-y-4 text-xs">
+        
+        <!-- Tab 1: Factores de Sobrecosto -->
+        <div id="modal-view-sobrecosto" class="space-y-3">
+          <div class="flex items-center justify-between p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+            <div>
+              <span class="font-bold text-slate-800 block text-xs">Aplicar Factor de Sobrecosto</span>
+              <span class="text-[11px] text-slate-500">Calcula el Precio de Venta a partir del Costo Directo de los APU.</span>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="cfg-apply-sobrecosto" onchange="updateCalculatedFactorPreview()" class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">% Indirectos Oficina y Campo</label>
+              <input type="number" id="cfg-indirectos" step="0.1" value="12.0" oninput="updateCalculatedFactorPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">% Costo por Financiamiento</label>
+              <input type="number" id="cfg-financiamiento" step="0.1" value="1.5" oninput="updateCalculatedFactorPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">% Utilidad del Contratista</label>
+              <input type="number" id="cfg-utilidad" step="0.1" value="10.0" oninput="updateCalculatedFactorPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">% Cargos Adicionales / Inspección</label>
+              <input type="number" id="cfg-adicionales" step="0.1" value="0.5" oninput="updateCalculatedFactorPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono">
+            </div>
+          </div>
+
+          <div class="p-3 bg-slate-100 rounded-lg border border-slate-200 flex justify-between items-center font-mono">
+            <span class="text-slate-600 font-sans font-medium">Factor Sobrecosto Resultante:</span>
+            <span class="font-bold text-sm text-blue-700" id="cfg-factor-preview">1.2584 (+25.84%)</span>
+          </div>
+        </div>
+
+        <!-- Tab 2: Configuración Gemini IA -->
+        <div id="modal-view-ia" class="space-y-3 hidden">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Google Gemini API Key</label>
+            <div class="flex gap-1.5">
+              <input type="password" id="cfg-api-key" placeholder="AIzaSy..." class="flex-1 border border-slate-300 rounded p-1.5 text-xs font-mono">
+              <button onclick="toggleApiKeyVisibility()" class="bg-slate-200 hover:bg-slate-300 px-2.5 py-1 rounded text-slate-700">
+                <i id="eye-icon" class="fa-solid fa-eye text-xs"></i>
+              </button>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">
+              Permite a la aplicación activar Google Search Grounding para cotizar materiales y mano de obra vigentes en México.
+            </p>
+          </div>
+
+          <div class="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 text-[11px] space-y-1">
+            <div class="font-bold flex items-center gap-1.5">
+              <i class="fa-brands fa-google"></i> ¿Cómo obtener tu API Key gratuita?
+            </div>
+            <p>1. Ingresa a <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 underline font-semibold">Google AI Studio</a>.</p>
+            <p>2. Crea tu API Key gratuita y pégala aquí. Quedará guardada en tu navegador.</p>
+          </div>
+        </div>
+
+        <!-- Tab 3: Gestión de Datos -->
+        <div id="modal-view-datos" class="space-y-3 hidden">
+          <div class="p-3 border border-slate-200 rounded-lg flex items-center justify-between">
+            <div>
+              <span class="font-bold text-slate-800 block">Restablecer Catálogo Demo</span>
+              <span class="text-[11px] text-slate-500">Recupera las partidas de ejemplo originales (Cimentación y Firme).</span>
+            </div>
+            <button onclick="resetToDemoData()" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded font-medium shadow-sm transition">
+              Restablecer
+            </button>
+          </div>
+
+          <div class="p-3 border border-red-200 bg-red-50 rounded-lg flex items-center justify-between">
+            <div>
+              <span class="font-bold text-red-800 block">Vaciar Presupuesto</span>
+              <span class="text-[11px] text-red-600">Elimina todas las partidas para comenzar un presupuesto nuevo.</span>
+            </div>
+            <button onclick="clearAllData()" class="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded font-medium shadow-sm transition">
+              Vaciar Todo
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-100 px-4 py-2.5 border-t border-slate-200 flex justify-end gap-2">
+        <button onclick="closeSettingsModal()" class="px-3 py-1.5 bg-white border border-slate-300 rounded text-slate-700 hover:bg-slate-200 font-medium">
+          Cancelar
+        </button>
+        <button onclick="saveSettings()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium shadow-sm transition">
+          Guardar Cambios
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'control_obra_treeData_v3';
+    const SETTINGS_KEY = 'control_obra_settings_v3';
+
+    const defaultTreeData = [
+      {
+        id: '1',
+        clave: '1',
+        descripcion: 'CIMENTACIÓN',
+        unidad: 'pza',
+        cantidad: 1,
+        precioUnitario: 0,
+        costoDirecto: 0,
+        color: '#3b82f6',
+        expanded: true,
+        selected: true,
+        children: [
+          {
+            id: '1.1',
+            clave: '1.1',
+            descripcion: 'NAVE TIPO 01',
+            unidad: 'pza',
+            cantidad: 1,
+            precioUnitario: 0,
+            costoDirecto: 0,
+            expanded: true,
+            selected: true,
+            children: [
+              {
+                id: '1.1.24',
+                clave: '1.1.24',
+                descripcion: 'Firme de concreto de 20cms reforzado con malla electrosoldada',
+                unidad: 'm2',
+                cantidad: 12134.10,
+                precioUnitario: 427.00,
+                costoDirecto: 427.00,
+                selected: true,
+                googleSearchQueries: [
+                  "precio concreto f'c 250 m3 mexico",
+                  "malla electrosoldada 6-6 10-10 m2 costo",
+                  "rendimiento cuadrilla colado y vibrado concreto m2"
+                ],
+                googleSources: [
+                  { title: "Home Depot México - Concreto y Malla", uri: "https://www.homedepot.com.mx" },
+                  { title: "Tabulador de Salarios y Rendimientos CMIC", uri: "https://www.cmic.org" }
+                ],
+                aiTips: "Asegurar curado adecuado con membrana base agua y considerar juntas de dilatación/corte a cada 4.0 metros.",
+                insumos: [
+                  { clave: 'MAT-01', tipo: 'Material', descripcion: 'Concreto premezclado MR-35 bombeable', unidad: 'm3', cantidad: 0.21, costoUnitario: 1450.00 },
+                  { clave: 'MAT-02', tipo: 'Material', descripcion: 'Malla electrosoldada 6-6/10-10 en rollo', unidad: 'm2', cantidad: 1.05, costoUnitario: 40.85 },
+                  { clave: 'MO-01', tipo: 'Mano de Obra', descripcion: 'Cuadrilla de colado, nivelación y acabado pulido', unidad: 'm2', cantidad: 1.00, costoUnitario: 79.60 }
+                ]
+              },
+              {
+                id: '1.1.26',
+                clave: '1.1.26',
+                descripcion: 'Relleno premoldeado FEXPAN Mca. Fester',
+                unidad: 'ml',
+                cantidad: 666.22,
+                precioUnitario: 102.78,
+                costoDirecto: 102.78,
+                selected: false,
+                insumos: [
+                  { clave: 'MAT-03', tipo: 'Material', descripcion: 'Cinta Fexpan 1/2x4 pulg', unidad: 'ml', cantidad: 1.00, costoUnitario: 85.00 },
+                  { clave: 'MO-02', tipo: 'Mano de Obra', descripcion: 'Oficial colocador de juntas', unidad: 'ml', cantidad: 0.10, costoUnitario: 177.80 }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: '2',
+        clave: '2',
+        descripcion: 'ESTRUCTURA',
+        unidad: 'pza',
+        cantidad: 1,
+        precioUnitario: 0,
+        costoDirecto: 0,
+        color: '#10b981',
+        expanded: false,
+        selected: false,
+        children: []
+      }
+    ];
+
+    let defaultSettings = {
+      apiKey: '',
+      applySobrecosto: false,
+      pctIndirectos: 12.0,
+      pctFinanciamiento: 1.5,
+      pctUtilidad: 10.0,
+      pctAdicionales: 0.5
+    };
+
+    // Cargar configuraciones guardadas
+    let settings = Object.assign({}, defaultSettings);
+    try {
+      const savedSettings = localStorage.getItem(SETTINGS_KEY);
+      if (savedSettings) settings = Object.assign(settings, JSON.parse(savedSettings));
+    } catch (e) { console.error('Error cargando configuración:', e); }
+
+    // Cargar árbol guardado o usar default
+    let treeData = [];
+    try {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      if (savedData) {
+        treeData = JSON.parse(savedData);
+      } else {
+        treeData = JSON.parse(JSON.stringify(defaultTreeData));
+      }
+    } catch (e) {
+      console.error('Error cargando treeData:', e);
+      treeData = JSON.parse(JSON.stringify(defaultTreeData));
+    }
+
+    let activeSelectedId = null;
+    let currentFilter = 'Todos';
+    let currentMatrizFilter = 'Todos';
+    let clipboardNode = null;
+
+    // Formateadores de moneda y cantidades reutilizables (optimizan el rendimiento evitando recrear Intl repetidamente)
+    const numFormatter = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const formatMoney = (val) => `$${numFormatter.format(Number(val) || 0)}`;
+    const formatQty = (val) => numFormatter.format(Number(val) || 0);
+
+    // Cache de colores jerárquicos para evitar cálculos repetitivos en cada render
+    const hierarchyColorCache = new Map();
+
+    let undoStack = [];
+    let redoStack = [];
+
+    function saveState() {
+      undoStack.push(JSON.stringify(treeData));
+      if (undoStack.length > 20) undoStack.shift();
+      redoStack = [];
+      updateUndoRedoButtons();
+      persistLocalData(false);
+    }
+
+    let persistTimer = null;
+    function persistLocalData(immediate = false) {
+      if (immediate) {
+        if (persistTimer) clearTimeout(persistTimer);
+        persistTimer = null;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(treeData));
+        } catch (e) {
+          console.error('Error guardando en localStorage:', e);
+        }
+        return;
+      }
+      if (persistTimer) clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(treeData));
+        } catch (e) {
+          console.error('Error guardando en localStorage:', e);
+        }
+        persistTimer = null;
+      }, 300);
+    }
+
+    window.addEventListener('beforeunload', () => persistLocalData(true));
+
+    function undoAction() {
+      if (undoStack.length === 0) return;
+      redoStack.push(JSON.stringify(treeData));
+      const prevState = undoStack.pop();
+      treeData = JSON.parse(prevState);
+      persistLocalData(true);
+      renderTAB1();
+      updateUndoRedoButtons();
+      showToast('Deshecho', 'info');
+    }
+
+    function redoAction() {
+      if (redoStack.length === 0) return;
+      undoStack.push(JSON.stringify(treeData));
+      const nextState = redoStack.pop();
+      treeData = JSON.parse(nextState);
+      persistLocalData(true);
+      renderTAB1();
+      updateUndoRedoButtons();
+      showToast('Rehecho', 'info');
+    }
+
+    function updateUndoRedoButtons() {
+      const undoBtn = document.getElementById('btn-undo');
+      const redoBtn = document.getElementById('btn-redo');
+      if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+      if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+    }
+
+    function getFactorSobrecosto() {
+      if (!settings.applySobrecosto) return 1.0;
+      const fInd = 1 + ((parseFloat(settings.pctIndirectos) || 0) / 100);
+      const fFin = 1 + ((parseFloat(settings.pctFinanciamiento) || 0) / 100);
+      const fUtil = 1 + ((parseFloat(settings.pctUtilidad) || 0) / 100);
+      const fCarg = 1 + ((parseFloat(settings.pctAdicionales) || 0) / 100);
+      return fInd * fFin * fUtil * fCarg;
+    }
+
+    function updateSobrecostoBadge() {
+      const badge = document.getElementById('badge-sobrecosto');
+      const label = document.getElementById('label-factor-sobrecosto');
+      const cdContainer = document.getElementById('costo-directo-total-container');
+
+      if (settings.applySobrecosto) {
+        const factor = getFactorSobrecosto();
+        const pctIncremento = ((factor - 1) * 100).toFixed(2);
+        badge.className = "text-xs px-2.5 py-1 rounded border border-amber-600 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 flex items-center gap-1.5 transition font-mono";
+        label.innerText = `Sobrecosto: +${pctIncremento}%`;
+        if (cdContainer) cdContainer.classList.remove('hidden');
+      } else {
+        badge.className = "text-xs px-2.5 py-1 rounded border border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700 flex items-center gap-1.5 transition";
+        label.innerText = `Sobrecosto: Inactivo`;
+        if (cdContainer) cdContainer.classList.add('hidden');
+      }
+    }
+
+    function switchTab(tab) {
+      const viewCat = document.getElementById('view-cat');
+      const viewInsumos = document.getElementById('view-insumos');
+      const btnCat = document.getElementById('tab-btn-cat');
+      const btnInsumos = document.getElementById('tab-btn-insumos');
+
+      if (tab === 'cat') {
+        viewCat.classList.remove('hidden');
+        viewInsumos.classList.add('hidden');
+        btnCat.className = "px-3 py-1 rounded text-xs font-semibold bg-blue-600 text-white transition flex items-center gap-1.5";
+        btnInsumos.className = "px-3 py-1 rounded text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5";
+      } else {
+        viewCat.classList.add('hidden');
+        viewInsumos.classList.remove('hidden');
+        btnCat.className = "px-3 py-1 rounded text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5";
+        btnInsumos.className = "px-3 py-1 rounded text-xs font-semibold bg-blue-600 text-white transition flex items-center gap-1.5";
+        renderInsumosGenerales();
+      }
+    }
+
+    // Función de cálculo de color jerárquico progresivo (con caché memoizada para máximo rendimiento)
+    function getHierarchyColor(hexColor, depthOffset) {
+      if (!hexColor) return null;
+      const cacheKey = `${hexColor}_${depthOffset}`;
+      if (hierarchyColorCache.has(cacheKey)) return hierarchyColorCache.get(cacheKey);
+
+      let c = hexColor.replace('#', '');
+      if (c.length === 3) c = c.split('').map(x => x + x).join('');
+      const num = parseInt(c, 16);
+      if (isNaN(num)) return null;
+      const r = (num >> 16) & 255;
+      const g = (num >> 8) & 255;
+      const b = num & 255;
+
+      const factors = [0.72, 0.82, 0.90, 0.95];
+      const factor = depthOffset < factors.length ? factors[depthOffset] : 0.96;
+
+      const rTint = Math.round(r + (255 - r) * factor);
+      const gTint = Math.round(g + (255 - g) * factor);
+      const bTint = Math.round(b + (255 - b) * factor);
+
+      const res = `rgb(${rTint}, ${gTint}, ${bTint})`;
+      hierarchyColorCache.set(cacheKey, res);
+      return res;
+    }
+
+    function renderTAB1() {
+      const tbody = document.getElementById('tb1-body');
+      const fragment = document.createDocumentFragment();
+      let totalCount = 0;
+      let selectedCount = 0;
+
+      function traverse(nodes, level = 1, inheritedColor = null, parentColorLevel = 1) {
+        nodes.forEach((node, idx) => {
+          totalCount++;
+          if (node.selected) selectedCount++;
+
+          const isParent = node.children && node.children.length > 0;
+          const hasMatriz = node.insumos && node.insumos.length > 0;
+          const calculatedTotal = isParent 
+            ? calculateParentTotal(node) 
+            : (node.cantidad * node.precioUnitario);
+
+          // Color jerárquico progresivo (optimizado con caché)
+          const activeColor = node.color || inheritedColor;
+          const colorOriginLevel = node.color ? level : parentColorLevel;
+          const depthOffset = activeColor ? Math.max(0, level - colorOriginLevel) : 0;
+          const rowBgColor = activeColor ? getHierarchyColor(activeColor, depthOffset) : '';
+
+          const isSelected = activeSelectedId === node.id;
+          const tr = document.createElement('tr');
+          tr.className = `cursor-pointer transition duration-150 ${isSelected ? 'selected-row' : 'hover:brightness-95'}`;
+          if (!isSelected && rowBgColor) {
+            tr.style.backgroundColor = rowBgColor;
+          }
+          tr.onclick = (e) => {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON' && !e.target.closest('button')) {
+              selectRow(node.id);
+            }
+          };
+
+          const paddingIndent = (level - 1) * 12;
+
+          tr.innerHTML = `
+            <td class="p-1 text-center align-top pt-2">
+              <div class="relative inline-flex items-center justify-center">
+                <label class="cursor-pointer flex items-center justify-center m-0 p-0" title="${node.color ? 'Color propio: ' + node.color + ' (clic para cambiar)' : (activeColor ? 'Color heredado del nivel superior (clic para personalizar)' : 'Elegir color para esta partida y sus sub-conceptos')}">
+                  <input type="color" value="${node.color || activeColor || '#3b82f6'}" 
+                         onchange="updateNodeColor('${node.id}', this.value, event)" 
+                         class="color-picker-dot w-4 h-4 rounded-full cursor-pointer border ${node.color ? 'border-slate-500 ring-1 ring-slate-400' : (activeColor ? 'border-slate-400 opacity-75' : 'border-slate-300 opacity-30 hover:opacity-100')}">
+                </label>
+                ${node.color ? `
+                  <button type="button" onclick="clearNodeColor('${node.id}', event)" 
+                          title="Quitar color propio" 
+                          class="absolute -top-1.5 -right-1.5 bg-white hover:bg-red-600 hover:text-white text-slate-500 rounded-full w-3.5 h-3.5 flex items-center justify-center border border-slate-300 text-[7px] shadow-xs transition leading-none">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+            <td class="p-1.5 text-center align-top pt-2">
+              <input type="checkbox" ${node.selected ? 'checked' : ''} onchange="toggleSelectNode('${node.id}', this.checked, event)" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+            </td>
+            <td class="p-1.5 text-center font-sans text-slate-400 text-[10px] align-top pt-2">${level}</td>
+            <td class="p-1.5 font-semibold text-slate-700 align-top pt-2">${node.clave}</td>
+            <td class="p-1.5 align-top text-justify">
+              <div class="flex items-start" style="padding-left: ${paddingIndent}px">
+                ${isParent ? `
+                  <button onclick="toggleExpand('${node.id}', event)" class="mr-1 text-slate-500 hover:text-slate-800 w-3 text-center shrink-0 mt-1">
+                    <i class="fa-solid fa-chevron-${node.expanded ? 'down' : 'right'} text-[9px]"></i>
+                  </button>
+                ` : '<span class="w-4 inline-block shrink-0"></span>'}
+                <textarea onchange="updateNode('${node.id}', 'descripcion', this.value)" 
+                          class="desc-input w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white px-1 py-0.5 rounded text-xs font-sans text-justify leading-snug break-words whitespace-normal font-sans">${node.descripcion}</textarea>
+              </div>
+            </td>
+            <td class="p-1.5 text-center align-top pt-2">
+              <input type="text" value="${node.unidad}" onchange="updateNode('${node.id}', 'unidad', this.value)" 
+                     class="w-10 text-center bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white py-0.5 rounded text-xs">
+            </td>
+            <td class="p-1.5 text-right align-top pt-2">
+              ${!isParent ? `
+                <input type="number" step="0.01" value="${node.cantidad}" onchange="updateNode('${node.id}', 'cantidad', parseFloat(this.value) || 0)" 
+                       class="w-16 text-right bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white py-0.5 rounded text-xs">
+              ` : `<span class="text-slate-400">${node.cantidad}</span>`}
+            </td>
+            <td class="p-1.5 text-right align-top pt-2">
+              ${!isParent ? `
+                <div class="flex items-center justify-end">
+                  <span class="text-slate-500 mr-0.5 font-semibold">$</span>
+                  <input type="number" step="0.01" value="${node.precioUnitario}" onchange="updateNode('${node.id}', 'precioUnitario', parseFloat(this.value) || 0)" 
+                         class="w-20 text-right bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white py-0.5 rounded text-xs font-semibold text-blue-700">
+                </div>
+              ` : '<span class="text-slate-400">-</span>'}
+            </td>
+            <td class="p-1.5 text-right font-bold text-slate-800 align-top pt-2">
+              ${formatMoney(calculatedTotal)}
+            </td>
+            <td class="p-1.5 text-center align-top pt-2">
+              <div class="flex items-center justify-center space-x-1">
+                <button onclick="addChildRow('${node.id}', event)" 
+                        title="${hasMatriz ? 'Restringido: Este concepto ya cuenta con matriz de insumos. No se pueden agregar sub-filas.' : 'Agregar Sub-renglón'}" 
+                        class="${hasMatriz ? 'text-slate-300 hover:text-amber-600 p-1 transition' : 'text-blue-600 hover:text-blue-800 p-1'}">
+                  <i class="fa-solid fa-plus-circle text-xs ${hasMatriz ? 'opacity-35 hover:opacity-100' : ''}"></i>
+                </button>
+                <div class="relative dropdown-container">
+                  <button class="text-slate-500 hover:text-slate-800 p-1 rounded hover:bg-slate-200">
+                    <i class="fa-solid fa-ellipsis-vertical text-xs"></i>
+                  </button>
+                  <div class="dropdown-menu absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded shadow-lg z-30 text-left py-1 text-[11px] font-sans">
+                    <button onclick="duplicarNode('${node.id}', event)" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2">
+                      <i class="fa-solid fa-clone text-[10px]"></i> Duplicar
+                    </button>
+                    <button onclick="copiarNode('${node.id}', event)" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2">
+                      <i class="fa-solid fa-copy text-[10px]"></i> Copiar
+                    </button>
+                    <button onclick="pegarNode('${node.id}', event)" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 ${!clipboardNode ? 'opacity-40 cursor-not-allowed' : ''}">
+                      <i class="fa-solid fa-paste text-[10px]"></i> Pegar debajo
+                    </button>
+                    <div class="border-t border-slate-100 my-0.5"></div>
+                    <button onclick="moverNode('${node.id}', 'up', event)" class="w-full text-left px-3 py-1 hover:bg-slate-100 flex items-center gap-2">
+                      <i class="fa-solid fa-arrow-up text-[10px]"></i> Mover Arriba
+                    </button>
+                    <button onclick="moverNode('${node.id}', 'down', event)" class="w-full text-left px-3 py-1 hover:bg-slate-100 flex items-center gap-2">
+                      <i class="fa-solid fa-arrow-down text-[10px]"></i> Mover Abajo
+                    </button>
+                    <div class="border-t border-slate-100 my-0.5"></div>
+                    <button onclick="deleteNode('${node.id}', event)" class="w-full text-left px-3 py-1 hover:bg-red-50 text-red-600 flex items-center gap-2">
+                      <i class="fa-solid fa-trash text-[10px]"></i> Eliminar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </td>
+          `;
+
+          fragment.appendChild(tr);
+
+          if (isParent && node.expanded) {
+            traverse(node.children, level + 1, activeColor, colorOriginLevel);
+          }
+        });
+      }
+
+      traverse(treeData);
+      tbody.replaceChildren(fragment);
+      document.getElementById('total-items').innerText = `${totalCount} renglones`;
+
+      const selBadge = document.getElementById('selected-items-badge');
+      if (selectedCount > 0) {
+        selBadge.classList.remove('hidden');
+        selBadge.innerText = `${selectedCount} sel.`;
+      } else {
+        selBadge.classList.add('hidden');
+      }
+
+      const selectAllHeader = document.getElementById('select-all-checkbox');
+      if (selectAllHeader) {
+        selectAllHeader.checked = (totalCount > 0 && selectedCount === totalCount);
+      }
+
+      const statusSpan = document.getElementById('selected-row-status');
+      if (activeSelectedId) {
+        const selNode = findNodeById(treeData, activeSelectedId);
+        if (selNode) {
+          const isGroup = selNode.children && selNode.children.length > 0;
+          const hasM = selNode.insumos && selNode.insumos.length > 0;
+          const badgeInfo = isGroup ? '(Partida agrupada - sin matriz)' : (hasM ? '(Concepto con matriz)' : '(Concepto sin matriz)');
+          statusSpan.innerText = `Seleccionado: [${selNode.clave}] ${selNode.descripcion.substring(0, 22)}... ${badgeInfo}`;
+        }
+      } else {
+        statusSpan.innerText = `Seleccione una fila para acciones`;
+      }
+
+      updateGrandTotal();
+      updateSobrecostoBadge();
+    }
+
+    function updateNodeColor(id, newColor, event) {
+      if (event) event.stopPropagation();
+      const node = findNodeById(treeData, id);
+      if (!node) return;
+      saveState();
+      node.color = newColor;
+      persistLocalData();
+      renderTAB1();
+      showToast(`Color asignado a ${node.clave || 'partida'}`, 'success');
+    }
+
+    function clearNodeColor(id, event) {
+      if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+      const node = findNodeById(treeData, id);
+      if (!node) return;
+      saveState();
+      delete node.color;
+      persistLocalData();
+      renderTAB1();
+      showToast(`Color restablecido en ${node.clave || 'partida'}`, 'info');
+    }
+
+    function addRootRow() {
+      saveState();
+      const newId = '_' + Math.random().toString(36).substr(2, 9);
+      treeData.push({
+        id: newId,
+        clave: '',
+        descripcion: 'NUEVA PARTIDA PRINCIPAL',
+        unidad: 'lote',
+        cantidad: 1,
+        precioUnitario: 0,
+        costoDirecto: 0,
+        expanded: true,
+        selected: false,
+        children: []
+      });
+      recalculateClaves(treeData);
+      renderTAB1();
+      showToast('Partida agregada', 'success');
+    }
+
+    function duplicarSelectedRow() {
+      if (!activeSelectedId) {
+        showToast('Selecciona una fila primero', 'warning');
+        return;
+      }
+      duplicarNode(activeSelectedId);
+    }
+
+    function copiarSelectedRow() {
+      if (!activeSelectedId) {
+        showToast('Selecciona una fila primero', 'warning');
+        return;
+      }
+      copiarNode(activeSelectedId);
+    }
+
+    function pegarSelectedRow() {
+      if (!clipboardNode) {
+        showToast('No hay ningún concepto copiado', 'warning');
+        return;
+      }
+      const targetId = activeSelectedId || (treeData.length > 0 ? treeData[treeData.length - 1].id : null);
+      if (!targetId) return;
+      pegarNode(targetId);
+    }
+
+    function moverSelectedRow(direction) {
+      if (!activeSelectedId) {
+        showToast('Selecciona una fila primero', 'warning');
+        return;
+      }
+      moverNode(activeSelectedId, direction);
+    }
+
+    function deleteSelectedRow() {
+      function countCheckedNodes(nodes) {
+        let count = 0;
+        nodes.forEach(n => {
+          if (n.selected) count++;
+          if (n.children) count += countCheckedNodes(n.children);
+        });
+        return count;
+      }
+
+      const checkedTotal = countCheckedNodes(treeData);
+
+      if (checkedTotal > 0) {
+        if (!confirm(`¿Deseas eliminar las ${checkedTotal} filas marcadas con Checkbox?`)) return;
+        saveState();
+
+        function filterOutChecked(nodes) {
+          return nodes.filter(n => {
+            if (n.selected) return false;
+            if (n.children) n.children = filterOutChecked(n.children);
+            return true;
+          });
+        }
+
+        treeData = filterOutChecked(treeData);
+
+        if (activeSelectedId) {
+          const stillExists = findNodeById(treeData, activeSelectedId);
+          if (!stillExists) closeApuPanel();
+        }
+
+        recalculateClaves(treeData);
+        renderTAB1();
+        showToast(`${checkedTotal} filas eliminadas`, 'info');
+      } else if (activeSelectedId) {
+        if (confirm('¿Deseas eliminar la fila seleccionada actual?')) {
+          deleteNode(activeSelectedId);
+        }
+      } else {
+        showToast('Selecciona una fila o marca casillas para eliminar', 'warning');
+      }
+    }
+
+    // Ruta jerárquica para dar contexto completo a la IA
+    function getNodeHierarchyPath(nodes, targetId, path = []) {
+      for (let n of nodes) {
+        const current = [...path, n.descripcion];
+        if (n.id === targetId) return current;
+        if (n.children && n.children.length > 0) {
+          const res = getNodeHierarchyPath(n.children, targetId, current);
+          if (res) return res;
+        }
+      }
+      return null;
+    }
+
+    // Modal de Generación APU con Google Search Grounding
+    function openAiGeneratorModal() {
+      if (!activeSelectedId) {
+        showToast('Selecciona un concepto en la tabla TAB1-CAT-BASE primero', 'warning');
+        return;
+      }
+
+      const node = findNodeById(treeData, activeSelectedId);
+      if (!node) return;
+
+      const isParent = node.children && node.children.length > 0;
+      if (isParent) {
+        showToast('Selecciona un concepto final (hoja) de la tabla, no una partida agrupada', 'warning');
+        return;
+      }
+
+      // Cargar datos exactos del concepto seleccionado en el modal
+      const pathArr = getNodeHierarchyPath(treeData, node.id) || [];
+      const parentPath = pathArr.length > 1 ? pathArr.slice(0, -1).join('  >  ') : 'Partida Principal';
+
+      document.getElementById('ai-modal-path').innerText = parentPath;
+      document.getElementById('ai-modal-clave').innerText = node.clave || '---';
+      document.getElementById('ai-modal-desc').innerText = node.descripcion || 'Sin descripción';
+      document.getElementById('ai-modal-unid').innerText = node.unidad || 'pza';
+      document.getElementById('ai-modal-unid-hint').innerText = `1 ${node.unidad || 'pza'}`;
+      document.getElementById('ai-modal-cant').innerText = formatQty(node.cantidad || 1);
+      
+      document.getElementById('ai-modal-api-key').value = settings.apiKey || '';
+
+      document.getElementById('ai-modal-loading').classList.add('hidden');
+      document.getElementById('ai-modal-error').classList.add('hidden');
+
+      document.getElementById('btn-ai-modal-run').disabled = false;
+      document.getElementById('btn-ai-modal-local').disabled = false;
+
+      document.getElementById('modal-ai-generator').classList.remove('hidden');
+    }
+
+    function closeAiGeneratorModal() {
+      document.getElementById('modal-ai-generator').classList.add('hidden');
+    }
+
+    function toggleAiModalKeyVisibility() {
+      const input = document.getElementById('ai-modal-api-key');
+      const icon = document.getElementById('ai-key-eye-icon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash text-xs';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye text-xs';
+      }
+    }
+
+    function dismissGroundingBox() {
+      const box = document.getElementById('apu-grounding-box');
+      if (box) box.classList.add('hidden');
+    }
+
+    // Extractor robusto de JSON para respuestas de Gemini
+    function extractJsonFromAiResponse(text) {
+      if (!text) throw new Error('Respuesta vacía');
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        // Buscar bloque de código ```json ... ```
+        const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+        if (match) {
+          try { return JSON.parse(match[1]); } catch (e2) {}
+        }
+        // Buscar primera llave de apertura y última de cierre
+        const firstBrace = text.indexOf('{');
+        const lastBrace = text.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          try {
+            const jsonSubstring = text.substring(firstBrace, lastBrace + 1);
+            return JSON.parse(jsonSubstring);
+          } catch (e3) {}
+        }
+        throw new Error('La respuesta devuelta por la IA no pudo ser interpretada como JSON.');
+      }
+    }
+
+    // Probar conexión de API Key con Google Search Grounding
+    async function testGeminiConnection() {
+      const apiKeyInput = document.getElementById('ai-modal-api-key').value.trim();
+      const errorBox = document.getElementById('ai-modal-error');
+      const errorTitle = document.getElementById('ai-modal-error-title');
+      const errorMsg = document.getElementById('ai-modal-error-msg');
+
+      if (!apiKeyInput) {
+        errorBox.classList.remove('hidden');
+        errorTitle.innerText = 'Se requiere API Key';
+        errorMsg.innerText = 'Ingresa una API Key para probar la conexión con Google Search Grounding.';
+        return;
+      }
+
+      showToast('Probando Google Search Grounding con Gemini 3.8 Flash...', 'info');
+
+      const testModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+      let testSuccess = false;
+      let testErr = '';
+
+      for (let m of testModels) {
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKeyInput}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: 'Prueba de conexión con Google Search. ¿Cuál es el precio del cemento en México?' }] }],
+              tools: [{ googleSearch: {} }]
+            })
+          });
+
+          if (response.ok) {
+            testSuccess = true;
+            errorBox.classList.add('hidden');
+            showToast(`✅ Conexión verificada con ${m} y Google Search Grounding`, 'success');
+            break;
+          } else {
+            const errData = await response.json().catch(() => ({}));
+            testErr = errData.error?.message || `HTTP ${response.status}: Error con ${m}`;
+          }
+        } catch (e) {
+          testErr = e.message || 'Error de red al conectar con Google.';
+        }
+      }
+
+      if (!testSuccess) {
+        errorBox.classList.remove('hidden');
+        errorTitle.innerText = 'Fallo en la prueba de conexión';
+        errorMsg.innerText = testErr;
+      }
+    }
+
+    // Ejecución de Generación con IA y Google Search Grounding
+    async function executeAiGeneration() {
+      const apiKeyInput = document.getElementById('ai-modal-api-key').value.trim();
+      const errorBox = document.getElementById('ai-modal-error');
+      const errorTitle = document.getElementById('ai-modal-error-title');
+      const errorMsg = document.getElementById('ai-modal-error-msg');
+      const loadingBox = document.getElementById('ai-modal-loading');
+      const loadingText = document.getElementById('ai-modal-loading-text');
+      const btnRun = document.getElementById('btn-ai-modal-run');
+      const btnLocal = document.getElementById('btn-ai-modal-local');
+
+      if (!apiKeyInput) {
+        errorBox.classList.remove('hidden');
+        errorTitle.innerText = 'Se requiere API Key';
+        errorMsg.innerText = 'Para realizar búsquedas en Google Search Grounding en tiempo real, ingresa tu API Key gratuita de Gemini.';
+        document.getElementById('ai-modal-api-key').focus();
+        return;
+      }
+
+      // Guardar API Key para futuros usos
+      settings.apiKey = apiKeyInput;
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        const cfgInput = document.getElementById('cfg-api-key');
+        if (cfgInput) cfgInput.value = apiKeyInput;
+      } catch (e) {}
+
+      errorBox.classList.add('hidden');
+      loadingBox.classList.remove('hidden');
+      btnRun.disabled = true;
+      btnLocal.disabled = true;
+
+      const node = findNodeById(treeData, activeSelectedId);
+      if (!node) {
+        closeAiGeneratorModal();
+        return;
+      }
+
+      const pathArr = getNodeHierarchyPath(treeData, node.id) || [];
+      const fullPath = pathArr.join('  >  ');
+
+      const promptText = `Eres un ingeniero civil especialista senior en Análisis de Precios Unitarios (APU) y costos de construcción en México.
+Utiliza Google Search Grounding para investigar precios comerciales y rendimientos vigentes en el mercado de la construcción en México (en Pesos Mexicanos MXN).
+
+Datos de la fila seleccionada en TAB1-CAT-BASE:
+- Ubicación / Partida en presupuesto: "${fullPath}"
+- Clave de concepto: "${node.clave}"
+- Descripción exacta del concepto: "${node.descripcion}"
+- Unidad de medida: "${node.unidad}"
+- Cantidad de obra: ${node.cantidad || 1} ${node.unidad}
+
+Instrucciones prioritarias con Google Search:
+1. Realiza búsquedas en Google de los precios actuales de mercado en México para los materiales comerciales que componen este concepto (puestos en obra).
+2. Busca los salarios de cuadrillas (oficiales + peones) con Factor de Salario Real y sus rendimientos por cada 1 ${node.unidad} según tabuladores CMIC / Neodata / Opus.
+3. Determina el equipo, maquinaria y herramienta requerida.
+4. Clasifica los insumos estrictamente en 4 rubros: "Material", "Mano de Obra", "Equipo" y "Subcontrato".
+5. Al final de tu análisis, devuelve OBLIGATORIAMENTE un bloque de código JSON con esta estructura exacta:
+\`\`\`json
+{
+  "sugerencias": "Recomendación técnica sobre ejecución, curado, pruebas o normativas mexicanas para este concepto...",
+  "insumos": [
+    {
+      "clave": "MAT-01",
+      "tipo": "Material",
+      "descripcion": "Descripción comercial detallada del material con especificación",
+      "unidad": "m3/kg/pza/etc",
+      "cantidad": 0.00,
+      "costoUnitario": 0.00
+    },
+    {
+      "clave": "MO-01",
+      "tipo": "Mano de Obra",
+      "descripcion": "Cuadrilla de mano de obra (Oficial + Peón) con rendimiento",
+      "unidad": "jor/m2/etc",
+      "cantidad": 0.00,
+      "costoUnitario": 0.00
+    },
+    {
+      "clave": "EQ-01",
+      "tipo": "Equipo",
+      "descripcion": "Equipo o herramienta menor (% de MO)",
+      "unidad": "hr/%",
+      "cantidad": 0.00,
+      "costoUnitario": 0.00
+    }
+  ]
+}
+\`\`\``;
+
+      // Intentar primero con Google Search Grounding en Gemini 3.8 Flash (versión vigente requerida)
+      // Luego fallback a Gemini 2.5 Flash o Gemini 1.5 Flash
+      const attempts = [
+        { model: 'gemini-3.8-flash', tools: [{ googleSearch: {} }] },
+        { model: 'gemini-2.5-flash', tools: [{ googleSearch: {} }] },
+        { model: 'gemini-3.8-flash', tools: null },
+        { model: 'gemini-1.5-flash', tools: [{ google_search: {} }] },
+        { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] }
+      ];
+
+      let success = false;
+      let lastError = '';
+
+      for (let att of attempts) {
+        try {
+          loadingText.innerText = att.tools 
+            ? `Buscando cotizaciones en Google Search Grounding con ${att.model}...`
+            : `Consultando modelo ${att.model}...`;
+
+          const reqPayload = {
+            contents: [{ parts: [{ text: promptText }] }],
+            generationConfig: {
+              temperature: 0.2
+            }
+          };
+
+          if (att.tools) {
+            reqPayload.tools = att.tools;
+          }
+
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${att.model}:generateContent?key=${apiKeyInput}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reqPayload)
+          });
+
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            lastError = errJson.error?.message || `HTTP ${response.status} ${response.statusText}`;
+            console.warn(`Intento fallido con ${att.model} (tools: ${!!att.tools}):`, lastError);
+            continue;
+          }
+
+          const data = await response.json();
+          const candidate = data.candidates?.[0];
+          const textContent = candidate?.content?.parts?.[0]?.text;
+
+          if (!textContent) {
+            lastError = 'La IA no devolvió texto en su respuesta.';
+            continue;
+          }
+
+          const parsed = extractJsonFromAiResponse(textContent);
+          if (parsed && Array.isArray(parsed.insumos) && parsed.insumos.length > 0) {
+            saveState();
+
+            // Extraer metadatos de Google Search Grounding si están disponibles
+            const groundingMeta = candidate.groundingMetadata;
+            const searchQueries = groundingMeta?.webSearchQueries || [];
+            const sources = (groundingMeta?.groundingChunks || []).map(chunk => ({
+              title: chunk.web?.title || 'Fuente web',
+              uri: chunk.web?.uri || '#'
+            })).filter(s => s.uri !== '#');
+
+            node.googleSearchQueries = searchQueries;
+            node.googleSources = sources;
+            node.aiTips = parsed.sugerencias || '';
+
+            // Mapear insumos normalizados
+            node.insumos = parsed.insumos.map((item, idx) => {
+              let cleanTipo = 'Material';
+              const t = (item.tipo || '').toLowerCase();
+              if (t.includes('mano') || t.includes('obra') || t === 'mo') cleanTipo = 'Mano de Obra';
+              else if (t.includes('equipo') || t.includes('herr') || t === 'eq') cleanTipo = 'Equipo';
+              else if (t.includes('subcontrat') || t === 'sub') cleanTipo = 'Subcontrato';
+
+              return {
+                clave: item.clave || `${cleanTipo.substring(0, 3).toUpperCase()}-0${idx + 1}`,
+                tipo: cleanTipo,
+                descripcion: item.descripcion || 'Insumo de obra',
+                unidad: item.unidad || 'pza',
+                cantidad: parseFloat(item.cantidad) || 1,
+                costoUnitario: parseFloat(item.costoUnitario) || 0
+              };
+            });
+
+            success = true;
+            break;
+          }
+        } catch (err) {
+          lastError = err.message || 'Error de red';
+          console.error('Error durante la llamada:', err);
+        }
+      }
+
+      if (success) {
+        closeAiGeneratorModal();
+        renderAPUInsumos(node);
+        renderInsumosUnitarios(node);
+        renderTAB1();
+        showToast('Matriz generada con Google Search Grounding', 'success');
+      } else {
+        loadingBox.classList.add('hidden');
+        errorBox.classList.remove('hidden');
+        errorTitle.innerText = 'Error al consultar Google Search';
+        errorMsg.innerText = `${lastError}. Verifica tu API Key o prueba la conexión.`;
+        btnRun.disabled = false;
+        btnLocal.disabled = false;
+      }
+    }
+
+    // Generación con catálogo inteligente local offline
+    function executeLocalGeneration() {
+      const node = findNodeById(treeData, activeSelectedId);
+      if (!node) return;
+
+      saveState();
+      let generatedInsumos = [];
+      const desc = (node.descripcion || '').toLowerCase();
+
+      if (desc.includes('concreto') || desc.includes('firme') || desc.includes('losa') || desc.includes('piso') || desc.includes('banqueta')) {
+        generatedInsumos = [
+          { clave: 'MAT-01', tipo: 'Material', descripcion: "Concreto premezclado F'c=250 kg/cm2", unidad: 'm3', cantidad: 0.105, costoUnitario: 2150.00 },
+          { clave: 'MAT-02', tipo: 'Material', descripcion: 'Malla electrosoldada 6-6/10-10', unidad: 'm2', cantidad: 1.10, costoUnitario: 45.00 },
+          { clave: 'MO-01', tipo: 'Mano de Obra', descripcion: 'Cuadrilla colado y acabado (Albañil + 2 Peones)', unidad: 'm2', cantidad: 0.12, costoUnitario: 950.00 },
+          { clave: 'EQ-01', tipo: 'Equipo', descripcion: 'Vibrador de concreto a gasolina 5.5 HP', unidad: 'hr', cantidad: 0.15, costoUnitario: 130.00 }
+        ];
+        node.aiTips = "Asegurar curado adecuado con membrana base agua y prever juntas de contracción.";
+      } else if (desc.includes('muro') || desc.includes('tabique') || desc.includes('block') || desc.includes('mampostería')) {
+        generatedInsumos = [
+          { clave: 'MAT-01', tipo: 'Material', descripcion: 'Block de concreto pesado 15x20x40 cm', unidad: 'pza', cantidad: 12.5, costoUnitario: 16.50 },
+          { clave: 'MAT-02', tipo: 'Material', descripcion: 'Mortero cemento-arena 1:4', unidad: 'm3', cantidad: 0.025, costoUnitario: 1850.00 },
+          { clave: 'MO-01', tipo: 'Mano de Obra', descripcion: 'Cuadrilla albañilería (1 Oficial + 1 Peón)', unidad: 'm2', cantidad: 0.45, costoUnitario: 520.00 },
+          { clave: 'EQ-01', tipo: 'Equipo', descripcion: 'Andamio tubular y herramienta menor', unidad: 'm2', cantidad: 1.00, costoUnitario: 18.00 }
+        ];
+        node.aiTips = "Verificar plomeo y nivelación de hiladas a cada metro de altura.";
+      } else if (desc.includes('acero') || desc.includes('varilla') || desc.includes('armado') || desc.includes('estribo')) {
+        generatedInsumos = [
+          { clave: 'MAT-01', tipo: 'Material', descripcion: 'Varilla corrugada Fy=4200 kg/cm2 Grado 42', unidad: 'kg', cantidad: 1.05, costoUnitario: 23.50 },
+          { clave: 'MAT-02', tipo: 'Material', descripcion: 'Alambre recocido calibre 16', unidad: 'kg', cantidad: 0.04, costoUnitario: 38.00 },
+          { clave: 'MO-01', tipo: 'Mano de Obra', descripcion: 'Cuadrilla fierrero (1 Oficial + 1 Peón)', unidad: 'kg', cantidad: 0.015, costoUnitario: 650.00 },
+          { clave: 'EQ-01', tipo: 'Equipo', descripcion: 'Herramienta menor (% de Mano de Obra)', unidad: '%', cantidad: 0.03, costoUnitario: 9.75 }
+        ];
+        node.aiTips = "Respetar recubrimientos mínimos libres y traslapes reglamentarios de varilla.";
+      } else if (desc.includes('pintura') || desc.includes('vinílica') || desc.includes('esmalte')) {
+        generatedInsumos = [
+          { clave: 'MAT-01', tipo: 'Material', descripcion: 'Pintura vinílica lavable 7 años', unidad: 'lt', cantidad: 0.25, costoUnitario: 145.00 },
+          { clave: 'MAT-02', tipo: 'Material', descripcion: 'Sellador vinílico 5x1', unidad: 'lt', cantidad: 0.08, costoUnitario: 85.00 },
+          { clave: 'MO-01', tipo: 'Mano de Obra', descripcion: 'Cuadrilla pintor (1 Oficial + 1 Peón)', unidad: 'm2', cantidad: 0.08, costoUnitario: 560.00 },
+          { clave: 'EQ-01', tipo: 'Equipo', descripcion: 'Escaleras, brochas y herramienta menor', unidad: 'm2', cantidad: 1.00, costoUnitario: 8.50 }
+        ];
+        node.aiTips = "Limpiar y resanar la superficie antes de la primera mano de sellador.";
+      } else if (desc.includes('excavación') || desc.includes('corte') || desc.includes('despalme')) {
+        generatedInsumos = [
+          { clave: 'MO-01', tipo: 'Mano de Obra', descripcion: 'Cuadrilla peones excavación en zanja', unidad: 'm3', cantidad: 0.65, costoUnitario: 320.00 },
+          { clave: 'EQ-01', tipo: 'Equipo', descripcion: 'Picos, palas y carretillas (% MO)', unidad: '%', cantidad: 0.05, costoUnitario: 208.00 }
+        ];
+        node.aiTips = "Monitorear estabilidad de taludes y acordonar el perímetro de zanja.";
+      } else {
+        generatedInsumos = [
+          { clave: 'MAT-01', tipo: 'Material', descripcion: `Suministro de materiales para ${node.descripcion.substring(0, 30)}`, unidad: node.unidad, cantidad: 1.05, costoUnitario: 320.00 },
+          { clave: 'MO-01', tipo: 'Mano de Obra', descripcion: 'Cuadrilla de instalación especializada', unidad: node.unidad, cantidad: 1.00, costoUnitario: 195.00 },
+          { clave: 'EQ-01', tipo: 'Equipo', descripcion: 'Herramienta menor y equipo básico', unidad: '%', cantidad: 0.03, costoUnitario: 195.00 }
+        ];
+        node.aiTips = "Verificar especificaciones del fabricante antes del inicio de los trabajos.";
+      }
+
+      node.googleSearchQueries = [];
+      node.googleSources = [];
+
+      node.insumos = generatedInsumos.map((item, idx) => ({
+        clave: item.clave || `INS-0${idx+1}`,
+        tipo: ['Material', 'Mano de Obra', 'Equipo', 'Subcontrato'].includes(item.tipo) ? item.tipo : 'Material',
+        descripcion: item.descripcion || 'Insumo de obra',
+        unidad: item.unidad || 'pza',
+        cantidad: parseFloat(item.cantidad) || 1,
+        costoUnitario: parseFloat(item.costoUnitario) || 0
+      }));
+
+      closeAiGeneratorModal();
+      renderAPUInsumos(node);
+      renderInsumosUnitarios(node);
+      renderTAB1();
+      showToast('APU generado desde catálogo local', 'info');
+    }
+
+    function duplicarNode(id, e) {
+      if (e) e.stopPropagation();
+      saveState();
+      const nodeToDuplicate = findNodeById(treeData, id);
+      if (!nodeToDuplicate) return;
+
+      function cloneNode(node) {
+        return {
+          id: '_' + Math.random().toString(36).substr(2, 9),
+          clave: '',
+          descripcion: node.descripcion + ' (Copia)',
+          unidad: node.unidad,
+          cantidad: node.cantidad,
+          precioUnitario: node.precioUnitario,
+          costoDirecto: node.costoDirecto || node.precioUnitario,
+          expanded: node.expanded,
+          selected: node.selected,
+          color: node.color || null,
+          googleSearchQueries: node.googleSearchQueries ? [...node.googleSearchQueries] : [],
+          googleSources: node.googleSources ? [...node.googleSources] : [],
+          aiTips: node.aiTips || '',
+          insumos: JSON.parse(JSON.stringify(node.insumos || [])),
+          children: (node.children || []).map(child => cloneNode(child))
+        };
+      }
+
+      const cloned = cloneNode(nodeToDuplicate);
+      const parentList = findParentArrayOfNode(treeData, id);
+      if (parentList) {
+        const index = parentList.findIndex(n => n.id === id);
+        parentList.splice(index + 1, 0, cloned);
+        recalculateClaves(treeData);
+        renderTAB1();
+        showToast('Renglón duplicado', 'success');
+      }
+    }
+
+    function copiarNode(id, e) {
+      if (e) e.stopPropagation();
+      const node = findNodeById(treeData, id);
+      if (node) {
+        clipboardNode = JSON.parse(JSON.stringify(node));
+        showToast(`Copiado: [${node.clave}]`, 'info');
+      }
+    }
+
+    function pegarNode(targetId, e) {
+      if (e) e.stopPropagation();
+      if (!clipboardNode) return;
+      saveState();
+
+      const parentList = findParentArrayOfNode(treeData, targetId);
+      if (parentList) {
+        const index = parentList.findIndex(n => n.id === targetId);
+        
+        function renewIds(n) {
+          n.id = '_' + Math.random().toString(36).substr(2, 9);
+          if (n.children) n.children.forEach(c => renewIds(c));
+        }
+
+        const pastedNode = JSON.parse(JSON.stringify(clipboardNode));
+        renewIds(pastedNode);
+        pastedNode.descripcion += ' (Copiado)';
+
+        parentList.splice(index + 1, 0, pastedNode);
+        recalculateClaves(treeData);
+        renderTAB1();
+        showToast('Renglón pegado', 'success');
+      }
+    }
+
+    function findNodeContext(nodes, id, parent = null, parentArray = null) {
+      if (!parentArray) parentArray = nodes;
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (n.id === id) {
+          return {
+            node: n,
+            parent: parent,
+            parentArray: nodes,
+            index: i
+          };
+        }
+        if (n.children && n.children.length > 0) {
+          const found = findNodeContext(n.children, id, n, n.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
+    function moverNode(id, direction, e) {
+      if (e) e.stopPropagation();
+      const ctx = findNodeContext(treeData, id);
+      if (!ctx) return;
+
+      saveState();
+
+      const { node, parent, parentArray, index } = ctx;
+      const hasChildren = node.children && node.children.length > 0;
+
+      if (direction === 'up') {
+        if (index > 0) {
+          const prevSibling = parentArray[index - 1];
+          // Si el nodo actual no tiene hijos y el hermano anterior SÍ tiene hijos,
+          // el nodo entra como último hijo del hermano anterior
+          if (!hasChildren && prevSibling.children && prevSibling.children.length > 0) {
+            parentArray.splice(index, 1);
+            prevSibling.children.push(node);
+            prevSibling.expanded = true;
+          } else {
+            // Swap normal con el hermano anterior
+            parentArray[index] = prevSibling;
+            parentArray[index - 1] = node;
+          }
+        } else {
+          // index === 0: está al inicio de la lista
+          if (parent) {
+            // Sube un nivel de jerarquía, colocándose antes de su padre
+            const grandCtx = findNodeContext(treeData, parent.id);
+            if (grandCtx) {
+              parentArray.splice(index, 1);
+              grandCtx.parentArray.splice(grandCtx.index, 0, node);
+            }
+          } else {
+            showToast('Ya está en la primera posición', 'info');
+            return;
+          }
+        }
+      } else if (direction === 'down') {
+        if (index < parentArray.length - 1) {
+          const nextSibling = parentArray[index + 1];
+          // Si el nodo actual no tiene hijos y el hermano siguiente SÍ tiene hijos,
+          // el nodo entra como primer hijo del hermano siguiente
+          if (!hasChildren && nextSibling.children && nextSibling.children.length > 0) {
+            parentArray.splice(index, 1);
+            nextSibling.children.unshift(node);
+            nextSibling.expanded = true;
+          } else {
+            // Swap normal con el hermano siguiente
+            parentArray[index] = nextSibling;
+            parentArray[index + 1] = node;
+          }
+        } else {
+          // index === parentArray.length - 1: está al final de la lista
+          if (parent) {
+            // Baja un nivel de jerarquía, colocándose después de su padre
+            const grandCtx = findNodeContext(treeData, parent.id);
+            if (grandCtx) {
+              parentArray.splice(index, 1);
+              grandCtx.parentArray.splice(grandCtx.index + 1, 0, node);
+            }
+          } else {
+            showToast('Ya está en la última posición', 'info');
+            return;
+          }
+        }
+      }
+
+      recalculateClaves(treeData);
+      persistLocalData();
+      renderTAB1();
+
+      if (activeSelectedId === id) {
+        const selNode = findNodeById(treeData, id);
+        if (selNode) {
+          const apuClave = document.getElementById('apu-clave');
+          if (apuClave) apuClave.innerText = selNode.clave;
+        }
+      }
+
+      // Asegurar que la fila seleccionada siga visible en el scroll
+      setTimeout(() => {
+        const selectedEl = document.querySelector('.selected-row');
+        if (selectedEl && typeof selectedEl.scrollIntoView === 'function') {
+          selectedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }, 40);
+    }
+
+    function findParentArrayOfNode(nodes, id) {
+      for (let i = 0; i < nodes.length; i++) {
+        if (nodes[i].id === id) return nodes;
+        if (nodes[i].children) {
+          let found = findParentArrayOfNode(nodes[i].children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
+    function toggleSelectNode(id, isChecked, e) {
+      if (e) e.stopPropagation();
+      const node = findNodeById(treeData, id);
+      if (!node) return;
+
+      function setSelectRecursive(targetNode, val) {
+        targetNode.selected = val;
+        if (targetNode.children) {
+          targetNode.children.forEach(child => setSelectRecursive(child, val));
+        }
+      }
+
+      setSelectRecursive(node, isChecked);
+      persistLocalData();
+      renderTAB1();
+    }
+
+    function toggleSelectAll(isChecked) {
+      function setSelectAllRecursive(nodes, val) {
+        nodes.forEach(n => {
+          n.selected = val;
+          if (n.children) setSelectAllRecursive(n.children, val);
+        });
+      }
+      setSelectAllRecursive(treeData, isChecked);
+      persistLocalData();
+      renderTAB1();
+    }
+
+    function calculateParentTotal(node) {
+      if (!node.children || node.children.length === 0) {
+        return (node.cantidad || 0) * (node.precioUnitario || 0);
+      }
+      return node.children.reduce((sum, child) => sum + calculateParentTotal(child), 0);
+    }
+
+    function calculateParentDirectTotal(node) {
+      if (!node.children || node.children.length === 0) {
+        const cd = node.costoDirecto !== undefined ? node.costoDirecto : node.precioUnitario;
+        return (node.cantidad || 0) * (cd || 0);
+      }
+      return node.children.reduce((sum, child) => sum + calculateParentDirectTotal(child), 0);
+    }
+
+    function updateGrandTotal() {
+      const grandTotal = treeData.reduce((sum, root) => sum + calculateParentTotal(root), 0);
+      document.getElementById('grand-total').innerText = formatMoney(grandTotal);
+
+      const directTotal = treeData.reduce((sum, root) => sum + calculateParentDirectTotal(root), 0);
+      const directEl = document.getElementById('direct-total');
+      if (directEl) directEl.innerText = formatMoney(directTotal);
+    }
+
+    function selectRow(id) {
+      activeSelectedId = id;
+      const node = findNodeById(treeData, id);
+      renderTAB1();
+
+      if (!node) return;
+
+      const apuPanel = document.getElementById('apu-panel');
+      const panelResizer = document.getElementById('panel-resizer');
+
+      // Restricción: Si la fila tiene sub-filas (partida agrupada), NO mostrar la tabla de matrices
+      const hasChildren = node.children && node.children.length > 0;
+      if (hasChildren) {
+        if (apuPanel) apuPanel.classList.add('hidden');
+        if (panelResizer) panelResizer.classList.add('hidden');
+        return;
+      }
+
+      apuPanel.classList.remove('hidden');
+      if (panelResizer) panelResizer.classList.remove('hidden');
+
+      // Restaurar ancho guardado en localStorage
+      const savedWidth = localStorage.getItem('control_obra_apu_width');
+      if (savedWidth) {
+        const parsed = parseInt(savedWidth, 10);
+        if (!isNaN(parsed) && parsed >= 320) {
+          apuPanel.style.width = `${parsed}px`;
+        }
+      }
+
+      document.getElementById('apu-clave').innerText = node.clave;
+      document.getElementById('apu-title').innerText = node.descripcion || 'Sin descripción';
+      document.getElementById('apu-desc').innerText = `Unidad: ${node.unidad} | Cantidad: ${node.cantidad}`;
+
+      renderAPUInsumos(node);
+      renderInsumosUnitarios(node);
+    }
+
+    function closeApuPanel() {
+      activeSelectedId = null;
+      document.getElementById('apu-panel').classList.add('hidden');
+      const panelResizer = document.getElementById('panel-resizer');
+      if (panelResizer) panelResizer.classList.add('hidden');
+      renderTAB1();
+    }
+
+    function renderAPUInsumos(node) {
+      if (!node.insumos) node.insumos = [];
+
+      const tbody = document.getElementById('apu-insumos-body');
+      const fragment = document.createDocumentFragment();
+
+      let sumMat = 0, sumMO = 0, sumEq = 0, sumSub = 0;
+      let visibleCount = 0;
+
+      node.insumos.forEach((ins, idx) => {
+        const total = (ins.cantidad || 0) * (ins.costoUnitario || 0);
+        
+        if (ins.tipo === 'Material') sumMat += total;
+        else if (ins.tipo === 'Mano de Obra') sumMO += total;
+        else if (ins.tipo === 'Equipo') sumEq += total;
+        else if (ins.tipo === 'Subcontrato') sumSub += total;
+
+        // Si hay un filtro activo para la Matriz, filtramos qué insumos se visualizan
+        if (currentMatrizFilter !== 'Todos' && ins.tipo !== currentMatrizFilter) {
+          return;
+        }
+
+        visibleCount++;
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50";
+        tr.innerHTML = `
+          <td class="p-1 border-b border-slate-100 min-w-[200px] text-justify align-top">
+            <textarea onchange="updateInsumo(${idx}, 'descripcion', this.value)" 
+                      class="desc-input w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white px-1 py-0.5 rounded text-[10px] font-sans text-justify leading-snug break-words whitespace-normal font-medium block" 
+                      placeholder="Descripción insumo">${ins.descripcion}</textarea>
+            <select onchange="updateInsumo(${idx}, 'tipo', this.value)" class="text-[8px] text-slate-500 bg-transparent block w-full mt-0.5 cursor-pointer">
+              <option value="Material" ${ins.tipo === 'Material' ? 'selected' : ''}>Material</option>
+              <option value="Mano de Obra" ${ins.tipo === 'Mano de Obra' ? 'selected' : ''}>M. Obra</option>
+              <option value="Equipo" ${ins.tipo === 'Equipo' ? 'selected' : ''}>Equipo</option>
+              <option value="Subcontrato" ${ins.tipo === 'Subcontrato' ? 'selected' : ''}>Subcontrato</option>
+            </select>
+          </td>
+          <td class="p-1 border-b border-slate-100 text-center w-14 min-w-[50px] align-top pt-1.5">
+            <input type="text" value="${ins.unidad}" onchange="updateInsumo(${idx}, 'unidad', this.value)" class="w-full bg-transparent text-center text-[10px] focus:bg-white focus:ring-1 focus:ring-blue-500 rounded">
+          </td>
+          <td class="p-1 border-b border-slate-100 text-right w-16 min-w-[65px] align-top pt-1.5">
+            <input type="number" step="0.0001" value="${ins.cantidad}" onchange="updateInsumo(${idx}, 'cantidad', parseFloat(this.value)||0)" class="w-full bg-transparent text-right text-[10px] font-mono focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1">
+          </td>
+          <td class="p-1 border-b border-slate-100 text-right w-24 min-w-[90px] align-top pt-1.5">
+            <div class="flex items-center justify-end">
+              <span class="text-slate-500 mr-0.5 text-[9px] font-semibold">$</span>
+              <input type="number" step="0.01" value="${ins.costoUnitario}" onchange="updateInsumo(${idx}, 'costoUnitario', parseFloat(this.value)||0)" class="w-16 text-right bg-transparent text-[10px] font-semibold font-mono focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1">
+            </div>
+          </td>
+          <td class="p-1 border-b border-slate-100 text-right font-bold text-slate-700 font-mono w-20 min-w-[80px] align-top pt-1.5">
+            $${total.toFixed(2)}
+          </td>
+          <td class="p-0.5 border-b border-slate-100 text-center w-6 min-w-[24px] align-top pt-1.5">
+            <button onclick="removeInsumo(${idx})" class="text-slate-300 hover:text-red-600 transition p-1" title="Eliminar insumo">
+              <i class="fa-solid fa-trash-can text-[9px]"></i>
+            </button>
+          </td>
+        `;
+        fragment.appendChild(tr);
+      });
+
+      if (visibleCount === 0) {
+        const emptyTr = document.createElement('tr');
+        emptyTr.innerHTML = `
+          <td colspan="6" class="p-4 text-center text-slate-400 italic text-[10px]">
+            ${node.insumos.length === 0 ? 'Sin insumos en la matriz. Haz clic en "+ Insumo" o "IA" para agregar.' : `No hay insumos del tipo "${currentMatrizFilter}".`}
+          </td>
+        `;
+        fragment.appendChild(emptyTr);
+      }
+
+      tbody.replaceChildren(fragment);
+
+      const totalCD = sumMat + sumMO + sumEq + sumSub;
+      node.costoDirecto = totalCD;
+
+      const factor = getFactorSobrecosto();
+      const totalPU = totalCD * factor;
+      const sobrecostoAmount = totalPU - totalCD;
+
+      document.getElementById('apu-sum-mat').innerText = formatMoney(sumMat);
+      document.getElementById('apu-sum-mo').innerText = formatMoney(sumMO);
+      document.getElementById('apu-sum-eq').innerText = formatMoney(sumEq);
+      document.getElementById('apu-sum-sub').innerText = formatMoney(sumSub);
+      
+      document.getElementById('apu-calculated-cd').innerText = formatMoney(totalCD);
+
+      const rowSobrecosto = document.getElementById('apu-sobrecosto-row');
+      if (settings.applySobrecosto) {
+        rowSobrecosto.classList.remove('hidden');
+        const pct = ((factor - 1) * 100).toFixed(1);
+        document.getElementById('apu-sobrecosto-tag').innerText = `Sobrecosto (+${pct}%):`;
+        document.getElementById('apu-calculated-sobrecosto').innerText = `+${formatMoney(sobrecostoAmount)}`;
+      } else {
+        rowSobrecosto.classList.add('hidden');
+      }
+
+      document.getElementById('apu-calculated-pu').innerText = formatMoney(totalPU);
+
+      // Renderizar recuadro de Google Search Grounding si hay búsquedas o fuentes
+      const groundingBox = document.getElementById('apu-grounding-box');
+      const queriesContainer = document.getElementById('apu-grounding-queries-container');
+      const queriesEl = document.getElementById('apu-grounding-queries');
+      const sourcesContainer = document.getElementById('apu-grounding-sources-container');
+      const sourcesEl = document.getElementById('apu-grounding-sources');
+      const tipsContainer = document.getElementById('apu-grounding-tips-container');
+      const tipsEl = document.getElementById('apu-grounding-tips');
+
+      const hasQueries = node.googleSearchQueries && node.googleSearchQueries.length > 0;
+      const hasSources = node.googleSources && node.googleSources.length > 0;
+      const hasTips = node.aiTips && node.aiTips.trim().length > 0;
+
+      if (hasQueries || hasSources || hasTips) {
+        groundingBox.classList.remove('hidden');
+
+        if (hasQueries) {
+          queriesContainer.classList.remove('hidden');
+          queriesEl.innerHTML = node.googleSearchQueries.map(q => 
+            `<span class="bg-blue-100 text-blue-900 text-[8px] font-mono px-1.5 py-0.5 rounded-full border border-blue-200 flex items-center gap-1">
+               <i class="fa-solid fa-magnifying-glass text-[7px] text-blue-500"></i> ${q}
+             </span>`
+          ).join('');
+        } else {
+          queriesContainer.classList.add('hidden');
+        }
+
+        if (hasSources) {
+          sourcesContainer.classList.remove('hidden');
+          sourcesEl.innerHTML = node.googleSources.map(s => 
+            `<a href="${s.uri}" target="_blank" class="bg-indigo-100 text-indigo-900 hover:text-blue-700 hover:underline text-[8px] px-1.5 py-0.5 rounded border border-indigo-200 flex items-center gap-1 max-w-[160px] truncate" title="${s.title} (${s.uri})">
+               <i class="fa-solid fa-arrow-up-right-from-square text-[7px] text-indigo-500"></i> ${s.title}
+             </a>`
+          ).join('');
+        } else {
+          sourcesContainer.classList.add('hidden');
+        }
+
+        if (hasTips) {
+          tipsContainer.classList.remove('hidden');
+          tipsEl.innerText = node.aiTips;
+        } else {
+          tipsContainer.classList.add('hidden');
+        }
+      } else {
+        groundingBox.classList.add('hidden');
+      }
+
+      node.precioUnitario = totalPU;
+      persistLocalData();
+      renderTAB1();
+    }
+
+    function renderInsumosUnitarios(node) {
+      const tbody = document.getElementById('insumos-unitarios-body');
+      const fragment = document.createDocumentFragment();
+
+      if (!node.insumos || node.insumos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-2 text-center text-slate-400 text-[9px] italic">Sin insumos registrados</td></tr>';
+        document.getElementById('insumos-unitarios-total').innerText = '$0.00';
+        return;
+      }
+
+      const conceptoCantidad = node.cantidad || 0;
+
+      const filteredInsumos = node.insumos.filter(ins => {
+        if (currentFilter === 'Todos') return true;
+        return ins.tipo === currentFilter;
+      });
+
+      if (filteredInsumos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-2 text-center text-slate-400 text-[9px] italic">No hay insumos para este filtro</td></tr>';
+        document.getElementById('insumos-unitarios-total').innerText = '$0.00';
+        return;
+      }
+
+      let grandTotalInsumosObra = 0;
+
+      filteredInsumos.forEach(ins => {
+        const cantidadTotalObra = (ins.cantidad || 0) * conceptoCantidad;
+        const totalImporteObra = cantidadTotalObra * (ins.costoUnitario || 0);
+        grandTotalInsumosObra += totalImporteObra;
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50";
+        tr.innerHTML = `
+          <td class="p-1 border-b border-slate-100 font-semibold text-slate-700 text-[9px] align-top">
+            ${ins.clave || ins.tipo.substring(0, 3).toUpperCase()}
+          </td>
+          <td class="p-1 border-b border-slate-100 text-[9px] text-slate-700 text-justify leading-snug break-words align-top" title="${ins.descripcion}">
+            ${ins.descripcion || 'Sin descripción'}
+          </td>
+          <td class="p-1 border-b border-slate-100 text-right text-[9px] font-bold text-blue-900 align-top">
+            ${formatQty(cantidadTotalObra)}
+          </td>
+          <td class="p-1 border-b border-slate-100 text-center text-[9px] text-slate-500 align-top">
+            ${ins.unidad}
+          </td>
+          <td class="p-1 border-b border-slate-100 text-right text-[9px] font-bold text-slate-800 align-top">
+            ${formatMoney(totalImporteObra)}
+          </td>
+        `;
+        fragment.appendChild(tr);
+      });
+
+      tbody.replaceChildren(fragment);
+      document.getElementById('insumos-unitarios-total').innerText = formatMoney(grandTotalInsumosObra);
+    }
+
+    function getConsolidatedDataMap() {
+      const consolidated = {
+        'Material': {},
+        'Mano de Obra': {},
+        'Equipo': {},
+        'Subcontrato': {}
+      };
+
+      function collectInsumosSelected(nodes) {
+        nodes.forEach(node => {
+          const isParent = node.children && node.children.length > 0;
+          if (!isParent) {
+            if (node.selected) {
+              const cantConcepto = node.cantidad || 0;
+              if (node.insumos && node.insumos.length > 0) {
+                node.insumos.forEach(ins => {
+                  const key = (ins.clave || ins.descripcion).toLowerCase().trim();
+                  const tipo = consolidated[ins.tipo] ? ins.tipo : 'Material';
+
+                  if (!consolidated[tipo][key]) {
+                    consolidated[tipo][key] = {
+                      key: key,
+                      clave: ins.clave || `${tipo.substring(0, 3).toUpperCase()}-00`,
+                      insumoName: ins.descripcion,
+                      descripcion: ins.descripcion,
+                      unidad: ins.unidad,
+                      cantidadTotal: 0,
+                      costoUnitario: ins.costoUnitario || 0,
+                      totalImporte: 0,
+                      sources: []
+                    };
+                  }
+
+                  const cantCalculada = (ins.cantidad || 0) * cantConcepto;
+                  consolidated[tipo][key].cantidadTotal += cantCalculada;
+                  consolidated[tipo][key].totalImporte += cantCalculada * (ins.costoUnitario || 0);
+                  consolidated[tipo][key].sources.push({ node, insumo: ins });
+                });
+              }
+            }
+          } else {
+            collectInsumosSelected(node.children);
+          }
+        });
+      }
+
+      collectInsumosSelected(treeData);
+      return consolidated;
+    }
+
+    let globalConsolidatedMap = {};
+
+    function renderInsumosGenerales() {
+      globalConsolidatedMap = getConsolidatedDataMap();
+      let grandTotalGeneral = 0;
+
+      const categories = [
+        { tipo: 'Material', bodyId: 'body-insumos-materiales', sumId: 'cat-sum-materiales' },
+        { tipo: 'Mano de Obra', bodyId: 'body-insumos-mo', sumId: 'cat-sum-mo' },
+        { tipo: 'Equipo', bodyId: 'body-insumos-equipo', sumId: 'cat-sum-equipo' },
+        { tipo: 'Subcontrato', bodyId: 'body-insumos-subcontratos', sumId: 'cat-sum-subcontratos' }
+      ];
+
+      categories.forEach(cat => {
+        grandTotalGeneral += renderCategoryTableWithSearchAndCheck(cat.tipo, cat.bodyId, cat.sumId);
+      });
+
+      document.getElementById('insumos-generales-grand-total').innerText = formatMoney(grandTotalGeneral);
+    }
+
+    function renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId) {
+      const tbody = document.getElementById(bodyId);
+      const fragment = document.createDocumentFragment();
+      const itemsMap = globalConsolidatedMap[tipo] || {};
+      const items = Object.values(itemsMap);
+      
+      const searchInput = document.getElementById(`search-${tipo}`);
+      const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+      const filteredItems = items.filter(item => {
+        if (!query) return true;
+        return item.descripcion.toLowerCase().includes(query) || item.insumoName.toLowerCase().includes(query);
+      });
+
+      let catSum = 0;
+
+      if (filteredItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-2 text-center text-slate-400 text-xs italic">No se encontraron insumos</td></tr>`;
+        document.getElementById(sumId).innerText = '$0.00';
+        return 0;
+      }
+
+      filteredItems.forEach((item) => {
+        catSum += item.totalImporte;
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 group";
+        tr.dataset.itemKey = item.key;
+
+        tr.innerHTML = `
+          <td class="p-2 text-center align-middle sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200">
+            <input type="checkbox" data-tipo="${tipo}" data-key="${item.key}" class="row-checkbox-${tipo} rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+          </td>
+          <td class="p-2 font-semibold text-slate-700 align-middle whitespace-nowrap">${item.clave}</td>
+          <td class="p-2 text-slate-600 align-middle min-w-[280px]">${item.descripcion}</td>
+          <td class="p-2 text-right font-mono font-semibold text-slate-700 align-middle whitespace-nowrap">
+            <div class="flex items-center justify-end">
+              <span class="text-slate-500 mr-0.5">$</span>
+              <input type="number" step="0.01" value="${item.costoUnitario}" 
+                     onchange="updateCostoUnitarioGeneral('${tipo}', '${item.key}', parseFloat(this.value) || 0)" 
+                     class="w-20 text-right bg-transparent border border-slate-200 hover:border-slate-400 focus:border-blue-500 focus:bg-white px-1 py-0.5 rounded text-xs font-semibold text-blue-700 font-mono">
+            </div>
+          </td>
+          <td class="p-2 text-center text-slate-500 align-middle whitespace-nowrap">${item.unidad}</td>
+          <td class="p-2 text-right font-bold text-blue-900 align-middle whitespace-nowrap">${formatQty(item.cantidadTotal)}</td>
+          <td class="p-2 text-right font-bold text-slate-800 align-middle whitespace-nowrap">${formatMoney(item.totalImporte)}</td>
+        `;
+        fragment.appendChild(tr);
+      });
+
+      tbody.replaceChildren(fragment);
+      document.getElementById(sumId).innerText = formatMoney(catSum);
+      return catSum;
+    }
+
+    function filterInsumosGeneralesTable(tipo) {
+      const sumId = tipo === 'Material' ? 'cat-sum-materiales' : (tipo === 'Mano de Obra' ? 'cat-sum-mo' : (tipo === 'Equipo' ? 'cat-sum-equipo' : 'cat-sum-subcontratos'));
+      const bodyId = tipo === 'Material' ? 'body-insumos-materiales' : (tipo === 'Mano de Obra' ? 'body-insumos-mo' : (tipo === 'Equipo' ? 'body-insumos-equipo' : 'body-insumos-subcontratos'));
+      renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId);
+    }
+
+    function toggleSelectAllInsumos(tipo, isChecked) {
+      const checkboxes = document.querySelectorAll(`.row-checkbox-${tipo}`);
+      checkboxes.forEach(cb => cb.checked = isChecked);
+    }
+
+    function updateCostoUnitarioGeneral(tipo, key, newCosto) {
+      saveState();
+      const itemGroup = globalConsolidatedMap[tipo] && globalConsolidatedMap[tipo][key];
+      if (itemGroup && itemGroup.sources) {
+        itemGroup.sources.forEach(src => {
+          src.insumo.costoUnitario = newCosto;
+          if (src.node && src.node.insumos) {
+            const cd = src.node.insumos.reduce((s, i) => s + ((i.cantidad || 0) * (i.costoUnitario || 0)), 0);
+            src.node.costoDirecto = cd;
+            src.node.precioUnitario = cd * getFactorSobrecosto();
+          }
+        });
+        showToast('Costo unitario actualizado en todas las matrices vinculadas', 'success');
+      }
+      renderInsumosGenerales();
+      updateGrandTotal();
+    }
+
+    function combinarInsumosSeleccionados(tipo) {
+      const checkboxes = document.querySelectorAll(`.row-checkbox-${tipo}:checked`);
+      if (checkboxes.length < 2) {
+        showToast('Selecciona al menos 2 renglones con casillas Checkbox', 'warning');
+        return;
+      }
+
+      if (!confirm(`¿Deseas unificar los ${checkboxes.length} insumos seleccionados? Se agruparán bajo la descripción y costo del primer elemento.`)) {
+        return;
+      }
+
+      saveState();
+      const itemsMap = globalConsolidatedMap[tipo];
+      let primaryItem = null;
+      let targetSources = [];
+
+      checkboxes.forEach((cb, idx) => {
+        const key = cb.dataset.key;
+        const item = itemsMap[key];
+        if (item) {
+          if (idx === 0) {
+            primaryItem = item;
+          } else {
+            targetSources = targetSources.concat(item.sources);
+          }
+        }
+      });
+
+      if (primaryItem && targetSources.length > 0) {
+        targetSources.forEach(src => {
+          src.insumo.descripcion = primaryItem.descripcion;
+          src.insumo.unidad = primaryItem.unidad;
+          src.insumo.costoUnitario = primaryItem.costoUnitario;
+          src.insumo.clave = primaryItem.clave;
+          if (src.node && src.node.insumos) {
+            const cd = src.node.insumos.reduce((s, i) => s + ((i.cantidad || 0) * (i.costoUnitario || 0)), 0);
+            src.node.costoDirecto = cd;
+            src.node.precioUnitario = cd * getFactorSobrecosto();
+          }
+        });
+        showToast('Insumos combinados con éxito', 'success');
+      }
+
+      renderInsumosGenerales();
+      renderTAB1();
+    }
+
+    function filterInsumos(tipo) {
+      currentFilter = tipo;
+      
+      const filterKeys = ['Todos', 'Material', 'Mano-de-Obra', 'Equipo', 'Subcontrato'];
+      filterKeys.forEach(key => {
+        const btn = document.getElementById(`filter-${key}`);
+        if (btn) {
+          btn.className = "px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200";
+        }
+      });
+
+      const activeBtnKey = tipo.replace(/ /g, '-');
+      const activeBtn = document.getElementById(`filter-${activeBtnKey}`);
+      if (activeBtn) {
+        activeBtn.className = "px-1.5 py-0.5 rounded bg-blue-600 text-white border border-blue-600 font-bold";
+      }
+
+      if (activeSelectedId) {
+        const node = findNodeById(treeData, activeSelectedId);
+        if (node) renderInsumosUnitarios(node);
+      }
+    }
+
+    function filterMatriz(tipo) {
+      currentMatrizFilter = tipo;
+      
+      const filterKeys = ['Todos', 'Material', 'Mano-de-Obra', 'Equipo', 'Subcontrato'];
+      filterKeys.forEach(key => {
+        const btn = document.getElementById(`filter-matriz-${key}`);
+        if (btn) {
+          btn.className = "px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition font-medium";
+        }
+      });
+
+      const activeBtnKey = tipo.replace(/ /g, '-');
+      const activeBtn = document.getElementById(`filter-matriz-${activeBtnKey}`);
+      if (activeBtn) {
+        activeBtn.className = "px-2 py-0.5 rounded bg-blue-600 text-white border border-blue-600 shadow-xs transition font-semibold";
+      }
+
+      if (activeSelectedId) {
+        const node = findNodeById(treeData, activeSelectedId);
+        if (node) renderAPUInsumos(node);
+      }
+    }
+
+    function addInsumo() {
+      if (!activeSelectedId) return;
+      const node = findNodeById(treeData, activeSelectedId);
+      if (!node) return;
+      if (node.children && node.children.length > 0) {
+        showToast('Restricción: Esta fila contiene sub-conceptos y no puede tener matriz de insumos.', 'warning');
+        return;
+      }
+      saveState();
+      if (!node.insumos) node.insumos = [];
+      const defaultTipo = (currentMatrizFilter && currentMatrizFilter !== 'Todos') ? currentMatrizFilter : 'Material';
+      node.insumos.push({ clave: `INS-0${node.insumos.length + 1}`, tipo: defaultTipo, descripcion: 'Nuevo Insumo', unidad: 'pza', cantidad: 1, costoUnitario: 0 });
+      renderAPUInsumos(node);
+      renderInsumosUnitarios(node);
+    }
+
+    function updateInsumo(index, field, value) {
+      const node = findNodeById(treeData, activeSelectedId);
+      if (node && node.insumos[index]) {
+        node.insumos[index][field] = value;
+        renderAPUInsumos(node);
+        renderInsumosUnitarios(node);
+      }
+    }
+
+    function removeInsumo(index) {
+      const node = findNodeById(treeData, activeSelectedId);
+      if (node && node.insumos) {
+        saveState();
+        node.insumos.splice(index, 1);
+        renderAPUInsumos(node);
+        renderInsumosUnitarios(node);
+      }
+    }
+
+    function findNodeById(nodes, id) {
+      for (let n of nodes) {
+        if (n.id === id) return n;
+        if (n.children) {
+          let found = findNodeById(n.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
+    function updateNode(id, field, value) {
+      const node = findNodeById(treeData, id);
+      if (node) {
+        node[field] = value;
+        persistLocalData();
+        renderTAB1();
+        if (activeSelectedId === id) {
+          renderInsumosUnitarios(node);
+        }
+      }
+    }
+
+    function toggleExpand(id, e) {
+      e.stopPropagation();
+      const node = findNodeById(treeData, id);
+      if (node) {
+        node.expanded = !node.expanded;
+        persistLocalData();
+        renderTAB1();
+      }
+    }
+
+    function addChildRow(parentId, e) {
+      if (e) e.stopPropagation();
+      const parent = findNodeById(treeData, parentId);
+      if (!parent) return;
+
+      // RESTRICCIÓN: si la fila ya cuenta con una matriz, restringir que se cree una sub fila
+      if (parent.insumos && parent.insumos.length > 0) {
+        showToast('Restricción: Esta fila ya cuenta con una matriz de insumos. Elimina sus insumos primero si deseas convertirla en partida con sub-filas.', 'warning');
+        return;
+      }
+
+      saveState();
+      if (!parent.children) parent.children = [];
+      const newId = '_' + Math.random().toString(36).substr(2, 9);
+      parent.children.push({
+        id: newId,
+        clave: '',
+        descripcion: 'Nuevo Sub-concepto',
+        unidad: 'm2',
+        cantidad: 1,
+        precioUnitario: 0,
+        costoDirecto: 0,
+        expanded: true,
+        selected: false,
+        children: []
+      });
+      parent.expanded = true;
+
+      // RESTRICCIÓN: Al tener ahora una sub-fila, no mostrar la tabla de matrices para este padre
+      if (activeSelectedId === parentId) {
+        const apuPanel = document.getElementById('apu-panel');
+        const panelResizer = document.getElementById('panel-resizer');
+        if (apuPanel) apuPanel.classList.add('hidden');
+        if (panelResizer) panelResizer.classList.add('hidden');
+      }
+
+      recalculateClaves(treeData);
+      renderTAB1();
+      showToast('Sub-renglón agregado', 'success');
+    }
+
+    function deleteNode(id, e) {
+      if (e) e.stopPropagation();
+      saveState();
+      function removeRecursive(nodes) {
+        return nodes.filter(node => {
+          if (node.id === id) return false;
+          if (node.children) node.children = removeRecursive(node.children);
+          return true;
+        });
+      }
+      treeData = removeRecursive(treeData);
+      if (activeSelectedId === id) closeApuPanel();
+      recalculateClaves(treeData);
+      renderTAB1();
+      showToast('Fila eliminada', 'info');
+    }
+
+    function recalculateClaves(nodes, parentClave = '') {
+      nodes.forEach((node, idx) => {
+        node.clave = parentClave ? `${parentClave}.${idx + 1}` : `${idx + 1}`;
+        if (node.children && node.children.length > 0) {
+          recalculateClaves(node.children, node.clave);
+        }
+      });
+    }
+
+    // Modal de Configuración General
+    function openSettingsModal(tab = 'sobrecosto') {
+      document.getElementById('settings-modal').classList.remove('hidden');
+      document.getElementById('cfg-apply-sobrecosto').checked = settings.applySobrecosto;
+      document.getElementById('cfg-indirectos').value = settings.pctIndirectos;
+      document.getElementById('cfg-financiamiento').value = settings.pctFinanciamiento;
+      document.getElementById('cfg-utilidad').value = settings.pctUtilidad;
+      document.getElementById('cfg-adicionales').value = settings.pctAdicionales;
+      document.getElementById('cfg-api-key').value = settings.apiKey || '';
+
+      updateCalculatedFactorPreview();
+      switchSettingsTab(tab);
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    function switchSettingsTab(tab) {
+      const tabs = ['sobrecosto', 'ia', 'datos'];
+      tabs.forEach(t => {
+        const view = document.getElementById(`modal-view-${t}`);
+        const btn = document.getElementById(`modal-tab-${t}`);
+        if (t === tab) {
+          view.classList.remove('hidden');
+          btn.className = "py-2 px-3 border-b-2 border-blue-600 text-blue-600 flex items-center gap-1.5";
+        } else {
+          view.classList.add('hidden');
+          btn.className = "py-2 px-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-1.5";
+        }
+      });
+    }
+
+    function updateCalculatedFactorPreview() {
+      const apply = document.getElementById('cfg-apply-sobrecosto').checked;
+      const ind = parseFloat(document.getElementById('cfg-indirectos').value) || 0;
+      const fin = parseFloat(document.getElementById('cfg-financiamiento').value) || 0;
+      const uti = parseFloat(document.getElementById('cfg-utilidad').value) || 0;
+      const adi = parseFloat(document.getElementById('cfg-adicionales').value) || 0;
+
+      const fInd = 1 + (ind / 100);
+      const fFin = 1 + (fin / 100);
+      const fUtil = 1 + (uti / 100);
+      const fCarg = 1 + (adi / 100);
+      const factor = apply ? (fInd * fFin * fUtil * fCarg) : 1.0;
+      const pct = ((factor - 1) * 100).toFixed(2);
+
+      document.getElementById('cfg-factor-preview').innerText = `${factor.toFixed(4)} (+${pct}%)`;
+    }
+
+    function saveSettings() {
+      settings.applySobrecosto = document.getElementById('cfg-apply-sobrecosto').checked;
+      settings.pctIndirectos = parseFloat(document.getElementById('cfg-indirectos').value) || 0;
+      settings.pctFinanciamiento = parseFloat(document.getElementById('cfg-financiamiento').value) || 0;
+      settings.pctUtilidad = parseFloat(document.getElementById('cfg-utilidad').value) || 0;
+      settings.pctAdicionales = parseFloat(document.getElementById('cfg-adicionales').value) || 0;
+      settings.apiKey = document.getElementById('cfg-api-key').value.trim();
+
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      } catch (e) { console.error('Error guardando settings:', e); }
+
+      // Recalcular precios unitarios de todos los conceptos con APU
+      const factor = getFactorSobrecosto();
+      function applyFactorRecursive(nodes) {
+        nodes.forEach(n => {
+          if (n.insumos && n.insumos.length > 0) {
+            const cd = n.insumos.reduce((s, i) => s + ((i.cantidad || 0) * (i.costoUnitario || 0)), 0);
+            n.costoDirecto = cd;
+            n.precioUnitario = cd * factor;
+          }
+          if (n.children && n.children.length > 0) {
+            applyFactorRecursive(n.children);
+          }
+        });
+      }
+      applyFactorRecursive(treeData);
+
+      closeSettingsModal();
+      persistLocalData();
+      renderTAB1();
+
+      if (activeSelectedId) {
+        const sel = findNodeById(treeData, activeSelectedId);
+        if (sel) renderAPUInsumos(sel);
+      }
+
+      showToast('Configuración guardada correctamente', 'success');
+    }
+
+    function toggleApiKeyVisibility() {
+      const input = document.getElementById('cfg-api-key');
+      const icon = document.getElementById('eye-icon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash text-xs';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye text-xs';
+      }
+    }
+
+    function resetToDemoData() {
+      if (!confirm('¿Restablecer el catálogo al ejemplo demo? Se sobrescribirán los datos actuales.')) return;
+      treeData = JSON.parse(JSON.stringify(defaultTreeData));
+      saveState();
+      closeSettingsModal();
+      closeApuPanel();
+      renderTAB1();
+      showToast('Catálogo demo restablecido', 'info');
+    }
+
+    function clearAllData() {
+      if (!confirm('¿Estás seguro de vaciar todo el catálogo de obra?')) return;
+      treeData = [];
+      saveState();
+      closeSettingsModal();
+      closeApuPanel();
+      renderTAB1();
+      showToast('Presupuesto vaciado', 'warning');
+    }
+
+    // Importación / Exportación CSV
+    function exportData() {
+      let csvContent = "data:text/csv;charset=utf-8,Nivel,Clave,Descripcion,Unidad,Cantidad,PrecioUnitario,Total,Seleccionado\n";
+      function buildCsv(nodes, level = 1) {
+        nodes.forEach(n => {
+          const isParent = n.children && n.children.length > 0;
+          const total = isParent ? calculateParentTotal(n) : (n.cantidad * n.precioUnitario);
+          csvContent += `"${level}","${n.clave}","${(n.descripcion || '').replace(/"/g, '""')}","${n.unidad}",${n.cantidad},${n.precioUnitario},${total},"${n.selected ? 'Sí' : 'No'}"\n`;
+          if (isParent) buildCsv(n.children, level + 1);
+        });
+      }
+      buildCsv(treeData);
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Presupuesto_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Presupuesto exportado a CSV', 'success');
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const text = e.target.result;
+          const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+          if (lines.length < 2) {
+            showToast('El archivo CSV está vacío o no es válido', 'error');
+            return;
+          }
+
+          function parseCsvRow(rowText) {
+            let fields = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < rowText.length; i++) {
+              let char = rowText[i];
+              if (char === '"') {
+                if (inQuotes && rowText[i + 1] === '"') {
+                  current += '"';
+                  i++;
+                } else {
+                  inQuotes = !inQuotes;
+                }
+              } else if (char === ',' && !inQuotes) {
+                fields.push(current.trim());
+                current = '';
+              } else {
+                current += char;
+              }
+            }
+            fields.push(current.trim());
+            return fields;
+          }
+
+          saveState();
+          const parsedTree = [];
+          const stack = []; // Stack con { level, node }
+
+          for (let i = 1; i < lines.length; i++) {
+            const cols = parseCsvRow(lines[i]);
+            if (cols.length < 4) continue;
+
+            const level = parseInt(cols[0]) || 1;
+            const clave = cols[1] || '';
+            const desc = cols[2] || 'Concepto importado';
+            const unid = cols[3] || 'pza';
+            const cant = parseFloat(cols[4]) || 1;
+            const pu = parseFloat(cols[5]) || 0;
+            const isSel = (cols[7] || '').toLowerCase().includes('s');
+
+            const newNode = {
+              id: '_' + Math.random().toString(36).substr(2, 9),
+              clave: clave,
+              descripcion: desc,
+              unidad: unid,
+              cantidad: cant,
+              precioUnitario: pu,
+              costoDirecto: pu,
+              expanded: true,
+              selected: isSel,
+              insumos: [],
+              children: []
+            };
+
+            if (level === 1) {
+              parsedTree.push(newNode);
+              stack.length = 0;
+              stack.push({ level: 1, node: newNode });
+            } else {
+              while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+                stack.pop();
+              }
+
+              if (stack.length > 0) {
+                stack[stack.length - 1].node.children.push(newNode);
+              } else {
+                parsedTree.push(newNode);
+              }
+              stack.push({ level: level, node: newNode });
+            }
+          }
+
+          treeData = parsedTree;
+          recalculateClaves(treeData);
+          persistLocalData();
+          renderTAB1();
+          showToast(`CSV importado con éxito (${lines.length - 1} renglones)`, 'success');
+        } catch (err) {
+          console.error('Error importando CSV:', err);
+          showToast('Error al procesar el archivo CSV', 'error');
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Utilidad de Notificaciones Toast
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-rose-600 text-white',
+        info: 'bg-slate-800 text-white',
+        warning: 'bg-amber-600 text-white'
+      };
+      const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-triangle-exclamation',
+        info: 'fa-info-circle',
+        warning: 'fa-exclamation-circle'
+      };
+
+      toast.className = `${colors[type] || colors.info} px-3.5 py-2 rounded-lg shadow-xl text-xs flex items-center gap-2 pointer-events-auto transition-all duration-300 transform translate-y-0 font-medium`;
+      toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i> <span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    // ==========================================
+    // REDIMENSIONAMIENTO DEL PANEL APU Y TABLAS
+    // ==========================================
+    let isResizingApu = false;
+    let startResizeX = 0;
+    let startApuWidth = 480;
+
+    function initPanelResizer() {
+      const resizer = document.getElementById('panel-resizer');
+      const apuPanel = document.getElementById('apu-panel');
+      const container = document.getElementById('view-cat');
+      if (!resizer || !apuPanel || !container) return;
+
+      // Restaurar ancho previo guardado en localStorage
+      const savedWidth = localStorage.getItem('control_obra_apu_width');
+      if (savedWidth) {
+        const parsed = parseInt(savedWidth, 10);
+        if (!isNaN(parsed) && parsed >= 320) {
+          apuPanel.style.width = `${parsed}px`;
+        }
+      }
+
+      function startDrag(clientX) {
+        isResizingApu = true;
+        startResizeX = clientX;
+        startApuWidth = apuPanel.offsetWidth;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        resizer.classList.add('bg-blue-600', 'ring-2', 'ring-blue-300');
+      }
+
+      function onDrag(clientX) {
+        if (!isResizingApu) return;
+        const dx = clientX - startResizeX;
+        // Al arrastrar hacia la izquierda (dx < 0), el panel APU a la derecha crece
+        let newWidth = startApuWidth - dx;
+        const containerWidth = container.clientWidth;
+        const minW = 320;
+        const maxW = Math.max(380, Math.floor(containerWidth * 0.86));
+        newWidth = Math.max(minW, Math.min(newWidth, maxW));
+        apuPanel.style.width = `${newWidth}px`;
+      }
+
+      function endDrag() {
+        if (!isResizingApu) return;
+        isResizingApu = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        resizer.classList.remove('bg-blue-600', 'ring-2', 'ring-blue-300');
+        localStorage.setItem('control_obra_apu_width', apuPanel.offsetWidth);
+      }
+
+      // Eventos de Mouse
+      resizer.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        startDrag(e.clientX);
+
+        function onMouseMove(e) {
+          onDrag(e.clientX);
+        }
+        function onMouseUp() {
+          endDrag();
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup', onMouseUp);
+        }
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+      });
+
+      // Soporte para dispositivos táctiles
+      resizer.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length > 0) {
+          startDrag(e.touches[0].clientX);
+        }
+      }, { passive: true });
+
+      window.addEventListener('touchmove', (e) => {
+        if (isResizingApu && e.touches && e.touches.length > 0) {
+          onDrag(e.touches[0].clientX);
+        }
+      }, { passive: true });
+
+      window.addEventListener('touchend', () => {
+        if (isResizingApu) endDrag();
+      });
+    }
+
+    // ==========================================
+    // CONTROLES DE VISTA DE INSUMOS GENERALES
+    // ==========================================
+    function filterInsumosCategoryView(selectedCat) {
+      const cats = [
+        { id: 'Material', key: 'Material' },
+        { id: 'Mano-de-Obra', key: 'Mano de Obra' },
+        { id: 'Equipo', key: 'Equipo' },
+        { id: 'Subcontrato', key: 'Subcontrato' }
+      ];
+      const btnMap = {
+        'all': 'btn-view-cat-all',
+        'Material': 'btn-view-cat-Material',
+        'Mano de Obra': 'btn-view-cat-MO',
+        'Equipo': 'btn-view-cat-Equipo',
+        'Subcontrato': 'btn-view-cat-Sub'
+      };
+
+      // Actualizar estilos de los botones
+      Object.keys(btnMap).forEach(k => {
+        const btn = document.getElementById(btnMap[k]);
+        if (!btn) return;
+        if (k === selectedCat) {
+          btn.className = "px-2.5 py-1 rounded bg-white text-slate-900 font-semibold shadow-sm transition";
+        } else {
+          btn.className = "px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition";
+        }
+      });
+
+      // Mostrar u ocultar tarjetas de categorías
+      cats.forEach(c => {
+        const card = document.getElementById(`card-insumos-${c.id}`);
+        if (!card) return;
+        if (selectedCat === 'all' || selectedCat === c.key) {
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+    }
+
+    function toggleInsumoCard(catId) {
+      const body = document.getElementById(`card-body-${catId}`);
+      const icon = document.getElementById(`card-chevron-${catId}`);
+      if (!body) return;
+      if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        if (icon) icon.className = "fa-solid fa-chevron-up text-xs";
+      } else {
+        body.classList.add('hidden');
+        if (icon) icon.className = "fa-solid fa-chevron-down text-xs";
+      }
+    }
+
+    // Atajos de teclado: Alt + Flecha Arriba / Abajo para mover la fila seleccionada
+    document.addEventListener('keydown', (e) => {
+      if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        if (activeSelectedId) {
+          e.preventDefault();
+          moverSelectedRow(e.key === 'ArrowUp' ? 'up' : 'down');
+        }
+      }
+    });
+
+    // Inicialización
+    initPanelResizer();
+    renderTAB1();
+    updateUndoRedoButtons();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1869 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Obra - TAB1-CAT-BASE e Insumos Generales</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="js/vendor/xlsx.full.min.js"></script>
+  <script src="js/vendor/jszip.min.js"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-100 font-sans h-screen flex flex-col text-slate-800">
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Header & Navigation Tabs -->
+  <header class="bg-slate-900 text-white p-3 shadow-md flex justify-between items-center shrink-0">
+    <div class="flex items-center gap-4">
+      <!-- Logo y Nombre de la Empresa Personalizables -->
+      <div class="flex items-center gap-2.5">
+        <!-- Contenedor del Logo (Sombrero amarillo o Imagen subida) -->
+        <div class="relative group cursor-pointer" onclick="triggerCompanyLogoUpload()" title="Haz clic para subir o cambiar el logotipo de la empresa">
+          <input type="file" id="company-logo-input" accept="image/*" class="hidden" onchange="handleCompanyLogoUpload(event)">
+          
+          <div id="company-logo-container" class="flex items-center justify-center w-11 h-11 min-w-[44px] aspect-square rounded-lg bg-slate-800/80 border border-slate-700 hover:border-blue-400 transition overflow-hidden p-0.5">
+            <!-- Icono por defecto (sombrero amarillo) -->
+            <i id="default-company-icon" class="fa-solid fa-helmet-safety text-amber-400 text-2xl"></i>
+            <!-- Imagen de logo personalizada (cuadrada) -->
+            <img id="custom-company-logo" src="" alt="Logo Empresa" class="w-full h-full object-contain rounded hidden">
+          </div>
+
+          <!-- Overlay al pasar el mouse -->
+          <div class="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-[10px] text-white pointer-events-none">
+            <i class="fa-solid fa-camera"></i>
+          </div>
+
+          <!-- Botón para quitar logo y volver al sombrero amarillo -->
+          <button type="button" id="btn-remove-company-logo" onclick="removeCompanyLogo(event)" 
+                  class="hidden absolute -top-1.5 -right-1.5 bg-red-600 hover:bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] shadow-sm transition" 
+                  title="Quitar logo y volver al sombrero amarillo">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+
+          <!-- Botón para reajustar y encuadrar logo existente -->
+          <button type="button" id="btn-header-adjust-logo" onclick="event.stopPropagation(); openCurrentLogoAdjuster()" 
+                  class="hidden absolute -bottom-1.5 -right-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] shadow-sm transition" 
+                  title="Ajustar encuadre y zoom del logotipo actual">
+            <i class="fa-solid fa-crop-simple"></i>
+          </button>
+        </div>
+
+        <!-- Nombre de la Empresa Editable (Cubre todo el espacio vertical del título) -->
+        <div class="flex items-center gap-1.5 group">
+          <input type="text" id="header-company-name" value="Sistema de Control de Obra" 
+                 onchange="updateCompanyName(this.value)"
+                 placeholder="Nombre de la Empresa" 
+                 title="Haz clic para editar el nombre de la empresa" 
+                 class="font-black text-lg sm:text-xl text-white bg-transparent border-b border-transparent hover:border-slate-500 focus:border-blue-400 focus:bg-slate-800/90 rounded px-2 py-1 outline-none transition w-64 sm:w-80 md:w-96 lg:w-[450px] truncate tracking-tight">
+          <button type="button" onclick="document.getElementById('header-company-name').focus()" class="text-slate-500 hover:text-slate-300 opacity-0 group-hover:opacity-100 transition text-xs p-1" title="Editar nombre de la empresa">
+            <i class="fa-solid fa-pen text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex bg-slate-800 p-1 rounded-lg ml-4 border border-slate-700">
+        <button id="tab-btn-cat" onclick="switchTab('cat')" class="px-3 py-1 rounded text-xs font-semibold bg-blue-600 text-white transition flex items-center gap-1.5">
+          <i class="fa-solid fa-list-check"></i> TAB1-CAT-BASE
+        </button>
+        <button id="tab-btn-insumos" onclick="switchTab('insumos')" class="px-3 py-1 rounded text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5">
+          <i class="fa-solid fa-boxes-stacked"></i> INSUMOS GENERALES
+        </button>
+      </nav>
+    </div>
+
+    <!-- Actions & Config Buttons -->
+    <div class="flex items-center gap-2">
+      <!-- Indicador Factor Sobrecosto -->
+      <button onclick="openSettingsModal('sobrecosto')" id="badge-sobrecosto" class="text-xs px-2.5 py-1 rounded border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center gap-1.5 transition">
+        <i class="fa-solid fa-percent text-amber-400 text-[10px]"></i>
+        <span id="label-factor-sobrecosto">Sobrecosto: Inactivo</span>
+      </button>
+
+      <!-- Catálogo Maestro / Biblioteca de Referencia -->
+      <button onclick="openMasterCatalogModal()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 font-medium shadow-sm transition" title="Biblioteca de Catálogos Maestros (BIMSA, Gobierno, etc.)">
+        <i class="fa-solid fa-book-bookmark"></i> Catálogo Maestro
+      </button>
+
+      <!-- Importar Archivos (Multi-formato: .xlsx, .xls, .csv, .json) -->
+      <button onclick="openImportModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 font-medium shadow-sm transition" title="Importar archivos de Excel (.xlsx, .xls BIMSA), CSV o JSON">
+        <i class="fa-solid fa-file-import"></i> Importar Archivo
+      </button>
+
+      <!-- Exportar CSV -->
+      <button onclick="exportData()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs px-3 py-1.5 rounded flex items-center gap-1.5 font-medium shadow-sm transition" title="Exportar presupuesto activo a CSV">
+        <i class="fa-solid fa-file-excel text-emerald-400"></i> Exportar
+      </button>
+
+      <!-- Modal Configuración Global -->
+      <button onclick="openSettingsModal('general')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs p-1.5 rounded transition" title="Configuración de Sobrecostos, IA y Datos">
+        <i class="fa-solid fa-gear text-sm"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Pestaña 1: TAB1-CAT-BASE & APU -->
+  <div id="view-cat" class="flex-1 flex overflow-hidden p-3 gap-3">
+
+    <!-- TAB1-CAT-BASE Table Section (3/4 de la pantalla) -->
+    <div id="tb1-container" class="flex-1 bg-white rounded-lg shadow border border-slate-200 flex flex-col transition-all duration-300">
+      
+      <!-- Encabezado Superior: Proyecto y Ubicación -->
+      <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex flex-col gap-1.5 shrink-0">
+        <!-- Renglón 1: Nombre del Proyecto Editable -->
+        <div class="flex items-center justify-between border-b border-slate-200/80 pb-1.5">
+          <div class="flex items-center gap-2 group flex-1 mr-4">
+            <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-folder-tree text-blue-600"></i> Proyecto:
+            </span>
+            <input type="text" id="header-project-name" value="Proyecto de Obra Base" 
+                   onchange="updateProjectName(this.value)"
+                   placeholder="Escribe el nombre del proyecto de obra..." 
+                   title="Haz clic para editar el nombre del proyecto" 
+                   class="font-bold text-xs sm:text-sm text-slate-800 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 max-w-2xl truncate">
+            <button type="button" onclick="document.getElementById('header-project-name').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar nombre del proyecto">
+              <i class="fa-solid fa-pen text-[10px]"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Renglón 2: Ubicación del Proyecto Editable -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 group flex-1 mr-4">
+            <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-location-dot text-rose-600"></i> Ubicación:
+            </span>
+            <input type="text" id="header-project-location" value="Ciudad de México, CDMX" 
+                   onchange="updateProjectLocation(this.value)"
+                   placeholder="Escribe la ubicación o dirección del proyecto..." 
+                   title="Haz clic para editar la ubicación del proyecto" 
+                   class="font-medium text-xs text-slate-700 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 max-w-2xl truncate">
+            <button type="button" onclick="document.getElementById('header-project-location').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar ubicación del proyecto">
+              <i class="fa-solid fa-pen text-[10px]"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de Acciones Globales (Abajo de Proyecto y Ubicación) -->
+      <div class="p-2 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button onclick="addRootRow()" class="bg-blue-600 hover:bg-blue-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Agregar Partida Principal">
+            <i class="fa-solid fa-plus text-[10px]"></i> Agregar Partida
+          </button>
+          
+          <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+
+          <button onclick="undoAction()" id="btn-undo" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed" title="Regresar anterior (Deshacer)">
+            <i class="fa-solid fa-rotate-left text-[10px]"></i> Anterior
+          </button>
+          <button onclick="redoAction()" id="btn-redo" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed" title="Ir después (Rehacer)">
+            <i class="fa-solid fa-rotate-right text-[10px]"></i> Después
+          </button>
+
+          <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+
+          <button onclick="duplicarSelectedRow()" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Duplicar renglón seleccionado">
+            <i class="fa-solid fa-clone text-[10px]"></i> Duplicar
+          </button>
+          <button onclick="copiarSelectedRow()" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Copiar renglón seleccionado">
+            <i class="fa-solid fa-copy text-[10px]"></i> Copiar
+          </button>
+          <button onclick="pegarSelectedRow()" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Pegar renglón copiado">
+            <i class="fa-solid fa-paste text-[10px]"></i> Pegar
+          </button>
+
+          <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+
+          <button onclick="moverSelectedRow('up')" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Mover fila hacia arriba">
+            <i class="fa-solid fa-arrow-up text-[10px]"></i> Mover Arriba
+          </button>
+          <button onclick="moverSelectedRow('down')" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Mover fila hacia abajo">
+            <i class="fa-solid fa-arrow-down text-[10px]"></i> Mover Abajo
+          </button>
+
+          <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+
+          <button onclick="deleteSelectedRow()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition" title="Eliminar renglones seleccionados">
+            <i class="fa-solid fa-trash text-[10px]"></i> Eliminar Fila
+          </button>
+
+          <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+
+          <!-- Botón Imprimir Formato TAB1-CAT-BASE -->
+          <button onclick="printTab1Catalog()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95" title="Imprimir Formato del Catálogo de Presupuesto (TAB1-CAT-BASE)">
+            <i class="fa-solid fa-print text-[10px]"></i> Imprimir Catálogo
+          </button>
+        </div>
+
+        <div class="text-right flex items-center gap-3">
+          <span class="text-[10px] text-slate-400 flex items-center gap-1">
+            <i class="fa-solid fa-floppy-disk text-emerald-500"></i> Auto-guardado local activo
+          </span>
+          <span class="text-[10px] text-slate-600 font-mono font-medium" id="selected-row-status">Seleccione una fila para acciones</span>
+        </div>
+      </div>
+
+      <!-- Barra de Título del Catálogo y Totales -->
+      <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-slate-700 text-xs uppercase tracking-wide">Catalogo y presupuesto de obra base</span>
+          <span class="bg-slate-200 text-slate-600 text-[10px] px-2 py-0.5 rounded-full font-mono" id="total-items">0 ítems</span>
+          <span class="bg-blue-100 text-blue-700 font-bold text-[10px] px-2 py-0.5 rounded-full font-mono hidden" id="selected-items-badge">0 sel.</span>
+        </div>
+        <div class="flex items-center gap-4 text-right">
+          <div id="costo-directo-total-container" class="hidden">
+            <span class="text-[9px] text-slate-500 block leading-tight">Costo Directo Total</span>
+            <span class="text-xs font-bold text-slate-600 font-mono" id="direct-total">$0.00</span>
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-500 block leading-tight">Monto Total Presupuestado</span>
+            <span class="text-base font-bold text-emerald-700 font-mono" id="grand-total">$0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table Scrollable Area con barra horizontal activa -->
+      <div class="flex-1 overflow-auto">
+        <table class="w-full text-left text-xs border-collapse min-w-[920px]">
+          <thead class="bg-slate-100 text-slate-600 uppercase text-[10px] font-semibold sticky top-0 border-b border-slate-200 z-10">
+            <tr>
+              <th class="p-2 w-10 text-center" title="Color de Fila y Sub-filas">
+                <i class="fa-solid fa-palette text-slate-500 text-[11px]"></i>
+              </th>
+              <th class="p-2 w-8 text-center">
+                <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this.checked)" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+              </th>
+              <th class="p-2 w-12 text-center">Niv</th>
+              <th class="p-2 w-20">Clave</th>
+              <th class="p-2 text-justify">Descripción de Concepto</th>
+              <th class="p-2 w-20 text-right">Cant.</th>
+              <th class="p-2 w-14 text-center">Unid</th>
+              <th class="p-2 w-28 text-right">Precio Unit.</th>
+              <th class="p-2 w-28 text-right">Total</th>
+              <th class="p-2 w-24 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tb1-body" class="divide-y divide-slate-100 font-mono">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Separador Arrastrable para Redimensionar el Panel APU -->
+    <div id="panel-resizer" class="w-2.5 hover:w-3.5 bg-slate-300 hover:bg-blue-600 active:bg-blue-700 cursor-col-resize transition-all rounded-full flex items-center justify-center shrink-0 hidden select-none shadow-sm z-20 group relative" title="Arrastra hacia la izquierda o derecha para cambiar el tamaño de la Matriz">
+      <div class="h-10 w-1 bg-slate-400 group-hover:bg-white rounded-full flex flex-col justify-between py-1">
+        <span class="w-1 h-1 bg-white/80 rounded-full block mx-auto"></span>
+        <span class="w-1 h-1 bg-white/80 rounded-full block mx-auto"></span>
+        <span class="w-1 h-1 bg-white/80 rounded-full block mx-auto"></span>
+      </div>
+    </div>
+
+    <!-- APU Side Panel Redimensionable -->
+    <div id="apu-panel" class="w-[480px] min-w-[320px] max-w-[85vw] bg-white rounded-lg shadow border border-slate-200 flex flex-col hidden shrink-0 overflow-hidden">
+      
+      <!-- APU Header -->
+      <div class="p-2.5 bg-slate-800 text-white rounded-t-lg flex justify-between items-center shrink-0">
+        <div class="overflow-hidden pr-2">
+          <div class="flex items-center gap-1.5">
+            <span class="bg-amber-400 text-slate-900 font-bold text-[9px] px-1 py-0.5 rounded font-mono" id="apu-clave">---</span>
+            <h2 class="font-bold text-xs text-slate-100 truncate" id="apu-title">Matriz de Precio Unitario</h2>
+          </div>
+          <p class="text-[10px] text-slate-300 mt-0.5 truncate italic" id="apu-desc">Sin concepto seleccionado</p>
+        </div>
+        
+        <!-- Botones de Acción APU -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button onclick="printApuMatrix()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] px-2.5 py-1 rounded flex items-center gap-1 font-semibold shadow-xs transition active:scale-95" title="Imprimir Formato de Matriz APU e Insumos Unitarios">
+            <i class="fa-solid fa-print text-[9px]"></i> Imprimir APU
+          </button>
+          <button onclick="openMatrizModal()" class="bg-slate-700 hover:bg-blue-600 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1 font-semibold shadow-xs transition active:scale-95" title="Maximizar Matriz en ventana completa (Estilo Configuración)">
+            <i class="fa-solid fa-maximize text-[9px]"></i>
+          </button>
+          <button onclick="closeApuPanel()" class="text-slate-400 hover:text-white text-base leading-none p-1 rounded hover:bg-slate-700 transition" title="Cerrar panel APU">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- APU Body -->
+      <div class="flex-1 overflow-auto p-2 space-y-3">
+        
+        <!-- Encabezado MATRIZ con Botón IA Google Search Grounding -->
+        <div class="flex justify-between items-center border-b border-slate-200 pb-1">
+          <div onclick="toggleApuSection('matriz')" class="flex items-center gap-1.5 cursor-pointer select-none group py-0.5" title="Plegar / desplegar sección MATRIZ">
+            <i id="matriz-chevron" class="fa-solid fa-chevron-down text-slate-400 group-hover:text-blue-600 text-[10px] transition-transform duration-200"></i>
+            <span class="text-xs font-bold text-slate-800 uppercase tracking-wide group-hover:text-blue-600 flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-calculator text-blue-600"></i> MATRIZ
+            </span>
+            <span id="matriz-collapsed-badge" class="ml-2 text-[10px] font-mono font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 hidden"></span>
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="openMatrizModal()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-2xs font-semibold transition hover:scale-105 active:scale-95" title="Maximizar área de Matriz en ventana completa (Estilo Configuración)">
+              <i class="fa-solid fa-maximize text-[9px]"></i>
+              <span>Maximizar</span>
+            </button>
+            <button onclick="openAiGeneratorModal()" id="btn-ai-apu" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95" title="Buscar costos y llenar matriz con Google Search Grounding">
+              <i class="fa-brands fa-google text-amber-300 text-[10px]"></i>
+              <span>Google IA</span>
+            </button>
+            <button onclick="openApuReferenceModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95" title="Buscar insumos en catálogos de referencia (BIMSA, Gobierno, etc.)">
+              <i class="fa-solid fa-book-bookmark text-[9px]"></i> + Catálogo
+            </button>
+            <button onclick="addInsumo()" class="bg-slate-800 hover:bg-slate-700 text-white text-[9px] px-1.5 py-1 rounded flex items-center gap-1 shadow-sm font-semibold">
+              <i class="fa-solid fa-plus text-[8px]"></i> + Insumo
+            </button>
+          </div>
+        </div>
+
+        <!-- Contenido Plegable de MATRIZ -->
+        <div id="matriz-section-content" class="space-y-3">
+
+        <!-- Breakdown Summary Grid con Íconos (Clic para filtrar Matriz) -->
+        <div class="grid grid-cols-2 gap-1.5 text-center text-[10px]">
+          <div onclick="filterMatriz('Material')" class="bg-blue-50 hover:bg-blue-100/70 border border-blue-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Materiales">
+            <div class="flex items-center gap-1 text-blue-700 font-bold text-[9px]">
+              <i class="fa-solid fa-cubes"></i>
+              <span>MATERIALES</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-mat">$0.00</span>
+          </div>
+
+          <div onclick="filterMatriz('Mano de Obra')" class="bg-amber-50 hover:bg-amber-100/70 border border-amber-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Mano de Obra">
+            <div class="flex items-center gap-1 text-amber-700 font-bold text-[9px]">
+              <i class="fa-solid fa-hard-hat"></i>
+              <span>MANO DE OBRA</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-mo">$0.00</span>
+          </div>
+
+          <div onclick="filterMatriz('Equipo')" class="bg-purple-50 hover:bg-purple-100/70 border border-purple-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Equipo / Herramienta">
+            <div class="flex items-center gap-1 text-purple-700 font-bold text-[9px]">
+              <i class="fa-solid fa-screwdriver-wrench"></i>
+              <span>EQUIPO / HERR.</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-eq">$0.00</span>
+          </div>
+
+          <div onclick="filterMatriz('Subcontrato')" class="bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 p-1.5 rounded flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar Matriz por Subcontratos">
+            <div class="flex items-center gap-1 text-emerald-700 font-bold text-[9px]">
+              <i class="fa-solid fa-file-signature"></i>
+              <span>SUBCONTRATOS</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 mt-0.5" id="apu-sum-sub">$0.00</span>
+          </div>
+        </div>
+
+        <!-- Banner Google Search Grounding: Búsquedas, Fuentes y Sugerencias -->
+        <div id="apu-grounding-box" class="p-2.5 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border border-blue-200 rounded-lg text-[10px] hidden space-y-2 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-blue-900 flex items-center gap-1.5 text-[9px] uppercase tracking-wider">
+              <i class="fa-brands fa-google text-blue-600"></i> Google Search Grounding
+            </span>
+            <button onclick="dismissGroundingBox()" class="text-slate-400 hover:text-slate-700 text-xs">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          
+          <!-- Búsquedas en Google realizadas -->
+          <div id="apu-grounding-queries-container" class="hidden">
+            <span class="text-[9px] font-semibold text-slate-600 block mb-1">Búsquedas en Google realizadas:</span>
+            <div id="apu-grounding-queries" class="flex flex-wrap gap-1"></div>
+          </div>
+
+          <!-- Fuentes web consultadas -->
+          <div id="apu-grounding-sources-container" class="hidden">
+            <span class="text-[9px] font-semibold text-slate-600 block mb-1">Fuentes y cotizaciones consultadas:</span>
+            <div id="apu-grounding-sources" class="flex flex-wrap gap-1"></div>
+          </div>
+
+          <!-- Sugerencia técnica -->
+          <div id="apu-grounding-tips-container" class="hidden pt-1.5 border-t border-blue-200/60">
+            <div class="flex items-start gap-1.5 text-indigo-950">
+              <i class="fa-solid fa-lightbulb text-amber-500 mt-0.5 shrink-0 text-[10px]"></i>
+              <p id="apu-grounding-tips" class="text-[10px] leading-snug font-sans"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seccion: Tabla de Matriz de Precio Unitario -->
+        <div class="space-y-1.5">
+          <div class="flex flex-wrap items-center justify-between gap-1">
+            <span class="text-[10px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1">
+              <i class="fa-solid fa-filter text-blue-600 text-[9px]"></i> Filtrar Matriz:
+            </span>
+            <div class="flex items-center gap-2">
+              <button onclick="openMatrizModal()" class="text-blue-600 hover:text-blue-800 text-[9px] font-semibold flex items-center gap-1 hover:underline cursor-pointer" title="Maximizar matriz en ventana completa">
+                <i class="fa-solid fa-maximize text-[8px]"></i> Maximizar
+              </button>
+              <button onclick="printApuMatrix()" class="text-indigo-600 hover:text-indigo-800 text-[9px] font-semibold flex items-center gap-1 hover:underline cursor-pointer" title="Imprimir Formato de Matriz APU e Insumos Unitarios">
+                <i class="fa-solid fa-print text-[8px]"></i> Imprimir
+              </button>
+              <span class="text-[9px] text-slate-400 italic font-sans flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Desplazar horizontalmente
+              </span>
+            </div>
+          </div>
+
+          <!-- Botones Filtro por Rubro para MATRIZ -->
+          <div class="flex flex-wrap gap-1 text-[8px] font-semibold">
+            <button onclick="filterMatriz('Todos')" id="filter-matriz-Todos" class="px-2 py-0.5 rounded bg-blue-600 text-white border border-blue-600 shadow-xs transition">Todos</button>
+            <button onclick="filterMatriz('Material')" id="filter-matriz-Material" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Materiales</button>
+            <button onclick="filterMatriz('Mano de Obra')" id="filter-matriz-Mano-de-Obra" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Mano de Obra</button>
+            <button onclick="filterMatriz('Equipo')" id="filter-matriz-Equipo" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Equipo / Herr.</button>
+            <button onclick="filterMatriz('Subcontrato')" id="filter-matriz-Subcontrato" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Subcontratos</button>
+          </div>
+
+          <div class="border border-slate-200 rounded overflow-x-auto custom-scroll-x bg-white shadow-sm">
+            <table class="w-full text-left text-[10px] border-collapse font-mono min-w-[580px]">
+              <thead class="bg-slate-100 text-slate-600 text-[9px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-1.5 min-w-[190px] text-justify">Descripción / Rubro</th>
+                  <th class="p-1.5 w-14 min-w-[50px] text-center">Unidad</th>
+                  <th class="p-1.5 w-16 min-w-[65px] text-right" id="th-apu-cantidad" title="Consumo o rendimiento necesario para elaborar 1 unidad del concepto">Cant. (1 ud)</th>
+                  <th class="p-1.5 w-24 min-w-[90px] text-right">Costo U.</th>
+                  <th class="p-1.5 w-20 min-w-[80px] text-right">Total</th>
+                  <th class="p-1 w-6 min-w-[24px] text-center"></th>
+                </tr>
+              </thead>
+              <tbody id="apu-insumos-body" class="divide-y divide-slate-100">
+                <!-- Dynamic insumos -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total Costo Directo y Precio Unitario Calculado -->
+          <div class="mt-1.5 space-y-1">
+            <div class="p-1.5 bg-slate-50 border border-slate-200 rounded flex justify-between items-center text-[10px]">
+              <span class="text-slate-600 font-medium">Costo Directo (C.D.):</span>
+              <span class="font-bold text-slate-800 font-mono" id="apu-calculated-cd">$0.00</span>
+            </div>
+            <div id="apu-sobrecosto-row" class="p-1.5 bg-amber-50 border border-amber-200 rounded flex justify-between items-center text-[10px] hidden">
+              <span class="text-amber-800 font-medium" id="apu-sobrecosto-tag">Sobrecosto (+0%):</span>
+              <span class="font-bold text-amber-900 font-mono" id="apu-calculated-sobrecosto">$0.00</span>
+            </div>
+            <div class="p-2 bg-blue-50 border border-blue-200 rounded flex justify-between items-center">
+              <span class="text-[10px] font-bold text-blue-900">Precio Unitario Final:</span>
+              <span class="text-xs font-bold text-blue-700 font-mono" id="apu-calculated-pu">$0.00</span>
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <!-- Seccion: Insumos Unitarios (Resumen Obra) -->
+        <div class="pt-2 border-t border-slate-200">
+          <div class="flex justify-between items-center pb-1">
+            <div onclick="toggleApuSection('insumos-unitarios')" class="flex items-center gap-1.5 cursor-pointer select-none group py-0.5" title="Plegar / desplegar Insumos Unitarios">
+              <i id="insumos-unitarios-chevron" class="fa-solid fa-chevron-down text-blue-500 group-hover:text-blue-700 text-[9px] transition-transform duration-200"></i>
+              <span class="text-[10px] font-bold text-blue-800 uppercase flex items-center gap-1 group-hover:text-blue-600 transition">
+                <i class="fa-solid fa-boxes-stacked text-[10px]"></i> Insumos Unitarios (Resumen Obra)
+              </span>
+              <span id="insumos-unitarios-collapsed-badge" class="ml-2 text-[9px] font-mono font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 hidden"></span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="openMatrizModal()" class="text-blue-600 hover:text-blue-800 text-[9px] font-semibold flex items-center gap-1 hover:underline cursor-pointer" title="Maximizar matriz en ventana completa">
+                <i class="fa-solid fa-maximize text-[8px]"></i> Maximizar
+              </button>
+              <button onclick="printApuMatrix()" class="text-indigo-600 hover:text-indigo-800 text-[9px] font-semibold flex items-center gap-1 hover:underline cursor-pointer" title="Imprimir Formato de Matriz APU e Insumos Unitarios">
+                <i class="fa-solid fa-print text-[8px]"></i> Imprimir
+              </button>
+              <span class="text-[9px] text-slate-400 italic font-sans flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Desplazar horizontalmente
+              </span>
+            </div>
+          </div>
+
+          <!-- Contenido Plegable de Insumos Unitarios -->
+          <div id="insumos-unitarios-section-content" class="space-y-1.5">
+            <!-- Botones Filtro por Rubro -->
+            <div class="flex flex-wrap gap-1 text-[8px] font-semibold">
+              <button onclick="filterInsumos('Todos')" id="filter-Todos" class="px-1.5 py-0.5 rounded bg-blue-600 text-white border border-blue-600">Todos</button>
+              <button onclick="filterInsumos('Material')" id="filter-Material" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Materiales</button>
+              <button onclick="filterInsumos('Mano de Obra')" id="filter-Mano-de-Obra" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Mano Obra</button>
+              <button onclick="filterInsumos('Equipo')" id="filter-Equipo" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Equipo/Herr</button>
+              <button onclick="filterInsumos('Subcontrato')" id="filter-Subcontrato" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Subcontrato</button>
+            </div>
+
+            <!-- Tabla de Resumen Insumos Unitarios -->
+            <div class="border border-slate-200 rounded overflow-x-auto custom-scroll-x bg-white shadow-sm">
+              <table class="w-full text-left text-[10px] border-collapse font-mono min-w-[520px]">
+                <thead class="bg-slate-100 text-slate-600 text-[8px] uppercase font-semibold border-b border-slate-200">
+                  <tr>
+                    <th class="p-1 border-b border-slate-200 w-16 min-w-[60px]">Insumo</th>
+                    <th class="p-1 border-b border-slate-200 min-w-[170px] text-justify">Descripción</th>
+                    <th class="p-1 border-b border-slate-200 w-16 min-w-[70px] text-right">Cant. Obra</th>
+                    <th class="p-1 border-b border-slate-200 w-10 min-w-[45px] text-center">Unid</th>
+                    <th class="p-1 border-b border-slate-200 w-20 min-w-[85px] text-right">Importe</th>
+                  </tr>
+                </thead>
+                <tbody id="insumos-unitarios-body" class="divide-y divide-slate-100">
+                  <!-- Calculated Insumos Unitarios -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Total de Insumos Unitarios (Resumen Obra) -->
+            <div class="p-2 bg-blue-50 border border-blue-200 rounded flex justify-between items-center shrink-0">
+              <span class="text-[10px] font-bold text-blue-900">Total Importe Obra:</span>
+              <span class="text-xs font-bold text-emerald-700 font-mono" id="insumos-unitarios-total">$0.00</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Pestaña 2: INSUMOS GENERALES -->
+  <div id="view-insumos" class="flex-1 flex flex-col overflow-hidden p-3 hidden">
+    <div class="bg-white rounded-lg shadow border border-slate-200 flex flex-col h-full overflow-hidden">
+      
+      <!-- Encabezado Superior: Proyecto y Ubicación (Insumos Generales) -->
+      <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex flex-col gap-1.5 shrink-0">
+        <!-- Renglón 1: Nombre del Proyecto Editable -->
+        <div class="flex items-center justify-between border-b border-slate-200/80 pb-1.5">
+          <div class="flex items-center gap-2 group flex-1 mr-4">
+            <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-folder-tree text-blue-600"></i> Proyecto:
+            </span>
+            <input type="text" id="insumos-project-name" value="Proyecto de Obra Base" 
+                   onchange="updateProjectName(this.value)"
+                   placeholder="Escribe el nombre del proyecto de obra..." 
+                   title="Haz clic para editar el nombre del proyecto" 
+                   class="font-bold text-xs sm:text-sm text-slate-800 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 max-w-2xl truncate">
+            <button type="button" onclick="document.getElementById('insumos-project-name').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar nombre del proyecto">
+              <i class="fa-solid fa-pen text-[10px]"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Renglón 2: Ubicación del Proyecto Editable -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 group flex-1 mr-4">
+            <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-location-dot text-rose-600"></i> Ubicación:
+            </span>
+            <input type="text" id="insumos-project-location" value="Ciudad de México, CDMX" 
+                   onchange="updateProjectLocation(this.value)"
+                   placeholder="Escribe la ubicación o dirección del proyecto..." 
+                   title="Haz clic para editar la ubicación del proyecto" 
+                   class="font-medium text-xs text-slate-700 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 max-w-2xl truncate">
+            <button type="button" onclick="document.getElementById('insumos-project-location').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar ubicación del proyecto">
+              <i class="fa-solid fa-pen text-[10px]"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de Acciones Globales Superior (Insumos Generales - Igual a TAB1-CAT-BASE) -->
+      <div class="p-2 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button onclick="undoAction()" id="btn-undo-insumos" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed" title="Regresar anterior (Deshacer)">
+            <i class="fa-solid fa-rotate-left text-[10px]"></i> Anterior
+          </button>
+          <button onclick="redoAction()" id="btn-redo-insumos" class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed" title="Ir adelante (Rehacer)">
+            <i class="fa-solid fa-rotate-right text-[10px]"></i> Adelante
+          </button>
+
+          <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
+
+          <!-- Botón Imprimir Formato Insumos Generales -->
+          <button onclick="printInsumosGenerales()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95" title="Imprimir Reporte Consolidado de Insumos Generales (Materiales, Mano de Obra, Equipos y Subcontratos)">
+            <i class="fa-solid fa-print text-[10px]"></i> Imprimir Insumos
+          </button>
+        </div>
+
+        <div class="text-right flex items-center gap-3">
+          <span class="text-[10px] text-slate-400 flex items-center gap-1">
+            <i class="fa-solid fa-floppy-disk text-emerald-500"></i> Auto-guardado local activo
+          </span>
+          <span class="text-[10px] text-slate-600 font-mono font-medium">Consolidado general de obra</span>
+        </div>
+      </div>
+
+      <!-- Insumos Generales Header con Filtros Rápidos de Vista -->
+      <div class="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap justify-between items-center gap-3 shrink-0">
+        <div>
+          <h2 class="font-bold text-slate-800 text-sm uppercase tracking-wide flex items-center gap-2">
+            <i class="fa-solid fa-boxes-stacked text-blue-600"></i> INSUMOS GENERALES (Conceptos Seleccionados)
+          </h2>
+          <p class="text-[11px] text-slate-500 mt-0.5" id="insumos-selected-count-msg">Suma consolidada únicamente de los conceptos marcados con Checkbox en TAB1-CAT-BASE.</p>
+        </div>
+
+        <!-- Controles para agrandar / filtrar áreas de tablas -->
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-1 bg-slate-200 p-0.5 rounded-lg border border-slate-300 text-[11px] font-medium" title="Filtrar vista para enfocar una categoría">
+            <button onclick="filterInsumosCategoryView('all')" id="btn-view-cat-all" class="px-2.5 py-1 rounded bg-white text-slate-900 font-semibold shadow-sm transition">Todas</button>
+            <button onclick="filterInsumosCategoryView('Material')" id="btn-view-cat-Material" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Materiales</button>
+            <button onclick="filterInsumosCategoryView('Mano de Obra')" id="btn-view-cat-MO" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Mano de Obra</button>
+            <button onclick="filterInsumosCategoryView('Equipo')" id="btn-view-cat-Equipo" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Equipo/Herr</button>
+            <button onclick="filterInsumosCategoryView('Subcontrato')" id="btn-view-cat-Sub" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Subcontratos</button>
+          </div>
+
+          <div class="h-5 w-[1px] bg-slate-300"></div>
+
+          <div class="text-right">
+            <span class="text-[10px] text-slate-500 block leading-tight">Monto Total de Insumos</span>
+            <span class="text-lg font-bold text-emerald-700 font-mono" id="insumos-generales-grand-total">$0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Insumos Generales Scrollable Area -->
+      <div class="flex-1 overflow-auto p-3 space-y-4">
+        
+        <!-- Table Materiales -->
+        <div id="card-insumos-Material" class="border border-blue-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
+          <div class="bg-blue-50 px-3 py-2 border-b border-blue-200 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+              <button onclick="toggleInsumoCard('Material')" class="text-blue-700 hover:text-blue-900 p-1 rounded hover:bg-blue-100 transition" title="Contraer / Expandir tabla de Materiales">
+                <i id="card-chevron-Material" class="fa-solid fa-chevron-up text-xs"></i>
+              </button>
+              <span class="font-bold text-blue-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-cubes"></i> MATERIALES
+              </span>
+              <span class="text-[10px] text-blue-600/70 italic hidden sm:inline flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Barra horizontal inferior
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                  <i class="fa-solid fa-search text-[10px]"></i>
+                </span>
+                <input type="text" id="search-Material" oninput="filterInsumosGeneralesTable('Material')" placeholder="Buscar descripción..." class="text-xs bg-white border border-blue-300 rounded pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 w-44 font-sans">
+              </div>
+              <button onclick="combinarInsumosSeleccionados('Material')" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition" title="Combina las líneas seleccionadas con Checkbox">
+                <i class="fa-solid fa-object-group text-[10px]"></i> Combinar
+              </button>
+              <span class="font-bold font-mono text-xs text-blue-900 ml-2" id="cat-sum-materiales">$0.00</span>
+            </div>
+          </div>
+          <div id="card-body-Material" class="overflow-x-auto w-full custom-scroll-x">
+            <table class="w-full text-left text-xs border-collapse font-mono min-w-[960px]">
+              <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2 w-10 min-w-[40px] text-center sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                    <input type="checkbox" id="check-all-Material" onchange="toggleSelectAllInsumos('Material', this.checked)" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+                  </th>
+                  <th class="p-2 w-28 min-w-[100px]">Clave</th>
+                  <th class="p-2 min-w-[280px]">Descripción</th>
+                  <th class="p-2 w-28 min-w-[110px] text-right">Costo U.</th>
+                  <th class="p-2 w-16 min-w-[65px] text-center">Unidad</th>
+                  <th class="p-2 w-28 min-w-[105px] text-right">Cantidad</th>
+                  <th class="p-2 w-32 min-w-[120px] text-right">Importe Total</th>
+                </tr>
+              </thead>
+              <tbody id="body-insumos-materiales" class="divide-y divide-slate-100">
+                <!-- Dynamic Materiales -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Table Mano de Obra -->
+        <div id="card-insumos-Mano-de-Obra" class="border border-amber-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
+          <div class="bg-amber-50 px-3 py-2 border-b border-amber-200 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+              <button onclick="toggleInsumoCard('Mano-de-Obra')" class="text-amber-700 hover:text-amber-900 p-1 rounded hover:bg-amber-100 transition" title="Contraer / Expandir tabla de Mano de Obra">
+                <i id="card-chevron-Mano-de-Obra" class="fa-solid fa-chevron-up text-xs"></i>
+              </button>
+              <span class="font-bold text-amber-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-hard-hat"></i> MANO DE OBRA
+              </span>
+              <span class="text-[10px] text-amber-600/70 italic hidden sm:inline flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Barra horizontal inferior
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                  <i class="fa-solid fa-search text-[10px]"></i>
+                </span>
+                <input type="text" id="search-Mano de Obra" oninput="filterInsumosGeneralesTable('Mano de Obra')" placeholder="Buscar descripción..." class="text-xs bg-white border border-amber-300 rounded pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-amber-500 w-44 font-sans">
+              </div>
+              <button onclick="combinarInsumosSeleccionados('Mano de Obra')" class="bg-amber-600 hover:bg-amber-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition" title="Combina las líneas seleccionadas con Checkbox">
+                <i class="fa-solid fa-object-group text-[10px]"></i> Combinar
+              </button>
+              <span class="font-bold font-mono text-xs text-amber-900 ml-2" id="cat-sum-mo">$0.00</span>
+            </div>
+          </div>
+          <div id="card-body-Mano-de-Obra" class="overflow-x-auto w-full custom-scroll-x">
+            <table class="w-full text-left text-xs border-collapse font-mono min-w-[960px]">
+              <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2 w-10 min-w-[40px] text-center sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                    <input type="checkbox" id="check-all-Mano de Obra" onchange="toggleSelectAllInsumos('Mano de Obra', this.checked)" class="rounded text-amber-600 focus:ring-amber-500 cursor-pointer">
+                  </th>
+                  <th class="p-2 w-28 min-w-[100px]">Clave</th>
+                  <th class="p-2 min-w-[280px]">Descripción</th>
+                  <th class="p-2 w-28 min-w-[110px] text-right">Costo U.</th>
+                  <th class="p-2 w-16 min-w-[65px] text-center">Unidad</th>
+                  <th class="p-2 w-28 min-w-[105px] text-right">Cantidad</th>
+                  <th class="p-2 w-32 min-w-[120px] text-right">Importe Total</th>
+                </tr>
+              </thead>
+              <tbody id="body-insumos-mo" class="divide-y divide-slate-100">
+                <!-- Dynamic Mano de Obra -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Table Equipo / Herramienta -->
+        <div id="card-insumos-Equipo" class="border border-purple-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
+          <div class="bg-purple-50 px-3 py-2 border-b border-purple-200 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+              <button onclick="toggleInsumoCard('Equipo')" class="text-purple-700 hover:text-purple-900 p-1 rounded hover:bg-purple-100 transition" title="Contraer / Expandir tabla de Equipo">
+                <i id="card-chevron-Equipo" class="fa-solid fa-chevron-up text-xs"></i>
+              </button>
+              <span class="font-bold text-purple-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-screwdriver-wrench"></i> EQUIPO / HERR.
+              </span>
+              <span class="text-[10px] text-purple-600/70 italic hidden sm:inline flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Barra horizontal inferior
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                  <i class="fa-solid fa-search text-[10px]"></i>
+                </span>
+                <input type="text" id="search-Equipo" oninput="filterInsumosGeneralesTable('Equipo')" placeholder="Buscar descripción..." class="text-xs bg-white border border-purple-300 rounded pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-500 w-44 font-sans">
+              </div>
+              <button onclick="combinarInsumosSeleccionados('Equipo')" class="bg-purple-600 hover:bg-purple-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition" title="Combina las líneas seleccionadas con Checkbox">
+                <i class="fa-solid fa-object-group text-[10px]"></i> Combinar
+              </button>
+              <span class="font-bold font-mono text-xs text-purple-900 ml-2" id="cat-sum-equipo">$0.00</span>
+            </div>
+          </div>
+          <div id="card-body-Equipo" class="overflow-x-auto w-full custom-scroll-x">
+            <table class="w-full text-left text-xs border-collapse font-mono min-w-[960px]">
+              <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2 w-10 min-w-[40px] text-center sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                    <input type="checkbox" id="check-all-Equipo" onchange="toggleSelectAllInsumos('Equipo', this.checked)" class="rounded text-purple-600 focus:ring-purple-500 cursor-pointer">
+                  </th>
+                  <th class="p-2 w-28 min-w-[100px]">Clave</th>
+                  <th class="p-2 min-w-[280px]">Descripción</th>
+                  <th class="p-2 w-28 min-w-[110px] text-right">Costo U.</th>
+                  <th class="p-2 w-16 min-w-[65px] text-center">Unidad</th>
+                  <th class="p-2 w-28 min-w-[105px] text-right">Cantidad</th>
+                  <th class="p-2 w-32 min-w-[120px] text-right">Importe Total</th>
+                </tr>
+              </thead>
+              <tbody id="body-insumos-equipo" class="divide-y divide-slate-100">
+                <!-- Dynamic Equipo -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Table Subcontratos -->
+        <div id="card-insumos-Subcontrato" class="border border-emerald-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
+          <div class="bg-emerald-50 px-3 py-2 border-b border-emerald-200 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+              <button onclick="toggleInsumoCard('Subcontrato')" class="text-emerald-700 hover:text-emerald-900 p-1 rounded hover:bg-emerald-100 transition" title="Contraer / Expandir tabla de Subcontratos">
+                <i id="card-chevron-Subcontrato" class="fa-solid fa-chevron-up text-xs"></i>
+              </button>
+              <span class="font-bold text-emerald-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-file-signature"></i> SUBCONTRATOS
+              </span>
+              <span class="text-[10px] text-emerald-600/70 italic hidden sm:inline flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Barra horizontal inferior
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                  <i class="fa-solid fa-search text-[10px]"></i>
+                </span>
+                <input type="text" id="search-Subcontrato" oninput="filterInsumosGeneralesTable('Subcontrato')" placeholder="Buscar descripción..." class="text-xs bg-white border border-emerald-300 rounded pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-44 font-sans">
+              </div>
+              <button onclick="combinarInsumosSeleccionados('Subcontrato')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition" title="Combina las líneas seleccionadas con Checkbox">
+                <i class="fa-solid fa-object-group text-[10px]"></i> Combinar
+              </button>
+              <span class="font-bold font-mono text-xs text-emerald-900 ml-2" id="cat-sum-subcontratos">$0.00</span>
+            </div>
+          </div>
+          <div id="card-body-Subcontrato" class="overflow-x-auto w-full custom-scroll-x">
+            <table class="w-full text-left text-xs border-collapse font-mono min-w-[960px]">
+              <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2 w-10 min-w-[40px] text-center sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                    <input type="checkbox" id="check-all-Subcontrato" onchange="toggleSelectAllInsumos('Subcontrato', this.checked)" class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                  </th>
+                  <th class="p-2 w-28 min-w-[100px]">Clave</th>
+                  <th class="p-2 min-w-[280px]">Descripción</th>
+                  <th class="p-2 w-28 min-w-[110px] text-right">Costo U.</th>
+                  <th class="p-2 w-16 min-w-[65px] text-center">Unidad</th>
+                  <th class="p-2 w-28 min-w-[105px] text-right">Cantidad</th>
+                  <th class="p-2 w-32 min-w-[120px] text-right">Importe Total</th>
+                </tr>
+              </thead>
+              <tbody id="body-insumos-subcontratos" class="divide-y divide-slate-100">
+                <!-- Dynamic Subcontratos -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal Especializado: Google Search Grounding con Gemini -->
+  <div id="modal-ai-generator" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col">
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white px-4 py-3 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300">
+            <i class="fa-brands fa-google text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-xs leading-none">Google Search Grounding para APU</h3>
+            <span class="text-[10px] text-blue-200/80">Búsqueda de costos de mercado y rendimientos en vivo</span>
+          </div>
+        </div>
+        <button onclick="closeAiGeneratorModal()" class="text-slate-400 hover:text-white text-base">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 space-y-3 text-xs">
+        <!-- Fila seleccionada en TAB1-CAT-BASE -->
+        <div class="p-3 bg-blue-50/50 border border-blue-200/80 rounded-lg space-y-1.5">
+          <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+            <span id="ai-modal-path" class="truncate font-sans font-medium text-slate-600">Partida > Subpartida</span>
+            <span id="ai-modal-clave" class="bg-blue-600 text-white font-bold px-1.5 py-0.5 rounded text-[9px]">---</span>
+          </div>
+          <p id="ai-modal-desc" class="font-bold text-slate-900 text-xs leading-snug">Descripción del concepto</p>
+          <div class="flex items-center gap-4 text-[10px] text-slate-600 pt-1 border-t border-blue-200/60">
+            <span>Unidad base: <strong id="ai-modal-unid" class="text-blue-800 font-mono font-bold">m2</strong></span>
+            <span>Cantidad en catálogo: <strong id="ai-modal-cant" class="text-slate-800 font-mono">1.00</strong></span>
+          </div>
+        </div>
+
+        <!-- Entrada de API Key -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center">
+            <label class="font-semibold text-slate-700 text-[11px] flex items-center gap-1">
+              <i class="fa-solid fa-key text-blue-600"></i> Google Gemini API Key
+            </label>
+            <div class="flex items-center gap-2">
+              <button onclick="testGeminiConnection()" class="text-[10px] text-slate-600 hover:text-blue-700 font-medium flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded border border-slate-200 transition">
+                <i class="fa-solid fa-vial text-[8px]"></i> Probar Clave
+              </button>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[10px] text-blue-600 hover:underline flex items-center gap-1">
+                <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i> Obtener clave gratuita
+              </a>
+            </div>
+          </div>
+          <div class="flex gap-1.5">
+            <input type="password" id="ai-modal-api-key" placeholder="Pega tu API Key de Gemini aquí (AIzaSy...)" class="flex-1 border border-slate-300 rounded p-1.5 text-xs font-mono focus:border-blue-500 focus:outline-none">
+            <button onclick="toggleAiModalKeyVisibility()" class="bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2.5 py-1 rounded text-slate-600">
+              <i id="ai-key-eye-icon" class="fa-solid fa-eye text-xs"></i>
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-500 leading-tight">
+            La IA activará <strong>Google Search Grounding</strong> para consultar cotizaciones en México (MXN) para <strong><span id="ai-modal-unid-hint">esta unidad</span></strong>, desglosando Materiales, Mano de Obra con cuadrillas y Equipo.
+          </p>
+        </div>
+
+        <!-- Indicador de Carga / Spinner -->
+        <div id="ai-modal-loading" class="hidden p-3 bg-blue-50 border border-blue-200 rounded-lg text-center space-y-2">
+          <div class="flex items-center justify-center gap-2 text-blue-800 font-semibold text-xs">
+            <i class="fa-solid fa-circle-notch fa-spin text-blue-600"></i>
+            <span id="ai-modal-loading-text">Buscando cotizaciones en internet con Google Search...</span>
+          </div>
+          <div class="w-full bg-blue-200 rounded-full h-1.5 overflow-hidden">
+            <div class="bg-blue-600 h-1.5 rounded-full animate-pulse w-3/4"></div>
+          </div>
+          <span class="text-[9px] text-slate-500 block">Consultando tiendas, distribuidores y tabuladores de rendimientos</span>
+        </div>
+
+        <!-- Mensaje de Error (si ocurre) -->
+        <div id="ai-modal-error" class="hidden p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-[11px] flex items-start gap-2">
+          <i class="fa-solid fa-triangle-exclamation text-rose-500 mt-0.5 shrink-0"></i>
+          <div class="flex-1">
+            <span class="font-bold block" id="ai-modal-error-title">No se pudo consultar Google Search Grounding</span>
+            <span id="ai-modal-error-msg" class="text-[10px]">Verifica tu API Key o conexión a internet.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="bg-slate-50 px-4 py-3 border-t border-slate-200 flex flex-wrap justify-between items-center gap-2">
+        <button onclick="executeLocalGeneration()" id="btn-ai-modal-local" class="text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 border border-slate-300 hover:border-blue-300 px-3 py-1.5 rounded font-semibold text-xs transition flex items-center gap-1.5 shadow-2xs" title="Generar matriz usando los insumos y precios de tus catálogos locales importados">
+          <i class="fa-solid fa-database text-[10px] text-amber-500"></i> Usar catálogo local
+        </button>
+        <div class="flex gap-2">
+          <button onclick="closeAiGeneratorModal()" class="px-3 py-1.5 bg-white border border-slate-300 rounded text-slate-700 hover:bg-slate-100 font-medium text-xs">
+            Cancelar
+          </button>
+          <button onclick="executeAiGeneration()" id="btn-ai-modal-run" class="px-4 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded font-medium shadow-sm transition text-xs flex items-center gap-1.5 hover:scale-105 active:scale-95">
+            <i class="fa-brands fa-google text-[10px] text-amber-300"></i> Buscar en Google y Llenar Matriz
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: VENTANA MAXIMIZADA DE MATRIZ DE PRECIO UNITARIO (APU) -->
+  <div id="matriz-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 hidden">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-6xl h-[92vh] max-h-[92vh] overflow-hidden flex flex-col">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white px-5 py-3 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-3 overflow-hidden pr-3">
+          <span class="bg-amber-400 text-slate-900 font-bold text-xs px-2 py-0.5 rounded font-mono shrink-0" id="modal-matriz-clave">---</span>
+          <div class="overflow-hidden">
+            <h3 class="font-bold text-sm text-slate-100 truncate flex items-center gap-2">
+              <i class="fa-solid fa-calculator text-blue-400"></i> Matriz de Precio Unitario (APU) - Vista Ampliada
+            </h3>
+            <p class="text-xs text-slate-300 truncate italic" id="modal-matriz-desc">Sin concepto seleccionado</p>
+          </div>
+        </div>
+
+        <!-- Acciones rápidas de cabecera -->
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="openAiGeneratorModal()" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95" title="Buscar costos y llenar con Google Search Grounding">
+            <i class="fa-brands fa-google text-amber-300 text-xs"></i> Google IA
+          </button>
+          <button onclick="openApuReferenceModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95" title="Buscar insumos en catálogos de referencia">
+            <i class="fa-solid fa-book-bookmark text-xs"></i> + Catálogo
+          </button>
+          <button onclick="addModalInsumo()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95" title="Agregar nuevo insumo a la matriz">
+            <i class="fa-solid fa-plus text-xs"></i> + Insumo
+          </button>
+          <button onclick="printApuMatrix()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95" title="Imprimir Formato APU">
+            <i class="fa-solid fa-print text-xs"></i> Imprimir
+          </button>
+          <button onclick="closeMatrizModal()" class="text-slate-400 hover:text-white text-lg p-1 rounded hover:bg-slate-800 transition ml-2" title="Cerrar ventana maximizada">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Nav Tabs (Estilo Configuración del Sistema) -->
+      <div class="flex border-b border-slate-200 bg-slate-50 text-xs font-semibold px-5 pt-2 justify-between items-center shrink-0">
+        <div class="flex">
+          <button onclick="switchMatrizModalTab('matriz')" id="modal-matriz-tab-matriz" class="py-2.5 px-4 border-b-2 border-blue-600 text-blue-600 flex items-center gap-2 font-semibold">
+            <i class="fa-solid fa-table-list"></i> Matriz de Insumos Unitarios
+          </button>
+          <button onclick="switchMatrizModalTab('explosion')" id="modal-matriz-tab-explosion" class="py-2.5 px-4 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-2 font-semibold">
+            <i class="fa-solid fa-cubes-stacked"></i> Explosión de Insumos en Obra
+          </button>
+        </div>
+        
+        <!-- Badges informativos del concepto -->
+        <div class="flex items-center gap-2 text-xs font-mono pb-1">
+          <span id="modal-matriz-badge-unidad" class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-semibold text-[11px]">Unidad: --</span>
+          <span id="modal-matriz-badge-volumen" class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-semibold text-[11px]">Volumen: --</span>
+        </div>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 overflow-y-auto flex-1 space-y-4">
+        
+        <!-- Breakdown Summary Grid con 4 Tarjetas Interactivas -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 text-center">
+          <div onclick="filterModalMatriz('Material')" id="modal-card-mat" class="bg-blue-50/80 hover:bg-blue-100/90 border border-blue-200 p-2.5 rounded-lg flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar por Materiales">
+            <div class="flex items-center gap-1.5 text-blue-700 font-bold text-xs">
+              <i class="fa-solid fa-cubes text-sm"></i>
+              <span>MATERIALES</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 text-sm mt-1" id="modal-apu-sum-mat">$0.00</span>
+          </div>
+
+          <div onclick="filterModalMatriz('Mano de Obra')" id="modal-card-mo" class="bg-amber-50/80 hover:bg-amber-100/90 border border-amber-200 p-2.5 rounded-lg flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar por Mano de Obra">
+            <div class="flex items-center gap-1.5 text-amber-700 font-bold text-xs">
+              <i class="fa-solid fa-hard-hat text-sm"></i>
+              <span>MANO DE OBRA</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 text-sm mt-1" id="modal-apu-sum-mo">$0.00</span>
+          </div>
+
+          <div onclick="filterModalMatriz('Equipo')" id="modal-card-eq" class="bg-purple-50/80 hover:bg-purple-100/90 border border-purple-200 p-2.5 rounded-lg flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar por Equipo / Herramienta">
+            <div class="flex items-center gap-1.5 text-purple-700 font-bold text-xs">
+              <i class="fa-solid fa-screwdriver-wrench text-sm"></i>
+              <span>EQUIPO / HERR.</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 text-sm mt-1" id="modal-apu-sum-eq">$0.00</span>
+          </div>
+
+          <div onclick="filterModalMatriz('Subcontrato')" id="modal-card-sub" class="bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-200 p-2.5 rounded-lg flex flex-col items-center justify-center cursor-pointer transition select-none shadow-xs" title="Filtrar por Subcontratos">
+            <div class="flex items-center gap-1.5 text-emerald-700 font-bold text-xs">
+              <i class="fa-solid fa-file-signature text-sm"></i>
+              <span>SUBCONTRATOS</span>
+            </div>
+            <span class="font-bold font-mono text-slate-800 text-sm mt-1" id="modal-apu-sum-sub">$0.00</span>
+          </div>
+        </div>
+
+        <!-- Banner Google Search Grounding si existe -->
+        <div id="modal-apu-grounding-box" class="p-3 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border border-blue-200 rounded-lg text-xs hidden space-y-2 shadow-xs">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-blue-900 flex items-center gap-1.5 text-xs uppercase tracking-wider">
+              <i class="fa-brands fa-google text-blue-600"></i> Google Search Grounding y Análisis de Costos
+            </span>
+          </div>
+          <div id="modal-apu-grounding-queries-container" class="hidden">
+            <span class="text-[11px] font-semibold text-slate-600 block mb-1">Búsquedas en Google realizadas:</span>
+            <div id="modal-apu-grounding-queries" class="flex flex-wrap gap-1.5"></div>
+          </div>
+          <div id="modal-apu-grounding-sources-container" class="hidden">
+            <span class="text-[11px] font-semibold text-slate-600 block mb-1">Fuentes y cotizaciones consultadas:</span>
+            <div id="modal-apu-grounding-sources" class="flex flex-wrap gap-1.5"></div>
+          </div>
+          <div id="modal-apu-grounding-tips-container" class="hidden pt-1.5 border-t border-blue-200/60">
+            <div class="flex items-start gap-1.5 text-indigo-950">
+              <i class="fa-solid fa-lightbulb text-amber-500 mt-0.5 shrink-0 text-xs"></i>
+              <p id="modal-apu-grounding-tips" class="text-xs leading-snug font-sans"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- VISTA TAB 1: Matriz de Insumos Unitarios -->
+        <div id="modal-view-matriz" class="space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 text-xs">
+              <span class="font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1">
+                <i class="fa-solid fa-filter text-blue-600"></i> Filtrar Rubro:
+              </span>
+              <div class="flex flex-wrap gap-1 text-xs font-semibold ml-1">
+                <button onclick="filterModalMatriz('Todos')" id="modal-filter-Todos" class="px-2.5 py-1 rounded bg-blue-600 text-white border border-blue-600 shadow-xs transition">Todos</button>
+                <button onclick="filterModalMatriz('Material')" id="modal-filter-Material" class="px-2.5 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Materiales</button>
+                <button onclick="filterModalMatriz('Mano de Obra')" id="modal-filter-Mano-de-Obra" class="px-2.5 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Mano de Obra</button>
+                <button onclick="filterModalMatriz('Equipo')" id="modal-filter-Equipo" class="px-2.5 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Equipo / Herr.</button>
+                <button onclick="filterModalMatriz('Subcontrato')" id="modal-filter-Subcontrato" class="px-2.5 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 shadow-xs transition">Subcontratos</button>
+              </div>
+            </div>
+            <button onclick="addModalInsumo()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 shadow-xs font-semibold transition">
+              <i class="fa-solid fa-plus text-[10px]"></i> + Insumo
+            </button>
+          </div>
+
+          <div class="border border-slate-200 rounded-lg overflow-x-auto bg-white shadow-xs">
+            <table class="w-full text-left text-xs border-collapse font-sans">
+              <thead class="bg-slate-100 text-slate-700 text-xs uppercase font-bold border-b border-slate-200">
+                <tr>
+                  <th class="p-2.5 w-24 min-w-[90px] text-left font-mono">Clave</th>
+                  <th class="p-2.5 w-28 min-w-[110px] text-left">Rubro</th>
+                  <th class="p-2.5 min-w-[260px] text-justify">Descripción del Insumo</th>
+                  <th class="p-2.5 w-20 min-w-[70px] text-center font-mono">Unidad</th>
+                  <th class="p-2.5 w-32 min-w-[110px] text-right font-mono" id="modal-th-apu-cantidad">Cant. Unit.</th>
+                  <th class="p-2.5 w-36 min-w-[120px] text-right font-mono">Costo Unitario</th>
+                  <th class="p-2.5 w-36 min-w-[120px] text-right font-mono">Total Importe</th>
+                  <th class="p-2.5 w-12 min-w-[40px] text-center"></th>
+                </tr>
+              </thead>
+              <tbody id="modal-apu-insumos-body" class="divide-y divide-slate-100 font-mono text-xs">
+                <!-- Filas dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- VISTA TAB 2: Explosión de Insumos en Obra -->
+        <div id="modal-view-explosion" class="space-y-2 hidden">
+          <div class="p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg text-xs text-blue-900 flex items-center justify-between">
+            <span>Explosión calculada para el volumen total del concepto en obra: <strong id="modal-explosion-volumen-txt">--</strong></span>
+            <span class="font-bold font-mono text-sm" id="modal-explosion-total-txt">Total: $0.00</span>
+          </div>
+
+          <div class="border border-slate-200 rounded-lg overflow-x-auto bg-white shadow-xs">
+            <table class="w-full text-left text-xs border-collapse font-sans">
+              <thead class="bg-slate-100 text-slate-700 text-xs uppercase font-bold border-b border-slate-200">
+                <tr>
+                  <th class="p-2.5 w-24 text-left font-mono">Clave</th>
+                  <th class="p-2.5 w-28 text-left">Rubro</th>
+                  <th class="p-2.5 min-w-[260px] text-justify">Descripción del Insumo</th>
+                  <th class="p-2.5 w-32 text-right font-mono">Cant. en Obra</th>
+                  <th class="p-2.5 w-20 text-center font-mono">Unidad</th>
+                  <th class="p-2.5 w-36 text-right font-mono">Costo Unitario</th>
+                  <th class="p-2.5 w-36 text-right font-mono">Total en Obra</th>
+                </tr>
+              </thead>
+              <tbody id="modal-insumos-unitarios-body" class="divide-y divide-slate-100 font-mono text-xs">
+                <!-- Filas de explosión dinámicas -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer (Resumen Financiero y Botón Cerrar) -->
+      <div class="bg-slate-100 px-5 py-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <!-- Totales financieros -->
+        <div class="flex flex-wrap items-center gap-4 text-xs font-mono">
+          <div class="flex items-center gap-1.5">
+            <span class="text-slate-500 font-sans">Costo Directo (CD):</span>
+            <span class="font-bold text-slate-900 text-sm" id="modal-apu-calculated-cd">$0.00</span>
+          </div>
+          <div id="modal-apu-sobrecosto-container" class="flex items-center gap-1.5 hidden">
+            <span class="text-amber-700 font-sans" id="modal-apu-sobrecosto-tag">Sobrecosto:</span>
+            <span class="font-bold text-amber-700 text-sm" id="modal-apu-calculated-sobrecosto">+$0.00</span>
+          </div>
+          <div class="flex items-center gap-1.5 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded">
+            <span class="text-blue-900 font-sans font-semibold">Precio Unitario (P.U.):</span>
+            <span class="font-bold text-blue-800 text-base" id="modal-apu-calculated-pu">$0.00</span>
+          </div>
+          <div class="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded">
+            <span class="text-emerald-900 font-sans font-semibold">Total Partida Obra:</span>
+            <span class="font-bold text-emerald-800 text-base" id="modal-apu-calculated-total-obra">$0.00</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="closeMatrizModal()" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-xs shadow-sm transition active:scale-95 flex items-center gap-1.5">
+            <i class="fa-solid fa-check"></i> Listo / Cerrar
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal de Configuración General (Sobrecosto, Gemini API, Datos) -->
+  <div id="settings-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col">
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
+        <h3 class="font-bold text-sm flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-blue-400"></i> Configuración del Sistema
+        </h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white text-base">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Nav Tabs -->
+      <div class="flex border-b border-slate-200 bg-slate-50 text-xs font-semibold px-4 pt-2">
+        <button onclick="switchSettingsTab('sobrecosto')" id="modal-tab-sobrecosto" class="py-2 px-3 border-b-2 border-blue-600 text-blue-600 flex items-center gap-1.5">
+          <i class="fa-solid fa-percent"></i> % Sobrecosto y Moneda
+        </button>
+        <button onclick="switchSettingsTab('empresa')" id="modal-tab-empresa" class="py-2 px-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+          <i class="fa-solid fa-building"></i> Empresa y Logo
+        </button>
+        <button onclick="switchSettingsTab('ia')" id="modal-tab-ia" class="py-2 px-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> IA Gemini
+        </button>
+        <button onclick="switchSettingsTab('datos')" id="modal-tab-datos" class="py-2 px-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+          <i class="fa-solid fa-database"></i> Gestión de Datos
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 overflow-y-auto max-h-[70vh] space-y-4 text-xs">
+        
+        <!-- Tab 1: Factores de Sobrecosto y Moneda -->
+        <div id="modal-view-sobrecosto" class="space-y-3">
+          
+          <!-- Moneda de Trabajo del Presupuesto -->
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-coins text-amber-500"></i> Moneda de Trabajo
+              </span>
+              <span id="cfg-currency-preview" class="font-mono font-bold text-xs text-blue-700 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
+                $1,250.00
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1 text-[11px]">Moneda Principal</label>
+                <select id="cfg-currency-select" onchange="onCurrencySelectChange(this.value)" class="w-full border border-slate-300 rounded p-1.5 text-xs bg-white font-medium focus:ring-1 focus:ring-blue-500 cursor-pointer">
+                  <option value="MXN" data-symbol="$" data-code="MXN">🇲🇽 MXN - Peso Mexicano ($)</option>
+                  <option value="USD" data-symbol="$" data-code="USD">🇺🇸 USD - Dólar Estadounidense ($)</option>
+                  <option value="EUR" data-symbol="€" data-code="EUR">🇪🇺 EUR - Euro (€)</option>
+                  <option value="COP" data-symbol="$" data-code="COP">🇨🇴 COP - Peso Colombiano ($)</option>
+                  <option value="PEN" data-symbol="S/." data-code="PEN">🇵🇪 PEN - Sol Peruano (S/.)</option>
+                  <option value="CLP" data-symbol="$" data-code="CLP">🇨🇱 CLP - Peso Chileno ($)</option>
+                  <option value="GTQ" data-symbol="Q" data-code="GTQ">🇬🇹 GTQ - Quetzal Guatemalteco (Q)</option>
+                  <option value="CUSTOM" data-symbol="$" data-code="OTRA">🌐 Otra (Personalizada)</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-1.5">
+                <div>
+                  <label class="block font-semibold text-slate-700 mb-1 text-[11px]">Símbolo</label>
+                  <input type="text" id="cfg-currency-symbol" value="$" oninput="updateCurrencyPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono text-center font-bold">
+                </div>
+                <div>
+                  <label class="block font-semibold text-slate-700 mb-1 text-[11px]">Código</label>
+                  <input type="text" id="cfg-currency-code" value="MXN" oninput="updateCurrencyPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono text-center uppercase font-bold">
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-200">
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="cfg-show-currency-code" onchange="updateCurrencyPreview()" class="rounded text-blue-600 focus:ring-blue-500">
+                <span>Mostrar código al final (ej. $100.00 <strong>MXN</strong>)</span>
+              </label>
+            </div>
+          </div>
+          <div class="flex items-center justify-between p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+            <div>
+              <span class="font-bold text-slate-800 block text-xs">Aplicar Factor de Sobrecosto</span>
+              <span class="text-[11px] text-slate-500">Calcula el Precio de Venta a partir del Costo Directo de los APU.</span>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="cfg-apply-sobrecosto" onchange="updateCalculatedFactorPreview()" class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">% Indirectos Oficina y Campo</label>
+              <input type="number" id="cfg-indirectos" step="0.01" value="12.00" oninput="updateCalculatedFactorPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">% Costo por Financiamiento</label>
+              <input type="number" id="cfg-financiamiento" step="0.01" value="1.50" oninput="updateCalculatedFactorPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">% Utilidad del Contratista</label>
+              <input type="number" id="cfg-utilidad" step="0.01" value="10.00" oninput="updateCalculatedFactorPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">% Cargos Adicionales / Inspección</label>
+              <input type="number" id="cfg-adicionales" step="0.01" value="0.50" oninput="updateCalculatedFactorPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono">
+            </div>
+          </div>
+
+          <div class="p-3 bg-slate-100 rounded-lg border border-slate-200 flex justify-between items-center font-mono">
+            <span class="text-slate-600 font-sans font-medium">Factor Sobrecosto Resultante:</span>
+            <span class="font-bold text-sm text-blue-700" id="cfg-factor-preview">1.2584 (+25.84%)</span>
+          </div>
+        </div>
+
+        <!-- Tab: Datos de la Empresa y Logotipo -->
+        <div id="modal-view-empresa" class="space-y-3 hidden">
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+            <span class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+              <i class="fa-solid fa-building text-blue-600"></i> Identidad y Logotipo de la Empresa
+            </span>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Nombre de la Empresa o Constructora</label>
+              <input type="text" id="cfg-company-name" placeholder="Ej. Constructora ABC S.A. de C.V." 
+                     class="w-full border border-slate-300 rounded p-1.5 text-xs font-sans">
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Nombre del Proyecto de Obra</label>
+              <input type="text" id="cfg-project-name" placeholder="Ej. Residencia Lomas Altas / Edificio Torre Central" 
+                     class="w-full border border-slate-300 rounded p-1.5 text-xs font-sans">
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Ubicación del Proyecto</label>
+              <input type="text" id="cfg-project-location" placeholder="Ej. Av. Reforma 222, Cuauhtémoc, CDMX" 
+                     class="w-full border border-slate-300 rounded p-1.5 text-xs font-sans">
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Logotipo Corporativo</label>
+              <div class="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg">
+                <div class="w-16 h-16 aspect-square bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer p-0.5" onclick="openCurrentLogoAdjuster()" title="Haz clic para ajustar o encuadrar el logotipo">
+                  <img id="cfg-company-logo-preview" src="" alt="Vista previa" class="max-h-full max-w-full object-contain hidden">
+                  <i id="cfg-company-logo-empty-icon" class="fa-solid fa-helmet-safety text-amber-400 text-2xl"></i>
+                </div>
+                <div class="space-y-1">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <button type="button" onclick="triggerCompanyLogoUpload()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-medium transition shadow-xs" title="Cargar nueva imagen de logotipo">
+                      <i class="fa-solid fa-upload text-[10px]"></i> Subir Imagen
+                    </button>
+                    <button type="button" id="btn-adjust-current-logo" onclick="openCurrentLogoAdjuster()" class="hidden bg-slate-800 hover:bg-slate-700 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-medium transition shadow-xs" title="Ajustar encuadre o zoom del logotipo actual">
+                      <i class="fa-solid fa-crop-simple text-[10px]"></i> Ajustar Logo
+                    </button>
+                    <button type="button" onclick="removeCompanyLogo(event)" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs px-2.5 py-1 rounded transition" title="Quitar logotipo personalizado">
+                      Quitar Logo
+                    </button>
+                  </div>
+                  <p class="text-[10px] text-slate-500">Formatos: PNG, JPG, SVG o WebP. Incluye visor con recorte y zoom.</p>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-500 italic">
+              El nombre y logo configurados se mostrarán en la barra superior y encabezarán automáticamente todos los formatos impresos de presupuesto, matrices APU e insumos.
+            </p>
+          </div>
+        </div>
+
+        <!-- Tab 2: Configuración Gemini IA -->
+        <div id="modal-view-ia" class="space-y-3 hidden">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Google Gemini API Key</label>
+            <div class="flex gap-1.5">
+              <input type="password" id="cfg-api-key" placeholder="AIzaSy..." class="flex-1 border border-slate-300 rounded p-1.5 text-xs font-mono">
+              <button onclick="toggleApiKeyVisibility()" class="bg-slate-200 hover:bg-slate-300 px-2.5 py-1 rounded text-slate-700">
+                <i id="eye-icon" class="fa-solid fa-eye text-xs"></i>
+              </button>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">
+              Permite a la aplicación activar Google Search Grounding para cotizar materiales y mano de obra vigentes en México.
+            </p>
+          </div>
+
+          <div class="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 text-[11px] space-y-1">
+            <div class="font-bold flex items-center gap-1.5">
+              <i class="fa-brands fa-google"></i> ¿Cómo obtener tu API Key gratuita?
+            </div>
+            <p>1. Ingresa a <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 underline font-semibold">Google AI Studio</a>.</p>
+            <p>2. Crea tu API Key gratuita y pégala aquí. Quedará guardada en tu navegador.</p>
+          </div>
+        </div>
+
+        <!-- Tab 3: Gestión de Datos -->
+        <div id="modal-view-datos" class="space-y-3 hidden">
+          <div class="p-3 border border-slate-200 rounded-lg flex items-center justify-between">
+            <div>
+              <span class="font-bold text-slate-800 block">Restablecer Catálogo Demo</span>
+              <span class="text-[11px] text-slate-500">Recupera las partidas de ejemplo originales (Cimentación y Firme).</span>
+            </div>
+            <button onclick="resetToDemoData()" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded font-medium shadow-sm transition">
+              Restablecer
+            </button>
+          </div>
+
+          <div class="p-3 border border-red-200 bg-red-50 rounded-lg flex items-center justify-between">
+            <div>
+              <span class="font-bold text-red-800 block">Vaciar Presupuesto</span>
+              <span class="text-[11px] text-red-600">Elimina todas las partidas para comenzar un presupuesto nuevo.</span>
+            </div>
+            <button onclick="clearAllData()" class="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded font-medium shadow-sm transition">
+              Vaciar Todo
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-100 px-4 py-2.5 border-t border-slate-200 flex justify-end gap-2">
+        <button onclick="closeSettingsModal()" class="px-3 py-1.5 bg-white border border-slate-300 rounded text-slate-700 hover:bg-slate-200 font-medium">
+          Cancelar
+        </button>
+        <button onclick="saveSettings()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium shadow-sm transition">
+          Guardar Cambios
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AJUSTE Y ENCUADRE DE LOGOTIPO -->
+  <div id="logo-adjuster-modal" class="fixed inset-0 bg-slate-900/75 backdrop-blur-xs z-[70] hidden items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[95vh] animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white px-4 py-3 flex justify-between items-center shrink-0 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs">
+            <i class="fa-solid fa-crop-simple text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm leading-tight">Ajustar y Encuadrar Logotipo</h3>
+            <p class="text-[11px] text-slate-400">Arrastra para mover la imagen y usa el zoom para encuadrarla en el recuadro</p>
+          </div>
+        </div>
+        <button onclick="closeLogoAdjusterModal()" class="text-slate-400 hover:text-white p-1 rounded transition" title="Cerrar ventana">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 overflow-y-auto space-y-3.5 bg-slate-50">
+        <!-- Canvas Interactivo de Encuadre Cuadrado -->
+        <div class="flex flex-col items-center">
+          <div class="relative rounded-lg overflow-hidden border-2 border-slate-300 shadow-inner bg-slate-200 select-none">
+            <canvas id="logo-adjuster-canvas" width="400" height="260" class="cursor-grab active:cursor-grabbing block touch-none max-w-full h-auto"></canvas>
+            
+            <!-- Badge flotante de instrucción -->
+            <div class="absolute bottom-2 left-2 right-2 flex justify-between items-center pointer-events-none text-[10px] text-white/90 drop-shadow">
+              <span class="bg-black/60 px-2 py-0.5 rounded-full"><i class="fa-solid fa-hand text-[9px] mr-1"></i> Arrastra para centrar</span>
+              <span class="bg-black/60 px-2 py-0.5 rounded-full"><i class="fa-solid fa-magnifying-glass text-[9px] mr-1"></i> Rueda del mouse para zoom</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra de Controles de Zoom y Ajuste -->
+        <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-xs space-y-2.5">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-700 flex items-center gap-1.5">
+              <i class="fa-solid fa-magnifying-glass text-blue-600"></i> Nivel de Zoom / Tamaño
+            </span>
+            <span id="logo-zoom-percent" class="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-[11px]">100%</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="adjustLogoZoom(-0.1)" class="w-8 h-8 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm transition" title="Alejar (Zoom Out)">
+              <i class="fa-solid fa-minus text-xs"></i>
+            </button>
+            <input type="range" id="logo-zoom-slider" min="0.1" max="4.0" step="0.02" value="1.0" oninput="setLogoZoom(parseFloat(this.value))" class="flex-1 accent-blue-600 cursor-pointer h-2 bg-slate-200 rounded-lg">
+            <button type="button" onclick="adjustLogoZoom(0.1)" class="w-8 h-8 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm transition" title="Acercar (Zoom In)">
+              <i class="fa-solid fa-plus text-xs"></i>
+            </button>
+            <button type="button" onclick="resetLogoPosition()" class="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 transition" title="Restablecer posición centrada">
+              <i class="fa-solid fa-arrows-rotate text-[11px]"></i> Centrar
+            </button>
+          </div>
+
+          <!-- Opciones de Fondo para exportación -->
+          <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+            <span class="font-semibold text-slate-700">Fondo de exportación:</span>
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="logo-bg-mode" value="transparent" checked onchange="setLogoBgMode('transparent')" class="text-blue-600 focus:ring-blue-500">
+                <span>Transparente (PNG)</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="logo-bg-mode" value="white" onchange="setLogoBgMode('white')" class="text-blue-600 focus:ring-blue-500">
+                <span>Fondo Blanco</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vista Previa en Vivo (Mini Previews) -->
+        <div class="space-y-1.5">
+          <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+            Vista Previa en Vivo del Logotipo:
+          </span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <!-- Preview 1: En Barra Superior Oscura -->
+            <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-700 flex flex-col justify-between">
+              <span class="text-[10px] text-slate-400 font-medium mb-1 block">En Barra Superior (Fondo Oscuro):</span>
+              <div class="flex items-center gap-2 bg-slate-800/80 p-1.5 rounded border border-slate-700/80">
+                <div class="w-11 h-11 aspect-square bg-slate-900 rounded border border-slate-700 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
+                  <img id="logo-live-preview-header" src="" alt="Vista previa" class="w-full h-full object-contain">
+                </div>
+                <div class="truncate">
+                  <span class="text-xs font-bold text-white block truncate" id="logo-preview-company-name">Empresa</span>
+                  <span class="text-[9px] text-slate-400 block truncate">Control de Obra</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Preview 2: En Documento Impreso Blanco -->
+            <div class="bg-white p-2.5 rounded-lg border border-slate-300 shadow-xs flex flex-col justify-between">
+              <span class="text-[10px] text-slate-500 font-medium mb-1 block">En Formato Impreso (Fondo Blanco):</span>
+              <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded border border-slate-200">
+                <div class="w-11 h-11 aspect-square bg-white rounded border border-slate-300 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
+                  <img id="logo-live-preview-doc" src="" alt="Vista previa documento" class="w-full h-full object-contain">
+                </div>
+                <div class="truncate">
+                  <span class="text-[10px] font-bold text-blue-900 block truncate uppercase">CATÁLOGO DE OBRA</span>
+                  <span class="text-[9px] text-slate-500 block truncate">Formato Oficial</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-100 px-4 py-2.5 border-t border-slate-200 flex justify-end gap-2">
+        <button onclick="closeLogoAdjusterModal()" class="px-3.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-200 text-xs font-semibold transition">
+          Cancelar
+        </button>
+        <button onclick="applyAdjustedLogo()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5">
+          <i class="fa-solid fa-check"></i> Aplicar y Guardar Logotipo
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 1: IMPORTADOR UNIVERSAL DE ARCHIVOS (.xlsx, .xls, .csv, .json) -->
+  <div id="universal-import-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+            <i class="fa-solid fa-file-import text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm">Importador Universal de Archivos y Presupuestos</h3>
+            <p class="text-[11px] text-slate-300">Compatible con Opus (.zip, .bak), Neodata, Excel (.xlsx, .xls BIMSA), CSV y JSON</p>
+          </div>
+        </div>
+        <button onclick="closeImportModal()" class="text-slate-400 hover:text-white text-lg p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 overflow-y-auto space-y-4 flex-1">
+        
+        <!-- Dropzone de archivo -->
+        <div id="import-dropzone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl p-8 text-center bg-slate-50 hover:bg-blue-50/50 transition cursor-pointer group" onclick="document.getElementById('universal-file-input').click()">
+          <input type="file" id="universal-file-input" accept=".xlsx,.xls,.csv,.json,.txt,.zip,.bak" class="hidden" onchange="handleUniversalFileSelect(event)">
+          <div class="w-12 h-12 mx-auto rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+          </div>
+          <span class="font-bold text-sm text-slate-700 block">Haz clic para seleccionar o arrastra tu archivo aquí</span>
+          <span class="text-xs text-slate-500 mt-1 block">Soporta paquetes de restauración Opus (.zip, .bak), Neodata, Excel (.xlsx, .xls), CSV y JSON</span>
+          <div class="flex flex-wrap justify-center gap-1.5 mt-3 text-[10px] font-mono">
+            <span class="bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded shadow-xs font-bold"><i class="fa-solid fa-box-archive text-[9px] mr-1"></i>.zip Opus / Neodata</span>
+            <span class="bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded shadow-xs font-bold"><i class="fa-solid fa-database text-[9px] mr-1"></i>.bak Opus</span>
+            <span class="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded shadow-xs font-bold"><i class="fa-solid fa-file-excel text-[9px] mr-1"></i>.xlsx / .xls BIMSA</span>
+            <span class="bg-slate-100 text-slate-700 border border-slate-300 px-2 py-0.5 rounded shadow-xs font-bold">.csv / .json</span>
+          </div>
+        </div>
+
+        <!-- Sección de Vista Previa y Configuración (visible tras seleccionar archivo) -->
+        <div id="import-preview-section" class="space-y-4 hidden">
+          
+          <!-- Fila de archivo detectado -->
+          <div class="p-3 bg-slate-100 rounded-lg border border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-file-excel text-emerald-600 text-lg"></i>
+              <div>
+                <span id="import-file-name-label" class="font-bold text-xs text-slate-800 block">archivo.xlsx</span>
+                <span id="import-detected-type" class="text-[10px] text-blue-600 font-semibold block">Detección automática</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="import-rows-count-badge" class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">0 registros</span>
+              <button onclick="resetImportModalUI()" class="text-xs text-slate-500 hover:text-red-600 underline">Cambiar archivo</button>
+            </div>
+          </div>
+
+          <!-- Selector de Hoja (si es Excel con múltiples hojas) -->
+          <div id="import-sheet-container" class="flex items-center gap-2 text-xs">
+            <label class="font-semibold text-slate-700 whitespace-nowrap">Hoja de cálculo:</label>
+            <select id="import-sheet-select" onchange="onSheetSelectChange()" class="flex-1 border border-slate-300 rounded px-2 py-1 text-xs bg-white font-medium"></select>
+          </div>
+
+          <!-- Opciones de Destino -->
+          <div class="border border-slate-200 rounded-lg p-3 bg-white space-y-3">
+            <span class="font-bold text-xs text-slate-800 block">¿Dónde deseas cargar estos datos?</span>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <!-- Destino: Catálogo Maestro -->
+              <label class="border border-blue-200 bg-blue-50/50 p-2.5 rounded-lg flex items-start gap-2 cursor-pointer hover:border-blue-400 transition">
+                <input type="radio" name="import-destination" value="reference" checked onchange="toggleImportDestination(this.value)" class="mt-0.5 text-blue-600 focus:ring-blue-500">
+                <div>
+                  <span class="font-bold text-slate-800 block">📚 Catálogo Maestro (Biblioteca)</span>
+                  <span class="text-[10px] text-slate-500 block leading-tight mt-0.5">Guarda en la base de datos local para buscar conceptos e insumos en presupuestos o APU.</span>
+                </div>
+              </label>
+
+              <!-- Destino: Presupuesto Activo -->
+              <label class="border border-slate-200 p-2.5 rounded-lg flex items-start gap-2 cursor-pointer hover:border-slate-400 transition">
+                <input type="radio" name="import-destination" value="budget" onchange="toggleImportDestination(this.value)" class="mt-0.5 text-blue-600 focus:ring-blue-500">
+                <div>
+                  <span class="font-bold text-slate-800 block">📋 Presupuesto Activo (TAB1)</span>
+                  <span class="text-[10px] text-slate-500 block leading-tight mt-0.5">Carga las partidas directamente a la tabla de trabajo actual de esta obra.</span>
+                </div>
+              </label>
+            </div>
+
+            <!-- Opciones específicas de Catálogo Maestro -->
+            <div id="import-opts-reference" class="space-y-2 pt-2 border-t border-slate-100">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Nombre del Catálogo:</label>
+                  <input type="text" id="import-cat-name" placeholder="Ej. BIMSA Edificación 2018" class="w-full border border-slate-300 rounded px-2 py-1 text-xs font-medium">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Categoría / Especialidad:</label>
+                  <select id="import-cat-category" class="w-full border border-slate-300 rounded px-2 py-1 text-xs bg-white font-medium">
+                    <option value="Edificación">Edificación</option>
+                    <option value="Infraestructura">Infraestructura y Urbanización</option>
+                    <option value="Instalaciones">Instalaciones Eléctricas / Hidráulicas</option>
+                    <option value="Gobierno">Gobierno / Obras Públicas</option>
+                    <option value="General" selected>General / Varios</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Tipo de Elementos:</label>
+                  <select id="import-item-type-select" class="w-full border border-slate-300 rounded px-2 py-1 text-xs bg-white font-medium">
+                    <option value="Concepto">Conceptos / Matrices</option>
+                    <option value="Material">Materiales</option>
+                    <option value="Mano de Obra">Mano de Obra</option>
+                    <option value="Equipo">Maquinaria y Equipo</option>
+                    <option value="Subcontrato">Subcontratos</option>
+                  </select>
+                </div>
+
+                <!-- Selector de Zona (Gobierno) -->
+                <div id="import-zone-container" class="hidden">
+                  <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Precio de Zona (Gobierno):</label>
+                  <select id="import-zone-select" class="w-full border border-slate-300 rounded px-2 py-1 text-xs bg-white font-medium">
+                    <option value="z1" selected>Zona 1 (Precio Z1)</option>
+                    <option value="z2">Zona 2 (Precio Z2)</option>
+                    <option value="z3">Zona 3 (Precio Z3)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Opciones específicas de Presupuesto Activo -->
+            <div id="import-opts-budget" class="hidden pt-2 border-t border-slate-100 flex items-center gap-4 text-xs">
+              <span class="font-semibold text-slate-700">Modo de carga:</span>
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="budget-import-mode" value="append" checked class="text-blue-600">
+                <span>Agregar al final</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer text-red-600">
+                <input type="radio" name="budget-import-mode" value="replace" class="text-red-600">
+                <span>Reemplazar presupuesto</span>
+              </label>
+            </div>
+
+          </div>
+
+          <!-- Muestra de Datos Detectados -->
+          <div class="border border-slate-200 rounded-lg overflow-hidden">
+            <div class="bg-slate-100 px-3 py-1.5 border-b border-slate-200 flex justify-between items-center text-xs">
+              <span class="font-bold text-slate-700">Vista previa (Primeros 5 registros)</span>
+              <span class="text-[10px] text-slate-400">Verificación de columnas</span>
+            </div>
+            <div class="overflow-x-auto max-h-36">
+              <table class="w-full text-left text-xs border-collapse font-sans">
+                <thead class="bg-slate-50 text-slate-500 text-[10px] border-b border-slate-200">
+                  <tr>
+                    <th class="p-1.5 w-24">Clave</th>
+                    <th class="p-1.5 min-w-[200px]">Descripción</th>
+                    <th class="p-1.5 w-14 text-center">Unidad</th>
+                    <th class="p-1.5 w-24 text-right">Precio / Costo</th>
+                  </tr>
+                </thead>
+                <tbody id="import-preview-table-body" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-100 p-3 border-t border-slate-200 flex justify-end gap-2 shrink-0">
+        <button onclick="closeImportModal()" class="px-3 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-700 hover:bg-slate-200 transition">
+          Cancelar
+        </button>
+        <button id="btn-confirm-import" onclick="executeImport()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-50">
+          <i class="fa-solid fa-cloud-arrow-up"></i> Confirmar e Importar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 2: CATÁLOGO MAESTRO Y BIBLIOTECA DE REFERENCIA (OPCIÓN 1) -->
+  <div id="master-catalog-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-5xl h-[88vh] flex flex-col overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-amber-500 text-white flex items-center justify-center text-lg shadow-sm">
+            <i class="fa-solid fa-book-bookmark"></i>
+          </div>
+          <div>
+            <h2 class="font-bold text-sm sm:text-base leading-tight">Catálogo Maestro y Biblioteca de Referencia</h2>
+            <div class="flex items-center gap-3 text-[11px] text-slate-300 mt-0.5">
+              <span><i class="fa-solid fa-database text-amber-400"></i> <strong id="master-cat-total-items" class="font-mono text-white">0</strong> registros disponibles</span>
+              <span>•</span>
+              <span><strong id="master-cat-total-catalogs" class="font-mono text-white">0</strong> catálogos cargados</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <button onclick="openImportModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1.5 rounded flex items-center gap-1 font-medium shadow-sm transition">
+            <i class="fa-solid fa-plus text-[10px]"></i> Importar Más Archivos
+          </button>
+          <button onclick="closeMasterCatalogModal()" class="text-slate-400 hover:text-white text-lg p-1">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de Navegación de Pestañas del Catálogo -->
+      <div class="bg-slate-100 border-b border-slate-200 px-4 py-2 flex flex-wrap justify-between items-center gap-2 shrink-0">
+        <div class="flex flex-wrap gap-1.5">
+          <button id="master-cat-tab-search" onclick="switchMasterCatalogTab('search')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-700 shadow-xs border border-slate-200 transition">
+            <i class="fa-solid fa-magnifying-glass mr-1"></i> Búsqueda de Conceptos
+          </button>
+          <button id="master-cat-tab-manage" onclick="switchMasterCatalogTab('manage')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-800 transition">
+            <i class="fa-solid fa-folder-gear mr-1"></i> Administrar Catálogos
+          </button>
+        </div>
+        <span id="master-cat-results-count" class="text-xs text-slate-500 font-mono">0 resultados</span>
+      </div>
+
+      <!-- Vista 1: Búsqueda y Navegación de Conceptos -->
+      <div id="master-cat-view-search" class="flex-1 flex flex-col overflow-hidden p-3 space-y-2">
+        
+        <!-- Barra de Búsqueda y Filtros -->
+        <div class="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200 shrink-0">
+          <div class="relative flex-1 min-w-[220px]">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+              <i class="fa-solid fa-search text-xs"></i>
+            </span>
+            <input type="text" id="master-cat-search-input" oninput="onMasterCatalogSearchInput()" placeholder="Buscar por palabra clave o clave (ej. concreto 250, excavación, varilla 3/8)..." class="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+          </div>
+
+          <div class="w-44">
+            <select id="master-cat-tipo-filter" onchange="triggerMasterCatalogSearch()" class="w-full text-xs border border-slate-300 rounded-lg py-1.5 px-2 bg-white font-medium">
+              <option value="all">🔍 Todos los Rubros</option>
+              <option value="Concepto">Conceptos / Matrices</option>
+              <option value="Material">Materiales</option>
+              <option value="Mano de Obra">Mano de Obra</option>
+              <option value="Equipo">Maquinaria / Equipo</option>
+            </select>
+          </div>
+
+          <div class="w-56">
+            <select id="master-cat-catalog-filter" onchange="triggerMasterCatalogSearch()" class="w-full text-xs border border-slate-300 rounded-lg py-1.5 px-2 bg-white font-medium">
+              <option value="all">📚 Todos los Catálogos</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tabla de Resultados -->
+        <div class="flex-1 border border-slate-200 rounded-lg overflow-y-auto bg-white custom-scroll-x">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-100 text-slate-600 text-[10px] uppercase font-semibold border-b border-slate-200 sticky top-0 z-10 shadow-xs">
+              <tr>
+                <th class="p-2 w-28 min-w-[100px]">Clave / Tipo</th>
+                <th class="p-2 min-w-[320px]">Descripción / Catálogo Origen</th>
+                <th class="p-2 w-16 text-center">Unidad</th>
+                <th class="p-2 w-28 text-right">Precio Ref.</th>
+                <th class="p-2 w-24 text-center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="master-cat-results-body" class="divide-y divide-slate-100">
+              <!-- Resultados dinámicos -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- Vista 2: Gestión de Catálogos Cargados -->
+      <div id="master-cat-view-manage" class="flex-1 overflow-y-auto p-4 hidden">
+        <div class="max-w-3xl mx-auto space-y-4">
+          <div class="flex justify-between items-center">
+            <div>
+              <h3 class="font-bold text-sm text-slate-800">Catálogos Almacenados en la Base de Datos Local</h3>
+              <p class="text-xs text-slate-500">Puedes consultar la cantidad de registros o eliminar catálogos que ya no utilices.</p>
+            </div>
+            <button onclick="openImportModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded font-medium shadow-sm transition">
+              <i class="fa-solid fa-plus"></i> Importar Otro Catálogo
+            </button>
+          </div>
+          <div id="master-cat-manage-list"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 3: ASISTENTE DE INSUMOS APU (OPCIÓN 2) -->
+  <div id="apu-reference-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
+    <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl h-[82vh] flex flex-col overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-sm shadow-sm">
+            <i class="fa-solid fa-calculator"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm">Asistente de Insumos para Matriz APU</h3>
+            <p class="text-[11px] text-slate-300 truncate max-w-md" id="apu-assistant-target-name">Agregando a concepto...</p>
+          </div>
+        </div>
+        <button onclick="closeApuReferenceModal()" class="text-slate-400 hover:text-white text-lg p-1">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Subheader con Filtros Rápidos -->
+      <div class="p-3 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div class="flex items-center gap-1.5">
+          <button id="apu-filter-btn-Material" onclick="setApuAssistantFilter('Material')" class="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-600 text-white shadow-xs transition">
+            <i class="fa-solid fa-cubes text-[10px]"></i> Materiales
+          </button>
+          <button id="apu-filter-btn-Mano-de-Obra" onclick="setApuAssistantFilter('Mano de Obra')" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+            <i class="fa-solid fa-hard-hat text-[10px]"></i> Mano de Obra
+          </button>
+          <button id="apu-filter-btn-Equipo" onclick="setApuAssistantFilter('Equipo')" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+            <i class="fa-solid fa-screwdriver-wrench text-[10px]"></i> Equipo
+          </button>
+          <button id="apu-filter-btn-Todos" onclick="setApuAssistantFilter('Todos')" class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+            Todos
+          </button>
+          <input type="hidden" id="apu-assistant-tipo-filter" value="Material">
+        </div>
+
+        <div class="relative flex-1 min-w-[200px] max-w-xs">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400">
+            <i class="fa-solid fa-search text-[11px]"></i>
+          </span>
+          <input type="text" id="apu-assistant-search-input" oninput="onApuAssistantSearchInput()" placeholder="Buscar insumo (ej. cemento, cuadrilla, revolvedora)..." class="w-full pl-8 pr-2 py-1 text-xs border border-slate-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+        </div>
+
+        <span id="apu-assistant-count-badge" class="text-[11px] font-mono text-slate-500">0 insumos</span>
+      </div>
+
+      <!-- Tabla de Insumos -->
+      <div class="flex-1 overflow-y-auto p-3 bg-white">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase font-semibold border-b border-slate-200 sticky top-0 z-10 shadow-xs">
+            <tr>
+              <th class="p-2 w-24">Clave / Tipo</th>
+              <th class="p-2">Descripción del Insumo</th>
+              <th class="p-2 w-14 text-center">Unidad</th>
+              <th class="p-2 w-24 text-right">Costo Ref.</th>
+              <th id="th-apu-assistant-qty" class="p-2 w-40 text-right" title="Consumo unitario necesario para 1 unidad de concepto">Cant. (1 ud)</th>
+            </tr>
+          </thead>
+          <tbody id="apu-assistant-results-body" class="divide-y divide-slate-100">
+            <!-- Resultados dinámicos -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer -->
+      <div class="bg-slate-100 p-2.5 border-t border-slate-200 flex justify-between items-center shrink-0">
+        <span class="text-[11px] text-slate-500 italic">
+          <i class="fa-solid fa-circle-info text-blue-500 mr-1"></i> Haz clic en "Agregar" en cada insumo deseado; se sumarán a la matriz en tiempo real.
+        </span>
+        <button onclick="closeApuReferenceModal()" class="px-4 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-semibold shadow-sm transition">
+          Listo / Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+  <!-- Entrada Modular Principal ES6 -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# Dependencias y entornos
+node_modules/
+dist/
+build/
+
+# Archivos de sistema y sistema operativo
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Archivos de editores e IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Archivos temporales y de registro
+*.log
+*.tmp
+*.bak
+*~

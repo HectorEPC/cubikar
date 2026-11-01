@@ -1,0 +1,127 @@
+/* Estilos personalizados del Sistema de Control de Obra */
+
+.selected-row {
+  background-color: #e0f2fe !important;
+  border-left: 4px solid #0284c7;
+}
+
+/* Menús desplegables de acciones de fila */
+.dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-container:hover,
+.dropdown-container.is-open {
+  z-index: 50;
+}
+
+.dropdown-menu {
+  display: none;
+  z-index: 50;
+}
+
+/* Abrir por clic (.show / .is-open) o por hover */
+.dropdown-menu.show,
+.dropdown-container.is-open > .dropdown-menu,
+.dropdown-container:hover > .dropdown-menu {
+  display: block;
+}
+
+/* Puente invisible superior para evitar que el cursor pierda el hover al cruzar el margen */
+.dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  right: 0;
+  left: 0;
+  height: 12px;
+  background: transparent;
+}
+
+/* Variante cuando se despliega hacia arriba (cerca del fondo de pantalla) */
+.dropdown-menu.dropdown-menu-up {
+  top: auto !important;
+  bottom: 100% !important;
+  margin-top: 0 !important;
+  margin-bottom: 4px !important;
+  box-shadow: 0 -10px 15px -3px rgba(0, 0, 0, 0.1), 0 -4px 6px -4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.dropdown-menu.dropdown-menu-up::before {
+  top: auto;
+  bottom: -10px;
+  height: 12px;
+}
+
+/* Rotación de chevrons para acordeones / secciones plegables */
+.-rotate-90 {
+  transform: rotate(-90deg) !important;
+}
+
+.rotate-0 {
+  transform: rotate(0deg) !important;
+}
+
+textarea.desc-input {
+  resize: none;
+  field-sizing: content;
+  min-height: 24px;
+}
+
+/* Barras de desplazamiento horizontal y vertical personalizadas */
+::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 6px;
+  border: 2px solid #e2e8f0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #e2e8f0;
+}
+
+.custom-scroll-x {
+  overflow-x: auto !important;
+  scrollbar-gutter: stable;
+}
+
+/* Selector de color circular para jerarquía */
+.color-picker-dot {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+  vertical-align: middle;
+}
+
+.color-picker-dot::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-picker-dot::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+.color-picker-dot::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
+}

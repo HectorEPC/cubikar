@@ -1,0 +1,58 @@
+[
+  {
+    "id": "bimsa_edificacion_2018",
+    "name": "BIMSA Edificación 2018",
+    "category": "Edificación",
+    "file": "data/bimsa_edificacion.json",
+    "itemsCount": 6493,
+    "description": "Conceptos de edificación, acabados, albañilería, materiales, cuadrillas y maquinaria."
+  },
+  {
+    "id": "bimsa_instalaciones_electricas_2018",
+    "name": "BIMSA Instalaciones Eléctricas 2018",
+    "category": "Instalaciones Eléctricas",
+    "file": "data/bimsa_instalaciones_electricas.json",
+    "itemsCount": 7643,
+    "description": "Conductores, canalizaciones, luminarias, tableros, transformadores y telecomunicaciones."
+  },
+  {
+    "id": "bimsa_instalaciones_hidraulicas_2018",
+    "name": "BIMSA Instalaciones Hidráulicas 2018",
+    "category": "Instalaciones Hidráulicas",
+    "file": "data/bimsa_instalaciones_hidraulicas.json",
+    "itemsCount": 9793,
+    "description": "Tuberías hidráulicas, sanitarias, válvulas, muebles de baño y sistemas hidroneumáticos."
+  },
+  {
+    "id": "bimsa_aire_acondicionado_2018",
+    "name": "BIMSA Aire Acondicionado 2018",
+    "category": "Aire Acondicionado",
+    "file": "data/bimsa_aire_acondicionado.json",
+    "itemsCount": 1188,
+    "description": "Equipos minisplit, paquetes, ductería, aislamientos y accesorios HVAC."
+  },
+  {
+    "id": "bimsa_infraestructura_2018",
+    "name": "BIMSA Infraestructura y Urbanización 2018",
+    "category": "Infraestructura",
+    "file": "data/bimsa_infraestructura.json",
+    "itemsCount": 17923,
+    "description": "Pavimentaciones, terracerías, drenaje pluvial, redes de agua potable y guarniciones."
+  },
+  {
+    "id": "bimsa_obra_industrial_2018",
+    "name": "BIMSA Obra y Mantenimiento Industrial 2018",
+    "category": "Industrial",
+    "file": "data/bimsa_obra_industrial.json",
+    "itemsCount": 16807,
+    "description": "Estructuras de acero, pailería, recipientes, tubería de proceso y mantenimiento."
+  },
+  {
+    "id": "gobierno_2022",
+    "name": "Catálogo Oficial de Gobierno 2022",
+    "category": "Gobierno",
+    "file": "data/gobierno_2022.json",
+    "itemsCount": 1792,
+    "description": "Tabulador oficial de obra pública por contrato con precios clasificados por Zonas Z1, Z2 y Z3."
+  }
+]

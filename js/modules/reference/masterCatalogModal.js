@@ -1,0 +1,335 @@
+// js/modules/reference/masterCatalogModal.js
+// Modal de Catálogo Maestro y Biblioteca de Referencia (Opción 1)
+
+import { state, persistLocalData } from '../../state/store.js';
+import { saveState } from '../../state/history.js';
+import { showToast } from '../../ui/notifications.js';
+import { formatMoney } from '../../core/formatters.js';
+import { findNodeById, recalculateClaves } from '../catalog/treeService.js';
+import { renderTAB1 } from '../catalog/catalogView.js';
+import {
+  listReferenceCatalogs,
+  searchReferenceItems,
+  deleteReferenceCatalog,
+  getReferenceDatabaseStats
+} from './referenceDb.js';
+import { openImportModal } from '../io/universalImporter.js';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
+
+let debounceTimer = null;
+let currentSearchResults = [];
+
+// Abrir modal de Catálogo Maestro
+export async function openMasterCatalogModal() {
+  const modal = document.getElementById('master-catalog-modal');
+  if (!modal) return;
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  switchMasterCatalogTab('search');
+  await refreshMasterCatalogList();
+  triggerMasterCatalogSearch();
+}
+
+// Cerrar modal
+export function closeMasterCatalogModal() {
+  const modal = document.getElementById('master-catalog-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+}
+
+// Actualizar lista de catálogos en el filtro y estadísticas
+export async function refreshMasterCatalogList() {
+  try {
+    const stats = await getReferenceDatabaseStats();
+
+    // Actualizar contadores superiores
+    const countEl = document.getElementById('master-cat-total-items');
+    if (countEl) countEl.textContent = stats.totalItems.toLocaleString();
+
+    const catsCountEl = document.getElementById('master-cat-total-catalogs');
+    if (catsCountEl) catsCountEl.textContent = stats.catalogsCount.toLocaleString();
+
+    // Llenar selector de catálogos
+    const select = document.getElementById('master-cat-catalog-filter');
+    if (select) {
+      const currentVal = select.value;
+      select.innerHTML = '<option value="all">📚 Todos los Catálogos</option>';
+      stats.catalogs.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `${c.name} (${(c.itemsCount || 0).toLocaleString()} registros)`;
+        select.appendChild(opt);
+      });
+      if (currentVal) select.value = currentVal;
+    }
+
+    // Actualizar tabla de administración de catálogos
+    renderCatalogsManageList(stats.catalogs);
+  } catch (err) {
+    console.error('Error cargando catálogos:', err);
+  }
+}
+
+// Renderizar la lista de catálogos para administrar/eliminar
+function renderCatalogsManageList(catalogs) {
+  const container = document.getElementById('master-cat-manage-list');
+  if (!container) return;
+
+  if (catalogs.length === 0) {
+    container.innerHTML = `
+      <div class="p-6 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-300 rounded-lg">
+        <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300"></i>
+        <p class="font-medium text-xs">No hay catálogos maestros cargados aún.</p>
+        <p class="text-[11px] text-slate-400 mt-1">Usa el botón "Importar Archivo" para agregar tus archivos de BIMSA, Gobierno, Excel o CSV.</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '<div class="space-y-2">';
+  catalogs.forEach(c => {
+    const fecha = c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+    html += `
+      <div class="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-lg shadow-xs hover:border-blue-300 transition">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
+            <i class="fa-solid fa-book"></i>
+          </div>
+          <div>
+            <span class="font-bold text-xs text-slate-800 block">${c.name}</span>
+            <div class="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+              <span class="bg-slate-100 px-1.5 py-0.5 rounded font-mono">${(c.itemsCount || 0).toLocaleString()} registros</span>
+              <span>•</span>
+              <span>${c.category || 'General'}</span>
+              <span>•</span>
+              <span>${fecha}</span>
+            </div>
+          </div>
+        </div>
+        <button onclick="handleDeleteCatalog('${c.id}', '${c.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition" title="Eliminar este catálogo">
+          <i class="fa-solid fa-trash-can text-xs"></i>
+        </button>
+      </div>
+    `;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// Eliminar un catálogo con confirmación
+export async function handleDeleteCatalog(catalogId, catalogName) {
+  if (!confirm(`¿Estás seguro de eliminar el catálogo "${catalogName}" y todos sus conceptos?`)) {
+    return;
+  }
+
+  try {
+    await deleteReferenceCatalog(catalogId);
+    showToast(`Catálogo "${catalogName}" eliminado`, 'info');
+    await refreshMasterCatalogList();
+    triggerMasterCatalogSearch();
+  } catch (err) {
+    showToast(`Error al eliminar: ${err.message}`, 'error');
+  }
+}
+
+// Búsqueda con debounce
+export function onMasterCatalogSearchInput() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    triggerMasterCatalogSearch();
+  }, 250);
+}
+
+// Ejecutar búsqueda en la base de datos IndexedDB
+export async function triggerMasterCatalogSearch() {
+  const query = document.getElementById('master-cat-search-input')?.value || '';
+  const tipo = document.getElementById('master-cat-tipo-filter')?.value || 'all';
+  const catalogId = document.getElementById('master-cat-catalog-filter')?.value || 'all';
+
+  const tbody = document.getElementById('master-cat-results-body');
+  const countBadge = document.getElementById('master-cat-results-count');
+
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="p-8 text-center text-slate-400">
+          <i class="fa-solid fa-spinner fa-spin text-xl text-blue-600 mb-2"></i>
+          <p class="text-xs">Buscando en catálogos de referencia...</p>
+        </td>
+      </tr>
+    `;
+  }
+
+  try {
+    const results = await searchReferenceItems({
+      catalogId,
+      tipo,
+      query,
+      limit: 150
+    });
+
+    currentSearchResults = results;
+
+    if (countBadge) {
+      countBadge.textContent = `${results.length} ${results.length === 150 ? '+ resultados' : 'resultados'}`;
+    }
+
+    renderSearchResultsTable(results);
+  } catch (err) {
+    console.error('Error buscando conceptos:', err);
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="p-6 text-center text-red-500 text-xs">
+            Error al consultar la base de datos: ${err.message}
+          </td>
+        </tr>
+      `;
+    }
+  }
+}
+
+// Renderizar tabla de resultados
+function renderSearchResultsTable(items) {
+  const tbody = document.getElementById('master-cat-results-body');
+  if (!tbody) return;
+
+  if (items.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="p-8 text-center text-slate-400">
+          <i class="fa-solid fa-magnifying-glass text-2xl text-slate-300 mb-2"></i>
+          <p class="text-xs font-semibold text-slate-600">No se encontraron conceptos o insumos.</p>
+          <p class="text-[11px] text-slate-400 mt-1">Prueba con otros términos de búsqueda o asegúrate de haber importado tus archivos.</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  items.forEach((item, index) => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-blue-50/60 border-b border-slate-100 transition group';
+
+    // Badge según tipo
+    let tipoBadge = '';
+    if (item.tipo === 'Material') {
+      tipoBadge = '<span class="text-[9px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">Material</span>';
+    } else if (item.tipo === 'Mano de Obra') {
+      tipoBadge = '<span class="text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">M. Obra</span>';
+    } else if (item.tipo === 'Equipo') {
+      tipoBadge = '<span class="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">Equipo</span>';
+    } else {
+      tipoBadge = '<span class="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Concepto</span>';
+    }
+
+    tr.innerHTML = `
+      <td class="p-2 align-top w-28 min-w-[100px]">
+        <span class="font-mono text-xs font-bold text-blue-700 block">${item.clave || '-'}</span>
+        <div class="mt-1">${tipoBadge}</div>
+      </td>
+      <td class="p-2 align-top text-xs text-slate-800 text-justify">
+        <div class="font-medium leading-relaxed">${item.descripcion || '-'}</div>
+        <div class="text-[10px] text-slate-400 mt-1 flex items-center gap-2">
+          <span><i class="fa-solid fa-book-bookmark text-[9px]"></i> ${item.catalogName || 'Catálogo'}</span>
+          ${item.familia ? `<span>• Familia: ${item.familia}</span>` : ''}
+        </div>
+      </td>
+      <td class="p-2 align-top text-center font-mono text-xs w-16 text-slate-600">
+        ${item.unidad || 'pza'}
+      </td>
+      <td class="p-2 align-top text-right font-mono text-xs font-bold text-slate-800 w-28">
+        ${formatMoney(item.precioUnitario || 0)}
+      </td>
+      <td class="p-2 align-top text-center w-24">
+        <button onclick="insertConceptIntoBudget(${index})" class="bg-blue-600 hover:bg-blue-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition active:scale-95" title="Insertar concepto al presupuesto activo">
+          <i class="fa-solid fa-plus text-[10px]"></i> Insertar
+        </button>
+      </td>
+    `;
+    fragment.appendChild(tr);
+  });
+
+  tbody.replaceChildren(fragment);
+}
+
+// Insertar concepto seleccionado al presupuesto de obra (TAB1-CAT-BASE)
+export function insertConceptIntoBudget(resultIndex) {
+  const item = currentSearchResults[resultIndex];
+  if (!item) return;
+
+  saveState();
+
+  const integratedInsumos = (Array.isArray(item.insumos) && item.insumos.length > 0)
+    ? JSON.parse(JSON.stringify(item.insumos))
+    : generateIntegratedMatrixForConcept(item);
+
+  const newNode = {
+    id: '_' + Math.random().toString(36).substr(2, 9),
+    clave: item.clave || '',
+    descripcion: item.descripcion || '',
+    unidad: item.unidad || 'pza',
+    cantidad: 1,
+    precioUnitario: item.precioUnitario || 0,
+    costoDirecto: item.precioUnitario || 0,
+    expanded: true,
+    selected: true,
+    insumos: integratedInsumos,
+    children: []
+  };
+
+  // Si hay una fila seleccionada en TAB1, insertarlo como hijo o a continuación
+  if (state.activeSelectedId) {
+    const selectedNode = findNodeById(state.treeData, state.activeSelectedId);
+    if (selectedNode) {
+      if (!selectedNode.children) selectedNode.children = [];
+      selectedNode.children.push(newNode);
+      selectedNode.expanded = true;
+    } else {
+      state.treeData.push(newNode);
+    }
+  } else {
+    // Si no hay fila seleccionada, agregar como partida principal
+    state.treeData.push(newNode);
+  }
+
+  recalculateClaves(state.treeData);
+  persistLocalData();
+  renderTAB1();
+
+  showToast(`Concepto "${item.clave || item.descripcion.slice(0, 25)}" insertado al presupuesto`, 'success');
+}
+
+// Alternar entre pestaña de Búsqueda y Gestión de Catálogos
+export function switchMasterCatalogTab(tab) {
+  const searchTab = document.getElementById('master-cat-tab-search');
+  const manageTab = document.getElementById('master-cat-tab-manage');
+
+  const viewSearch = document.getElementById('master-cat-view-search');
+  const viewManage = document.getElementById('master-cat-view-manage');
+
+  const activeClass = "px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-700 shadow-xs border border-slate-200 transition";
+  const inactiveClass = "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-800 transition";
+
+  if (searchTab) searchTab.className = inactiveClass;
+  if (manageTab) manageTab.className = inactiveClass;
+
+  if (viewSearch) viewSearch.classList.add('hidden');
+  if (viewManage) viewManage.classList.add('hidden');
+
+  if (tab === 'search') {
+    if (searchTab) searchTab.className = activeClass;
+    if (viewSearch) viewSearch.classList.remove('hidden');
+    triggerMasterCatalogSearch();
+  } else {
+    if (manageTab) manageTab.className = activeClass;
+    if (viewManage) viewManage.classList.remove('hidden');
+    refreshMasterCatalogList();
+  }
+}
