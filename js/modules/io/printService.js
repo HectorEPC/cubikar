@@ -161,11 +161,12 @@ const PRINT_BASE_STYLES = `
     align-items: center;
   }
   .doc-title {
-    font-size: 15pt;
-    font-weight: 800;
+    font-size: 12pt;
+    font-weight: 900;
     color: #0f172a;
-    margin: 0 0 4px 0;
+    margin: 0;
     letter-spacing: -0.01em;
+    white-space: nowrap;
   }
   .doc-subtitle {
     font-size: 10pt;
@@ -432,7 +433,7 @@ export function printTab1Catalog() {
             ${escapeHtml(companyName)}
           </div>
           <!-- Fila 2: CATÁLOGO Y PRESUPUESTO DE OBRA BASE -->
-          <h1 class="doc-title" style="font-size: 13.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em;">
+          <h1 class="doc-title" style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
             CATÁLOGO Y PRESUPUESTO DE OBRA BASE
           </h1>
           <!-- Fila 3: Nombre de Proyecto -->
@@ -697,7 +698,7 @@ export function printApuMatrix() {
             ${escapeHtml(companyName)}
           </div>
           <!-- Fila 2: ANÁLISIS DE PRECIO UNITARIO (APU) -->
-          <h1 class="doc-title" style="font-size: 13.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em;">
+          <h1 class="doc-title" style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
             ANÁLISIS DE PRECIO UNITARIO (APU)
           </h1>
           <!-- Fila 3: Nombre de Proyecto -->
@@ -973,7 +974,7 @@ export function printInsumosGenerales() {
             ${escapeHtml(companyName)}
           </div>
           <!-- Fila 2: EXPLOSIÓN DE INSUMOS GENERALES DE OBRA -->
-          <h1 class="doc-title" style="font-size: 13.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em;">
+          <h1 class="doc-title" style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
             EXPLOSIÓN DE INSUMOS GENERALES DE OBRA
           </h1>
           <!-- Fila 3: Nombre de Proyecto -->
