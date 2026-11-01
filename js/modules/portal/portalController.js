@@ -558,120 +558,161 @@ export function renderPortalDashboard() {
   main.innerHTML = `
     <div class="max-w-6xl mx-auto w-full space-y-5 animate-in fade-in duration-200">
       
-      <!-- Banner de Perfil del Usuario -->
+      <!-- Área de Perfil del Usuario: Usuario del lado derecho en la parte superior -->
       <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div class="flex items-center gap-4">
-          <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-blue-400 bg-white shadow-md shrink-0 cursor-pointer" onclick="openProfileModal()" title="Haz clic para ver o editar tu perfil">
-            <img src="${user.avatar}" alt="Avatar" class="w-full h-full object-cover">
+        
+        <!-- Lado Izquierdo: Información y Estado de Obras -->
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <span class="bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">Panel de Control</span>
+            <span class="text-xs text-slate-300 font-mono">• ${projects.length} Proyectos Registrados</span>
           </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <h2 class="font-black text-lg sm:text-xl text-white tracking-tight">${user.name}</h2>
-              <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">Perfil Activo</span>
+          <h1 class="font-black text-xl sm:text-2xl text-white tracking-tight">Mis Proyectos de Obra</h1>
+          <p class="text-xs text-slate-300">Presupuestos base, análisis de precios unitarios, catálogos e insumos generales.</p>
+        </div>
+
+        <!-- Lado Derecho: Usuario en la parte superior con Menú Desplegable (Editar perfil y Cerrar sesión) -->
+        <div class="relative self-end sm:self-auto shrink-0" id="portal-user-menu-wrapper">
+          <button type="button" id="portal-user-btn" onclick="togglePortalUserDropdown(event)" 
+                  class="flex items-center gap-3 bg-slate-800/95 hover:bg-slate-800 border border-slate-700 hover:border-blue-400 p-1.5 pl-3 pr-3.5 rounded-2xl cursor-pointer transition select-none shadow-md group" 
+                  title="Opciones de perfil: Editar perfil y Cerrar sesión">
+            <div class="text-right">
+              <span class="font-bold text-xs sm:text-sm text-white block max-w-[160px] truncate group-hover:text-blue-300 transition">${user.name}</span>
+              <span class="text-[10px] text-slate-400 font-mono block truncate">${user.email}</span>
             </div>
-            <p class="text-xs text-slate-300 flex flex-wrap items-center gap-2 mt-1">
-              <span><i class="fa-solid fa-envelope text-blue-400 mr-1"></i>${user.email}</span>
-              <span>•</span>
-              <span><i class="fa-solid fa-venus-mars text-purple-400 mr-1"></i>${user.sexo || 'No especificado'}</span>
-              <span>•</span>
-              <span><i class="fa-solid fa-layer-group text-blue-400 mr-1"></i>${projects.length} Proyectos</span>
-            </p>
+            <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-blue-400 bg-white shrink-0 shadow-xs">
+              <img src="${user.avatar}" class="w-full h-full object-cover" alt="Perfil">
+            </div>
+            <i class="fa-solid fa-chevron-down text-xs text-slate-400 group-hover:text-blue-400 transition ml-0.5"></i>
+          </button>
+
+          <!-- Dropdown Desplegable: Editar Perfil y Cerrar Sesión -->
+          <div id="portal-user-dropdown" class="hidden absolute right-0 top-full mt-2 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-100">
+            <!-- Header del Dropdown con Datos de Perfil -->
+            <div class="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-full overflow-hidden border border-blue-400 bg-slate-100 shrink-0">
+                <img src="${user.avatar}" class="w-full h-full object-cover" alt="Avatar">
+              </div>
+              <div class="min-w-0 flex-1">
+                <span class="font-bold text-xs text-slate-900 block truncate">${user.name}</span>
+                <span class="text-[10px] text-emerald-600 font-semibold block flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> Perfil Activo
+                </span>
+              </div>
+            </div>
+
+            <!-- Opciones: Editar Perfil y Cerrar Sesión -->
+            <div class="p-1.5 space-y-1 text-xs font-semibold">
+              <button type="button" onclick="openProfileModal(); closePortalUserDropdown();" 
+                      class="w-full text-left px-3 py-2 rounded-xl hover:bg-blue-50 text-slate-700 hover:text-blue-700 flex items-center gap-2.5 transition cursor-pointer">
+                <i class="fa-solid fa-user-pen text-blue-600 text-sm"></i>
+                <span>Editar perfil</span>
+              </button>
+
+              <button type="button" onclick="logoutUser()" 
+                      class="w-full text-left px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 flex items-center gap-2.5 transition cursor-pointer">
+                <i class="fa-solid fa-power-off text-rose-500 text-sm"></i>
+                <span>Cerrar sesión</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        <div class="flex items-center gap-2">
-          <button onclick="openProfileModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer" title="Ver y editar los datos de tu perfil">
-            <i class="fa-solid fa-user-pen"></i> Editar Mi Perfil
-          </button>
-        </div>
       </div>
 
-      <!-- Barra de Filtros y Acomodo con Botones -->
-      <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+      <!-- Fila de Búsqueda y Botón Independiente "Nuevo Proyecto" -->
+      <div class="flex flex-col md:flex-row items-stretch md:items-start gap-3">
         
-        <!-- Fila Superior: Buscador, Contador y Botón Nuevo Proyecto a la Derecha -->
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div class="relative flex-1 max-w-md">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
-              <i class="fa-solid fa-magnifying-glass text-xs"></i>
-            </span>
-            <input type="text" id="project-search" oninput="onProjectSearchInput(this.value)" value="${currentSearchQuery}" placeholder="Buscar por nombre, empresa, tipo o ubicación..." 
-                   class="w-full pl-9 pr-3 py-2 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs">
-          </div>
-
-          <div class="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
-            <span class="text-xs text-slate-500 font-bold font-mono" id="projects-counter-badge">${projects.length} proyectos</span>
-            <button id="btn-reset-filters" type="button" onclick="resetProjectFilters()" class="${(currentCompanyFilter !== 'all' || currentTipoObraFilter !== 'all' || currentSearchQuery !== '' || currentSortMode !== 'date-desc') ? '' : 'hidden'} text-[11px] text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-2.5 py-1.5 font-semibold transition cursor-pointer">
-              <i class="fa-solid fa-rotate-left mr-1"></i> Limpiar filtros
-            </button>
-            <button onclick="openNuevoProyectoModal()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-md shadow-blue-600/25 transition flex items-center gap-2 cursor-pointer" title="Crear un nuevo proyecto de obra">
-              <i class="fa-solid fa-plus text-xs"></i>
-              <span>Nuevo Proyecto</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Fila Inferior: Barra de Botones de Filtrar y Acomodar -->
-        <div class="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100 text-xs">
+        <!-- Barra de Búsqueda y Filtros (Más compacta para que quepa el botón independiente) -->
+        <div class="flex-1 bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
           
-          <!-- FILTRAR POR: Empresa y Tipo de Obra -->
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-0.5">
-              <i class="fa-solid fa-filter text-[10px]"></i> Filtrar por:
-            </span>
-
-            <!-- Botón / Selector Empresa -->
-            <div id="wrapper-filter-company" class="flex items-center ${currentCompanyFilter !== 'all' ? 'bg-blue-50 border-blue-400 text-blue-900 font-semibold' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'} border rounded-xl px-2.5 py-1 transition shadow-2xs">
-              <i class="fa-solid fa-building text-blue-600 text-[11px] mr-1.5"></i>
-              <span class="text-[11px] text-slate-500 mr-1.5 hidden sm:inline">Empresa:</span>
-              <select id="filter-company-select" onchange="setCompanyFilter(this.value)" class="bg-transparent font-semibold text-xs focus:outline-none cursor-pointer pr-1">
-                <option value="all">Todas las empresas</option>
-                ${renderCompanyOptionsHTML(projects)}
-              </select>
+          <!-- Fila Superior: Buscador y Contador -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+            <div class="relative flex-1">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
+                <i class="fa-solid fa-magnifying-glass text-xs"></i>
+              </span>
+              <input type="text" id="project-search" oninput="onProjectSearchInput(this.value)" value="${currentSearchQuery}" placeholder="Buscar por nombre, empresa, tipo o ubicación..." 
+                     class="w-full pl-9 pr-3 py-1.5 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs">
             </div>
 
-            <!-- Botón / Selector Tipo de Obra -->
-            <div id="wrapper-filter-tipo" class="flex items-center ${currentTipoObraFilter !== 'all' ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-semibold' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'} border rounded-xl px-2.5 py-1 transition shadow-2xs">
-              <i class="fa-solid fa-trowel-bricks text-emerald-600 text-[11px] mr-1.5"></i>
-              <span class="text-[11px] text-slate-500 mr-1.5 hidden sm:inline">Tipo de Obra:</span>
-              <select id="filter-tipo-select" onchange="setTipoObraFilter(this.value)" class="bg-transparent font-semibold text-xs focus:outline-none cursor-pointer pr-1">
-                <option value="all" ${currentTipoObraFilter === 'all' ? 'selected' : ''}>Todos los tipos</option>
-                <option value="Edificación" ${currentTipoObraFilter === 'Edificación' ? 'selected' : ''}>Edificación</option>
-                <option value="Vivienda" ${currentTipoObraFilter === 'Vivienda' ? 'selected' : ''}>Vivienda</option>
-                <option value="Obra Civil" ${currentTipoObraFilter === 'Obra Civil' ? 'selected' : ''}>Obra Civil</option>
-                <option value="Infraestructura" ${currentTipoObraFilter === 'Infraestructura' ? 'selected' : ''}>Infraestructura</option>
-                <option value="Remodelación" ${currentTipoObraFilter === 'Remodelación' ? 'selected' : ''}>Remodelación</option>
-                <option value="Industrial" ${currentTipoObraFilter === 'Industrial' ? 'selected' : ''}>Industrial / Comercial</option>
-              </select>
+            <div class="flex items-center gap-2 self-end sm:self-auto shrink-0">
+              <span class="text-xs text-slate-500 font-bold font-mono" id="projects-counter-badge">${projects.length} proyectos</span>
+              <button id="btn-reset-filters" type="button" onclick="resetProjectFilters()" class="${(currentCompanyFilter !== 'all' || currentTipoObraFilter !== 'all' || currentSearchQuery !== '' || currentSortMode !== 'date-desc') ? '' : 'hidden'} text-[11px] text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-2 py-1 font-semibold transition cursor-pointer">
+                <i class="fa-solid fa-rotate-left mr-1"></i> Limpiar
+              </button>
             </div>
           </div>
 
-          <!-- ACOMODAR POR: Fecha de Creación y De la A a la Z -->
-          <div class="flex flex-wrap items-center gap-1.5">
-            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-0.5">
-              <i class="fa-solid fa-arrow-down-short-wide text-[10px]"></i> Acomodar:
-            </span>
+          <!-- Fila Inferior: Barra de Botones de Filtrar y Acomodar -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+            
+            <!-- FILTRAR POR: Empresa y Tipo de Obra -->
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-0.5">
+                <i class="fa-solid fa-filter text-[10px]"></i> Filtrar:
+              </span>
 
-            <!-- Botón Fecha de Creación -->
-            <button type="button" id="btn-sort-date" onclick="toggleSortDate()" 
-                    class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${currentSortMode.startsWith('date') ? 'bg-blue-600 border-blue-600 text-white font-bold shadow-sm' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs'}" 
-                    title="Acomodar conforme a la fecha de creación">
-              <i class="fa-regular fa-calendar-days text-[11px]"></i>
-              <span>Fecha de creación</span>
-              <i id="icon-sort-date" class="fa-solid ${currentSortMode === 'date-asc' ? 'fa-arrow-up' : 'fa-arrow-down'} text-[10px]"></i>
-            </button>
+              <!-- Botón / Selector Empresa -->
+              <div id="wrapper-filter-company" class="flex items-center ${currentCompanyFilter !== 'all' ? 'bg-blue-50 border-blue-400 text-blue-900 font-semibold' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'} border rounded-xl px-2.5 py-1 transition shadow-2xs">
+                <i class="fa-solid fa-building text-blue-600 text-[11px] mr-1.5"></i>
+                <select id="filter-company-select" onchange="setCompanyFilter(this.value)" class="bg-transparent font-semibold text-xs focus:outline-none cursor-pointer pr-1">
+                  <option value="all">Todas las empresas</option>
+                  ${renderCompanyOptionsHTML(projects)}
+                </select>
+              </div>
 
-            <!-- Botón De la A a la Z -->
-            <button type="button" id="btn-sort-az" onclick="toggleSortAZ()" 
-                    class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${currentSortMode.startsWith('az') ? 'bg-blue-600 border-blue-600 text-white font-bold shadow-sm' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs'}" 
-                    title="Acomodar alfabéticamente de la A a la Z por nombre de proyecto">
-              <i class="fa-solid ${currentSortMode === 'az-desc' ? 'fa-arrow-up-z-a' : 'fa-arrow-down-a-z'} text-[11px]"></i>
-              <span>De la A a la Z</span>
-              <i id="icon-sort-az" class="fa-solid ${currentSortMode === 'az-desc' ? 'fa-arrow-up' : 'fa-arrow-down'} text-[10px] ${currentSortMode.startsWith('az') ? '' : 'hidden'}"></i>
-            </button>
+              <!-- Botón / Selector Tipo de Obra -->
+              <div id="wrapper-filter-tipo" class="flex items-center ${currentTipoObraFilter !== 'all' ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-semibold' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'} border rounded-xl px-2.5 py-1 transition shadow-2xs">
+                <i class="fa-solid fa-trowel-bricks text-emerald-600 text-[11px] mr-1.5"></i>
+                <select id="filter-tipo-select" onchange="setTipoObraFilter(this.value)" class="bg-transparent font-semibold text-xs focus:outline-none cursor-pointer pr-1">
+                  <option value="all" ${currentTipoObraFilter === 'all' ? 'selected' : ''}>Todos los tipos</option>
+                  <option value="Edificación" ${currentTipoObraFilter === 'Edificación' ? 'selected' : ''}>Edificación</option>
+                  <option value="Vivienda" ${currentTipoObraFilter === 'Vivienda' ? 'selected' : ''}>Vivienda</option>
+                  <option value="Obra Civil" ${currentTipoObraFilter === 'Obra Civil' ? 'selected' : ''}>Obra Civil</option>
+                  <option value="Infraestructura" ${currentTipoObraFilter === 'Infraestructura' ? 'selected' : ''}>Infraestructura</option>
+                  <option value="Remodelación" ${currentTipoObraFilter === 'Remodelación' ? 'selected' : ''}>Remodelación</option>
+                  <option value="Industrial" ${currentTipoObraFilter === 'Industrial' ? 'selected' : ''}>Industrial / Comercial</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- ACOMODAR POR: Fecha de Creación y De la A a la Z -->
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-0.5">
+                <i class="fa-solid fa-arrow-down-short-wide text-[10px]"></i> Acomodar:
+              </span>
+
+              <!-- Botón Fecha de Creación -->
+              <button type="button" id="btn-sort-date" onclick="toggleSortDate()" 
+                      class="px-2.5 py-1 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${currentSortMode.startsWith('date') ? 'bg-blue-600 border-blue-600 text-white font-bold shadow-sm' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs'}" 
+                      title="Acomodar conforme a la fecha de creación">
+                <i class="fa-regular fa-calendar-days text-[11px]"></i>
+                <span>Fecha</span>
+                <i id="icon-sort-date" class="fa-solid ${currentSortMode === 'date-asc' ? 'fa-arrow-up' : 'fa-arrow-down'} text-[10px]"></i>
+              </button>
+
+              <!-- Botón De la A a la Z -->
+              <button type="button" id="btn-sort-az" onclick="toggleSortAZ()" 
+                      class="px-2.5 py-1 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${currentSortMode.startsWith('az') ? 'bg-blue-600 border-blue-600 text-white font-bold shadow-sm' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs'}" 
+                      title="Acomodar alfabéticamente de la A a la Z por nombre de proyecto">
+                <i class="fa-solid ${currentSortMode === 'az-desc' ? 'fa-arrow-up-z-a' : 'fa-arrow-down-a-z'} text-[11px]"></i>
+                <span>A - Z</span>
+                <i id="icon-sort-az" class="fa-solid ${currentSortMode === 'az-desc' ? 'fa-arrow-up' : 'fa-arrow-down'} text-[10px] ${currentSortMode.startsWith('az') ? '' : 'hidden'}"></i>
+              </button>
+            </div>
+
           </div>
 
         </div>
+
+        <!-- BOTÓN INDEPENDIENTE "NUEVO PROYECTO" (LADO DERECHO) -->
+        <button type="button" onclick="openNuevoProyectoModal()" 
+                class="shrink-0 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs sm:text-sm px-5 py-3.5 sm:py-4 rounded-2xl shadow-lg shadow-blue-600/30 border border-blue-500/40 transition flex items-center justify-center gap-2 cursor-pointer h-full self-stretch md:self-auto hover:shadow-xl" 
+                title="Crear un nuevo proyecto de obra">
+          <i class="fa-solid fa-plus text-sm sm:text-base"></i>
+          <span class="tracking-wide whitespace-nowrap">Nuevo Proyecto</span>
+        </button>
 
       </div>
 
@@ -836,16 +877,16 @@ function updateSortButtonsUI() {
 
   if (btnDate && iconDate) {
     if (currentSortMode.startsWith('date')) {
-      btnDate.className = "px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer bg-blue-600 border-blue-600 text-white shadow-sm active:scale-95";
+      btnDate.className = "px-2.5 py-1 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer bg-blue-600 border-blue-600 text-white shadow-sm active:scale-95";
       if (currentSortMode === 'date-desc') {
-        iconDate.className = "fa-solid fa-arrow-down text-[11px]";
+        iconDate.className = "fa-solid fa-arrow-down text-[10px]";
         btnDate.title = "Acomodado: Más recientes primero (clic para más antiguos)";
       } else {
-        iconDate.className = "fa-solid fa-arrow-up text-[11px]";
+        iconDate.className = "fa-solid fa-arrow-up text-[10px]";
         btnDate.title = "Acomodado: Más antiguos primero (clic para más recientes)";
       }
     } else {
-      btnDate.className = "px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs active:scale-95";
+      btnDate.className = "px-2.5 py-1 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs active:scale-95";
       iconDate.className = "fa-solid fa-arrow-down text-slate-400 text-[10px]";
       btnDate.title = "Clic para acomodar conforme a la fecha de creación";
     }
@@ -853,7 +894,7 @@ function updateSortButtonsUI() {
 
   if (btnAZ && iconAZ) {
     if (currentSortMode.startsWith('az')) {
-      btnAZ.className = "px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer bg-blue-600 border-blue-600 text-white shadow-sm active:scale-95";
+      btnAZ.className = "px-2.5 py-1 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer bg-blue-600 border-blue-600 text-white shadow-sm active:scale-95";
       iconAZ.classList.remove('hidden');
       if (currentSortMode === 'az-asc') {
         iconAZ.className = "fa-solid fa-arrow-down text-[10px]";
@@ -863,7 +904,7 @@ function updateSortButtonsUI() {
         btnAZ.title = "Acomodado: De la Z a la A (clic para A a la Z)";
       }
     } else {
-      btnAZ.className = "px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs active:scale-95";
+      btnAZ.className = "px-2.5 py-1 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-100 border-slate-300 text-slate-700 shadow-2xs active:scale-95";
       iconAZ.classList.add('hidden');
       btnAZ.title = "Clic para acomodar alfabéticamente de la A a la Z";
     }
@@ -1422,11 +1463,30 @@ export function closeUserDropdown() {
   }
 }
 
-// Cerrar el menú desplegable si se hace clic fuera de él
+export function togglePortalUserDropdown(e) {
+  if (e) e.stopPropagation();
+  const dropdown = document.getElementById('portal-user-dropdown');
+  if (dropdown) {
+    dropdown.classList.toggle('hidden');
+  }
+}
+
+export function closePortalUserDropdown() {
+  const dropdown = document.getElementById('portal-user-dropdown');
+  if (dropdown && !dropdown.classList.contains('hidden')) {
+    dropdown.classList.add('hidden');
+  }
+}
+
+// Cerrar los menús desplegables si se hace clic fuera de ellos
 document.addEventListener('click', (e) => {
-  const wrapper = document.getElementById('user-menu-wrapper');
-  if (wrapper && !wrapper.contains(e.target)) {
+  const workspaceWrapper = document.getElementById('user-menu-wrapper');
+  if (workspaceWrapper && !workspaceWrapper.contains(e.target)) {
     closeUserDropdown();
+  }
+  const portalWrapper = document.getElementById('portal-user-menu-wrapper');
+  if (portalWrapper && !portalWrapper.contains(e.target)) {
+    closePortalUserDropdown();
   }
 });
 
