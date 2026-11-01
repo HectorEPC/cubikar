@@ -2393,6 +2393,157 @@
     </div>
   </div>
 
+  <!-- ========================================== -->
+  <!-- MODAL: GESTIONAR EQUIPO Y PERMISOS DE PROYECTO -->
+  <!-- ========================================== -->
+  <div id="modal-invitar-usuario" class="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center shrink-0">
+        <div class="min-w-0 pr-3">
+          <h3 class="font-bold text-sm flex items-center gap-2">
+            <i class="fa-solid fa-users text-blue-400"></i> Equipo y Permisos del Proyecto
+          </h3>
+          <p class="text-[11px] text-slate-300 truncate mt-0.5">
+            Proyecto: <span id="invite-modal-project-name" class="font-bold text-blue-300">---</span>
+          </p>
+        </div>
+        <button type="button" onclick="closeInviteModal()" class="text-slate-400 hover:text-white cursor-pointer p-1">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Body Scrollable -->
+      <div class="p-4 sm:p-5 space-y-4 overflow-y-auto custom-scroll text-xs">
+        
+        <!-- SECCIÓN 1: AGREGAR O INVITAR USUARIO -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+              <i class="fa-solid fa-user-plus text-blue-600"></i> Invitar o Agregar Nuevo Colaborador
+            </h4>
+            <span class="text-[10px] text-slate-500 font-medium">Asigna rol de acceso</span>
+          </div>
+
+          <!-- Selección Rápida de Perfiles de Demostración -->
+          <div>
+            <span class="text-[10px] text-slate-500 font-semibold block mb-1">Cuentas rápidas de demostración:</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" onclick="selectInvitePreset(0)" class="text-[10px] bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 rounded-lg px-2 py-1 font-medium transition cursor-pointer">
+                👷‍♂️ Arq. Carlos Gómez
+              </button>
+              <button type="button" onclick="selectInvitePreset(1)" class="text-[10px] bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 rounded-lg px-2 py-1 font-medium transition cursor-pointer">
+                👷‍♀️ Ing. Mariana Torres
+              </button>
+              <button type="button" onclick="selectInvitePreset(2)" class="text-[10px] bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 rounded-lg px-2 py-1 font-medium transition cursor-pointer">
+                👷‍♂️ Arq. Roberto Méndez
+              </button>
+              <button type="button" onclick="selectInvitePreset(3)" class="text-[10px] bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 rounded-lg px-2 py-1 font-medium transition cursor-pointer">
+                👩‍💼 Lic. Sofía Valenzuela
+              </button>
+            </div>
+          </div>
+
+          <!-- Campos de Entrada -->
+          <div class="space-y-2.5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Nombre Completo *</label>
+                <input type="text" id="invite-member-name" placeholder="Ej. Ing. Juan Pérez" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:border-blue-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Correo Electrónico *</label>
+                <input type="email" id="invite-member-email" placeholder="usuario@gmail.com" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono focus:border-blue-500 focus:outline-none">
+              </div>
+            </div>
+
+            <!-- Avatar del Colaborador -->
+            <div class="flex items-center gap-3 p-2 bg-white border border-slate-200 rounded-xl">
+              <div class="w-10 h-10 rounded-full overflow-hidden border border-blue-400 bg-slate-100 shrink-0">
+                <img id="invite-avatar-preview" src="" alt="Avatar" class="w-full h-full object-cover">
+              </div>
+              <div class="flex-1 space-y-1">
+                <span class="text-[10px] font-semibold text-slate-600 block">Avatar o Foto de Perfil:</span>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <button type="button" onclick="setInviteSexo('Masculino')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-[10px] font-medium cursor-pointer">👷‍♂️ Masc.</button>
+                  <button type="button" onclick="setInviteSexo('Femenino')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-[10px] font-medium cursor-pointer">👷‍♀️ Fem.</button>
+                  <label class="text-[10px] text-blue-600 hover:underline cursor-pointer inline-flex items-center gap-1">
+                    <i class="fa-solid fa-camera"></i> Subir foto
+                    <input type="file" accept="image/*" class="hidden" onchange="handleInvitePhotoUpload(event)">
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Selección de Permiso con Tarjetas Claras -->
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1.5">Permiso Asignado al Usuario *</label>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <!-- Opción Editar -->
+                <label class="relative flex flex-col p-2.5 bg-white border-2 border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 transition has-checked:border-blue-600 has-checked:bg-blue-50/40">
+                  <input type="radio" name="invite-role" value="editar" checked class="sr-only">
+                  <div class="flex items-center gap-1.5 mb-1">
+                    <i class="fa-solid fa-pen-ruler text-blue-600 text-xs"></i>
+                    <span class="font-bold text-xs text-slate-800">Editar</span>
+                  </div>
+                  <span class="text-[10px] text-slate-500 leading-tight">Control total del catálogo, APU y configuración.</span>
+                </label>
+
+                <!-- Opción Escribir -->
+                <label class="relative flex flex-col p-2.5 bg-white border-2 border-slate-200 rounded-xl cursor-pointer hover:border-emerald-400 transition has-checked:border-emerald-600 has-checked:bg-emerald-50/40">
+                  <input type="radio" name="invite-role" value="escribir" class="sr-only">
+                  <div class="flex items-center gap-1.5 mb-1">
+                    <i class="fa-solid fa-pen-to-square text-emerald-600 text-xs"></i>
+                    <span class="font-bold text-xs text-slate-800">Escribir</span>
+                  </div>
+                  <span class="text-[10px] text-slate-500 leading-tight">Captura de conceptos, partidas e insumos.</span>
+                </label>
+
+                <!-- Opción Leer -->
+                <label class="relative flex flex-col p-2.5 bg-white border-2 border-slate-200 rounded-xl cursor-pointer hover:border-amber-400 transition has-checked:border-amber-600 has-checked:bg-amber-50/40">
+                  <input type="radio" name="invite-role" value="leer" class="sr-only">
+                  <div class="flex items-center gap-1.5 mb-1">
+                    <i class="fa-solid fa-eye text-amber-600 text-xs"></i>
+                    <span class="font-bold text-xs text-slate-800">Leer</span>
+                  </div>
+                  <span class="text-[10px] text-slate-500 leading-tight">Solo consulta y visualización de reportes.</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Botón Agregar -->
+            <button type="button" onclick="submitInviteMember(event)" class="w-full bg-blue-600 hover:bg-blue-500 active:scale-98 text-white font-bold py-2 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer">
+              <i class="fa-solid fa-user-plus text-xs"></i>
+              <span>Agregar Colaborador al Proyecto</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- SECCIÓN 2: LISTA DE USUARIOS Y PERMISOS ACTUALES -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+              <i class="fa-solid fa-users text-slate-600"></i> Miembros con Acceso
+            </h4>
+            <span id="invite-members-count" class="text-[11px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">0 colaboradores</span>
+          </div>
+
+          <div id="invite-members-list" class="space-y-1.5 max-h-48 overflow-y-auto custom-scroll">
+            <!-- Se llena dinámicamente con renderInviteModalMembersList() -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="bg-slate-100 p-3 border-t border-slate-200 flex justify-end shrink-0">
+        <button type="button" onclick="closeInviteModal()" class="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow cursor-pointer transition">
+          Listo
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Entrada Modular Principal ES6 -->
   <script type="module" src="js/app.js"></script>
 </body>

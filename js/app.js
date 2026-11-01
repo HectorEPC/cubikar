@@ -189,7 +189,16 @@ import {
   saveProfileChanges,
   logoutUser,
   toggleUserDropdown,
-  closeUserDropdown
+  closeUserDropdown,
+  renderMemberAvatarsHTML,
+  openInviteModal,
+  closeInviteModal,
+  setInviteSexo,
+  handleInvitePhotoUpload,
+  selectInvitePreset,
+  submitInviteMember,
+  changeMemberRole,
+  removeMemberFromProject
 } from './modules/portal/portalController.js';
 
 // Exponer funciones públicas al objeto global window para compatibilidad total con eventos inline del HTML
@@ -372,7 +381,16 @@ Object.assign(window, {
   saveProfileChanges,
   logoutUser,
   toggleUserDropdown,
-  closeUserDropdown
+  closeUserDropdown,
+  renderMemberAvatarsHTML,
+  openInviteModal,
+  closeInviteModal,
+  setInviteSexo,
+  handleInvitePhotoUpload,
+  selectInvitePreset,
+  submitInviteMember,
+  changeMemberRole,
+  removeMemberFromProject
 });
 
 // Atajos de teclado: Alt + Flecha Arriba / Abajo para mover la fila seleccionada

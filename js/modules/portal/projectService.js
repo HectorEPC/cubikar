@@ -33,8 +33,28 @@ export const GOOGLE_PRESET_ACCOUNTS = [
     avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
     sexo: "Femenino",
     dob: "1993-04-22"
+  },
+  {
+    name: "Arq. Roberto Méndez Silva",
+    email: "roberto.mendez.obras@gmail.com",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+    sexo: "Masculino",
+    dob: "1988-11-05"
+  },
+  {
+    name: "Lic. Sofía Valenzuela Rios",
+    email: "sofia.valenzuela.admin@gmail.com",
+    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+    sexo: "Femenino",
+    dob: "1995-02-17"
   }
 ];
+
+export const PROJECT_ROLES = {
+  editar: { label: 'Editar', description: 'Control Total', badgeClass: 'bg-blue-100 text-blue-700 border-blue-200' },
+  escribir: { label: 'Escribir', description: 'Captura de Conceptos e Insumos', badgeClass: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  leer: { label: 'Leer', description: 'Solo Lectura', badgeClass: 'bg-amber-100 text-amber-700 border-amber-200' }
+};
 
 // Logotipos de muestra
 export const SAMPLE_LOGOS = {
@@ -73,7 +93,35 @@ export function saveCurrentUser(user) {
 export function getProjectsList() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PROJECTS);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const list = JSON.parse(raw);
+      // Asegurar que cada proyecto tenga su lista de colaboradores con permisos
+      const currentUser = getCurrentUser();
+      let changed = false;
+      list.forEach(p => {
+        if (!p.members || !Array.isArray(p.members) || p.members.length === 0) {
+          p.members = [
+            {
+              id: 'mem-' + (currentUser ? currentUser.email : 'owner'),
+              name: (currentUser && currentUser.name) || 'Administrador de Obra',
+              email: (currentUser && currentUser.email) || 'admin@constructora.com',
+              avatar: (currentUser && currentUser.avatar) || AVATARS_BY_SEX['Masculino'],
+              role: 'editar'
+            },
+            {
+              id: 'mem-colab-01',
+              name: 'Ing. Mariana Torres Morales',
+              email: 'mariana.torres.costos@gmail.com',
+              avatar: AVATARS_BY_SEX['Femenino'],
+              role: 'escribir'
+            }
+          ];
+          changed = true;
+        }
+      });
+      if (changed) saveProjectsList(list);
+      return list;
+    }
   } catch (e) {
     console.error('Error leyendo proyectos:', e);
   }
@@ -250,6 +298,7 @@ export function createNewProject(params) {
   const f = projSettings.applySobrecosto ?
     (1 + projSettings.pctIndirectos/100) * (1 + projSettings.pctFinanciamiento/100) * (1 + projSettings.pctUtilidad/100) * (1 + projSettings.pctAdicionales/100) : 1.0;
 
+  const currentUser = getCurrentUser();
   const projectEntry = {
     id: newId,
     companyName: projSettings.companyName,
@@ -262,6 +311,15 @@ export function createNewProject(params) {
     totalPresupuesto: calculateTreeTotal(projTree),
     conceptCount: countTreeConcepts(projTree),
     partidasCount: countTreePartidas(projTree),
+    members: [
+      {
+        id: 'mem-' + (currentUser ? currentUser.email : Date.now()),
+        name: (currentUser && currentUser.name) || 'Administrador de Obra',
+        email: (currentUser && currentUser.email) || 'admin@constructora.com',
+        avatar: (currentUser && currentUser.avatar) || AVATARS_BY_SEX['Masculino'],
+        role: 'editar'
+      }
+    ],
     createdAt: new Date().toISOString().slice(0, 10)
   };
 
@@ -300,6 +358,7 @@ export function duplicateProject(projectId) {
   const newProj = Object.assign({}, orig, {
     id: newId,
     projectName: copySettings.projectName,
+    members: (orig.members || []).map(m => Object.assign({}, m)),
     createdAt: new Date().toISOString().slice(0, 10)
   });
 
@@ -308,6 +367,65 @@ export function duplicateProject(projectId) {
   saveProjectsList(list);
 
   return newProj;
+}
+
+// ==========================================
+// GESTIÓN DE COLABORADORES / USUARIOS DE PROYECTO
+// ==========================================
+export function getProjectMembers(projectId) {
+  const p = getProjectById(projectId);
+  return (p && Array.isArray(p.members)) ? p.members : [];
+}
+
+export function addProjectMember(projectId, memberData) {
+  const list = getProjectsList();
+  const proj = list.find(p => p.id === projectId);
+  if (!proj) return null;
+
+  if (!Array.isArray(proj.members)) proj.members = [];
+
+  // Verificar si ya existe por email
+  const existingIdx = proj.members.findIndex(m => m.email && m.email.toLowerCase() === memberData.email.toLowerCase());
+  const newMember = {
+    id: memberData.id || ('mem-' + Date.now()),
+    name: memberData.name.trim(),
+    email: memberData.email.trim(),
+    avatar: memberData.avatar || AVATARS_BY_SEX['Masculino'],
+    role: memberData.role || 'editar' // 'editar', 'escribir', 'leer'
+  };
+
+  if (existingIdx >= 0) {
+    proj.members[existingIdx] = Object.assign(proj.members[existingIdx], newMember);
+  } else {
+    proj.members.push(newMember);
+  }
+
+  saveProjectsList(list);
+  return newMember;
+}
+
+export function removeProjectMember(projectId, memberId) {
+  const list = getProjectsList();
+  const proj = list.find(p => p.id === projectId);
+  if (!proj || !Array.isArray(proj.members)) return false;
+
+  proj.members = proj.members.filter(m => m.id !== memberId);
+  saveProjectsList(list);
+  return true;
+}
+
+export function updateProjectMemberRole(projectId, memberId, newRole) {
+  const list = getProjectsList();
+  const proj = list.find(p => p.id === projectId);
+  if (!proj || !Array.isArray(proj.members)) return false;
+
+  const mem = proj.members.find(m => m.id === memberId);
+  if (mem) {
+    mem.role = newRole;
+    saveProjectsList(list);
+    return true;
+  }
+  return false;
 }
 
 // Eliminar proyecto

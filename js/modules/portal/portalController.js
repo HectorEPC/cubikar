@@ -13,6 +13,11 @@ import {
   createNewProject,
   duplicateProject,
   deleteProject,
+  addProjectMember,
+  removeProjectMember,
+  updateProjectMemberRole,
+  getProjectMembers,
+  PROJECT_ROLES,
   AVATARS_BY_SEX,
   GOOGLE_PRESET_ACCOUNTS,
   SAMPLE_LOGOS
@@ -605,6 +610,50 @@ export function renderPortalDashboard() {
   `;
 }
 
+export function renderMemberAvatarsHTML(members, projId) {
+  if (!Array.isArray(members) || members.length === 0) {
+    return `<span class="text-[10px] text-slate-400 italic">Sin colaboradores</span>`;
+  }
+
+  const roleStyles = {
+    editar: { label: 'Editar (Control total)', tag: 'Editar', badgeClass: 'bg-blue-600 text-white' },
+    escribir: { label: 'Escribir (Captura APU/Insumos)', tag: 'Escribir', badgeClass: 'bg-emerald-600 text-white' },
+    leer: { label: 'Leer (Solo lectura)', tag: 'Leer', badgeClass: 'bg-amber-600 text-white' }
+  };
+
+  const maxVisible = 5;
+  const visible = members.slice(0, maxVisible);
+  const extra = members.length - maxVisible;
+
+  const avatarsHtml = visible.map(m => {
+    const roleInfo = roleStyles[m.role] || roleStyles.editar;
+    const tooltipText = `${m.name} • Permiso: ${roleInfo.label}`;
+    return `
+      <div class="relative group/avatar inline-block z-10 hover:z-20 cursor-pointer" onclick="openInviteModal('${projId}')" title="${tooltipText}">
+        <div class="w-7 h-7 rounded-full overflow-hidden border-2 border-white shadow-2xs hover:scale-115 transition-transform bg-slate-200">
+          <img src="${m.avatar || AVATARS_BY_SEX['Masculino']}" alt="${m.name}" class="w-full h-full object-cover">
+        </div>
+        <!-- Tooltip flotante con nombre y permiso al pasar el cursor -->
+        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/avatar:flex flex-col items-center z-40 pointer-events-none whitespace-nowrap animate-in fade-in zoom-in-95 duration-150">
+          <div class="bg-slate-900 text-white text-[10px] font-semibold rounded-lg py-1 px-2.5 shadow-xl flex items-center gap-1.5 border border-slate-700">
+            <span class="max-w-[140px] truncate">${m.name}</span>
+            <span class="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${roleInfo.badgeClass}">${roleInfo.tag}</span>
+          </div>
+          <div class="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const extraHtml = extra > 0 ? `
+    <div class="w-7 h-7 rounded-full bg-slate-200 border-2 border-white text-slate-700 text-[10px] font-bold flex items-center justify-center shadow-2xs cursor-pointer z-0 hover:scale-110 transition-transform" onclick="openInviteModal('${projId}')" title="${extra} colaboradores más">
+      +${extra}
+    </div>
+  ` : '';
+
+  return avatarsHtml + extraHtml;
+}
+
 export function renderProjectCardsHTML(filterQuery = '') {
   const projects = getProjectsList();
   if (projects.length === 0) {
@@ -675,6 +724,20 @@ export function renderProjectCardsHTML(filterQuery = '') {
             <span>Sobrecosto: ${((Number(proj.factorSobrecosto || 1.2584) - 1) * 100).toFixed(2)}%</span>
           </div>
         </div>
+      </div>
+
+      <!-- Apartado de Colaboradores e Invitaciones de Usuarios -->
+      <div class="px-3.5 py-2 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Equipo:</span>
+          <div class="flex items-center -space-x-1.5 overflow-visible py-0.5">
+            ${renderMemberAvatarsHTML(proj.members, proj.id)}
+          </div>
+        </div>
+        <button type="button" onclick="openInviteModal('${proj.id}')" class="shrink-0 inline-flex items-center gap-1 bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 border border-blue-200 hover:border-blue-300 rounded-lg px-2 py-1 text-[11px] font-semibold transition shadow-2xs cursor-pointer" title="Agregar o invitar usuarios con permisos de editar, escribir o leer">
+          <i class="fa-solid fa-user-plus text-[10px]"></i>
+          <span>Invitar</span>
+        </button>
       </div>
 
       <!-- Botones de Acción (Abrir en esta ventana vs Abrir en nueva pestaña) -->
@@ -1092,4 +1155,204 @@ function updateWorkspaceHeaderUser(user) {
     if (dropEmailEl) dropEmailEl.innerText = user.email;
     if (dropAvatarEl) dropAvatarEl.src = user.avatar;
   }
+}
+
+// ==========================================
+// GESTIÓN DE COLABORADORES E INVITACIONES POR PROYECTO
+// ==========================================
+let activeInviteProjectId = null;
+let selectedInviteSexo = 'Masculino';
+let inviteCustomAvatarTemp = null;
+
+export function openInviteModal(projectId) {
+  activeInviteProjectId = projectId;
+  const proj = getProjectById(projectId);
+  if (!proj) return;
+
+  const modal = document.getElementById('modal-invitar-usuario');
+  if (!modal) return;
+
+  const nameBadge = document.getElementById('invite-modal-project-name');
+  if (nameBadge) nameBadge.textContent = proj.projectName;
+
+  // Limpiar campos
+  const nameInput = document.getElementById('invite-member-name');
+  const emailInput = document.getElementById('invite-member-email');
+  if (nameInput) nameInput.value = '';
+  if (emailInput) emailInput.value = '';
+
+  selectedInviteSexo = 'Masculino';
+  inviteCustomAvatarTemp = null;
+  updateInviteAvatarPreview();
+
+  // Resetear rol a 'editar'
+  const defaultRadio = document.querySelector('input[name="invite-role"][value="editar"]');
+  if (defaultRadio) defaultRadio.checked = true;
+
+  renderInviteModalMembersList();
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+export function closeInviteModal() {
+  const modal = document.getElementById('modal-invitar-usuario');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+  activeInviteProjectId = null;
+
+  // Actualizar las tarjetas de proyectos para reflejar de inmediato los avatares
+  const grid = document.getElementById('projects-grid');
+  if (grid) {
+    const searchInput = document.getElementById('project-search');
+    grid.innerHTML = renderProjectCardsHTML(searchInput ? searchInput.value : '');
+  }
+}
+
+export function setInviteSexo(sexo) {
+  selectedInviteSexo = sexo;
+  inviteCustomAvatarTemp = null;
+  updateInviteAvatarPreview();
+}
+
+export function handleInvitePhotoUpload(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    inviteCustomAvatarTemp = evt.target.result;
+    updateInviteAvatarPreview();
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateInviteAvatarPreview() {
+  const img = document.getElementById('invite-avatar-preview');
+  if (img) {
+    img.src = inviteCustomAvatarTemp || AVATARS_BY_SEX[selectedInviteSexo] || AVATARS_BY_SEX['Masculino'];
+  }
+}
+
+export function selectInvitePreset(index) {
+  const acc = GOOGLE_PRESET_ACCOUNTS[index];
+  if (!acc) return;
+
+  const nameInput = document.getElementById('invite-member-name');
+  const emailInput = document.getElementById('invite-member-email');
+  if (nameInput) nameInput.value = acc.name;
+  if (emailInput) emailInput.value = acc.email;
+
+  if (acc.sexo) selectedInviteSexo = acc.sexo;
+  inviteCustomAvatarTemp = acc.avatar || null;
+  updateInviteAvatarPreview();
+}
+
+export function submitInviteMember(e) {
+  if (e) e.preventDefault();
+  if (!activeInviteProjectId) return;
+
+  const nameInput = document.getElementById('invite-member-name');
+  const emailInput = document.getElementById('invite-member-email');
+  const roleRadio = document.querySelector('input[name="invite-role"]:checked');
+
+  const name = nameInput ? nameInput.value.trim() : '';
+  const email = emailInput ? emailInput.value.trim() : '';
+  const role = roleRadio ? roleRadio.value : 'editar';
+
+  if (!name || !email) {
+    alert('Por favor completa el nombre y el correo electrónico del colaborador.');
+    return;
+  }
+
+  const avatar = inviteCustomAvatarTemp || AVATARS_BY_SEX[selectedInviteSexo] || AVATARS_BY_SEX['Masculino'];
+
+  const added = addProjectMember(activeInviteProjectId, {
+    name,
+    email,
+    avatar,
+    role
+  });
+
+  if (added) {
+    showToast(`Usuario "${name}" agregado con permiso de "${PROJECT_ROLES[role]?.label || role}"`);
+    if (nameInput) nameInput.value = '';
+    if (emailInput) emailInput.value = '';
+    inviteCustomAvatarTemp = null;
+    updateInviteAvatarPreview();
+    renderInviteModalMembersList();
+  }
+}
+
+export function changeMemberRole(memberId, newRole) {
+  if (!activeInviteProjectId) return;
+  const ok = updateProjectMemberRole(activeInviteProjectId, memberId, newRole);
+  if (ok) {
+    showToast(`Permiso actualizado a "${PROJECT_ROLES[newRole]?.label || newRole}"`);
+    renderInviteModalMembersList();
+  }
+}
+
+export function removeMemberFromProject(memberId, memberName) {
+  if (!activeInviteProjectId) return;
+  if (!confirm(`¿Deseas remover a "${memberName || 'este usuario'}" del proyecto?`)) return;
+
+  const ok = removeProjectMember(activeInviteProjectId, memberId);
+  if (ok) {
+    showToast(`Usuario removido del proyecto`, false);
+    renderInviteModalMembersList();
+  }
+}
+
+export function renderInviteModalMembersList() {
+  if (!activeInviteProjectId) return;
+  const members = getProjectMembers(activeInviteProjectId);
+  const container = document.getElementById('invite-members-list');
+  const countBadge = document.getElementById('invite-members-count');
+
+  if (countBadge) {
+    countBadge.textContent = `${members.length} colaborador${members.length === 1 ? '' : 'es'}`;
+  }
+
+  if (!container) return;
+
+  if (members.length === 0) {
+    container.innerHTML = `
+      <div class="p-4 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+        No hay colaboradores asignados todavía a este proyecto.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = members.map(m => {
+    return `
+      <div class="flex items-center justify-between gap-3 p-2.5 bg-slate-50 hover:bg-blue-50/40 rounded-xl border border-slate-200 transition">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-2xs shrink-0 bg-slate-200">
+            <img src="${m.avatar || AVATARS_BY_SEX['Masculino']}" alt="${m.name}" class="w-full h-full object-cover">
+          </div>
+          <div class="min-w-0">
+            <h4 class="font-bold text-slate-800 text-xs truncate" title="${m.name}">${m.name}</h4>
+            <p class="text-[11px] text-slate-500 font-mono truncate" title="${m.email}">${m.email}</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- Selector de Permiso -->
+          <select onchange="changeMemberRole('${m.id}', this.value)" class="text-xs font-semibold py-1 px-2 rounded-lg border border-slate-300 bg-white text-slate-700 focus:border-blue-500 focus:outline-none cursor-pointer" title="Modificar permiso de este usuario">
+            <option value="editar" ${m.role === 'editar' ? 'selected' : ''}>✏️ Editar (Control Total)</option>
+            <option value="escribir" ${m.role === 'escribir' ? 'selected' : ''}>📝 Escribir (APU/Insumos)</option>
+            <option value="leer" ${m.role === 'leer' ? 'selected' : ''}>👁️ Leer (Solo Consulta)</option>
+          </select>
+
+          <!-- Botón Eliminar -->
+          <button type="button" onclick="removeMemberFromProject('${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded transition cursor-pointer" title="Remover del proyecto">
+            <i class="fa-solid fa-trash-can text-xs"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
