@@ -1,9 +1,12 @@
 import { state, persistLocalData } from '../../state/store.js';
 import { saveState } from '../../state/history.js';
 import { showToast } from '../../ui/notifications.js';
-import { renderTAB1, closeApuPanel } from './catalogView.js';
+import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js';
 import { renderInsumosUnitarios } from '../apu/apuView.js';
 import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js';
+import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js';
+import { getProjectById } from '../portal/projectService.js';
+import { getFactorSobrecosto, round2 } from '../../core/calculations.js';
 
 // Buscar un nodo por su ID recursivamente
 export function findNodeById(nodes, id) {
@@ -186,62 +189,237 @@ export function duplicarSelectedRow() {
   duplicarNode(state.activeSelectedId);
 }
 
-// Copiar nodo al portapapeles en memoria
+// ==========================================
+// PORTAPAPELES UNIVERSAL (ENTRE PROYECTOS)
+// ==========================================
+
+export function getClipboardData() {
+  if (state.clipboardNode) {
+    return {
+      node: state.clipboardNode,
+      meta: state.clipboardMeta || {
+        sourceProjectId: null,
+        sourceProjectName: 'Proyecto',
+        insumosCount: Array.isArray(state.clipboardNode.insumos) ? state.clipboardNode.insumos.length : 0
+      }
+    };
+  }
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CLIPBOARD);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      state.clipboardNode = parsed.concept || parsed;
+      state.clipboardMeta = {
+        sourceProjectId: parsed.sourceProjectId || null,
+        sourceProjectName: parsed.sourceProjectName || 'Otro Proyecto',
+        insumosCount: parsed.insumosCount || (parsed.concept?.insumos?.length || 0),
+        copiedAt: parsed.copiedAt || null
+      };
+      return {
+        node: state.clipboardNode,
+        meta: state.clipboardMeta
+      };
+    }
+  } catch (e) {
+    console.warn('Error al leer portapapeles compartido:', e);
+  }
+
+  return null;
+}
+
+// Copiar concepto con su respectiva matriz APU al portapapeles universal
 export function copiarNode(id, e) {
   if (e) e.stopPropagation();
   const node = findNodeById(state.treeData, id);
-  if (node) {
-    state.clipboardNode = JSON.parse(JSON.stringify(node));
-    showToast(`Copiado: [${node.clave}]`, 'info');
+  if (!node) return;
+
+  const currentProjId = getActiveProjectId();
+  const currentProj = currentProjId ? getProjectById(currentProjId) : null;
+  const projectName = currentProj ? currentProj.projectName : (state.settings.projectName || 'Proyecto Actual');
+
+  const clonedNode = JSON.parse(JSON.stringify(node));
+  const insumosCount = Array.isArray(clonedNode.insumos) ? clonedNode.insumos.length : 0;
+
+  const payload = {
+    concept: clonedNode,
+    sourceProjectId: currentProjId || 'default',
+    sourceProjectName: projectName,
+    insumosCount: insumosCount,
+    copiedAt: new Date().toISOString()
+  };
+
+  state.clipboardNode = clonedNode;
+  state.clipboardMeta = payload;
+
+  try {
+    localStorage.setItem(STORAGE_KEY_CLIPBOARD, JSON.stringify(payload));
+  } catch (err) {
+    console.error('Error al persistir en portapapeles compartido:', err);
   }
+
+  updateClipboardUI();
+
+  const matrizInfo = insumosCount > 0 
+    ? ` con su matriz APU (${insumosCount} insumo${insumosCount === 1 ? '' : 's'})` 
+    : ' (sin insumos)';
+  const claveTxt = node.clave ? `[${node.clave}] ` : '';
+  showToast(`Copiado: ${claveTxt}"${node.descripcion.slice(0, 35)}..."${matrizInfo}. Listo para pegar en este u otro proyecto.`);
 }
 
 export function copiarSelectedRow() {
   if (!state.activeSelectedId) {
-    showToast('Selecciona una fila primero', 'warning');
+    showToast('Selecciona un concepto primero para copiarlo.', 'warning');
     return;
   }
   copiarNode(state.activeSelectedId);
 }
 
-// Pegar nodo copiado debajo del seleccionado
+// Pegar concepto copiado (con su respectiva matriz APU) en la ubicación seleccionada
 export function pegarNode(targetId, e) {
   if (e) e.stopPropagation();
-  if (!state.clipboardNode) {
-    showToast('No hay ningún concepto copiado en el portapapeles', 'warning');
+
+  const clip = getClipboardData();
+  if (!clip || !clip.node) {
+    showToast('No hay ningún concepto copiado en el portapapeles. Copia un concepto primero.', 'warning');
     return;
   }
+
   saveState();
 
-  const parentList = findParentArrayOfNode(state.treeData, targetId);
-  if (parentList) {
-    const index = parentList.findIndex(n => n.id === targetId);
-    
-    function renewIds(n) {
-      n.id = '_' + Math.random().toString(36).substr(2, 9);
-      if (n.children) n.children.forEach(c => renewIds(c));
+  const { node: sourceNode, meta } = clip;
+  const isDifferentProject = meta && meta.sourceProjectId && meta.sourceProjectId !== getActiveProjectId();
+
+  // Buscar lista de destino
+  let parentList = null;
+  let insertIndex = -1;
+
+  if (targetId) {
+    parentList = findParentArrayOfNode(state.treeData, targetId);
+    if (parentList) {
+      insertIndex = parentList.findIndex(n => n.id === targetId);
+    }
+  }
+
+  if (!parentList) {
+    parentList = state.treeData;
+    insertIndex = parentList.length - 1;
+  }
+
+  // Renovación recursiva de IDs únicos y preservación íntegra de la Matriz APU
+  function renewNodeDeep(n) {
+    n.id = '_' + Math.random().toString(36).substr(2, 9);
+    n.selected = true;
+
+    // Clonar matriz de insumos sin mutar referencias
+    if (Array.isArray(n.insumos)) {
+      n.insumos = JSON.parse(JSON.stringify(n.insumos));
+    } else {
+      n.insumos = [];
     }
 
-    const pastedNode = JSON.parse(JSON.stringify(state.clipboardNode));
-    renewIds(pastedNode);
-    pastedNode.descripcion += ' (Copiado)';
+    // Adaptar Precio Unitario según el Factor de Sobrecosto del proyecto destino
+    if (n.costoDirecto !== undefined && n.costoDirecto !== null) {
+      const factor = getFactorSobrecosto();
+      n.precioUnitario = round2(n.costoDirecto * factor);
+    }
 
-    parentList.splice(index + 1, 0, pastedNode);
-    recalculateClaves(state.treeData);
-    persistLocalData();
-    renderTAB1();
-    showToast('Renglón pegado', 'success');
+    if (Array.isArray(n.children)) {
+      n.children.forEach(c => renewNodeDeep(c));
+    }
   }
+
+  const pastedNode = JSON.parse(JSON.stringify(sourceNode));
+  renewNodeDeep(pastedNode);
+
+  // Si se pega dentro del mismo proyecto, agregar distintivo "(Copia)"; si viene de otro proyecto, conservar limpio
+  if (!isDifferentProject) {
+    pastedNode.descripcion = pastedNode.descripcion.endsWith('(Copia)')
+      ? pastedNode.descripcion
+      : `${pastedNode.descripcion} (Copia)`;
+  }
+
+  const position = insertIndex >= 0 ? insertIndex + 1 : parentList.length;
+  parentList.splice(position, 0, pastedNode);
+
+  recalculateClaves(state.treeData);
+  persistLocalData();
+  renderTAB1();
+
+  // Seleccionar de inmediato la fila pegada para visualizar su matriz APU
+  selectRow(pastedNode.id);
+
+  const insCount = Array.isArray(pastedNode.insumos) ? pastedNode.insumos.length : 0;
+  const originStr = (meta && meta.sourceProjectName) ? ` desde "${meta.sourceProjectName}"` : '';
+  showToast(`¡Concepto pegado con su Matriz APU (${insCount} insumo${insCount === 1 ? '' : 's'})${originStr}!`, 'success');
 }
 
 export function pegarSelectedRow() {
-  if (!state.clipboardNode) {
-    showToast('No hay ningún concepto copiado', 'warning');
+  const clip = getClipboardData();
+  if (!clip || !clip.node) {
+    showToast('No hay ningún concepto copiado en el portapapeles.', 'warning');
     return;
   }
   const targetId = state.activeSelectedId || (state.treeData.length > 0 ? state.treeData[state.treeData.length - 1].id : null);
-  if (!targetId) return;
   pegarNode(targetId);
+}
+
+// Limpiar portapapeles
+export function limpiarPortapapeles() {
+  state.clipboardNode = null;
+  state.clipboardMeta = null;
+  try {
+    localStorage.removeItem(STORAGE_KEY_CLIPBOARD);
+  } catch (e) {}
+  updateClipboardUI();
+  showToast('Portapapeles vaciado.');
+}
+
+// Actualizar el indicador visual de concepto copiado en la interfaz
+export function updateClipboardUI() {
+  const clip = getClipboardData();
+  const indicator = document.getElementById('clipboard-indicator');
+  const btnPegar = document.getElementById('btn-toolbar-pegar');
+
+  if (btnPegar) {
+    if (clip && clip.node) {
+      btnPegar.classList.remove('opacity-40');
+      btnPegar.title = `Pegar concepto copiado: [${clip.node.clave || ''}] ${clip.node.descripcion.slice(0, 30)}... (${clip.meta?.insumosCount || 0} insumos)`;
+    } else {
+      btnPegar.title = 'No hay ningún concepto copiado en el portapapeles';
+    }
+  }
+
+  if (!indicator) return;
+
+  if (clip && clip.node) {
+    const claveTxt = clip.node.clave ? `[${clip.node.clave}] ` : '';
+    const insCount = clip.meta?.insumosCount !== undefined ? clip.meta.insumosCount : (clip.node.insumos?.length || 0);
+    const origin = clip.meta?.sourceProjectName ? ` • De: ${clip.meta.sourceProjectName}` : '';
+
+    indicator.innerHTML = `
+      <div class="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-blue-900 rounded-xl px-2.5 py-1 text-[11px] shadow-2xs animate-in fade-in">
+        <i class="fa-solid fa-clipboard-check text-blue-600 text-xs shrink-0"></i>
+        <div class="truncate max-w-[280px] sm:max-w-[340px]" title="${clip.node.descripcion}">
+          <span class="font-bold text-blue-950">${claveTxt}${clip.node.descripcion}</span>
+          <span class="text-[10px] text-blue-700 font-mono">(${insCount} insumo${insCount === 1 ? '' : 's'}${origin})</span>
+        </div>
+        <button type="button" onclick="pegarSelectedRow()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-[10px] px-2 py-0.5 rounded-lg shadow-2xs transition flex items-center gap-1 cursor-pointer shrink-0">
+          <i class="fa-solid fa-paste text-[9px]"></i>
+          <span>Pegar</span>
+        </button>
+        <button type="button" onclick="limpiarPortapapeles()" class="text-slate-400 hover:text-rose-600 p-0.5 transition cursor-pointer shrink-0" title="Vaciar portapapeles">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+    `;
+    indicator.classList.remove('hidden');
+    indicator.classList.add('flex');
+  } else {
+    indicator.innerHTML = '';
+    indicator.classList.add('hidden');
+    indicator.classList.remove('flex');
+  }
 }
 
 // Mover nodo arriba o abajo

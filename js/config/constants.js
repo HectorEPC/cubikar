@@ -4,6 +4,7 @@ export const APU_WIDTH_KEY = 'control_obra_apu_width';
 
 export const STORAGE_KEY_USER = 'control_obra_user_profile_v1';
 export const STORAGE_KEY_PROJECTS = 'control_obra_projects_v1';
+export const STORAGE_KEY_CLIPBOARD = 'control_obra_clipboard_concept_v1';
 
 let activeProjectId = null;
 

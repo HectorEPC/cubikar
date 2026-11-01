@@ -1,4 +1,5 @@
-import { initStore, state } from './state/store.js';
+import { initStore, state, syncClipboardFromStorage } from './state/store.js';
+import { STORAGE_KEY_CLIPBOARD } from './config/constants.js';
 import { undoAction, redoAction, updateUndoRedoButtons, setHistoryRenderCallback } from './state/history.js';
 import { showToast } from './ui/notifications.js';
 import { formatMoney, formatQty } from './core/formatters.js';
@@ -15,6 +16,9 @@ import {
   copiarSelectedRow,
   pegarNode,
   pegarSelectedRow,
+  limpiarPortapapeles,
+  updateClipboardUI,
+  getClipboardData,
   moverNode,
   moverSelectedRow,
   deleteNode,
@@ -26,6 +30,18 @@ import {
   toggleSelectNode,
   toggleSelectAll
 } from './modules/catalog/treeService.js';
+
+import {
+  openImportConceptsModal,
+  closeImportConceptsModal,
+  onSelectSourceProject,
+  onSearchSourceConcepts,
+  toggleConceptSelection,
+  selectAllSourceConcepts,
+  toggleMatrixPreviewAccordion,
+  quickCopyPasteSingleConcept,
+  importSelectedConceptsToCurrentProject
+} from './modules/catalog/importFromProjectModal.js';
 
 import { renderTAB1, selectRow, closeApuPanel, toggleDropdownMenu, closeAllDropdownMenus } from './modules/catalog/catalogView.js';
 
@@ -229,6 +245,18 @@ Object.assign(window, {
   copiarSelectedRow,
   pegarNode,
   pegarSelectedRow,
+  limpiarPortapapeles,
+  updateClipboardUI,
+  getClipboardData,
+  openImportConceptsModal,
+  closeImportConceptsModal,
+  onSelectSourceProject,
+  onSearchSourceConcepts,
+  toggleConceptSelection,
+  selectAllSourceConcepts,
+  toggleMatrixPreviewAccordion,
+  quickCopyPasteSingleConcept,
+  importSelectedConceptsToCurrentProject,
   moverNode,
   moverSelectedRow,
   deleteNode,
@@ -413,13 +441,37 @@ Object.assign(window, {
   removeMemberFromProject
 });
 
-// Atajos de teclado: Alt + Flecha Arriba / Abajo para mover la fila seleccionada
+// Atajos de teclado:
+// - Alt + Flecha Arriba / Abajo para mover la fila seleccionada
+// - Ctrl + C / Cmd + C para copiar concepto seleccionado con toda su matriz APU
+// - Ctrl + V / Cmd + V para pegar concepto copiado con su matriz APU
 document.addEventListener('keydown', (e) => {
+  const isEditingText = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+
   if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
     if (state.activeSelectedId) {
       e.preventDefault();
       moverSelectedRow(e.key === 'ArrowUp' ? 'up' : 'down');
     }
+  } else if (!isEditingText && (e.ctrlKey || e.metaKey)) {
+    if (e.key === 'c' || e.key === 'C') {
+      if (state.activeSelectedId) {
+        e.preventDefault();
+        copiarSelectedRow();
+      }
+    } else if (e.key === 'v' || e.key === 'V') {
+      e.preventDefault();
+      pegarSelectedRow();
+    }
+  }
+});
+
+// Sincronizar portapapeles compartido en tiempo real entre pestañas
+window.addEventListener('storage', (e) => {
+  if (e.key === STORAGE_KEY_CLIPBOARD) {
+    syncClipboardFromStorage();
+    updateClipboardUI();
+    renderTAB1();
   }
 });
 
@@ -440,5 +492,6 @@ if (isWorkspaceActive) {
   initPanelResizer();
   renderTAB1();
   updateUndoRedoButtons();
+  updateClipboardUI();
   openReferenceDb().catch(err => console.warn('IndexedDB reference DB:', err));
 }

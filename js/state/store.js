@@ -1,4 +1,4 @@
-import { getStorageKey, getSettingsKey, getActiveProjectId } from '../config/constants.js';
+import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js';
 import { defaultTreeData, defaultSettings } from '../config/defaultData.js';
 import { syncActiveProjectSummary } from '../modules/portal/projectService.js';
 
@@ -9,11 +9,38 @@ export const state = {
   activeSelectedId: null,
   currentFilter: 'Todos',
   currentMatrizFilter: 'Todos',
-  clipboardNode: null
+  clipboardNode: null,
+  clipboardMeta: null
 };
+
+// Sincronizar portapapeles compartido entre proyectos desde localStorage
+export function syncClipboardFromStorage() {
+  try {
+    const rawClip = localStorage.getItem(STORAGE_KEY_CLIPBOARD);
+    if (rawClip) {
+      const parsed = JSON.parse(rawClip);
+      state.clipboardNode = parsed.concept || parsed;
+      state.clipboardMeta = {
+        sourceProjectId: parsed.sourceProjectId || null,
+        sourceProjectName: parsed.sourceProjectName || '',
+        insumosCount: parsed.insumosCount || (parsed.concept?.insumos?.length || 0),
+        copiedAt: parsed.copiedAt || null
+      };
+    } else {
+      state.clipboardNode = null;
+      state.clipboardMeta = null;
+    }
+  } catch (e) {
+    state.clipboardNode = null;
+    state.clipboardMeta = null;
+  }
+}
 
 // Cargar estado inicial desde localStorage
 export function initStore() {
+  // Sincronizar portapapeles compartido de conceptos entre proyectos
+  syncClipboardFromStorage();
+
   // Cargar configuración
   try {
     const savedSettings = localStorage.getItem(getSettingsKey());

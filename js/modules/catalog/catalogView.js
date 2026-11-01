@@ -133,10 +133,10 @@ export function renderTAB1() {
                 <button onclick="duplicarNode('${node.id}', event); closeAllDropdownMenus();" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2">
                   <i class="fa-solid fa-clone text-[10px]"></i> Duplicar
                 </button>
-                <button onclick="copiarNode('${node.id}', event); closeAllDropdownMenus();" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2">
-                  <i class="fa-solid fa-copy text-[10px]"></i> Copiar
+                <button onclick="copiarNode('${node.id}', event); closeAllDropdownMenus();" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2" title="Copiar este concepto junto con toda su matriz APU para pegarlo aquí o en otro proyecto">
+                  <i class="fa-solid fa-copy text-[10px]"></i> Copiar con Matriz
                 </button>
-                <button onclick="pegarNode('${node.id}', event); closeAllDropdownMenus();" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 ${!state.clipboardNode ? 'opacity-40 cursor-not-allowed' : ''}">
+                <button onclick="pegarNode('${node.id}', event); closeAllDropdownMenus();" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 ${!state.clipboardNode ? 'opacity-40 cursor-not-allowed' : ''}" title="${state.clipboardNode ? `Pegar concepto copiado [${state.clipboardNode.clave || ''}] con su matriz APU` : 'No hay concepto en el portapapeles'}">
                   <i class="fa-solid fa-paste text-[10px]"></i> Pegar debajo
                 </button>
                 <div class="border-t border-slate-100 my-0.5"></div>
