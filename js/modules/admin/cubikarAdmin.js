@@ -1,4 +1,4 @@
-// js/modules/admin/cubikarAdmin.js
+﻿// js/modules/admin/cubikarAdmin.js
 // Módulo de Administración Maestra de Cubikar
 // Control de Administradores, Base de Datos de Usuarios, Métricas SaaS, Consumos de IA y Alertas de Cuota
 
@@ -6,7 +6,8 @@ import {
   getCurrentUser,
   getRegisteredUsersList,
   getProjectsList,
-  findRegisteredUserAccount
+  findRegisteredUserAccount,
+  deleteUserAccountAndData
 } from '../portal/projectService.js';
 import { SUBSCRIPTION_PLANS, openSubscriptionModal } from '../portal/subscriptionModal.js';
 import { showToast } from '../../ui/notifications.js';
@@ -337,6 +338,102 @@ let adminFilterActivity = 'all';
 let adminFilterPlan = 'all';
 let adminFilterCycle = 'all';
 
+
+// =========================================================================
+// SELECCIÃ“N Y ELIMINACIÃ“N DE USUARIOS
+// =========================================================================
+
+export let selectedAdminUserEmails = new Set();
+
+export function onAdminUserCheckboxChange(checkbox) {
+  if (!checkbox) return;
+  const val = checkbox.value;
+  if (checkbox.checked) {
+    selectedAdminUserEmails.add(val);
+  } else {
+    selectedAdminUserEmails.delete(val);
+  }
+  updateAdminDeleteButtonUI();
+  updateSelectAllCheckboxState();
+}
+
+export function toggleSelectAllAdminUsers(checked) {
+  const checkboxes = document.querySelectorAll('.admin-user-checkbox');
+  checkboxes.forEach(cb => {
+    cb.checked = checked;
+    if (checked) {
+      selectedAdminUserEmails.add(cb.value);
+    } else {
+      selectedAdminUserEmails.delete(cb.value);
+    }
+  });
+  updateAdminDeleteButtonUI();
+}
+
+export function updateSelectAllCheckboxState() {
+  const selectAll = document.getElementById('admin-select-all-checkbox');
+  const checkboxes = document.querySelectorAll('.admin-user-checkbox');
+  if (selectAll && checkboxes.length > 0) {
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    selectAll.checked = allChecked;
+  }
+}
+
+export function updateAdminDeleteButtonUI() {
+  const btn = document.getElementById('btn-admin-delete-selected');
+  const txt = document.getElementById('btn-admin-delete-text');
+  const count = selectedAdminUserEmails.size;
+
+  if (!btn) return;
+
+  if (count > 0) {
+    btn.disabled = false;
+    btn.classList.remove('cursor-not-allowed', 'opacity-60', 'bg-slate-800', 'text-slate-400');
+    btn.classList.add('cursor-pointer', 'opacity-100', 'bg-rose-600', 'text-white', 'hover:bg-rose-500');
+    if (txt) txt.textContent = `Eliminar (${count})`;
+  } else {
+    btn.disabled = true;
+    btn.classList.remove('cursor-pointer', 'opacity-100', 'bg-rose-600', 'text-white', 'hover:bg-rose-500');
+    btn.classList.add('cursor-not-allowed', 'opacity-60', 'bg-slate-800', 'text-slate-400');
+    if (txt) txt.textContent = 'Eliminar';
+  }
+}
+
+export function deleteSelectedAdminUsers() {
+  const targets = Array.from(selectedAdminUserEmails).filter(e => !isUserMasterAdmin(e));
+  if (targets.length === 0) {
+    showToast('Selecciona al menos un usuario para eliminar (el Administrador Maestro estÃ¡ protegido).', 'warning');
+    return;
+  }
+
+  const msg = targets.length === 1
+    ? `Â¿EstÃ¡s seguro de que deseas eliminar permanentemente al usuario "${targets[0]}"?\n\nEsta acciÃ³n eliminarÃ¡ su cuenta, proyectos y datos asociados.`
+    : `Â¿EstÃ¡s seguro de que deseas eliminar permanentemente a los ${targets.length} usuarios seleccionados?\n\nEsta acciÃ³n eliminarÃ¡ sus cuentas, proyectos y datos asociados.`;
+
+  if (!confirm(msg)) {
+    return;
+  }
+
+  let deletedCount = 0;
+  targets.forEach(email => {
+    try {
+      deleteUserAccountAndData(email);
+      removeCoAdmin(email);
+      localStorage.removeItem(`${STORAGE_KEY_CONSUMPTION}_${email.toLowerCase().trim()}`);
+      deletedCount++;
+    } catch (e) {
+      console.warn('[Admin Delete Error]:', e);
+    }
+  });
+
+  selectedAdminUserEmails.clear();
+  const selectAll = document.getElementById('admin-select-all-checkbox');
+  if (selectAll) selectAll.checked = false;
+
+  showToast(`Â¡${deletedCount} usuario(s) eliminado(s) correctamente!`, 'success');
+  renderCubikarAdminTable();
+}
+
 export function openCubikarAdminModal() {
   const modal = document.getElementById('modal-admin-cubikar');
   if (!modal) return;
@@ -436,7 +533,7 @@ export function renderCubikarAdminTable() {
   if (dataset.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="16" class="text-center py-12 text-slate-400 font-medium bg-slate-900/40">
+        <td colspan="17" class="text-center py-12 text-slate-400 font-medium bg-slate-900/40">
           <i class="fa-solid fa-filter-circle-xmark text-3xl mb-2 text-slate-500 block"></i>
           No se encontraron registros con los filtros seleccionados.
         </td>
@@ -478,6 +575,16 @@ export function renderCubikarAdminTable() {
 
     return `
       <tr class="transition-colors border-b border-slate-800 text-xs text-slate-200 select-text ${rowHighlightClass}">
+        <!-- 0. Casilla de SelecciÃ³n -->
+        <td class="px-2.5 py-2.5 text-center border-r border-slate-800/80">
+          ${isUserMasterAdmin(row.correo) ? `
+            <span class="text-amber-400/50 text-xs" title="Administrador Maestro protegido (No eliminable)"><i class="fa-solid fa-lock"></i></span>
+          ` : `
+            <input type="checkbox" value="${row.correo}" ${selectedAdminUserEmails.has(row.correo) ? 'checked' : ''} onchange="onAdminUserCheckboxChange(this)"
+                   class="admin-user-checkbox rounded border-slate-700 text-rose-600 focus:ring-rose-500 cursor-pointer w-4 h-4">
+          `}
+        </td>
+
         <!-- 1. No -->
         <td class="px-3 py-2.5 text-center font-mono text-slate-400 font-bold">${row.no}</td>
         
@@ -563,6 +670,8 @@ export function renderCubikarAdminTable() {
       </tr>
     `;
   }).join('');
+  updateAdminDeleteButtonUI();
+  updateSelectAllCheckboxState();
 }
 
 function updateAdminKpisUI(dataset) {
@@ -654,6 +763,8 @@ export function renderCoAdminsListUI() {
       </div>
     `;
   }).join('');
+  updateAdminDeleteButtonUI();
+  updateSelectAllCheckboxState();
 }
 
 // =========================================================================
@@ -818,6 +929,9 @@ if (typeof window !== 'undefined') {
   window.setAdminFilterActivity = setAdminFilterActivity;
   window.setAdminFilterPlan = setAdminFilterPlan;
   window.setAdminFilterCycle = setAdminFilterCycle;
+  window.onAdminUserCheckboxChange = onAdminUserCheckboxChange;
+  window.toggleSelectAllAdminUsers = toggleSelectAllAdminUsers;
+  window.deleteSelectedAdminUsers = deleteSelectedAdminUsers;
   window.handleAddCoAdminSubmit = (e) => {
     e.preventDefault();
     const email = document.getElementById('coadmin-email-input')?.value;

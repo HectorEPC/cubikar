@@ -4062,6 +4062,13 @@
             <span>Exportar Excel</span>
           </button>
 
+          <button type="button" id="btn-admin-delete-selected" onclick="deleteSelectedAdminUsers()" 
+                  class="px-3.5 py-1.5 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs transition flex items-center gap-1.5 cursor-not-allowed shadow-md opacity-60"
+                  disabled title="Selecciona una o mÃ¡s casillas de usuarios para eliminar">
+            <i class="fa-solid fa-trash-can"></i>
+            <span id="btn-admin-delete-text">Eliminar</span>
+          </button>
+
           <button type="button" onclick="renderCubikarAdminTable()" 
                   class="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
                   title="Actualizar datos">
@@ -4150,6 +4157,10 @@
         <table class="w-full text-left border-collapse border border-slate-800 text-xs min-w-[1700px]">
           <thead class="sticky top-0 z-20 bg-[#1b506f] text-white select-none shadow-sm">
             <tr>
+                            <th class="px-2.5 py-2.5 font-bold border-r border-sky-800 text-center w-10">
+                <input type="checkbox" id="admin-select-all-checkbox" onchange="toggleSelectAllAdminUsers(this.checked)" 
+                       class="rounded border-slate-700 text-rose-600 focus:ring-rose-500 cursor-pointer w-4 h-4" title="Seleccionar todos">
+              </th>
               <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center w-14">no</th>
               <th class="px-3.5 py-2.5 font-bold border-r border-sky-800">Nombre de usuario</th>
               <th class="px-3.5 py-2.5 font-bold border-r border-sky-800">Correo</th>
