@@ -53,6 +53,18 @@ export async function refreshMasterCatalogList() {
     const catsCountEl = document.getElementById('master-cat-total-catalogs');
     if (catsCountEl) catsCountEl.textContent = stats.catalogsCount.toLocaleString();
 
+    // Actualizar badges de almacenamiento y espacio de trabajo
+    const storageBadgeEl = document.getElementById('master-cat-storage-badge');
+    if (storageBadgeEl) {
+      storageBadgeEl.textContent = `${stats.totalMb} MB / ${stats.maxStorageMb} MB (${stats.usagePct}%)`;
+      storageBadgeEl.className = `font-mono px-2 py-0.5 rounded-full text-[10px] font-bold border ${stats.usagePct > 85 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-blue-500/20 text-blue-300 border-blue-500/40'}`;
+    }
+
+    const wsBadgeEl = document.getElementById('master-cat-workspace-badge');
+    if (wsBadgeEl) {
+      wsBadgeEl.textContent = `${stats.ownerName} (${stats.planName})`;
+    }
+
     // Llenar selector de catálogos
     const select = document.getElementById('master-cat-catalog-filter');
     if (select) {
@@ -61,48 +73,72 @@ export async function refreshMasterCatalogList() {
       stats.catalogs.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c.id;
-        opt.textContent = `${c.name} (${(c.itemsCount || 0).toLocaleString()} registros)`;
+        const mbTxt = c.sizeMb !== undefined ? `${c.sizeMb} MB` : (c.sizeBytes ? `${(c.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : '');
+        opt.textContent = `${c.name} (${(c.itemsCount || 0).toLocaleString()} reg${mbTxt ? ' • ' + mbTxt : ''})`;
         select.appendChild(opt);
       });
       if (currentVal) select.value = currentVal;
     }
 
     // Actualizar tabla de administración de catálogos
-    renderCatalogsManageList(stats.catalogs);
+    renderCatalogsManageList(stats.catalogs, stats);
   } catch (err) {
     console.error('Error cargando catálogos:', err);
   }
 }
 
 // Renderizar la lista de catálogos para administrar/eliminar
-function renderCatalogsManageList(catalogs) {
+function renderCatalogsManageList(catalogs, stats = null) {
   const container = document.getElementById('master-cat-manage-list');
   if (!container) return;
 
+  const storageHeader = stats ? `
+    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl mb-3 shadow-2xs">
+      <div class="flex flex-wrap justify-between items-center text-xs mb-1.5 font-semibold gap-1">
+        <span class="text-slate-700 flex items-center gap-1.5">
+          <i class="fa-solid fa-hard-drive text-blue-600"></i>
+          <span>Almacenamiento (Plan ${stats.planName || 'Gratuita'}):</span>
+        </span>
+        <span class="font-mono text-slate-900 font-bold">${stats.totalMb} MB de ${stats.maxStorageMb} MB disponibles (${stats.usagePct}%)</span>
+      </div>
+      <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+        <div class="${stats.usagePct > 85 ? 'bg-amber-500' : 'bg-blue-600'} h-full rounded-full transition-all duration-300" style="width: ${Math.min(100, stats.usagePct)}%"></div>
+      </div>
+      <div class="flex flex-wrap justify-between items-center text-[10px] text-slate-500 mt-1.5">
+        <span>Titular del Espacio: <strong class="text-slate-700">${stats.ownerName || 'Mi Cuenta'}</strong> (${stats.ownerEmail || ''})</span>
+        <span>${catalogs.length} catálogo${catalogs.length === 1 ? '' : 's'} activo${catalogs.length === 1 ? '' : 's'}</span>
+      </div>
+    </div>
+  ` : '';
+
   if (catalogs.length === 0) {
+    const ownerNameTxt = stats?.ownerName ? `en el espacio de trabajo de <strong>${stats.ownerName}</strong>` : 'aún';
     container.innerHTML = `
-      <div class="p-6 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-300 rounded-lg">
+      ${storageHeader}
+      <div class="p-6 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
         <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300"></i>
-        <p class="font-medium text-xs">No hay catálogos maestros cargados aún.</p>
-        <p class="text-[11px] text-slate-400 mt-1">Usa el botón "Importar Archivo" para agregar tus archivos de BIMSA, Gobierno, Excel o CSV.</p>
+        <p class="font-medium text-xs text-slate-600">No hay catálogos maestros cargados ${ownerNameTxt}.</p>
+        <p class="text-[11px] text-slate-400 mt-1">Usa el botón "Importar Archivo" para agregar tus archivos de BIMSA, Gobierno, Excel, CSV u Opus.</p>
       </div>
     `;
     return;
   }
 
-  let html = '<div class="space-y-2">';
+  let html = storageHeader + '<div class="space-y-2">';
   catalogs.forEach(c => {
     const fecha = c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+    const mbTxt = c.sizeMb !== undefined ? `${c.sizeMb} MB` : (c.sizeBytes ? `${(c.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : '0.10 MB');
     html += `
-      <div class="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-lg shadow-xs hover:border-blue-300 transition">
+      <div class="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-xl shadow-xs hover:border-blue-300 transition">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">
             <i class="fa-solid fa-book"></i>
           </div>
-          <div>
-            <span class="font-bold text-xs text-slate-800 block">${c.name}</span>
-            <div class="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
-              <span class="bg-slate-100 px-1.5 py-0.5 rounded font-mono">${(c.itemsCount || 0).toLocaleString()} registros</span>
+          <div class="min-w-0">
+            <span class="font-bold text-xs text-slate-800 block truncate">${c.name}</span>
+            <div class="flex flex-wrap items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+              <span class="bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded font-mono">${(c.itemsCount || 0).toLocaleString()} registros</span>
+              <span class="bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded font-mono">${mbTxt}</span>
               <span>•</span>
               <span>${c.category || 'General'}</span>
               <span>•</span>
@@ -110,7 +146,7 @@ function renderCatalogsManageList(catalogs) {
             </div>
           </div>
         </div>
-        <button onclick="handleDeleteCatalog('${c.id}', '${c.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition" title="Eliminar este catálogo">
+        <button onclick="handleDeleteCatalog('${c.id}', '${c.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition shrink-0 cursor-pointer" title="Eliminar este catálogo">
           <i class="fa-solid fa-trash-can text-xs"></i>
         </button>
       </div>
@@ -254,7 +290,7 @@ function renderSearchResultsTable(items) {
         ${formatMoney(item.precioUnitario || 0)}
       </td>
       <td class="p-2 align-top text-center w-24">
-        <button onclick="insertConceptIntoBudget(${index})" class="bg-blue-600 hover:bg-blue-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition active:scale-95" title="Insertar concepto al presupuesto activo">
+        <button onclick="insertConceptIntoBudget(${index})" class="bg-blue-600 hover:bg-blue-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Insertar concepto al presupuesto activo">
           <i class="fa-solid fa-plus text-[10px]"></i> Insertar
         </button>
       </td>

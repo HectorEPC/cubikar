@@ -3,1499 +3,1007 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control de Obra - Portal de Inicio y Proyectos</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <!-- Font Awesome 6 -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <title>Propuesta Rediseño - Sistema de Control de Obra</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-    body { font-family: 'Inter', sans-serif; }
-    .font-mono { font-family: 'JetBrains Mono', monospace; }
-    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-    .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
-    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white">
+<body class="bg-slate-900 text-slate-100 min-h-screen antialiased flex flex-col">
 
-  <!-- ========================================== -->
-  <!-- BARRA SUPERIOR PERMANENTE -->
-  <!-- ========================================== -->
-  <header class="bg-slate-950 text-white border-b border-slate-800 px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-md">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-        <i class="fa-solid fa-hard-hat text-sm"></i>
-      </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="font-black text-sm tracking-tight text-white">SISTEMA DE CONTROL DE OBRA</span>
-          <span class="bg-blue-600/30 text-blue-400 border border-blue-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded font-mono uppercase">Portal Multi-Proyecto</span>
+  <!-- Top Global Navbar -->
+  <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-40 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Logo & App Name -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-bold text-lg">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
         </div>
-        <p class="text-[10px] text-slate-400">Presupuestos Base, APU e Insumos Generales</p>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-base tracking-tight text-white">SISTEMA CONTROL DE OBRA</span>
+            <span class="bg-blue-500/10 text-blue-400 text-xs px-2 py-0.5 rounded-full font-medium border border-blue-500/20">Portal Multi-Proyecto</span>
+          </div>
+          <p class="text-xs text-slate-400">Presupuestos Base • APU • Insumos Generales</p>
+        </div>
       </div>
-    </div>
 
-    <!-- Área de Usuario / Sesión en la barra superior -->
-    <div class="flex items-center gap-2.5" id="header-user-area">
-      <!-- Inyectado dinámicamente según estado de sesión -->
+      <!-- Navigation & Action Links -->
+      <div class="flex items-center space-x-3">
+        <!-- Switch View: Toggle Before vs After Comparison -->
+        <button id="toggleComparisonBtn" onclick="toggleComparisonModal()" class="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/30 text-xs font-semibold hover:bg-amber-500/20 transition flex items-center gap-1.5 shadow-sm cursor-pointer">
+          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Ver Análisis: Antes vs Después</span>
+        </button>
+
+        <div class="h-6 w-px bg-slate-800"></div>
+
+        <!-- Quick Notifications -->
+        <button onclick="alert('No tienes notificaciones pendientes de obra')" class="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition cursor-pointer" title="Notificaciones de obra">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+        </button>
+
+        <!-- User Profile Pill (Compact, Unificado) -->
+        <div class="relative">
+          <div onclick="toggleProfileDropdown()" class="flex items-center gap-3 pl-2 py-1 pr-3 bg-slate-900 border border-slate-800 rounded-full hover:border-slate-700 transition cursor-pointer group select-none">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 text-slate-950 font-bold text-xs flex items-center justify-center ring-2 ring-amber-400/30">
+              H9
+            </div>
+            <div class="text-left hidden sm:block">
+              <div class="text-xs font-semibold text-slate-200 leading-tight">Hepc 90</div>
+              <div class="text-[11px] text-slate-400 leading-tight">Admin General</div>
+            </div>
+            <svg class="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+          <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-30 py-1 text-xs">
+            <div class="px-3 py-2 border-b border-slate-800">
+              <div class="font-bold text-white">Hepc 90</div>
+              <div class="text-[11px] text-slate-400">admin@obra.com</div>
+            </div>
+            <a href="#" onclick="alert('Abriendo editor de perfil profesional...'); return false;" class="block px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white">Editar Perfil</a>
+            <a href="index.html" class="block px-3 py-2 text-blue-400 hover:bg-slate-800">Ir al Sistema Principal</a>
+            <div class="h-px bg-slate-800 my-1"></div>
+            <a href="#" onclick="alert('Cerrando sesión...'); return false;" class="block px-3 py-2 text-rose-400 hover:bg-rose-500/10">Cerrar Sesión</a>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 
-  <!-- ========================================== -->
-  <!-- CONTENEDOR PRINCIPAL DINÁMICO -->
-  <!-- ========================================== -->
-  <main class="flex-1 flex flex-col justify-center p-3 sm:p-6" id="main-app-container">
-    <!-- Se inyecta dinámicamente:
-         1. Portal de Inicio (Iniciar Sesión / Registrarse)
-         2. Dashboard del Perfil y Proyectos
-         3. Simulador de Espacio de Trabajo del Proyecto
-    -->
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
+
+    <!-- Header Section with KPIs -->
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2 text-xs font-medium text-blue-400 mb-1">
+          <span>PORTAL DE PROYECTOS</span>
+          <span>•</span>
+          <span class="text-emerald-400 font-semibold" id="activeProjectsCount">3 Obras Activas</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Mis Proyectos de Obra</h1>
+        <p class="text-sm text-slate-400 mt-1 max-w-2xl">
+          Supervisión integral de presupuestos base, análisis de precios unitarios (APU), matrices de insumos y control de sobrecostos.
+        </p>
+      </div>
+
+      <!-- Quick Action: Primary Button -->
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition shadow-lg shadow-blue-600/30 active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          <span>Nuevo Proyecto</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Toolbar: Search, Filters & View Toggle (Todo en una sola barra integrada) -->
+    <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 shadow-xl flex flex-col md:flex-row items-center justify-between gap-3">
+      
+      <!-- Search Input -->
+      <div class="relative w-full md:w-80">
+        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </span>
+        <input 
+          id="searchInput" 
+          type="text" 
+          placeholder="Buscar por nombre, empresa o ciudad..." 
+          onkeyup="filterProjects()"
+          class="w-full pl-9 pr-8 py-2 bg-slate-900 border border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-slate-200 placeholder-slate-500 transition outline-none"
+        >
+        <span class="absolute right-2.5 top-2.5 text-[10px] bg-slate-800 border border-slate-700 text-slate-400 px-1.5 py-0.5 rounded">⌘K</span>
+      </div>
+
+      <!-- Filters & Sorting Group -->
+      <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-start md:justify-end">
+        
+        <!-- Filter Empresa -->
+        <div class="relative">
+          <select id="empresaFilter" onchange="filterProjects()" class="appearance-none bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-xl pl-3 pr-8 py-2 hover:border-slate-700 focus:border-blue-500 transition outline-none cursor-pointer">
+            <option value="all">Todas las empresas</option>
+            <option value="HEMA">Hema Arquitectos</option>
+            <option value="METROPOLI">Grupo Metrópoli</option>
+            <option value="URBANIX">Urbanix Desarrollos</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </div>
+        </div>
+
+        <!-- Filter Tipo -->
+        <div class="relative">
+          <select id="tipoFilter" onchange="filterProjects()" class="appearance-none bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-xl pl-3 pr-8 py-2 hover:border-slate-700 focus:border-blue-500 transition outline-none cursor-pointer">
+            <option value="all">Todos los tipos</option>
+            <option value="Vivienda">Vivienda</option>
+            <option value="Edificación">Edificación</option>
+            <option value="Infraestructura">Infraestructura</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </div>
+        </div>
+
+        <!-- Filter Estado de Salud -->
+        <div class="relative">
+          <select id="statusFilter" onchange="filterProjects()" class="appearance-none bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-xl pl-3 pr-8 py-2 hover:border-slate-700 focus:border-blue-500 transition outline-none cursor-pointer">
+            <option value="all">Todos los estados</option>
+            <option value="ok">En Presupuesto</option>
+            <option value="warning">Con Sobrecosto</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </div>
+        </div>
+
+        <div class="h-6 w-px bg-slate-800 hidden md:block"></div>
+
+        <!-- Sorting Group (Fecha & A-Z) -->
+        <div class="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl p-1">
+          <span class="text-[11px] text-slate-500 font-medium px-1.5 hidden sm:inline">Ordenar:</span>
+          <!-- Sort by Date -->
+          <button id="sortByDateBtn" onclick="toggleSort('date')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-blue-400 bg-slate-800 hover:text-white transition flex items-center gap-1 shadow-sm" title="Ordenar por fecha de creación">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>Fecha</span>
+            <span id="dateSortDir" class="text-[10px]">↓</span>
+          </button>
+
+          <!-- Sort by A-Z -->
+          <button id="sortByNameBtn" onclick="toggleSort('name')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-1" title="Ordenar alfabéticamente (A-Z)">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+            </svg>
+            <span id="nameSortLabel">A - Z</span>
+          </button>
+        </div>
+
+        <div class="h-6 w-px bg-slate-800 hidden md:block"></div>
+
+        <!-- View Switcher (Grid vs List/Table) -->
+        <div class="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-0.5">
+          <button id="viewGridBtn" onclick="switchView('grid')" class="p-1.5 rounded-lg text-blue-400 bg-slate-800 hover:text-white transition" title="Vista en tarjetas">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+          </button>
+          <button id="viewListBtn" onclick="switchView('list')" class="p-1.5 rounded-lg text-slate-400 hover:text-white transition" title="Vista en tabla detallada">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- GRID VIEW OF PROJECTS -->
+    <div id="projectsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- PROJECT CARD 1 -->
+      <div class="project-card group bg-slate-950/70 hover:bg-slate-950/90 border border-slate-800/90 hover:border-blue-500/50 rounded-2xl p-5 transition duration-200 shadow-lg flex flex-col justify-between"
+           data-name="Residencia Laura" 
+           data-company="HEMA" 
+           data-type="Vivienda" 
+           data-status="ok"
+           data-date="2026-11-01">
+        
+        <div>
+          <!-- Header Card: Company, Tag & Dropdown Menu -->
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-xl bg-amber-900/30 border border-amber-600/30 flex items-center justify-center text-amber-300 font-bold text-sm tracking-wider shadow-inner">
+                HA
+              </div>
+              <div>
+                <span class="text-xs font-semibold text-blue-400 tracking-wide uppercase">Hema Arquitectos</span>
+                <h3 class="text-lg font-bold text-white group-hover:text-blue-300 transition">Residencia Laura</h3>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                Vivienda
+              </span>
+              <!-- Quick 3-Dots Action Menu -->
+              <div class="relative">
+                <button onclick="toggleCardMenu('menu-card-1')" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                </button>
+                <div id="menu-card-1" class="hidden absolute right-0 mt-1 w-44 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-20 py-1 text-xs">
+                  <a href="index.html" class="block px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white">Abrir en pestaña nueva</a>
+                  <a href="#" onclick="alert('Duplicando proyecto...'); return false;" class="block px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white">Duplicar Presupuesto</a>
+                  <a href="#" onclick="alert('Exportando a Excel...'); return false;" class="block px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white">Exportar a Excel</a>
+                  <div class="h-px bg-slate-800 my-1"></div>
+                  <a href="#" onclick="alert('Acción de eliminar'); return false;" class="block px-3 py-2 text-rose-400 hover:bg-rose-500/10">Eliminar Proyecto</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Metadata: Ubicación y Fecha -->
+          <div class="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-slate-400 mb-4 pb-3 border-b border-slate-800/80">
+            <span class="flex items-center gap-1.5 text-slate-300">
+              <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span>Col. Mangas, Tezontepec de Aldama, Hgo.</span>
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>01 Nov 2026</span>
+            </span>
+          </div>
+
+          <!-- Metrics Panel: Budget, Concepts & Cost overrun badge -->
+          <div class="bg-slate-900/90 rounded-xl p-3.5 mb-4 border border-slate-800/80">
+            <div class="flex items-baseline justify-between mb-2">
+              <span class="text-xs text-slate-400 font-medium">Presupuesto Base</span>
+              <div class="text-right">
+                <span class="text-lg font-black text-white">$1,512,215.00</span>
+                <span class="text-xs font-semibold text-blue-400 ml-1">MXN</span>
+              </div>
+            </div>
+
+            <!-- Progress Bar: Avance físico y financiero -->
+            <div class="space-y-1 mb-2.5">
+              <div class="flex justify-between text-[11px] text-slate-400">
+                <span>Avance estimado</span>
+                <span class="text-emerald-400 font-medium">65%</span>
+              </div>
+              <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-emerald-500 h-full rounded-full" style="width: 65%"></div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs pt-2 border-t border-slate-800/60">
+              <span class="text-slate-400 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                4 conceptos APU
+              </span>
+              <!-- Health Badge -->
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                Sobrecosto: 0.00%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer: Team & Main Clean Action -->
+        <div class="flex items-center justify-between pt-2">
+          <!-- Stacked Team Avatars -->
+          <div class="flex items-center gap-2">
+            <div class="flex -space-x-2 overflow-hidden">
+              <div class="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-blue-600 text-[10px] font-bold text-white flex items-center justify-center">CR</div>
+              <div class="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-amber-600 text-[10px] font-bold text-white flex items-center justify-center">JP</div>
+              <div class="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-purple-600 text-[10px] font-bold text-white flex items-center justify-center">MC</div>
+            </div>
+            <button onclick="alert('Invitar colaborador');" class="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 hover:underline">
+              + Invitar
+            </button>
+          </div>
+
+          <!-- Main Clear CTA -->
+          <a href="index.html" class="px-4 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold transition flex items-center gap-1.5 group-hover:bg-blue-600 group-hover:text-white">
+            <span>Abrir Proyecto</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </a>
+        </div>
+
+      </div>
+
+      <!-- PROJECT CARD 2 -->
+      <div class="project-card group bg-slate-950/70 hover:bg-slate-950/90 border border-slate-800/90 hover:border-amber-500/50 rounded-2xl p-5 transition duration-200 shadow-lg flex flex-col justify-between"
+           data-name="Torre Corporativa Reforma" 
+           data-company="METROPOLI" 
+           data-type="Edificación" 
+           data-status="warning"
+           data-date="2026-10-15">
+        
+        <div>
+          <!-- Header Card: Company, Tag & Dropdown Menu -->
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-xl bg-blue-900/40 border border-blue-500/40 flex items-center justify-center text-blue-300 font-bold text-sm tracking-wider shadow-inner">
+                GCM
+              </div>
+              <div>
+                <span class="text-xs font-semibold text-blue-400 tracking-wide uppercase">Grupo Constructor Metrópoli</span>
+                <h3 class="text-lg font-bold text-white group-hover:text-amber-300 transition">Torre Corporativa Reforma</h3>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                Edificación
+              </span>
+              <!-- Quick 3-Dots Action Menu -->
+              <div class="relative">
+                <button onclick="toggleCardMenu('menu-card-2')" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                </button>
+                <div id="menu-card-2" class="hidden absolute right-0 mt-1 w-44 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-20 py-1 text-xs">
+                  <a href="index.html" class="block px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white">Abrir en pestaña nueva</a>
+                  <a href="#" onclick="alert('Duplicando presupuesto...'); return false;" class="block px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white">Duplicar Presupuesto</a>
+                  <a href="#" onclick="alert('Exportando a Excel...'); return false;" class="block px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white">Exportar a Excel</a>
+                  <div class="h-px bg-slate-800 my-1"></div>
+                  <a href="#" onclick="alert('Acción de eliminar'); return false;" class="block px-3 py-2 text-rose-400 hover:bg-rose-500/10">Eliminar Proyecto</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Metadata: Ubicación y Fecha -->
+          <div class="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-slate-400 mb-4 pb-3 border-b border-slate-800/80">
+            <span class="flex items-center gap-1.5 text-slate-300">
+              <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span>Paseo de la Reforma 405, Cuauhtémoc, CDMX</span>
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>15 Oct 2026</span>
+            </span>
+          </div>
+
+          <!-- Metrics Panel: Budget, Concepts & Cost overrun badge -->
+          <div class="bg-slate-900/90 rounded-xl p-3.5 mb-4 border border-slate-800/80">
+            <div class="flex items-baseline justify-between mb-2">
+              <span class="text-xs text-slate-400 font-medium">Presupuesto Base</span>
+              <div class="text-right">
+                <span class="text-lg font-black text-white">$472,942.50</span>
+                <span class="text-xs font-semibold text-emerald-400 ml-1">USD</span>
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="space-y-1 mb-2.5">
+              <div class="flex justify-between text-[11px] text-slate-400">
+                <span>Avance estimado</span>
+                <span class="text-amber-400 font-medium">42%</span>
+              </div>
+              <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-amber-500 h-full rounded-full" style="width: 42%"></div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs pt-2 border-t border-slate-800/60">
+              <span class="text-slate-400 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                2 conceptos APU
+              </span>
+              <!-- Health Badge: SOBRECOSTO ALERT -->
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 animate-pulse">
+                <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                Sobrecosto: +22.50%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer: Team & Main Action -->
+        <div class="flex items-center justify-between pt-2">
+          <!-- Stacked Team Avatars -->
+          <div class="flex items-center gap-2">
+            <div class="flex -space-x-2 overflow-hidden">
+              <div class="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-indigo-600 text-[10px] font-bold text-white flex items-center justify-center">LR</div>
+              <div class="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-pink-600 text-[10px] font-bold text-white flex items-center justify-center">EG</div>
+            </div>
+            <button onclick="alert('Invitar colaborador');" class="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 hover:underline">
+              + Invitar
+            </button>
+          </div>
+
+          <!-- Main Clear CTA -->
+          <a href="index.html" class="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 text-xs font-semibold transition flex items-center gap-1.5 group-hover:bg-amber-500 group-hover:text-slate-950">
+            <span>Abrir Proyecto</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </a>
+        </div>
+
+      </div>
+
+      <!-- PROJECT CARD 3 -->
+      <div class="project-card group bg-slate-950/70 hover:bg-slate-950/90 border border-slate-800/90 hover:border-emerald-500/50 rounded-2xl p-5 transition duration-200 shadow-lg flex flex-col justify-between"
+           data-name="Centro Logístico Bajío" 
+           data-company="URBANIX" 
+           data-type="Infraestructura" 
+           data-status="ok"
+           data-date="2026-11-05">
+        
+        <div>
+          <!-- Header Card: Company, Tag & Dropdown Menu -->
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-xl bg-emerald-900/40 border border-emerald-500/40 flex items-center justify-center text-emerald-300 font-bold text-sm tracking-wider shadow-inner">
+                UBX
+              </div>
+              <div>
+                <span class="text-xs font-semibold text-blue-400 tracking-wide uppercase">Urbanix Desarrollos</span>
+                <h3 class="text-lg font-bold text-white group-hover:text-emerald-300 transition">Centro Logístico Bajío</h3>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                Infraestructura
+              </span>
+              <!-- Quick 3-Dots Action Menu -->
+              <div class="relative">
+                <button onclick="toggleCardMenu('menu-card-3')" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                </button>
+                <div id="menu-card-3" class="hidden absolute right-0 mt-1 w-44 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-20 py-1 text-xs">
+                  <a href="index.html" class="block px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white">Abrir en pestaña nueva</a>
+                  <a href="#" onclick="alert('Duplicando presupuesto...'); return false;" class="block px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white">Duplicar Presupuesto</a>
+                  <a href="#" onclick="alert('Exportando a Excel...'); return false;" class="block px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white">Exportar a Excel</a>
+                  <div class="h-px bg-slate-800 my-1"></div>
+                  <a href="#" onclick="alert('Acción de eliminar'); return false;" class="block px-3 py-2 text-rose-400 hover:bg-rose-500/10">Eliminar Proyecto</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Metadata: Ubicación y Fecha -->
+          <div class="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-slate-400 mb-4 pb-3 border-b border-slate-800/80">
+            <span class="flex items-center gap-1.5 text-slate-300">
+              <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span>Parque Industrial Querétaro, Qro.</span>
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>05 Nov 2026</span>
+            </span>
+          </div>
+
+          <!-- Metrics Panel: Budget, Concepts & Cost overrun badge -->
+          <div class="bg-slate-900/90 rounded-xl p-3.5 mb-4 border border-slate-800/80">
+            <div class="flex items-baseline justify-between mb-2">
+              <span class="text-xs text-slate-400 font-medium">Presupuesto Base</span>
+              <div class="text-right">
+                <span class="text-lg font-black text-white">$3,450,000.00</span>
+                <span class="text-xs font-semibold text-blue-400 ml-1">MXN</span>
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="space-y-1 mb-2.5">
+              <div class="flex justify-between text-[11px] text-slate-400">
+                <span>Avance estimado</span>
+                <span class="text-emerald-400 font-medium">18%</span>
+              </div>
+              <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-emerald-500 h-full rounded-full" style="width: 18%"></div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs pt-2 border-t border-slate-800/60">
+              <span class="text-slate-400 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                8 conceptos APU
+              </span>
+              <!-- Health Badge -->
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                Sobrecosto: 0.00%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer: Team & Main Action -->
+        <div class="flex items-center justify-between pt-2">
+          <!-- Stacked Team Avatars -->
+          <div class="flex items-center gap-2">
+            <div class="flex -space-x-2 overflow-hidden">
+              <div class="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-emerald-600 text-[10px] font-bold text-white flex items-center justify-center">AL</div>
+              <div class="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-teal-600 text-[10px] font-bold text-white flex items-center justify-center">RO</div>
+            </div>
+            <button onclick="alert('Invitar colaborador');" class="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 hover:underline">
+              + Invitar
+            </button>
+          </div>
+
+          <!-- Main Clear CTA -->
+          <a href="index.html" class="px-4 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold transition flex items-center gap-1.5 group-hover:bg-blue-600 group-hover:text-white">
+            <span>Abrir Proyecto</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </a>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- TABLE VIEW (ALTERNATIVE VIEW) -->
+    <div id="projectsTable" class="hidden bg-slate-950/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div class="overflow-x-auto custom-scroll">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead class="bg-slate-900/90 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
+            <tr>
+              <th class="px-5 py-3.5">Proyecto & Empresa</th>
+              <th class="px-4 py-3.5">Ubicación</th>
+              <th class="px-4 py-3.5">Tipo</th>
+              <th class="px-4 py-3.5 text-right">Presupuesto Base</th>
+              <th class="px-4 py-3.5 text-center">Salud / Sobrecosto</th>
+              <th class="px-4 py-3.5 text-center">Conceptos</th>
+              <th class="px-4 py-3.5 text-center">Equipo</th>
+              <th class="px-5 py-3.5 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="projectsTableBody" class="divide-y divide-slate-800/60">
+            <tr class="table-project-row hover:bg-slate-900/50 transition"
+                data-name="Residencia Laura" 
+                data-company="HEMA" 
+                data-type="Vivienda" 
+                data-status="ok"
+                data-date="2026-11-01">
+              <td class="px-5 py-4">
+                <div class="font-bold text-white text-sm">Residencia Laura</div>
+                <div class="text-[11px] text-blue-400 font-medium">Hema Arquitectos</div>
+              </td>
+              <td class="px-4 py-4 text-slate-400 max-w-xs truncate">
+                Col. Mangas, Tezontepec de Aldama, Hgo.
+              </td>
+              <td class="px-4 py-4">
+                <span class="px-2 py-0.5 rounded-full text-[11px] bg-blue-500/10 text-blue-300 border border-blue-500/20">Vivienda</span>
+              </td>
+              <td class="px-4 py-4 text-right font-mono font-bold text-white">
+                $1,512,215.00 <span class="text-[10px] text-slate-400">MXN</span>
+              </td>
+              <td class="px-4 py-4 text-center">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  0.00%
+                </span>
+              </td>
+              <td class="px-4 py-4 text-center text-slate-400">4 APUs</td>
+              <td class="px-4 py-4 text-center">
+                <div class="flex justify-center -space-x-1.5">
+                  <span class="w-6 h-6 rounded-full bg-blue-600 text-[9px] font-bold text-white flex items-center justify-center ring-1 ring-slate-900">CR</span>
+                  <span class="w-6 h-6 rounded-full bg-amber-600 text-[9px] font-bold text-white flex items-center justify-center ring-1 ring-slate-900">JP</span>
+                  <span class="w-6 h-6 rounded-full bg-purple-600 text-[9px] font-bold text-white flex items-center justify-center ring-1 ring-slate-900">+1</span>
+                </div>
+              </td>
+              <td class="px-5 py-4 text-right">
+                <a href="index.html" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs transition">Abrir</a>
+              </td>
+            </tr>
+
+            <tr class="table-project-row hover:bg-slate-900/50 transition"
+                data-name="Torre Corporativa Reforma" 
+                data-company="METROPOLI" 
+                data-type="Edificación" 
+                data-status="warning"
+                data-date="2026-10-15">
+              <td class="px-5 py-4">
+                <div class="font-bold text-white text-sm">Torre Corporativa Reforma</div>
+                <div class="text-[11px] text-blue-400 font-medium">Grupo Constructor Metrópoli</div>
+              </td>
+              <td class="px-4 py-4 text-slate-400 max-w-xs truncate">
+                Paseo de la Reforma 405, Cuauhtémoc, CDMX
+              </td>
+              <td class="px-4 py-4">
+                <span class="px-2 py-0.5 rounded-full text-[11px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">Edificación</span>
+              </td>
+              <td class="px-4 py-4 text-right font-mono font-bold text-white">
+                $472,942.50 <span class="text-[10px] text-emerald-400">USD</span>
+              </td>
+              <td class="px-4 py-4 text-center">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  +22.50%
+                </span>
+              </td>
+              <td class="px-4 py-4 text-center text-slate-400">2 APUs</td>
+              <td class="px-4 py-4 text-center">
+                <div class="flex justify-center -space-x-1.5">
+                  <span class="w-6 h-6 rounded-full bg-indigo-600 text-[9px] font-bold text-white flex items-center justify-center ring-1 ring-slate-900">LR</span>
+                  <span class="w-6 h-6 rounded-full bg-pink-600 text-[9px] font-bold text-white flex items-center justify-center ring-1 ring-slate-900">EG</span>
+                </div>
+              </td>
+              <td class="px-5 py-4 text-right">
+                <a href="index.html" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-medium text-xs transition">Abrir</a>
+              </td>
+            </tr>
+
+            <tr class="table-project-row hover:bg-slate-900/50 transition"
+                data-name="Centro Logístico Bajío" 
+                data-company="URBANIX" 
+                data-type="Infraestructura" 
+                data-status="ok"
+                data-date="2026-11-05">
+              <td class="px-5 py-4">
+                <div class="font-bold text-white text-sm">Centro Logístico Bajío</div>
+                <div class="text-[11px] text-blue-400 font-medium">Urbanix Desarrollos</div>
+              </td>
+              <td class="px-4 py-4 text-slate-400 max-w-xs truncate">
+                Parque Industrial Querétaro, Qro.
+              </td>
+              <td class="px-4 py-4">
+                <span class="px-2 py-0.5 rounded-full text-[11px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Infraestructura</span>
+              </td>
+              <td class="px-4 py-4 text-right font-mono font-bold text-white">
+                $3,450,000.00 <span class="text-[10px] text-slate-400">MXN</span>
+              </td>
+              <td class="px-4 py-4 text-center">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  0.00%
+                </span>
+              </td>
+              <td class="px-4 py-4 text-center text-slate-400">8 APUs</td>
+              <td class="px-4 py-4 text-center">
+                <div class="flex justify-center -space-x-1.5">
+                  <span class="w-6 h-6 rounded-full bg-emerald-600 text-[9px] font-bold text-white flex items-center justify-center ring-1 ring-slate-900">AL</span>
+                  <span class="w-6 h-6 rounded-full bg-teal-600 text-[9px] font-bold text-white flex items-center justify-center ring-1 ring-slate-900">RO</span>
+                </div>
+              </td>
+              <td class="px-5 py-4 text-right">
+                <a href="index.html" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs transition">Abrir</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Empty State for Filters -->
+    <div id="noResults" class="hidden text-center py-12 bg-slate-950/50 border border-dashed border-slate-800 rounded-2xl">
+      <svg class="w-12 h-12 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <h4 class="text-white font-semibold text-base">No se encontraron proyectos</h4>
+      <p class="text-xs text-slate-400 mt-1">Prueba con otros términos de búsqueda o limpia los filtros seleccionados.</p>
+      <button onclick="resetFilters()" class="mt-4 px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium transition cursor-pointer">Limpiar Filtros</button>
+    </div>
+
   </main>
 
-  <!-- ========================================== -->
-  <!-- MODAL: SELECTOR RÁPIDO DE GOOGLE GMAIL -->
-  <!-- ========================================== -->
-  <div id="modal-google-auth" class="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
-    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+  <!-- MODAL: ANÁLISIS ANTES VS DESPUÉS (EXPLICATIVO INTERACTIVO) -->
+  <div id="comparisonModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
       
-      <div class="p-5 text-center border-b border-slate-100 bg-slate-50/50">
-        <svg class="w-8 h-8 mx-auto mb-2" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-        </svg>
-        <h3 class="font-bold text-sm text-slate-900">Acceder con Google</h3>
-        <p class="text-[11px] text-slate-500 mt-0.5">Selecciona tu cuenta Gmail para auto-rellenar tus datos</p>
-      </div>
-
-      <div class="p-3 space-y-1.5 overflow-y-auto max-h-72 text-xs">
-        <button type="button" onclick="selectGoogleAccount(0)" class="w-full text-left p-2.5 rounded-xl hover:bg-blue-50/60 border border-slate-200 hover:border-blue-300 transition flex items-center gap-3 group">
-          <div class="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-white shrink-0 shadow-xs">
-            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" class="w-full h-full object-cover" alt="Carlos Gómez">
-          </div>
-          <div class="min-w-0 flex-1">
-            <strong class="font-semibold text-slate-900 block truncate group-hover:text-blue-700 transition">Arq. Carlos Alberto Gómez</strong>
-            <span class="text-slate-500 text-[11px] block truncate font-mono">carlos.gomez.arq@gmail.com</span>
-          </div>
-          <i class="fa-solid fa-chevron-right text-slate-300 group-hover:text-blue-500 text-xs"></i>
-        </button>
-
-        <button type="button" onclick="selectGoogleAccount(1)" class="w-full text-left p-2.5 rounded-xl hover:bg-blue-50/60 border border-slate-200 hover:border-blue-300 transition flex items-center gap-3 group">
-          <div class="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-white shrink-0 shadow-xs">
-            <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80" class="w-full h-full object-cover" alt="Mariana Torres">
-          </div>
-          <div class="min-w-0 flex-1">
-            <strong class="font-semibold text-slate-900 block truncate group-hover:text-blue-700 transition">Ing. Mariana Torres Morales</strong>
-            <span class="text-slate-500 text-[11px] block truncate font-mono">mariana.torres.costos@gmail.com</span>
-          </div>
-          <i class="fa-solid fa-chevron-right text-slate-300 group-hover:text-blue-500 text-xs"></i>
-        </button>
-
-        <!-- Ingresar cuenta personalizada de Gmail -->
-        <div class="pt-2 border-t border-slate-100">
-          <div class="p-3 bg-slate-50 rounded-xl space-y-2 border border-slate-200">
-            <span class="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-              <i class="fa-brands fa-google text-blue-500"></i> O ingresa tu propia cuenta @gmail.com:
-            </span>
-            <input type="text" id="custom-google-name" placeholder="Tu Nombre Completo" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs bg-white font-medium focus:ring-1 focus:ring-blue-500">
-            <input type="email" id="custom-google-email" placeholder="tu-usuario@gmail.com" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs bg-white font-mono focus:ring-1 focus:ring-blue-500">
-            <button type="button" onclick="submitCustomGoogleAccount()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-2 rounded-lg transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer">
-              <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i> Conectar y Auto-rellenar
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="p-2.5 bg-slate-100 border-t border-slate-200 text-center">
-        <button type="button" onclick="closeGoogleAuthModal()" class="text-xs font-semibold text-slate-500 hover:text-slate-700 cursor-pointer">Cancelar</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ========================================== -->
-  <!-- MODAL: ASISTENTE NUEVO PROYECTO (2 PASOS) -->
-  <!-- ========================================== -->
-  <div id="modal-nuevo-proyecto" class="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
-    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-      
-      <!-- Encabezado Modal -->
-      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white p-4 flex justify-between items-center shrink-0 border-b border-slate-800">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
-            <i class="fa-solid fa-folder-plus text-sm"></i>
-          </div>
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/80">
+        <div class="flex items-center gap-2">
+          <span class="p-2 rounded-xl bg-blue-500/10 text-blue-400 font-bold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </span>
           <div>
-            <h3 class="font-bold text-sm tracking-wide">Crear Nuevo Proyecto</h3>
-            <p class="text-[11px] text-slate-300">Asistente de configuración inicial en 2 pasos</p>
+            <h3 class="text-base font-bold text-white">Auditoría UX/UI: Comparativa Detallada</h3>
+            <p class="text-xs text-slate-400">Por qué esta propuesta optimiza la productividad del usuario</p>
           </div>
         </div>
-        <button onclick="closeNuevoProyectoModal()" class="text-slate-400 hover:text-white p-1 rounded transition cursor-pointer">
-          <i class="fa-solid fa-xmark text-base"></i>
+        <button onclick="toggleComparisonModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
 
-      <!-- Indicador de Pasos -->
-      <div class="bg-slate-100 border-b border-slate-200 px-6 py-2.5 flex items-center justify-between text-xs font-semibold">
-        <div class="flex items-center gap-2" id="step-indicator-1">
-          <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold">1</span>
-          <span class="text-blue-900 font-bold">1. Información del Proyecto</span>
-        </div>
-        <i class="fa-solid fa-arrow-right text-slate-400 text-xs"></i>
-        <div class="flex items-center gap-2 opacity-50" id="step-indicator-2">
-          <span class="w-6 h-6 rounded-full bg-slate-400 text-white flex items-center justify-center text-[11px] font-bold">2</span>
-          <span class="text-slate-600">2. Sobrecosto y Moneda</span>
-        </div>
-      </div>
-
-      <!-- Contenido del Asistente -->
-      <div class="p-5 flex-1 overflow-y-auto space-y-4 custom-scroll text-xs">
+      <!-- Modal Body -->
+      <div class="p-6 overflow-y-auto space-y-5 custom-scroll text-sm">
         
-        <!-- PASO 1: INFORMACIÓN -->
-        <div id="wizard-step-1" class="space-y-4">
-          <div class="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 flex items-start gap-2.5">
-            <i class="fa-solid fa-circle-info text-blue-600 mt-0.5"></i>
-            <div>
-              <strong class="font-semibold">Pestaña INFORMACIÓN del Proyecto</strong>
-              <p class="text-[11px] text-blue-700">Esta información se vinculará de forma permanente al encabezado, a la pestaña CATÁLOGO BASE y a la pestaña INSUMOS GENERALES.</p>
-            </div>
+        <!-- Comparison Point 1 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-950/50 border border-slate-800/80">
+          <div class="border-l-2 border-rose-500/80 pl-3">
+            <span class="text-xs font-bold text-rose-400 uppercase tracking-wider">Diseño Original (Problema)</span>
+            <h4 class="text-sm font-semibold text-white mt-1">Duplicidad de Perfil y Desperdicio Vertical</h4>
+            <p class="text-xs text-slate-400 mt-1">El perfil del usuario aparecía tanto en la barra superior como en una tarjeta flotante en el banner principal. Consumía el 35% superior de la pantalla sin aportar valor al flujo de trabajo de obra.</p>
           </div>
-
-          <!-- Logo -->
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Logotipo de la Empresa / Obra</label>
-            <div class="flex items-center gap-3">
-              <div class="w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
-                <img id="wizard-logo-img" src="" alt="Logo" class="w-full h-full object-contain p-1 hidden">
-                <i id="wizard-logo-fallback" class="fa-solid fa-image text-slate-400 text-xl"></i>
-              </div>
-              <div class="space-y-1.5 flex-1">
-                <div class="flex flex-wrap gap-2">
-                  <label class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold px-2.5 py-1.5 rounded-lg cursor-pointer transition flex items-center gap-1.5 shadow-xs">
-                    <i class="fa-solid fa-upload text-blue-600"></i> Subir Logo
-                    <input type="file" accept="image/*" class="hidden" onchange="handleWizardLogoFile(event)">
-                  </label>
-                  <button type="button" onclick="setSampleLogo('shield')" class="bg-white hover:bg-blue-50 text-slate-700 border border-slate-200 text-[11px] px-2 py-1.5 rounded-lg transition">Muestra 1</button>
-                  <button type="button" onclick="setSampleLogo('building')" class="bg-white hover:bg-blue-50 text-slate-700 border border-slate-200 text-[11px] px-2 py-1.5 rounded-lg transition">Muestra 2</button>
-                  <button type="button" onclick="clearWizardLogo()" class="text-slate-400 hover:text-rose-500 text-[11px] px-1 py-1.5 transition">Quitar</button>
-                </div>
-                <p class="text-[10px] text-slate-500">Formatos recomendados: PNG o JPG transparentes.</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Nombre Empresa -->
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Nombre de la Empresa *</label>
-            <input type="text" id="wiz-company-name" placeholder="Ej. Constructora del Valle S.A. de C.V." 
-                   class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-          </div>
-
-          <!-- Nombre Proyecto -->
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Nombre del Proyecto *</label>
-            <input type="text" id="wiz-project-name" placeholder="Ej. Construcción de Complejo Residencial Palmas" 
-                   class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-          </div>
-
-          <!-- Ubicación -->
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Ubicación de la Obra *</label>
-            <input type="text" id="wiz-project-location" placeholder="Ej. Av. Insurgentes Sur 1450, Benito Juárez, CDMX" 
-                   class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+          <div class="border-l-2 border-emerald-500/80 pl-3">
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Propuesta Rediseñada (Solución)</span>
+            <h4 class="text-sm font-semibold text-white mt-1">Cabecera Ejecutiva con KPIs Clave</h4>
+            <p class="text-xs text-slate-400 mt-1">Se unificó el perfil en el navbar y el espacio liberado se aprovechó para tarjetas de métricas en tiempo real: Presupuesto Total Administrado, Obras en Riesgo y APUs cargados.</p>
           </div>
         </div>
 
-        <!-- PASO 2: SOBRECOSTO Y MONEDA -->
-        <div id="wizard-step-2" class="space-y-4 hidden">
-          <div class="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-amber-900 flex items-start gap-2.5">
-            <i class="fa-solid fa-coins text-amber-600 mt-0.5"></i>
-            <div>
-              <strong class="font-semibold">Configuración Económica y Sobrecosto</strong>
-              <p class="text-[11px] text-amber-700">Define la divisa de los presupuestos y los porcentajes reglamentarios para el cálculo de Precios Unitarios (APU).</p>
-            </div>
+        <!-- Comparison Point 2 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-950/50 border border-slate-800/80">
+          <div class="border-l-2 border-rose-500/80 pl-3">
+            <span class="text-xs font-bold text-rose-400 uppercase tracking-wider">Diseño Original (Problema)</span>
+            <h4 class="text-sm font-semibold text-white mt-1">Alerta de Sobrecosto Oculta</h4>
+            <p class="text-xs text-slate-400 mt-1">En "Torre Corporativa Reforma", el sobrecosto del <strong class="text-white">22.50%</strong> era un simple texto secundario grisáceo. Un residente o director de obra no detecta el riesgo financiero de un vistazo.</p>
           </div>
-
-          <!-- Divisa -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Moneda del Proyecto</label>
-              <select id="wiz-currency-select" onchange="onWizardCurrencyChange(this.value)" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white font-medium">
-                <option value="MXN" data-sym="$">MXN - Peso Mexicano ($)</option>
-                <option value="USD" data-sym="$">USD - Dólar Estadounidense ($)</option>
-                <option value="EUR" data-sym="€">EUR - Euro (€)</option>
-                <option value="COP" data-sym="$">COP - Peso Colombiano ($)</option>
-              </select>
-            </div>
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Símbolo Monetario</label>
-              <input type="text" id="wiz-currency-symbol" value="$" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono font-bold bg-slate-50">
-            </div>
+          <div class="border-l-2 border-emerald-500/80 pl-3">
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Propuesta Rediseñada (Solución)</span>
+            <h4 class="text-sm font-semibold text-white mt-1">Semáforo de Salud Presupuestal</h4>
+            <p class="text-xs text-slate-400 mt-1">Insignias visuales de color: verde (0% sobrecosto) y ámbar/rojo con animación sutil cuando existe desviación financiera, permitiendo actuar de inmediato.</p>
           </div>
+        </div>
 
-          <!-- Sobrecosto Check & Porcentajes -->
-          <div class="border border-slate-200 rounded-xl p-3.5 space-y-3 bg-slate-50/50">
-            <div class="flex items-center justify-between">
-              <label class="font-bold text-slate-800 flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" id="wiz-apply-sobrecosto" checked onchange="updateWizardFactorPreview()" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
-                <span>Aplicar Factor de Sobrecosto a Matrices APU</span>
-              </label>
-              <span class="text-[11px] text-blue-700 font-mono font-bold" id="wiz-factor-preview">1.2584 (+25.84%)</span>
-            </div>
-
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-              <div>
-                <label class="block text-[11px] font-semibold text-slate-600 mb-1">% Indirectos</label>
-                <input type="number" id="wiz-indirectos" value="12.00" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
-              </div>
-              <div>
-                <label class="block text-[11px] font-semibold text-slate-600 mb-1">% Financiamiento</label>
-                <input type="number" id="wiz-financiamiento" value="1.50" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
-              </div>
-              <div>
-                <label class="block text-[11px] font-semibold text-slate-600 mb-1">% Utilidad</label>
-                <input type="number" id="wiz-utilidad" value="10.00" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
-              </div>
-              <div>
-                <label class="block text-[11px] font-semibold text-slate-600 mb-1">% Cargos Adic.</label>
-                <input type="number" id="wiz-adicionales" value="0.50" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
-              </div>
-            </div>
+        <!-- Comparison Point 3 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-950/50 border border-slate-800/80">
+          <div class="border-l-2 border-rose-500/80 pl-3">
+            <span class="text-xs font-bold text-rose-400 uppercase tracking-wider">Diseño Original (Problema)</span>
+            <h4 class="text-sm font-semibold text-white mt-1">Parálisis por Exceso de Botones en Tarjetas</h4>
+            <p class="text-xs text-slate-400 mt-1">Cada tarjeta tenía "Abrir", "Pestaña Nueva", botón de clonar y botón de borrar. Genera ruido cognitivo y riesgo de clics erróneos al eliminar.</p>
           </div>
+          <div class="border-l-2 border-emerald-500/80 pl-3">
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Propuesta Rediseñada (Solución)</span>
+            <h4 class="text-sm font-semibold text-white mt-1">Acción Principal Clara + Menú Contextual (···)</h4>
+            <p class="text-xs text-slate-400 mt-1">Un único botón principal de entrada ("Abrir Proyecto"), y las acciones secundarias (abrir en pestaña, duplicar, exportar Excel o eliminar) dentro de un menú limpio de tres puntos.</p>
+          </div>
+        </div>
 
-          <!-- Plantilla Inicial -->
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Contenido Inicial del Proyecto</label>
-            <div class="grid grid-cols-2 gap-3 text-xs">
-              <label class="p-2.5 bg-slate-50 border-2 border-blue-500 rounded-lg cursor-pointer flex items-start gap-2 select-none" id="lbl-tpl-demo">
-                <input type="radio" name="wiz-template" value="demo" checked onchange="updateTemplateSelection()" class="mt-0.5 text-blue-600">
-                <div>
-                  <strong class="block text-slate-900 font-semibold">Con Catálogo Base de Muestra</strong>
-                  <span class="text-[10px] text-slate-500">Incluye partidas de Cimentación, Estructuras y Acabados con insumos.</span>
-                </div>
-              </label>
-              <label class="p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer flex items-start gap-2 select-none" id="lbl-tpl-blank">
-                <input type="radio" name="wiz-template" value="blank" onchange="updateTemplateSelection()" class="mt-0.5 text-blue-600">
-                <div>
-                  <strong class="block text-slate-900 font-semibold">Proyecto en Blanco</strong>
-                  <span class="text-[10px] text-slate-500">Para comenzar a estructurar desde cero o importar catálogo propio.</span>
-                </div>
-              </label>
-            </div>
+        <!-- Comparison Point 4 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-950/50 border border-slate-800/80">
+          <div class="border-l-2 border-rose-500/80 pl-3">
+            <span class="text-xs font-bold text-rose-400 uppercase tracking-wider">Diseño Original (Problema)</span>
+            <h4 class="text-sm font-semibold text-white mt-1">Contraste Agresivo y Barra de Filtros Flotante</h4>
+            <p class="text-xs text-slate-400 mt-1">Un fondo negro/azul con rectángulos blancos brillantes generaba fatiga visual rápida. Los filtros estaban dispersos y desconectados del flujo.</p>
+          </div>
+          <div class="border-l-2 border-emerald-500/80 pl-3">
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Propuesta Rediseñada (Solución)</span>
+            <h4 class="text-sm font-semibold text-white mt-1">Diseño Cohesivo + Vista Conmutable (Tarjetas / Tabla)</h4>
+            <p class="text-xs text-slate-400 mt-1">Paleta oscura profesional con jerarquía sutil en bordes y elevaciones. Además, se añade la opción de ver los proyectos en tabla tipo hoja de cálculo para análisis masivo.</p>
           </div>
         </div>
 
       </div>
 
-      <!-- Pie del Modal con Navegación -->
-      <div class="bg-slate-100 p-3.5 border-t border-slate-200 flex items-center justify-between shrink-0">
-        <button type="button" id="btn-wiz-prev" onclick="goToWizardStep(1)" class="hidden px-3.5 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-200 rounded-lg text-xs font-semibold transition cursor-pointer">
-          <i class="fa-solid fa-arrow-left mr-1"></i> Anterior
+      <!-- Modal Footer -->
+      <div class="px-6 py-3 border-t border-slate-800 bg-slate-950/80 flex justify-end">
+        <button onclick="toggleComparisonModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition cursor-pointer">
+          Entendido, volver al prototipo
         </button>
-        <button type="button" id="btn-wiz-cancel" onclick="closeNuevoProyectoModal()" class="px-3.5 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-200 rounded-lg text-xs font-semibold transition cursor-pointer">
-          Cancelar
-        </button>
-
-        <div class="ml-auto flex items-center gap-2">
-          <button type="button" id="btn-wiz-next" onclick="goToWizardStep(2)" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition cursor-pointer">
-            Siguiente: Sobrecosto <i class="fa-solid fa-arrow-right ml-1"></i>
-          </button>
-          <button type="button" id="btn-wiz-finish" onclick="finalizeCreateProject()" class="hidden px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition cursor-pointer">
-            <i class="fa-solid fa-check mr-1"></i> Crear Proyecto
-          </button>
-        </div>
       </div>
 
     </div>
   </div>
 
-  <!-- ========================================== -->
-  <!-- MODAL: EDITAR PERFIL DE USUARIO -->
-  <!-- ========================================== -->
-  <div id="modal-perfil-usuario" class="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
-    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden flex flex-col">
-      <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
-        <h3 class="font-bold text-sm flex items-center gap-2">
-          <i class="fa-solid fa-user-gear text-blue-400"></i> Mi Perfil Profesional
-        </h3>
-        <button onclick="closeProfileModal()" class="text-slate-400 hover:text-white cursor-pointer">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <div class="p-4 space-y-3.5 overflow-y-auto max-h-[75vh] custom-scroll text-xs">
-        <!-- Avatar Preview y Selector Dinámico según Sexo -->
-        <div class="flex items-center gap-3.5 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-          <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-blue-500 bg-white flex items-center justify-center shadow-sm shrink-0">
-            <img id="profile-edit-avatar-img" src="" alt="Avatar" class="w-full h-full object-cover">
-          </div>
-          <div class="space-y-1.5 flex-1">
-            <span class="font-bold text-slate-800 text-xs block">Foto / Avatar de Perfil</span>
-            <div class="flex flex-wrap gap-1">
-              <button onclick="selectProfileAvatar('avatar-m')" class="px-2 py-0.5 bg-white border border-slate-200 hover:border-blue-400 rounded text-[10px] cursor-pointer">👷‍♂️ Arq. Masc.</button>
-              <button onclick="selectProfileAvatar('avatar-f')" class="px-2 py-0.5 bg-white border border-slate-200 hover:border-blue-400 rounded text-[10px] cursor-pointer">👷‍♀️ Arq. Fem.</button>
-              <button onclick="selectProfileAvatar('avatar-neutral')" class="px-2 py-0.5 bg-white border border-slate-200 hover:border-blue-400 rounded text-[10px] cursor-pointer">👷 Neutral</button>
-            </div>
-            <label class="inline-block text-[10px] text-blue-600 hover:underline cursor-pointer">
-              <i class="fa-solid fa-camera mr-0.5"></i> Subir foto personalizada
-              <input type="file" accept="image/*" class="hidden" onchange="handleProfilePhotoUpload(event)">
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Nombre Completo *</label>
-          <input type="text" id="profile-edit-name" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold">
-        </div>
-
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Correo Electrónico *</label>
-          <input type="email" id="profile-edit-email" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-mono">
-        </div>
-
-        <div class="grid grid-cols-2 gap-2.5">
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Sexo *</label>
-            <select id="profile-edit-sexo" onchange="onProfileEditSexoChange(this.value)" class="w-full border border-slate-300 rounded-lg p-2 text-xs bg-white">
-              <option value="Masculino">Masculino</option>
-              <option value="Femenino">Femenino</option>
-              <option value="Otro">Otro / Prefiero no decir</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Fecha de Nacimiento *</label>
-            <input type="date" id="profile-edit-dob" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs">
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-slate-100 p-3 border-t border-slate-200 flex justify-end gap-2">
-        <button onclick="closeProfileModal()" class="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg cursor-pointer">Cancelar</button>
-        <button onclick="saveProfileChanges()" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow cursor-pointer">Guardar Cambios</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- NOTIFICACIÓN TOAST -->
-  <div id="toast-msg" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl text-xs flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-200 z-50">
-    <i class="fa-solid fa-circle-check text-emerald-400"></i>
-    <span id="toast-text">Acción completada</span>
-  </div>
-
-  <!-- ========================================== -->
-  <!-- SCRIPT PROTOTIPO (100% AISLADO) -->
-  <!-- ========================================== -->
   <script>
-    // Claves aisladas de localStorage para no afectar la aplicación de producción
-    const STORAGE_KEY_USER = 'ADM_CONST_PROTOTYPE_USER_V1';
-    const STORAGE_KEY_PROJECTS = 'ADM_CONST_PROTOTYPE_PROJECTS_V1';
-
-    // Avatares temáticos según sexo (SVGs estilizados de arquitectos con casco)
-    const AVATARS_BY_SEX = {
-      'Masculino': "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%231e3a8a'/%3E%3Ccircle cx='50' cy='42' r='18' fill='%23fdba74'/%3E%3Cpath d='M26,34 Q50,14 74,34 L70,40 Q50,26 30,40 Z' fill='%23f59e0b'/%3E%3Cpath d='M24,88 C24,64 76,64 76,88 Z' fill='%232563eb'/%3E%3Cpolygon points='50,60 45,74 55,74' fill='%23ffffff'/%3E%3C/svg%3E",
-      'Femenino': "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23581c87'/%3E%3Ccircle cx='50' cy='42' r='18' fill='%23fed7aa'/%3E%3Cpath d='M26,34 Q50,14 74,34 L70,40 Q50,26 30,40 Z' fill='%23f59e0b'/%3E%3Cpath d='M24,88 C24,64 76,64 76,88 Z' fill='%237c3aed'/%3E%3Cpolygon points='50,60 45,74 55,74' fill='%23fbcfe8'/%3E%3C/svg%3E",
-      'Otro': "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23064e3b'/%3E%3Ccircle cx='50' cy='42' r='18' fill='%23fbcfe8'/%3E%3Cpath d='M26,34 Q50,14 74,34 L70,40 Q50,26 30,40 Z' fill='%23ffffff'/%3E%3Cpath d='M24,88 C24,64 76,64 76,88 Z' fill='%23059669'/%3E%3Cpolygon points='50,60 45,74 55,74' fill='%23a7f3d0'/%3E%3C/svg%3E"
-    };
-
-    // Cuentas de demostración de Google con foto de perfil real
-    const GOOGLE_PRESET_ACCOUNTS = [
-      {
-        name: "Arq. Carlos Alberto Gómez",
-        email: "carlos.gomez.arq@gmail.com",
-        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-        sexo: "Masculino",
-        dob: "1990-08-14"
-      },
-      {
-        name: "Ing. Mariana Torres Morales",
-        email: "mariana.torres.costos@gmail.com",
-        avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
-        sexo: "Femenino",
-        dob: "1993-04-22"
-      }
-    ];
-
-    // Logotipos de muestra
-    const SAMPLE_LOGOS = {
-      shield: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50,10 L85,25 L85,55 C85,75 50,92 50,92 C50,92 15,75 15,55 L15,25 Z' fill='%232563eb'/%3E%3Cpath d='M35,48 L46,59 L68,36' fill='none' stroke='white' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E",
-      building: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='16' fill='%230f172a'/%3E%3Cpath d='M25,80 L25,35 L45,20 L45,80 Z' fill='%2338bdf8'/%3E%3Cpath d='M45,80 L45,35 L75,35 L75,80 Z' fill='%230284c7'/%3E%3C/svg%3E"
-    };
-
-    // Estado del prototipo
-    let appState = {
-      currentUser: null,
-      projects: [],
-      activeProject: null,
-      authMode: 'login', // 'login' | 'register'
-      selectedRegSexo: 'Masculino',
-      customPhoto: null,
-      wizardData: {
-        step: 1,
-        logo: '',
-        companyName: '',
-        projectName: '',
-        projectLocation: '',
-        currency: 'MXN',
-        currencySymbol: '$',
-        applySobrecosto: true,
-        indirectos: 12.00,
-        financiamiento: 1.50,
-        utilidad: 10.00,
-        adicionales: 0.50,
-        template: 'demo'
-      }
-    };
-
-    function showToast(text, isSuccess = true) {
-      const toast = document.getElementById('toast-msg');
-      const textEl = document.getElementById('toast-text');
-      if (!toast || !textEl) return;
-      textEl.innerText = text;
-      toast.className = `fixed bottom-5 right-5 ${isSuccess ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'} px-4 py-2.5 rounded-xl shadow-2xl text-xs flex items-center gap-2 transform translate-y-0 opacity-100 transition-all duration-200 z-50`;
-      setTimeout(() => {
-        toast.className = "fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl text-xs flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-200 z-50";
-      }, 2500);
+    function toggleProfileDropdown() {
+      const drop = document.getElementById('profileDropdown');
+      drop.classList.toggle('hidden');
     }
 
-    function init() {
-      loadStoredData();
-      
-      const urlParams = new URLSearchParams(window.location.search);
-      const projIdFromUrl = urlParams.get('project');
-
-      if (projIdFromUrl && appState.currentUser) {
-        const found = appState.projects.find(p => p.id === projIdFromUrl);
-        if (found) {
-          openWorkspace(found.id);
-          return;
-        }
+    // Toggle Card 3-Dots Action Menu
+    function toggleCardMenu(id) {
+      const menu = document.getElementById(id);
+      const isHidden = menu.classList.contains('hidden');
+      // Hide any open menus first
+      document.querySelectorAll('[id^="menu-card-"]').forEach(el => el.classList.add('hidden'));
+      if (isHidden) {
+        menu.classList.remove('hidden');
       }
+    }
 
-      if (appState.currentUser) {
-        renderDashboard();
+    // Close menus on outside click
+    window.addEventListener('click', function(e) {
+      if (!e.target.closest('.relative')) {
+        document.querySelectorAll('[id^="menu-card-"]').forEach(el => el.classList.add('hidden'));
+        const pd = document.getElementById('profileDropdown');
+        if (pd) pd.classList.add('hidden');
+      }
+    });
+
+    // Toggle Modal
+    function toggleComparisonModal() {
+      const modal = document.getElementById('comparisonModal');
+      modal.classList.toggle('hidden');
+    }
+
+    // Switch between Grid view and Table/List view
+    function switchView(view) {
+      const grid = document.getElementById('projectsGrid');
+      const table = document.getElementById('projectsTable');
+      const btnGrid = document.getElementById('viewGridBtn');
+      const btnList = document.getElementById('viewListBtn');
+
+      if (view === 'grid') {
+        grid.classList.remove('hidden');
+        table.classList.add('hidden');
+        btnGrid.classList.add('text-blue-400', 'bg-slate-800');
+        btnGrid.classList.remove('text-slate-400');
+        btnList.classList.remove('text-blue-400', 'bg-slate-800');
+        btnList.classList.add('text-slate-400');
       } else {
-        renderAuthView();
+        grid.classList.add('hidden');
+        table.classList.remove('hidden');
+        btnList.classList.add('text-blue-400', 'bg-slate-800');
+        btnList.classList.remove('text-slate-400');
+        btnGrid.classList.remove('text-blue-400', 'bg-slate-800');
+        btnGrid.classList.add('text-slate-400');
       }
     }
 
-    function loadStoredData() {
-      try {
-        const savedUser = localStorage.getItem(STORAGE_KEY_USER);
-        if (savedUser) appState.currentUser = JSON.parse(savedUser);
+    // Dynamic Filter Functionality
+    function filterProjects() {
+      const query = document.getElementById('searchInput').value.toLowerCase();
+      const empresa = document.getElementById('empresaFilter').value;
+      const tipo = document.getElementById('tipoFilter').value;
+      const status = document.getElementById('statusFilter').value;
 
-        const savedProj = localStorage.getItem(STORAGE_KEY_PROJECTS);
-        if (savedProj) {
-          appState.projects = JSON.parse(savedProj);
+      const cards = document.querySelectorAll('.project-card');
+      const rows = document.querySelectorAll('.table-project-row');
+      let visibleCount = 0;
+
+      cards.forEach(card => {
+        const name = (card.dataset.name || '').toLowerCase();
+        const cardCompany = card.dataset.company || '';
+        const cardType = card.dataset.type || '';
+        const cardStatus = card.dataset.status || '';
+
+        const matchesQuery = name.includes(query) || card.textContent.toLowerCase().includes(query);
+        const matchesEmpresa = (empresa === 'all') || (cardCompany === empresa);
+        const matchesTipo = (tipo === 'all') || (cardType === tipo);
+        const matchesStatus = (status === 'all') || (cardStatus === status);
+
+        if (matchesQuery && matchesEmpresa && matchesTipo && matchesStatus) {
+          card.classList.remove('hidden');
+          visibleCount++;
         } else {
-          appState.projects = [
-            {
-              id: 'proj-demo-01',
-              companyName: 'Constructora Lomas del Ángel S.A.',
-              companyLogo: SAMPLE_LOGOS.shield,
-              projectName: 'Residencia Lomas Altas (Fase 1)',
-              projectLocation: 'Av. Paseo de las Lomas 1240, CDMX',
-              currency: 'MXN',
-              currencySymbol: '$',
-              factorSobrecosto: 1.2584,
-              totalPresupuesto: 2845600.00,
-              conceptCount: 38,
-              partidasCount: 4,
-              createdAt: '2026-10-25'
-            },
-            {
-              id: 'proj-demo-02',
-              companyName: 'Grupo Constructor Metrópoli',
-              companyLogo: SAMPLE_LOGOS.building,
-              projectName: 'Torre Corporativa Reforma',
-              projectLocation: 'Paseo de la Reforma 405, Cuauhtémoc, CDMX',
-              currency: 'USD',
-              currencySymbol: '$',
-              factorSobrecosto: 1.2215,
-              totalPresupuesto: 465200.00,
-              conceptCount: 64,
-              partidasCount: 6,
-              createdAt: '2026-10-29'
-            }
-          ];
-          saveProjects();
+          card.classList.add('hidden');
         }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    function saveUser() {
-      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(appState.currentUser));
-    }
-
-    function saveProjects() {
-      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(appState.projects));
-    }
-
-    // ==========================================
-    // PORTADA DE INICIO (INICIAR SESIÓN / REGISTRO)
-    // ==========================================
-    function renderAuthView(initialTab = null) {
-      if (initialTab) appState.authMode = initialTab;
-      updateHeaderUserArea(null);
-      const main = document.getElementById('main-app-container');
-
-      // Comprobar si hay una cuenta guardada en este equipo
-      let savedUser = null;
-      try {
-        const u = localStorage.getItem(STORAGE_KEY_USER);
-        if (u) savedUser = JSON.parse(u);
-      } catch(e) {}
-
-      main.innerHTML = `
-        <div class="max-w-xl mx-auto w-full bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto animate-in fade-in duration-200">
-          
-          <!-- Encabezado de la Portada -->
-          <div class="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white p-6 sm:p-7 text-center relative overflow-hidden">
-            <div class="w-12 h-12 mx-auto mb-2.5 rounded-2xl bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-blue-400 text-xl shadow-lg shadow-blue-600/20">
-              <i class="fa-solid fa-hard-hat"></i>
-            </div>
-            <h1 class="text-xl sm:text-2xl font-black tracking-tight">Sistema de Control de Obra</h1>
-            <p class="text-xs text-slate-300 mt-1 max-w-sm mx-auto">
-              Presupuestos Base, Matrices de Precios Unitarios (APU) e Insumos Generales
-            </p>
-          </div>
-
-          <!-- Botón Rápido Universal: Registrarse / Conectar con Gmail -->
-          <div class="px-6 sm:px-8 pt-5 pb-1">
-            <button type="button" onclick="triggerGoogleSignIn()" class="w-full bg-white hover:bg-slate-50 active:scale-98 text-slate-800 border-2 border-slate-200 hover:border-slate-300 font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition flex items-center justify-center gap-2.5 group cursor-pointer">
-              <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-              </svg>
-              <span class="group-hover:text-blue-700 transition">Continuar / Registrarse con Google (Gmail)</span>
-            </button>
-
-            <!-- Separador -->
-            <div class="relative flex items-center justify-center my-4">
-              <div class="border-t border-slate-200 w-full"></div>
-              <span class="bg-white px-3 text-[10px] text-slate-400 font-medium uppercase tracking-wider relative">o utiliza tu cuenta de correo</span>
-            </div>
-          </div>
-
-          <!-- Selector de Modo: Iniciar Sesión vs Registrarse -->
-          <div class="px-6 sm:px-8">
-            <div class="flex p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
-              <button type="button" onclick="switchAuthTab('login')" id="btn-tab-login" class="flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${appState.authMode === 'login' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'}">
-                <i class="fa-solid fa-right-to-bracket text-[11px]"></i> Iniciar Sesión
-              </button>
-              <button type="button" onclick="switchAuthTab('register')" id="btn-tab-register" class="flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${appState.authMode === 'register' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'}">
-                <i class="fa-solid fa-user-plus text-[11px]"></i> Registrarse
-              </button>
-            </div>
-          </div>
-
-          <!-- ============================================== -->
-          <!-- SECCIÓN: INICIAR SESIÓN -->
-          <!-- ============================================== -->
-          <div id="section-login" class="${appState.authMode === 'login' ? '' : 'hidden'} px-6 sm:px-8 py-5 space-y-4">
-            
-            ${savedUser ? `
-              <!-- Acceso rápido si ya tiene un perfil guardado -->
-              <div class="p-3 bg-blue-50/70 border border-blue-200 rounded-2xl flex items-center justify-between gap-3">
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <div class="w-11 h-11 rounded-full overflow-hidden border-2 border-blue-600 bg-white shrink-0 shadow-xs">
-                    <img src="${savedUser.avatar}" alt="Avatar" class="w-full h-full object-cover">
-                  </div>
-                  <div class="min-w-0">
-                    <span class="text-[10px] text-blue-700 font-bold uppercase tracking-wider block">Perfil Detectado</span>
-                    <strong class="text-xs font-bold text-slate-900 block truncate">${savedUser.name}</strong>
-                    <span class="text-[11px] text-slate-500 font-mono truncate block">${savedUser.email}</span>
-                  </div>
-                </div>
-                <button type="button" onclick="quickLoginWithSavedUser()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow transition shrink-0 flex items-center gap-1.5 active:scale-95 cursor-pointer">
-                  <span>Entrar</span> <i class="fa-solid fa-arrow-right text-[10px]"></i>
-                </button>
-              </div>
-              <div class="text-center text-[11px] text-slate-400">O ingresa con otro correo electrónico:</div>
-            ` : ''}
-
-            <form onsubmit="handleLoginSubmit(event)" class="space-y-3.5">
-              <div>
-                <label class="block font-bold text-xs text-slate-700 mb-1">Correo Electrónico Registrado *</label>
-                <div class="relative">
-                  <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
-                    <i class="fa-solid fa-envelope text-xs"></i>
-                  </span>
-                  <input type="email" id="login-email" required placeholder="tu-correo@constructora.com" 
-                         class="w-full pl-9 pr-3 py-2 border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs font-mono text-slate-800 transition">
-                </div>
-              </div>
-
-              <button type="submit" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold text-xs py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 active:scale-98 cursor-pointer">
-                <i class="fa-solid fa-right-to-bracket text-xs"></i>
-                <span>Iniciar Sesión e Ir a Mi Perfil</span>
-              </button>
-            </form>
-
-            <p class="text-center text-xs text-slate-500 pt-1">
-              ¿No tienes una cuenta aún? <button type="button" onclick="switchAuthTab('register')" class="text-blue-600 font-bold hover:underline cursor-pointer">Regístrate aquí</button>
-            </p>
-          </div>
-
-          <!-- ============================================== -->
-          <!-- SECCIÓN: REGISTRARSE (NUEVO USUARIO) -->
-          <!-- ============================================== -->
-          <div id="section-register" class="${appState.authMode === 'register' ? '' : 'hidden'} px-6 sm:px-8 py-5 space-y-3.5">
-            
-            <!-- Banner Dinámico de Google Auto-fill -->
-            <div id="google-autofill-banner" class="hidden p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-xs flex items-start gap-2.5 animate-in fade-in">
-              <i class="fa-brands fa-google text-emerald-600 text-base mt-0.5 shrink-0"></i>
-              <div class="space-y-0.5 flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                  <strong class="font-bold text-emerald-950">Datos auto-rellenados desde Gmail</strong>
-                  <span class="text-[9px] bg-emerald-200/80 text-emerald-900 px-1.5 py-0.2 rounded font-mono font-bold">Verificado</span>
-                </div>
-                <p class="text-[11px] text-emerald-700 leading-snug">
-                  Se cargaron tu foto de perfil, nombre y correo. <strong>Puedes editar cualquiera de los campos abajo</strong> a tu gusto antes de confirmar.
-                </p>
-              </div>
-            </div>
-
-            <form onsubmit="handleRegisterSubmit(event)" class="space-y-3.5">
-              
-              <!-- 1. SEXO (Determina automáticamente el avatar inicial) -->
-              <div>
-                <label class="block font-bold text-xs text-slate-700 mb-1.5">1. Selecciona tu Sexo * (Asigna tu Avatar temático)</label>
-                <div class="grid grid-cols-3 gap-2">
-                  <button type="button" onclick="setRegSexo('Masculino')" id="btn-sexo-masc" class="p-2 border-2 border-blue-600 bg-blue-50/60 rounded-xl text-xs font-bold text-blue-900 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                    <span>👷‍♂️</span> Masculino
-                  </button>
-                  <button type="button" onclick="setRegSexo('Femenino')" id="btn-sexo-fem" class="p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-medium text-slate-700 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                    <span>👷‍♀️</span> Femenino
-                  </button>
-                  <button type="button" onclick="setRegSexo('Otro')" id="btn-sexo-otro" class="p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-medium text-slate-700 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                    <span>👷</span> Otro
-                  </button>
-                </div>
-              </div>
-
-              <!-- 2. FOTO / AVATAR RESULTANTE -->
-              <div class="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-3.5">
-                <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-blue-600 bg-white flex items-center justify-center shrink-0 shadow-xs">
-                  <img id="reg-avatar-preview" src="${AVATARS_BY_SEX['Masculino']}" alt="Avatar" class="w-full h-full object-cover">
-                </div>
-                <div class="space-y-1 flex-1 min-w-0">
-                  <div class="flex items-center justify-between">
-                    <strong class="font-bold text-xs text-slate-800" id="reg-avatar-label">Avatar asignado según sexo</strong>
-                    <span class="text-[9px] text-blue-700 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">Auto</span>
-                  </div>
-                  <p class="text-[10px] text-slate-500">Puedes conservar este avatar temático o subir tu propia fotografía.</p>
-                  <label class="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 cursor-pointer pt-0.5">
-                    <i class="fa-solid fa-camera text-[10px]"></i> Subir mi propia foto
-                    <input type="file" accept="image/*" class="hidden" onchange="handleCustomPhotoUpload(event)">
-                  </label>
-                </div>
-              </div>
-
-              <!-- 3. NOMBRE COMPLETO -->
-              <div>
-                <label class="block font-bold text-xs text-slate-700 mb-1">2. Nombre Completo *</label>
-                <div class="relative">
-                  <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
-                    <i class="fa-solid fa-user text-xs"></i>
-                  </span>
-                  <input type="text" id="reg-fullname" required placeholder="Ej. Arq. Carlos Alberto Gómez" 
-                         class="w-full pl-9 pr-3 py-2 border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs font-semibold text-slate-800 transition">
-                </div>
-              </div>
-
-              <!-- 4. CORREO ELECTRÓNICO -->
-              <div>
-                <label class="block font-bold text-xs text-slate-700 mb-1">3. Correo Electrónico *</label>
-                <div class="relative">
-                  <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
-                    <i class="fa-solid fa-envelope text-xs"></i>
-                  </span>
-                  <input type="email" id="reg-email" required placeholder="tu-correo@constructora.com" 
-                         class="w-full pl-9 pr-3 py-2 border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs font-mono text-slate-800 transition">
-                </div>
-              </div>
-
-              <!-- 5. FECHA DE NACIMIENTO -->
-              <div>
-                <label class="block font-bold text-xs text-slate-700 mb-1">4. Fecha de Nacimiento *</label>
-                <input type="date" id="reg-dob" required value="1992-06-15" class="w-full border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl p-2 text-xs font-sans">
-              </div>
-
-              <button type="submit" id="btn-submit-reg" class="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-98 text-white font-bold text-xs py-2.5 rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2 cursor-pointer">
-                <span>Crear Perfil y Entrar a Mis Proyectos</span>
-                <i class="fa-solid fa-arrow-right text-xs"></i>
-              </button>
-            </form>
-
-            <p class="text-center text-xs text-slate-500 pt-1">
-              ¿Ya tienes una cuenta? <button type="button" onclick="switchAuthTab('login')" class="text-blue-600 font-bold hover:underline cursor-pointer">Inicia sesión aquí</button>
-            </p>
-          </div>
-
-        </div>
-      `;
-    }
-
-    // Cambiar entre Iniciar Sesión y Registrarse
-    function switchAuthTab(tab) {
-      appState.authMode = tab;
-      const secLogin = document.getElementById('section-login');
-      const secReg = document.getElementById('section-register');
-      const btnLogin = document.getElementById('btn-tab-login');
-      const btnReg = document.getElementById('btn-tab-register');
-
-      if (!secLogin || !secReg || !btnLogin || !btnReg) return;
-
-      if (tab === 'login') {
-        secLogin.classList.remove('hidden');
-        secReg.classList.add('hidden');
-        btnLogin.className = "flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 bg-white text-blue-700 shadow-xs cursor-pointer";
-        btnReg.className = "flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 text-slate-600 hover:text-slate-900 cursor-pointer";
-      } else {
-        secLogin.classList.add('hidden');
-        secReg.classList.remove('hidden');
-        btnLogin.className = "flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 text-slate-600 hover:text-slate-900 cursor-pointer";
-        btnReg.className = "flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 bg-white text-blue-700 shadow-xs cursor-pointer";
-      }
-    }
-
-    // Actualizar avatar al cambiar el sexo en el formulario de registro
-    function setRegSexo(sexo) {
-      appState.selectedRegSexo = sexo;
-      const btnM = document.getElementById('btn-sexo-masc');
-      const btnF = document.getElementById('btn-sexo-fem');
-      const btnO = document.getElementById('btn-sexo-otro');
-      const preview = document.getElementById('reg-avatar-preview');
-      const label = document.getElementById('reg-avatar-label');
-
-      if (btnM) btnM.className = (sexo === 'Masculino') ? "p-2 border-2 border-blue-600 bg-blue-50/60 rounded-xl text-xs font-bold text-blue-900 flex items-center justify-center gap-1.5 transition cursor-pointer" : "p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-medium text-slate-700 flex items-center justify-center gap-1.5 transition cursor-pointer";
-      if (btnF) btnF.className = (sexo === 'Femenino') ? "p-2 border-2 border-purple-600 bg-purple-50/60 rounded-xl text-xs font-bold text-purple-900 flex items-center justify-center gap-1.5 transition cursor-pointer" : "p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-medium text-slate-700 flex items-center justify-center gap-1.5 transition cursor-pointer";
-      if (btnO) btnO.className = (sexo === 'Otro') ? "p-2 border-2 border-emerald-600 bg-emerald-50/60 rounded-xl text-xs font-bold text-emerald-900 flex items-center justify-center gap-1.5 transition cursor-pointer" : "p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-medium text-slate-700 flex items-center justify-center gap-1.5 transition cursor-pointer";
-
-      // Si no ha subido una foto personalizada, asignar el avatar correspondiente al sexo
-      if (!appState.customPhoto && preview) {
-        preview.src = AVATARS_BY_SEX[sexo] || AVATARS_BY_SEX['Masculino'];
-      }
-      if (label) {
-        label.innerText = appState.customPhoto ? 'Foto personalizada cargada' : `Avatar temático (${sexo})`;
-      }
-    }
-
-    function handleCustomPhotoUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        appState.customPhoto = evt.target.result;
-        const preview = document.getElementById('reg-avatar-preview');
-        const label = document.getElementById('reg-avatar-label');
-        if (preview) preview.src = appState.customPhoto;
-        if (label) label.innerText = 'Foto personalizada cargada';
-        showToast('Foto cargada exitosamente');
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // Enviar Registro
-    function handleRegisterSubmit(e) {
-      e.preventDefault();
-      const name = document.getElementById('reg-fullname').value.trim();
-      const email = document.getElementById('reg-email').value.trim();
-      const dob = document.getElementById('reg-dob').value;
-      const sexo = appState.selectedRegSexo;
-      const avatar = appState.customPhoto || AVATARS_BY_SEX[sexo] || AVATARS_BY_SEX['Masculino'];
-
-      appState.currentUser = {
-        name,
-        email,
-        sexo,
-        dob,
-        avatar,
-        registeredAt: new Date().toISOString()
-      };
-      saveUser();
-      showToast(`¡Bienvenido, ${name}! Tu perfil ha sido creado.`);
-      renderDashboard();
-    }
-
-    // Iniciar Sesión con correo existente
-    function handleLoginSubmit(e) {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value.trim().toLowerCase();
-
-      // Verificar si hay usuario guardado con este correo
-      let savedUser = null;
-      try {
-        const u = localStorage.getItem(STORAGE_KEY_USER);
-        if (u) savedUser = JSON.parse(u);
-      } catch(e) {}
-
-      if (savedUser && savedUser.email && savedUser.email.toLowerCase() === email) {
-        appState.currentUser = savedUser;
-        showToast(`¡Hola de nuevo, ${savedUser.name}!`);
-        renderDashboard();
-      } else {
-        // Si no existe, invitar a registrarse
-        if (confirm(`No encontramos un perfil registrado con el correo "${email}". ¿Deseas crear tu perfil ahora?`)) {
-          switchAuthTab('register');
-          const regEmail = document.getElementById('reg-email');
-          if (regEmail) regEmail.value = email;
-        }
-      }
-    }
-
-    function quickLoginWithSavedUser() {
-      let savedUser = null;
-      try {
-        const u = localStorage.getItem(STORAGE_KEY_USER);
-        if (u) savedUser = JSON.parse(u);
-      } catch(e) {}
-
-      if (savedUser) {
-        appState.currentUser = savedUser;
-        showToast(`Sesión iniciada como ${savedUser.name}`);
-        renderDashboard();
-      }
-    }
-
-    // ==========================================
-    // CONECTOR GOOGLE / GMAIL AUTO-FILL
-    // ==========================================
-    function triggerGoogleSignIn() {
-      const modal = document.getElementById('modal-google-auth');
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      }
-    }
-
-    function closeGoogleAuthModal() {
-      const modal = document.getElementById('modal-google-auth');
-      if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-      }
-    }
-
-    function selectGoogleAccount(index) {
-      const account = GOOGLE_PRESET_ACCOUNTS[index];
-      if (!account) return;
-      applyGoogleDataToAuth(account);
-      closeGoogleAuthModal();
-    }
-
-    function submitCustomGoogleAccount() {
-      const name = document.getElementById('custom-google-name').value.trim();
-      const email = document.getElementById('custom-google-email').value.trim();
-      if (!name || !email) {
-        alert('Por favor ingresa tu nombre y correo Gmail.');
-        return;
-      }
-      if (!email.toLowerCase().includes('@')) {
-        alert('Por favor ingresa un correo electrónico válido.');
-        return;
-      }
-
-      const initial = name.charAt(0).toUpperCase();
-      const svgAvatar = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23ea4335'/%3E%3Ctext x='50' y='64' font-size='42' font-family='Arial,sans-serif' font-weight='bold' fill='white' text-anchor='middle'%3E${initial}%3C/text%3E%3C/svg%3E`;
-
-      applyGoogleDataToAuth({
-        name: name,
-        email: email,
-        avatar: svgAvatar,
-        sexo: 'Masculino',
-        dob: '1992-06-15'
-      });
-      closeGoogleAuthModal();
-    }
-
-    function applyGoogleDataToAuth(account) {
-      // Activar pestaña de registro para que vea todos los datos auto-rellenados y pueda editarlos
-      switchAuthTab('register');
-
-      const nameEl = document.getElementById('reg-fullname');
-      const emailEl = document.getElementById('reg-email');
-      const dobEl = document.getElementById('reg-dob');
-      const previewEl = document.getElementById('reg-avatar-preview');
-      const banner = document.getElementById('google-autofill-banner');
-      const btnSubmit = document.getElementById('btn-submit-reg');
-
-      if (nameEl) nameEl.value = account.name;
-      if (emailEl) emailEl.value = account.email;
-      if (dobEl && account.dob) dobEl.value = account.dob;
-      
-      if (account.sexo) {
-        setRegSexo(account.sexo);
-      }
-      
-      if (account.avatar) {
-        appState.customPhoto = account.avatar;
-        if (previewEl) previewEl.src = account.avatar;
-      }
-
-      if (banner) {
-        banner.classList.remove('hidden');
-        banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-
-      if (btnSubmit) {
-        btnSubmit.innerHTML = `
-          <span>Confirmar Datos y Entrar a Mis Proyectos</span>
-          <i class="fa-solid fa-arrow-right text-xs"></i>
-        `;
-      }
-
-      showToast(`Datos auto-rellenados desde ${account.email}. Puedes editarlos abajo.`);
-    }
-
-    // ==========================================
-    // VISTA 2: DASHBOARD "MIS PROYECTOS"
-    // ==========================================
-    function renderDashboard() {
-      updateHeaderUserArea(appState.currentUser);
-      const main = document.getElementById('main-app-container');
-      const user = appState.currentUser;
-
-      main.innerHTML = `
-        <div class="max-w-6xl mx-auto w-full space-y-5 animate-in fade-in duration-200">
-          
-          <!-- Banner de Perfil del Usuario -->
-          <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div class="flex items-center gap-4">
-              <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-blue-400 bg-white shadow-md shrink-0 cursor-pointer" onclick="openProfileModal()" title="Haz clic para ver o editar tu perfil">
-                <img src="${user.avatar}" alt="Avatar" class="w-full h-full object-cover">
-              </div>
-              <div>
-                <div class="flex items-center gap-2">
-                  <h2 class="font-black text-lg sm:text-xl text-white tracking-tight">${user.name}</h2>
-                  <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">Perfil Activo</span>
-                </div>
-                <p class="text-xs text-slate-300 flex flex-wrap items-center gap-2 mt-1">
-                  <span><i class="fa-solid fa-envelope text-blue-400 mr-1"></i>${user.email}</span>
-                  <span>•</span>
-                  <span><i class="fa-solid fa-venus-mars text-purple-400 mr-1"></i>${user.sexo || 'No especificado'}</span>
-                  <span>•</span>
-                  <span><i class="fa-solid fa-layer-group text-blue-400 mr-1"></i>${appState.projects.length} Proyectos</span>
-                </p>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <button onclick="openProfileModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer">
-                <i class="fa-solid fa-user-pen"></i> Editar Mi Perfil
-              </button>
-              <button onclick="openNuevoProyectoModal()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center gap-2 cursor-pointer">
-                <i class="fa-solid fa-plus"></i> Nuevo Proyecto
-              </button>
-            </div>
-          </div>
-
-          <!-- Barra de Búsqueda y Filtros -->
-          <div class="flex items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
-            <div class="relative flex-1 max-w-md">
-              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
-                <i class="fa-solid fa-magnifying-glass text-xs"></i>
-              </span>
-              <input type="text" id="project-search" oninput="filterProjectCards(this.value)" placeholder="Buscar por proyecto, empresa o ubicación..." 
-                     class="w-full pl-9 pr-3 py-1.5 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs">
-            </div>
-            <span class="text-xs text-slate-500 font-bold font-mono" id="projects-counter-badge">${appState.projects.length} proyectos</span>
-          </div>
-
-          <!-- Cuadrícula de Proyectos -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="projects-grid">
-            ${renderProjectCardsHTML()}
-          </div>
-
-        </div>
-      `;
-    }
-
-    function renderProjectCardsHTML(filterQuery = '') {
-      if (appState.projects.length === 0) {
-        return `
-          <div class="col-span-full bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
-            <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl mx-auto">
-              <i class="fa-solid fa-folder-open"></i>
-            </div>
-            <h3 class="font-bold text-base text-slate-800">Aún no tienes proyectos creados</h3>
-            <p class="text-xs text-slate-500 max-w-sm mx-auto">Crea tu primer proyecto para comenzar a registrar partidas, APU e insumos generales con configuración personalizada.</p>
-            <button onclick="openNuevoProyectoModal()" class="mt-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition cursor-pointer">
-              <i class="fa-solid fa-plus mr-1"></i> Crear Proyecto Ahora
-            </button>
-          </div>
-        `;
-      }
-
-      const q = filterQuery.toLowerCase().trim();
-      const filtered = appState.projects.filter(p => {
-        if (!q) return true;
-        return (p.projectName && p.projectName.toLowerCase().includes(q)) ||
-               (p.companyName && p.companyName.toLowerCase().includes(q)) ||
-               (p.projectLocation && p.projectLocation.toLowerCase().includes(q));
       });
 
-      if (filtered.length === 0) {
-        return `
-          <div class="col-span-full bg-white rounded-3xl border border-slate-200 p-8 text-center text-xs text-slate-500">
-            No se encontraron proyectos que coincidan con "<strong>${filterQuery}</strong>".
-          </div>
-        `;
-      }
+      rows.forEach(row => {
+        const name = (row.dataset.name || '').toLowerCase();
+        const rowCompany = row.dataset.company || '';
+        const rowType = row.dataset.type || '';
+        const rowStatus = row.dataset.status || '';
 
-      return filtered.map(proj => `
-        <div class="bg-white rounded-2xl border border-slate-200 hover:border-blue-400 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col group">
-          
-          <!-- Encabezado de la Tarjeta con Logo y Empresa -->
-          <div class="p-4 border-b border-slate-100 flex items-start gap-3 bg-slate-50/50">
-            <div class="w-11 h-11 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
-              ${proj.companyLogo ? `<img src="${proj.companyLogo}" class="max-h-full max-w-full object-contain">` : `<i class="fa-solid fa-building text-slate-400"></i>`}
-            </div>
-            <div class="min-w-0 flex-1">
-              <span class="text-[10px] text-blue-600 font-bold uppercase tracking-wider block truncate">${proj.companyName}</span>
-              <h3 class="font-bold text-sm text-slate-900 truncate group-hover:text-blue-700 transition" title="${proj.projectName}">${proj.projectName}</h3>
-              <p class="text-[11px] text-slate-500 truncate flex items-center gap-1 mt-0.5">
-                <i class="fa-solid fa-location-dot text-rose-500 text-[10px]"></i>
-                <span title="${proj.projectLocation}">${proj.projectLocation}</span>
-              </p>
-            </div>
-          </div>
+        const matchesQuery = name.includes(query) || row.textContent.toLowerCase().includes(query);
+        const matchesEmpresa = (empresa === 'all') || (rowCompany === empresa);
+        const matchesTipo = (tipo === 'all') || (rowType === tipo);
+        const matchesStatus = (status === 'all') || (rowStatus === status);
 
-          <!-- Métricas del Proyecto -->
-          <div class="p-4 space-y-2.5 flex-1 text-xs">
-            <div class="flex items-center justify-between p-2 bg-slate-50 rounded-xl border border-slate-100">
-              <span class="text-slate-500 text-[11px]">Presupuesto Base:</span>
-              <span class="font-bold font-mono text-slate-900 text-sm">
-                ${proj.currencySymbol || '$'}${Number(proj.totalPresupuesto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span class="text-[10px] text-slate-400 font-sans">${proj.currency || 'MXN'}</span>
-              </span>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
-              <div class="flex items-center gap-1.5">
-                <i class="fa-solid fa-list-check text-blue-500 text-[10px]"></i>
-                <span>${proj.conceptCount || 0} conceptos</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <i class="fa-solid fa-percent text-amber-500 text-[10px]"></i>
-                <span>Sobrecosto: ${((Number(proj.factorSobrecosto || 1.2584) - 1) * 100).toFixed(2)}%</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Botones de Acción (Abrir en esta ventana vs Abrir en nueva pestaña) -->
-          <div class="p-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
-            <button onclick="openWorkspace('${proj.id}')" class="flex-1 bg-slate-900 hover:bg-blue-600 active:scale-95 text-white text-xs font-semibold py-1.5 px-3 rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" title="Entrar al espacio de trabajo en esta pestaña">
-              <i class="fa-solid fa-folder-open text-[11px]"></i> Abrir
-            </button>
-
-            <!-- ABRIR EN PESTAÑA INDEPENDIENTE -->
-            <button onclick="openInNewTab('${proj.id}')" class="bg-white hover:bg-slate-100 text-blue-700 border border-blue-200 text-xs font-semibold py-1.5 px-2.5 rounded-xl shadow-xs transition flex items-center gap-1 cursor-pointer" title="Abrir este proyecto en una pestaña independiente del navegador">
-              <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> Pestaña Nueva
-            </button>
-
-            <button onclick="duplicateProject('${proj.id}')" class="text-slate-400 hover:text-slate-700 p-1.5 rounded transition cursor-pointer" title="Duplicar proyecto">
-              <i class="fa-solid fa-copy text-xs"></i>
-            </button>
-
-            <button onclick="deleteProject('${proj.id}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded transition cursor-pointer" title="Eliminar proyecto">
-              <i class="fa-solid fa-trash-can text-xs"></i>
-            </button>
-          </div>
-
-        </div>
-      `).join('');
-    }
-
-    function filterProjectCards(query) {
-      const grid = document.getElementById('projects-grid');
-      if (grid) grid.innerHTML = renderProjectCardsHTML(query);
-    }
-
-    // ==========================================
-    // VISTA 3: SIMULADOR DE ESPACIO DE TRABAJO
-    // ==========================================
-    function openWorkspace(projectId) {
-      const proj = appState.projects.find(p => p.id === projectId);
-      if (!proj) return;
-      appState.activeProject = proj;
-
-      const main = document.getElementById('main-app-container');
-      main.innerHTML = `
-        <div class="max-w-6xl mx-auto w-full bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden flex flex-col h-[82vh] animate-in fade-in duration-150">
-          
-          <!-- Barra de navegación del Proyecto Abierto -->
-          <div class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between border-b border-slate-800">
-            <div class="flex items-center gap-3">
-              <button onclick="renderDashboard()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer">
-                <i class="fa-solid fa-arrow-left"></i> Mis Proyectos
-              </button>
-              <div class="h-5 w-px bg-slate-700"></div>
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center shrink-0">
-                  ${proj.companyLogo ? `<img src="${proj.companyLogo}" class="max-h-full max-w-full object-contain">` : `<i class="fa-solid fa-helmet-safety text-amber-500 text-sm"></i>`}
-                </div>
-                <div>
-                  <h3 class="font-bold text-xs text-white leading-tight">${proj.projectName}</h3>
-                  <p class="text-[10px] text-slate-400">${proj.companyName} • <span class="text-rose-400"><i class="fa-solid fa-location-dot mr-0.5"></i>${proj.projectLocation}</span></p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Pestañas Simuladas de la Aplicación -->
-            <div class="flex items-center gap-2">
-              <span class="bg-blue-600 text-white font-bold text-xs px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-sm">
-                <i class="fa-solid fa-list-check"></i> CATÁLOGO BASE
-              </span>
-              <span class="bg-slate-800 text-slate-300 font-bold text-xs px-3 py-1 rounded-xl flex items-center gap-1.5">
-                <i class="fa-solid fa-boxes-stacked"></i> INSUMOS GENERALES
-              </span>
-            </div>
-          </div>
-
-          <!-- Contenido de Demostración del Espacio de Trabajo -->
-          <div class="p-6 flex-1 overflow-y-auto bg-slate-50/50 space-y-4">
-            <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-emerald-900 flex items-start gap-3">
-              <i class="fa-solid fa-circle-check text-emerald-600 text-lg mt-0.5"></i>
-              <div>
-                <h4 class="font-bold text-sm">¡Proyecto cargado exitosamente en este espacio de trabajo!</h4>
-                <p class="text-xs text-emerald-700 mt-1 leading-relaxed">
-                  Has accedido a <strong>"${proj.projectName}"</strong>. En la aplicación definitiva, aquí operan las tablas completas de <strong>CATÁLOGO BASE</strong>, la edición en árbol, los análisis de <strong>Precios Unitarios (APU)</strong> y la matriz de <strong>INSUMOS GENERALES</strong> con aislamiento total por pestaña.
-                </p>
-                <div class="mt-3 flex items-center gap-2 text-xs font-mono">
-                  <span class="bg-white px-2.5 py-1 rounded-lg border border-emerald-200">ID: ${proj.id}</span>
-                  <span class="bg-white px-2.5 py-1 rounded-lg border border-emerald-200">Moneda: ${proj.currency} (${proj.currencySymbol})</span>
-                  <span class="bg-white px-2.5 py-1 rounded-lg border border-emerald-200">Sobrecosto: ${((Number(proj.factorSobrecosto || 1.2584) - 1) * 100).toFixed(2)}%</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Previsualización de Datos -->
-            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
-              <h5 class="font-bold text-xs text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-table-list text-blue-600"></i> Resumen del Presupuesto de esta Obra
-              </h5>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span class="text-[11px] text-slate-500 block">Total de Partidas</span>
-                  <span class="font-bold text-lg text-slate-800 font-mono">${proj.partidasCount || 0}</span>
-                </div>
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span class="text-[11px] text-slate-500 block">Conceptos de Obra</span>
-                  <span class="font-bold text-lg text-slate-800 font-mono">${proj.conceptCount || 0}</span>
-                </div>
-                <div class="p-3 bg-blue-50/60 rounded-xl border border-blue-100">
-                  <span class="text-[11px] text-blue-700 block font-medium">Importe Total Presupuestado</span>
-                  <span class="font-bold text-lg text-blue-900 font-mono">${proj.currencySymbol}${Number(proj.totalPresupuesto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      `;
-    }
-
-    // ABRIR PROYECTO EN PESTAÑA INDEPENDIENTE
-    function openInNewTab(projectId) {
-      const url = `${window.location.pathname}?project=${encodeURIComponent(projectId)}`;
-      window.open(url, '_blank');
-      showToast('Proyecto abierto en una nueva pestaña del navegador');
-    }
-
-    function duplicateProject(projectId) {
-      const orig = appState.projects.find(p => p.id === projectId);
-      if (!orig) return;
-      const copy = JSON.parse(JSON.stringify(orig));
-      copy.id = 'proj-' + Date.now();
-      copy.projectName = orig.projectName + ' (Copia)';
-      copy.createdAt = new Date().toISOString().slice(0, 10);
-      appState.projects.unshift(copy);
-      saveProjects();
-      renderDashboard();
-      showToast('Proyecto duplicado exitosamente');
-    }
-
-    function deleteProject(projectId) {
-      const p = appState.projects.find(x => x.id === projectId);
-      if (!p) return;
-      if (!confirm(`¿Deseas eliminar el proyecto "${p.projectName}"? Esta acción no se puede deshacer.`)) return;
-      appState.projects = appState.projects.filter(x => x.id !== projectId);
-      saveProjects();
-      renderDashboard();
-      showToast('Proyecto eliminado', false);
-    }
-
-    // ==========================================
-    // ASISTENTE NUEVO PROYECTO (WIZARD 2 PASOS)
-    // ==========================================
-    function openNuevoProyectoModal() {
-      appState.wizardData.step = 1;
-      appState.wizardData.logo = '';
-      clearWizardLogo();
-      
-      document.getElementById('wiz-company-name').value = '';
-      document.getElementById('wiz-project-name').value = '';
-      document.getElementById('wiz-project-location').value = '';
-      
-      goToWizardStep(1);
-      const modal = document.getElementById('modal-nuevo-proyecto');
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-    }
-
-    function closeNuevoProyectoModal() {
-      const modal = document.getElementById('modal-nuevo-proyecto');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    }
-
-    function goToWizardStep(step) {
-      appState.wizardData.step = step;
-      const s1 = document.getElementById('wizard-step-1');
-      const s2 = document.getElementById('wizard-step-2');
-      const ind1 = document.getElementById('step-indicator-1');
-      const ind2 = document.getElementById('step-indicator-2');
-      const btnPrev = document.getElementById('btn-wiz-prev');
-      const btnNext = document.getElementById('btn-wiz-next');
-      const btnFinish = document.getElementById('btn-wiz-finish');
-
-      if (step === 1) {
-        s1.classList.remove('hidden');
-        s2.classList.add('hidden');
-        ind1.className = "flex items-center gap-2";
-        ind2.className = "flex items-center gap-2 opacity-50";
-        btnPrev.classList.add('hidden');
-        btnNext.classList.remove('hidden');
-        btnFinish.classList.add('hidden');
-      } else {
-        const company = document.getElementById('wiz-company-name').value.trim();
-        const project = document.getElementById('wiz-project-name').value.trim();
-        const location = document.getElementById('wiz-project-location').value.trim();
-        if (!company || !project || !location) {
-          alert('Por favor completa la Empresa, Nombre del Proyecto y Ubicación antes de avanzar.');
-          return;
+        if (matchesQuery && matchesEmpresa && matchesTipo && matchesStatus) {
+          row.classList.remove('hidden');
+        } else {
+          row.classList.add('hidden');
         }
+      });
 
-        s1.classList.add('hidden');
-        s2.classList.remove('hidden');
-        ind1.className = "flex items-center gap-2 opacity-50";
-        ind2.className = "flex items-center gap-2";
-        btnPrev.classList.remove('hidden');
-        btnNext.classList.add('hidden');
-        btnFinish.classList.remove('hidden');
-        updateWizardFactorPreview();
-      }
-    }
-
-    function handleWizardLogoFile(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        setWizardLogoImage(evt.target.result);
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function setSampleLogo(type) {
-      setWizardLogoImage(SAMPLE_LOGOS[type]);
-    }
-
-    function setWizardLogoImage(src) {
-      appState.wizardData.logo = src;
-      const img = document.getElementById('wizard-logo-img');
-      const fb = document.getElementById('wizard-logo-fallback');
-      img.src = src;
-      img.classList.remove('hidden');
-      fb.classList.add('hidden');
-    }
-
-    function clearWizardLogo() {
-      appState.wizardData.logo = '';
-      const img = document.getElementById('wizard-logo-img');
-      const fb = document.getElementById('wizard-logo-fallback');
-      if (img) { img.src = ''; img.classList.add('hidden'); }
-      if (fb) fb.classList.remove('hidden');
-    }
-
-    function onWizardCurrencyChange(val) {
-      const sel = document.getElementById('wiz-currency-select');
-      const sym = document.getElementById('wiz-currency-symbol');
-      const opt = sel.options[sel.selectedIndex];
-      sym.value = opt.dataset.sym || '$';
-    }
-
-    function updateWizardFactorPreview() {
-      const apply = document.getElementById('wiz-apply-sobrecosto').checked;
-      const ind = parseFloat(document.getElementById('wiz-indirectos').value) || 0;
-      const fin = parseFloat(document.getElementById('wiz-financiamiento').value) || 0;
-      const uti = parseFloat(document.getElementById('wiz-utilidad').value) || 0;
-      const adi = parseFloat(document.getElementById('wiz-adicionales').value) || 0;
-
-      const f = apply ? (1 + ind/100) * (1 + fin/100) * (1 + uti/100) * (1 + adi/100) : 1.0;
-      const pct = ((f - 1) * 100).toFixed(2);
-      document.getElementById('wiz-factor-preview').innerText = `${f.toFixed(4)} (+${pct}%)`;
-    }
-
-    function updateTemplateSelection() {
-      const val = document.querySelector('input[name="wiz-template"]:checked').value;
-      const lblDemo = document.getElementById('lbl-tpl-demo');
-      const lblBlank = document.getElementById('lbl-tpl-blank');
-      if (val === 'demo') {
-        lblDemo.className = "p-2.5 bg-slate-50 border-2 border-blue-500 rounded-lg cursor-pointer flex items-start gap-2 select-none";
-        lblBlank.className = "p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer flex items-start gap-2 select-none";
+      const noResults = document.getElementById('noResults');
+      if (visibleCount === 0) {
+        noResults.classList.remove('hidden');
       } else {
-        lblDemo.className = "p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer flex items-start gap-2 select-none";
-        lblBlank.className = "p-2.5 bg-slate-50 border-2 border-blue-500 rounded-lg cursor-pointer flex items-start gap-2 select-none";
+        noResults.classList.add('hidden');
       }
     }
 
-    function finalizeCreateProject() {
-      const company = document.getElementById('wiz-company-name').value.trim();
-      const project = document.getElementById('wiz-project-name').value.trim();
-      const location = document.getElementById('wiz-project-location').value.trim();
-      const currency = document.getElementById('wiz-currency-select').value;
-      const symbol = document.getElementById('wiz-currency-symbol').value.trim();
-      const apply = document.getElementById('wiz-apply-sobrecosto').checked;
-      const ind = parseFloat(document.getElementById('wiz-indirectos').value) || 0;
-      const fin = parseFloat(document.getElementById('wiz-financiamiento').value) || 0;
-      const uti = parseFloat(document.getElementById('wiz-utilidad').value) || 0;
-      const adi = parseFloat(document.getElementById('wiz-adicionales').value) || 0;
-      const f = apply ? (1 + ind/100) * (1 + fin/100) * (1 + uti/100) * (1 + adi/100) : 1.0;
-      const tpl = document.querySelector('input[name="wiz-template"]:checked').value;
+    // Sorting Functionality (Fecha de Creación & A - Z)
+    let sortState = {
+      field: 'date',
+      dateDir: 'desc',
+      nameDir: 'asc'
+    };
 
-      const newProj = {
-        id: 'proj-' + Date.now(),
-        companyName: company,
-        companyLogo: appState.wizardData.logo,
-        projectName: project,
-        projectLocation: location,
-        currency: currency,
-        currencySymbol: symbol,
-        factorSobrecosto: f,
-        totalPresupuesto: tpl === 'demo' ? 1450250.00 : 0.00,
-        conceptCount: tpl === 'demo' ? 18 : 0,
-        partidasCount: tpl === 'demo' ? 2 : 0,
-        createdAt: new Date().toISOString().slice(0, 10)
+    function toggleSort(field) {
+      const dateBtn = document.getElementById('sortByDateBtn');
+      const nameBtn = document.getElementById('sortByNameBtn');
+      const dateDirSpan = document.getElementById('dateSortDir');
+      const nameLabelSpan = document.getElementById('nameSortLabel');
+
+      if (field === 'date') {
+        if (sortState.field === 'date') {
+          sortState.dateDir = sortState.dateDir === 'desc' ? 'asc' : 'desc';
+        } else {
+          sortState.field = 'date';
+        }
+        dateDirSpan.textContent = sortState.dateDir === 'desc' ? '↓' : '↑';
+        dateBtn.classList.add('text-blue-400', 'bg-slate-800');
+        dateBtn.classList.remove('text-slate-400');
+        nameBtn.classList.remove('text-blue-400', 'bg-slate-800');
+        nameBtn.classList.add('text-slate-400');
+      } else if (field === 'name') {
+        if (sortState.field === 'name') {
+          sortState.nameDir = sortState.nameDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortState.field = 'name';
+        }
+        nameLabelSpan.textContent = sortState.nameDir === 'asc' ? 'A - Z' : 'Z - A';
+        nameBtn.classList.add('text-blue-400', 'bg-slate-800');
+        nameBtn.classList.remove('text-slate-400');
+        dateBtn.classList.remove('text-blue-400', 'bg-slate-800');
+        dateBtn.classList.add('text-slate-400');
+      }
+
+      applySort();
+    }
+
+    function applySort() {
+      const grid = document.getElementById('projectsGrid');
+      const tbody = document.getElementById('projectsTableBody');
+
+      const cardsArray = Array.from(document.querySelectorAll('.project-card'));
+      const rowsArray = Array.from(document.querySelectorAll('.table-project-row'));
+
+      const comparator = (a, b) => {
+        if (sortState.field === 'date') {
+          const dateA = new Date(a.dataset.date || '2026-01-01');
+          const dateB = new Date(b.dataset.date || '2026-01-01');
+          return sortState.dateDir === 'desc' ? (dateB - dateA) : (dateA - dateB);
+        } else {
+          const nameA = (a.dataset.name || '').toLowerCase();
+          const nameB = (b.dataset.name || '').toLowerCase();
+          return sortState.nameDir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+        }
       };
 
-      appState.projects.unshift(newProj);
-      saveProjects();
-      closeNuevoProyectoModal();
-      showToast('¡Proyecto creado con éxito! Abriendo espacio de trabajo...');
-      openWorkspace(newProj.id);
+      cardsArray.sort(comparator).forEach(card => grid.appendChild(card));
+      rowsArray.sort(comparator).forEach(row => tbody.appendChild(row));
     }
 
-    // ==========================================
-    // PERFIL DE USUARIO (MODAL Y ACTUALIZACIÓN)
-    // ==========================================
-    function updateHeaderUserArea(user) {
-      const container = document.getElementById('header-user-area');
-      if (!container) return;
-      if (!user) {
-        container.innerHTML = `
-          <button onclick="renderAuthView('login')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer">
-            <i class="fa-solid fa-right-to-bracket text-blue-400"></i> Iniciar Sesión
-          </button>
-          <button onclick="renderAuthView('register')" class="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold px-3 py-1.5 rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer">
-            <i class="fa-solid fa-user-plus"></i> Registrarse
-          </button>
-        `;
-        return;
+    function resetFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('empresaFilter').value = 'all';
+      document.getElementById('tipoFilter').value = 'all';
+      document.getElementById('statusFilter').value = 'all';
+      filterProjects();
+    }
+
+    // Keyboard shortcut CMD+K
+    window.addEventListener('keydown', function(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        const input = document.getElementById('searchInput');
+        if (input) input.focus();
+      } else if (e.key === 'Escape') {
+        const modal = document.getElementById('comparisonModal');
+        if (modal && !modal.classList.contains('hidden')) {
+          modal.classList.add('hidden');
+        }
       }
-
-      container.innerHTML = `
-        <button onclick="renderDashboard()" class="text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 font-medium mr-1 bg-slate-900 border border-slate-800 cursor-pointer">
-          <i class="fa-solid fa-layer-group text-blue-400"></i> Mis Proyectos
-        </button>
-
-        <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:border-slate-700 p-1 pl-3 rounded-full cursor-pointer transition select-none" onclick="openProfileModal()" title="Ver y editar mi perfil">
-          <span class="text-xs font-semibold text-white max-w-[140px] truncate">${user.name}</span>
-          <div class="w-7 h-7 rounded-full overflow-hidden border border-blue-400 bg-white">
-            <img src="${user.avatar}" class="w-full h-full object-cover">
-          </div>
-        </div>
-
-        <button onclick="logoutUser()" class="text-slate-400 hover:text-rose-400 text-xs p-2 transition ml-1 cursor-pointer" title="Cerrar sesión / Cambiar de usuario">
-          <i class="fa-solid fa-power-off"></i>
-        </button>
-      `;
-    }
-
-    function openProfileModal() {
-      const u = appState.currentUser;
-      if (!u) return;
-      document.getElementById('profile-edit-name').value = u.name;
-      document.getElementById('profile-edit-email').value = u.email;
-      document.getElementById('profile-edit-sexo').value = u.sexo || 'Masculino';
-      document.getElementById('profile-edit-dob').value = u.dob || '1992-06-15';
-      document.getElementById('profile-edit-avatar-img').src = u.avatar;
-
-      const modal = document.getElementById('modal-perfil-usuario');
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-    }
-
-    function closeProfileModal() {
-      const modal = document.getElementById('modal-perfil-usuario');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    }
-
-    function onProfileEditSexoChange(sexo) {
-      // Si el avatar actual era un avatar por defecto, actualizarlo al del nuevo sexo
-      if (Object.values(AVATARS_BY_SEX).includes(appState.currentUser.avatar)) {
-        appState.currentUser.avatar = AVATARS_BY_SEX[sexo] || AVATARS_BY_SEX['Masculino'];
-        document.getElementById('profile-edit-avatar-img').src = appState.currentUser.avatar;
-      }
-    }
-
-    function selectProfileAvatar(key) {
-      if (key === 'avatar-m') appState.currentUser.avatar = AVATARS_BY_SEX['Masculino'];
-      else if (key === 'avatar-f') appState.currentUser.avatar = AVATARS_BY_SEX['Femenino'];
-      else appState.currentUser.avatar = AVATARS_BY_SEX['Otro'];
-      document.getElementById('profile-edit-avatar-img').src = appState.currentUser.avatar;
-    }
-
-    function handleProfilePhotoUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        appState.currentUser.avatar = evt.target.result;
-        document.getElementById('profile-edit-avatar-img').src = evt.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function saveProfileChanges() {
-      appState.currentUser.name = document.getElementById('profile-edit-name').value.trim();
-      appState.currentUser.email = document.getElementById('profile-edit-email').value.trim();
-      appState.currentUser.sexo = document.getElementById('profile-edit-sexo').value;
-      appState.currentUser.dob = document.getElementById('profile-edit-dob').value;
-      saveUser();
-      closeProfileModal();
-      updateHeaderUserArea(appState.currentUser);
-      if (document.getElementById('projects-grid')) {
-        renderDashboard();
-      }
-      showToast('Perfil actualizado correctamente');
-    }
-
-    function logoutUser() {
-      if (!confirm('¿Deseas cerrar sesión para cambiar de usuario? Tus proyectos se conservarán.')) return;
-      appState.currentUser = null;
-      renderAuthView('login');
-      showToast('Sesión cerrada');
-    }
-
-    // Iniciar al cargar
-    document.addEventListener('DOMContentLoaded', init);
+    });
   </script>
 </body>
 </html>

@@ -1,0 +1,152 @@
+﻿<svg viewBox="0 0 512 512" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradiente 1: Cara Superior (Azul Cielo ElÃ©ctrico) -->
+    <linearGradient id="gBlue" x1="120" y1="80" x2="380" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="50%" stop-color="#0EA5E9" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+
+    <!-- Gradiente 2: Cara Lateral Izquierda (Rojo Coral / SandÃ­a) -->
+    <linearGradient id="gRed" x1="70" y1="140" x2="160" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FB7185" />
+      <stop offset="45%" stop-color="#F43F5E" />
+      <stop offset="100%" stop-color="#E11D48" />
+    </linearGradient>
+
+    <!-- Gradiente 3: Gancho Superior (Coral / MelocotÃ³n con punta redondeada) -->
+    <linearGradient id="gHook" x1="280" y1="100" x2="430" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F43F5E" />
+      <stop offset="60%" stop-color="#FB7185" />
+      <stop offset="100%" stop-color="#FDA4AF" />
+    </linearGradient>
+
+    <!-- Gradiente 4: Cara Inferior y Retorno (Verde Menta / Esmeralda) -->
+    <linearGradient id="gGreen" x1="100" y1="360" x2="430" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="35%" stop-color="#10B981" />
+      <stop offset="75%" stop-color="#34D399" />
+      <stop offset="100%" stop-color="#2DD4BF" />
+    </linearGradient>
+
+    <!-- Gradiente 5: Cubo Interior - Tapa Amarilla -->
+    <linearGradient id="gYellowTop" x1="180" y1="170" x2="320" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FEF08A" />
+      <stop offset="50%" stop-color="#FDE047" />
+      <stop offset="100%" stop-color="#FACC15" />
+    </linearGradient>
+
+    <!-- Gradiente 6: Cubo Interior - Pared Ãmbar / Oro -->
+    <linearGradient id="gAmberSide" x1="180" y1="220" x2="280" y2="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FBBF24" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+
+    <!-- Sombra suave para integraciÃ³n sobre fondos oscuros o claros -->
+    <filter id="softGlow" x="-12%" y="-12%" width="124%" height="124%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#0284C7" flood-opacity="0.25" />
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <g filter="url(#softGlow)">
+    <!-- 1. CARA SUPERIOR EXTERIOR (AZUL CIELO) -->
+    <path d="M256 50
+             C266 44 278 47 288 53
+             L386 110
+             C396 116 394 128 384 134
+             L304 180
+             C292 187 276 187 264 180
+             L184 134
+             C174 128 176 116 186 110
+             L256 70
+             Z" 
+          fill="url(#gBlue)" />
+
+    <!-- 2. GANCHO SUPERIOR DERECHO (CORAL/SALMÃ“N) -->
+    <path d="M288 138
+             L368 92
+             C380 85 396 88 404 99
+             C416 115 414 138 398 151
+             L348 191
+             C336 200 320 200 310 190
+             C300 179 302 163 314 154
+             L336 136
+             L288 138
+             Z" 
+          fill="url(#gHook)" />
+
+    <!-- 3. PARED LATERAL IZQUIERDA EXTERIOR (ROJO CORAL) -->
+    <path d="M88 160
+             C84 148 94 136 108 136
+             L176 176
+             C186 182 186 194 176 200
+             L176 332
+             C176 342 166 350 156 344
+             L104 314
+             C94 308 88 298 88 286
+             V160
+             Z" 
+          fill="url(#gRed)" />
+
+    <!-- 4. SEPARADOR / BISEL BLANCO NÃTIDO -->
+    <path d="M180 172
+             L264 220
+             C270 223 274 230 274 237
+             V336
+             L258 327
+             V242
+             L180 198
+             Z"
+          fill="#FFFFFF"
+          opacity="0.95" />
+
+    <!-- 5. BLOQUE INTERIOR CÃšBICO (AMARILLO / ÃMBAR) -->
+    <!-- Cara Superior Amarilla -->
+    <path d="M192 190
+             L276 238
+             C284 243 290 252 290 262
+             L366 218
+             C376 212 376 200 366 194
+             L292 152
+             C280 145 264 145 252 152
+             L192 187
+             Z" 
+          fill="url(#gYellowTop)" />
+
+    <!-- Cara Vertical Frontal Ãmbar -->
+    <path d="M192 202
+             L276 250
+             C284 255 290 264 290 274
+             V330
+             C290 340 280 348 270 342
+             L192 298
+             C184 293 180 284 180 274
+             V214
+             C180 204 186 198 192 202
+             Z" 
+          fill="url(#gAmberSide)" />
+
+    <!-- 6. CARA INFERIOR Y GANCHO RETORNO (VERDE ESMERALDA) -->
+    <path d="M104 314
+             L176 356
+             C186 362 198 362 208 356
+             L256 328
+             C268 321 282 321 294 328
+             L380 378
+             C396 387 416 379 422 362
+             C428 345 418 327 402 318
+             L336 280
+             C324 273 308 277 300 289
+             C292 301 296 317 308 324
+             L330 336
+             L256 380
+             C246 386 234 386 224 380
+             L124 324
+             C112 317 106 304 112 291
+             L104 314
+             Z" 
+          fill="url(#gGreen)" />
+  </g>
+</svg>

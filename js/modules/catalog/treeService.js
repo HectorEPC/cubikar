@@ -7,6 +7,7 @@ import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js';
 import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js';
 import { getProjectById } from '../portal/projectService.js';
 import { getFactorSobrecosto, round2 } from '../../core/calculations.js';
+import { guardTabUnlocked } from '../../ui/tabLockController.js';
 
 // Buscar un nodo por su ID recursivamente
 export function findNodeById(nodes, id) {
@@ -78,6 +79,7 @@ export function recalculateClaves(nodes, parentClave = '') {
 
 // Agregar partida raíz principal
 export function addRootRow() {
+  if (!guardTabUnlocked('cat')) return;
   saveState();
   const newId = '_' + Math.random().toString(36).substr(2, 9);
   state.treeData.push({
@@ -101,6 +103,7 @@ export function addRootRow() {
 // Agregar sub-concepto / sub-renglón
 export function addChildRow(parentId, e) {
   if (e) e.stopPropagation();
+  if (!guardTabUnlocked('cat')) return;
   const parent = findNodeById(state.treeData, parentId);
   if (!parent) return;
 
@@ -145,6 +148,7 @@ export function addChildRow(parentId, e) {
 // Duplicar un nodo
 export function duplicarNode(id, e) {
   if (e) e.stopPropagation();
+  if (!guardTabUnlocked('cat')) return;
   saveState();
   const nodeToDuplicate = findNodeById(state.treeData, id);
   if (!nodeToDuplicate) return;
@@ -278,6 +282,7 @@ export function copiarSelectedRow() {
 // Pegar concepto copiado (con su respectiva matriz APU) en la ubicación seleccionada
 export function pegarNode(targetId, e) {
   if (e) e.stopPropagation();
+  if (!guardTabUnlocked('cat')) return;
 
   const clip = getClipboardData();
   if (!clip || !clip.node) {
@@ -390,32 +395,7 @@ export function updateClipboardUI() {
     }
   }
 
-  if (!indicator) return;
-
-  if (clip && clip.node) {
-    const claveTxt = clip.node.clave ? `[${clip.node.clave}] ` : '';
-    const insCount = clip.meta?.insumosCount !== undefined ? clip.meta.insumosCount : (clip.node.insumos?.length || 0);
-    const origin = clip.meta?.sourceProjectName ? ` • De: ${clip.meta.sourceProjectName}` : '';
-
-    indicator.innerHTML = `
-      <div class="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 text-blue-900 rounded-xl px-2.5 py-1 text-[11px] shadow-2xs animate-in fade-in">
-        <i class="fa-solid fa-clipboard-check text-blue-600 text-xs shrink-0"></i>
-        <div class="truncate max-w-[280px] sm:max-w-[340px]" title="${clip.node.descripcion}">
-          <span class="font-bold text-blue-950">${claveTxt}${clip.node.descripcion}</span>
-          <span class="text-[10px] text-blue-700 font-mono">(${insCount} insumo${insCount === 1 ? '' : 's'}${origin})</span>
-        </div>
-        <button type="button" onclick="pegarSelectedRow()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-[10px] px-2 py-0.5 rounded-lg shadow-2xs transition flex items-center gap-1 cursor-pointer shrink-0">
-          <i class="fa-solid fa-paste text-[9px]"></i>
-          <span>Pegar</span>
-        </button>
-        <button type="button" onclick="limpiarPortapapeles()" class="text-slate-400 hover:text-rose-600 p-0.5 transition cursor-pointer shrink-0" title="Vaciar portapapeles">
-          <i class="fa-solid fa-xmark text-xs"></i>
-        </button>
-      </div>
-    `;
-    indicator.classList.remove('hidden');
-    indicator.classList.add('flex');
-  } else {
+  if (indicator) {
     indicator.innerHTML = '';
     indicator.classList.add('hidden');
     indicator.classList.remove('flex');
@@ -425,6 +405,7 @@ export function updateClipboardUI() {
 // Mover nodo arriba o abajo
 export function moverNode(id, direction, e) {
   if (e) e.stopPropagation();
+  if (!guardTabUnlocked('cat')) return;
   const ctx = findNodeContext(state.treeData, id);
   if (!ctx) return;
 
@@ -512,6 +493,7 @@ export function moverSelectedRow(direction) {
 // Eliminar nodo individual
 export function deleteNode(id, e) {
   if (e) e.stopPropagation();
+  if (!guardTabUnlocked('cat')) return;
   saveState();
   function removeRecursive(nodes) {
     return nodes.filter(node => {
@@ -530,6 +512,7 @@ export function deleteNode(id, e) {
 
 // Eliminar filas marcadas o fila seleccionada
 export function deleteSelectedRow() {
+  if (!guardTabUnlocked('cat')) return;
   function countCheckedNodes(nodes) {
     let count = 0;
     nodes.forEach(n => {
@@ -575,6 +558,10 @@ export function deleteSelectedRow() {
 
 // Actualizar un campo de un nodo (descripcion, unidad, cantidad, precioUnitario)
 export function updateNode(id, field, value) {
+  if (!guardTabUnlocked('cat')) {
+    renderTAB1();
+    return;
+  }
   const node = findNodeById(state.treeData, id);
   if (node) {
     if (field === 'cantidad' || field === 'precioUnitario' || field === 'costoDirecto') {
@@ -601,9 +588,75 @@ export function toggleExpand(id, e) {
   }
 }
 
+// Agrupar (colapsar) todas las partidas del Catálogo Base
+export function collapseAllCatalogNodes() {
+  function collapseRecursive(nodes) {
+    nodes.forEach(n => {
+      if (n.children && n.children.length > 0) {
+        n.expanded = false;
+        collapseRecursive(n.children);
+      }
+    });
+  }
+  collapseRecursive(state.treeData);
+  persistLocalData();
+  renderTAB1();
+  showToast('Se han agrupado todas las partidas del catálogo', 'info');
+}
+
+// Desagrupar (expandir) todas las partidas del Catálogo Base
+export function expandAllCatalogNodes() {
+  function expandRecursive(nodes) {
+    nodes.forEach(n => {
+      if (n.children && n.children.length > 0) {
+        n.expanded = true;
+        expandRecursive(n.children);
+      }
+    });
+  }
+  expandRecursive(state.treeData);
+  persistLocalData();
+  renderTAB1();
+  showToast('Se han desagrupado y mostrado todos los conceptos', 'info');
+}
+
+// Acción de barra de herramientas: Agrupar conceptos
+export function agruparCatalogoConceptos() {
+  if (state.activeSelectedId) {
+    const selectedNode = findNodeById(state.treeData, state.activeSelectedId);
+    if (selectedNode && selectedNode.children && selectedNode.children.length > 0) {
+      selectedNode.expanded = false;
+      persistLocalData();
+      renderTAB1();
+      showToast(`Partida ${selectedNode.clave || ''} agrupada`, 'info');
+      return;
+    }
+  }
+  collapseAllCatalogNodes();
+}
+
+// Acción de barra de herramientas: Desagrupar conceptos
+export function desagruparCatalogoConceptos() {
+  if (state.activeSelectedId) {
+    const selectedNode = findNodeById(state.treeData, state.activeSelectedId);
+    if (selectedNode && selectedNode.children && selectedNode.children.length > 0) {
+      selectedNode.expanded = true;
+      persistLocalData();
+      renderTAB1();
+      showToast(`Partida ${selectedNode.clave || ''} desagrupada`, 'info');
+      return;
+    }
+  }
+  expandAllCatalogNodes();
+}
+
 // Actualizar color propio de un nodo
 export function updateNodeColor(id, newColor, event) {
   if (event) event.stopPropagation();
+  if (!guardTabUnlocked('cat')) {
+    renderTAB1();
+    return;
+  }
   const node = findNodeById(state.treeData, id);
   if (!node) return;
   saveState();
@@ -619,6 +672,7 @@ export function clearNodeColor(id, event) {
     event.stopPropagation();
     event.preventDefault();
   }
+  if (!guardTabUnlocked('cat')) return;
   const node = findNodeById(state.treeData, id);
   if (!node) return;
   saveState();
@@ -631,6 +685,10 @@ export function clearNodeColor(id, event) {
 // Checkbox individual de fila (con propagación a hijos)
 export function toggleSelectNode(id, isChecked, e) {
   if (e) e.stopPropagation();
+  if (!guardTabUnlocked('cat')) {
+    renderTAB1();
+    return;
+  }
   const node = findNodeById(state.treeData, id);
   if (!node) return;
 
@@ -653,6 +711,10 @@ export function toggleSelectNode(id, isChecked, e) {
 
 // Seleccionar o deseleccionar todas las filas
 export function toggleSelectAll(isChecked) {
+  if (!guardTabUnlocked('cat')) {
+    renderTAB1();
+    return;
+  }
   function setSelectAllRecursive(nodes, val) {
     nodes.forEach(n => {
       n.selected = val;
@@ -667,4 +729,23 @@ export function toggleSelectAll(isChecked) {
   if (viewInsumos && !viewInsumos.classList.contains('hidden')) {
     renderInsumosGenerales();
   }
+}
+
+// Obtener todos los conceptos hoja que tienen la casilla (checkbox) seleccionada
+export function getSelectedLeafConcepts() {
+  const selected = [];
+  function walk(nodes) {
+    if (!Array.isArray(nodes)) return;
+    for (const n of nodes) {
+      const isLeaf = !n.children || n.children.length === 0;
+      if (n.selected && isLeaf) {
+        selected.push(n);
+      }
+      if (n.children && n.children.length > 0) {
+        walk(n.children);
+      }
+    }
+  }
+  walk(state.treeData);
+  return selected;
 }

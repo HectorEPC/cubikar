@@ -2,45 +2,97 @@ import { state, persistLocalData, persistSettings } from '../state/store.js';
 import { defaultTreeData } from '../config/defaultData.js';
 import { saveState, updateUndoRedoButtons } from '../state/history.js';
 import { showToast } from './notifications.js';
-import { formatQty } from '../core/formatters.js';
+import { formatQty, round2, round5 } from '../core/formatters.js';
 import { getFactorSobrecosto } from '../core/calculations.js';
-import { findNodeById, getNodeHierarchyPath } from '../modules/catalog/treeService.js';
+import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../modules/catalog/treeService.js';
 import { renderTAB1, closeApuPanel } from '../modules/catalog/catalogView.js';
 import { renderAPUInsumos } from '../modules/apu/apuView.js';
 import { renderInsumosGenerales } from '../modules/insumosGenerales/insumosView.js';
+import { renderCalendarioObra } from '../modules/calendario/calendarioView.js';
+import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView.js';
 import { renderBrandingUI } from './brandingController.js';
+import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js';
+
+// Modo de destino del modal Google IA: 'single' (solo concepto activo en matriz) o 'batch' (conceptos con casilla)
+export let aiModalTargetMode = 'single';
+export let aiModalSingleNodeId = null;
 
 // Modal de Generación APU con Google Search Grounding
-export function openAiGeneratorModal() {
-  if (!state.activeSelectedId) {
-    showToast('Selecciona un concepto en la tabla TAB1-CAT-BASE primero', 'warning');
-    return;
+export function openAiGeneratorModal(singleSelectedOnly = false) {
+  let node = null;
+  const isSingle = Boolean(singleSelectedOnly);
+
+  if (isSingle) {
+    aiModalTargetMode = 'single';
+    aiModalSingleNodeId = state.activeSelectedId;
+    if (state.activeSelectedId) {
+      node = findNodeById(state.treeData, state.activeSelectedId);
+    }
+    if (!node) {
+      showToast('Selecciona primero un concepto en la tabla para ver y generar su matriz con Google IA.', 'warning');
+      return;
+    }
+  } else {
+    const checkedNodes = getSelectedLeafConcepts ? getSelectedLeafConcepts() : [];
+    if (checkedNodes.length === 0 && state.activeSelectedId) {
+      const active = findNodeById(state.treeData, state.activeSelectedId);
+      if (active && (!active.children || active.children.length === 0)) {
+        node = active;
+        aiModalTargetMode = 'single';
+        aiModalSingleNodeId = active.id;
+      }
+    } else if (checkedNodes.length === 1) {
+      node = checkedNodes[0];
+      aiModalTargetMode = 'single';
+      aiModalSingleNodeId = node.id;
+      state.activeSelectedId = node.id;
+    } else if (checkedNodes.length > 1) {
+      node = checkedNodes[0];
+      aiModalTargetMode = 'batch';
+      aiModalSingleNodeId = null;
+    }
+
+    if (!node) {
+      showToast('Selecciona con la casilla (checkbox) los conceptos que deseas generar con Google IA.', 'warning');
+      return;
+    }
   }
 
-  const node = findNodeById(state.treeData, state.activeSelectedId);
-  if (!node) return;
-
   const isParent = node.children && node.children.length > 0;
-  if (isParent) {
+  if (isParent && aiModalTargetMode === 'single') {
     showToast('Selecciona un concepto final (hoja) de la tabla, no una partida agrupada', 'warning');
     return;
   }
 
-  const pathArr = getNodeHierarchyPath(state.treeData, node.id) || [];
-  const parentPath = pathArr.length > 1 ? pathArr.slice(0, -1).join('  >  ') : 'Partida Principal';
-
   const modalPathEl = document.getElementById('ai-modal-path');
-  if (modalPathEl) modalPathEl.innerText = parentPath;
   const modalClaveEl = document.getElementById('ai-modal-clave');
-  if (modalClaveEl) modalClaveEl.innerText = node.clave || '---';
   const modalDescEl = document.getElementById('ai-modal-desc');
-  if (modalDescEl) modalDescEl.innerText = node.descripcion || 'Sin descripción';
   const modalUnidEl = document.getElementById('ai-modal-unid');
-  if (modalUnidEl) modalUnidEl.innerText = node.unidad || 'pza';
   const modalUnidHintEl = document.getElementById('ai-modal-unid-hint');
-  if (modalUnidHintEl) modalUnidHintEl.innerText = `1 ${node.unidad || 'pza'}`;
   const modalCantEl = document.getElementById('ai-modal-cant');
-  if (modalCantEl) modalCantEl.innerText = formatQty(node.cantidad || 1);
+  const btnRun = document.getElementById('btn-ai-modal-run');
+
+  if (aiModalTargetMode === 'batch') {
+    const checkedNodes = getSelectedLeafConcepts ? getSelectedLeafConcepts() : [];
+    if (modalPathEl) modalPathEl.innerText = `Lote de ${checkedNodes.length} conceptos seleccionados con casilla`;
+    if (modalClaveEl) modalClaveEl.innerText = `${checkedNodes.length} sel.`;
+    if (modalDescEl) modalDescEl.innerText = checkedNodes.map(c => `[${c.clave || ''}] ${c.descripcion}`).slice(0, 4).join(', ') + (checkedNodes.length > 4 ? ` (+${checkedNodes.length - 4} más)` : '');
+    if (modalUnidEl) modalUnidEl.innerText = 'Varias';
+    if (modalUnidHintEl) modalUnidHintEl.innerText = 'cada concepto seleccionado';
+    if (modalCantEl) modalCantEl.innerText = `${checkedNodes.length} conceptos`;
+    if (btnRun) btnRun.innerHTML = `<i class="fa-brands fa-google text-[10px] text-amber-300"></i> Buscar en Google y Llenar ${checkedNodes.length} Matrices`;
+  } else {
+    const pathArr = getNodeHierarchyPath(state.treeData, node.id) || [];
+    const parentPath = pathArr.length > 1 ? pathArr.slice(0, -1).join('  >  ') : 'Partida Principal';
+
+    if (modalPathEl) modalPathEl.innerText = parentPath;
+    if (modalClaveEl) modalClaveEl.innerText = node.clave || '---';
+    if (modalDescEl) modalDescEl.innerText = node.descripcion || 'Sin descripción';
+    if (modalUnidEl) modalUnidEl.innerText = node.unidad || 'pza';
+    if (modalUnidHintEl) modalUnidHintEl.innerText = `1 ${node.unidad || 'pza'}`;
+    if (modalCantEl) modalCantEl.innerText = formatQty(node.cantidad || 1);
+    if (btnRun) btnRun.innerHTML = `<i class="fa-brands fa-google text-[10px] text-amber-300"></i> Buscar en Google y Llenar Matriz`;
+  }
   
   const modalKeyEl = document.getElementById('ai-modal-api-key');
   if (modalKeyEl) modalKeyEl.value = state.settings.apiKey || '';
@@ -50,10 +102,7 @@ export function openAiGeneratorModal() {
   const modalErrorEl = document.getElementById('ai-modal-error');
   if (modalErrorEl) modalErrorEl.classList.add('hidden');
 
-  const btnRun = document.getElementById('btn-ai-modal-run');
   if (btnRun) btnRun.disabled = false;
-  const btnLocal = document.getElementById('btn-ai-modal-local');
-  if (btnLocal) btnLocal.disabled = false;
 
   const modalEl = document.getElementById('modal-ai-generator');
   if (modalEl) modalEl.classList.remove('hidden');
@@ -234,9 +283,9 @@ export function saveSettings() {
   function applyFactorRecursive(nodes) {
     nodes.forEach(n => {
       if (n.insumos && n.insumos.length > 0) {
-        const cd = n.insumos.reduce((s, i) => s + ((i.cantidad || 0) * (i.costoUnitario || 0)), 0);
+        const cd = round2(n.insumos.reduce((s, i) => s + round2(round5(i.cantidad || 0) * round2(i.costoUnitario || 0)), 0));
         n.costoDirecto = cd;
-        n.precioUnitario = cd * factor;
+        n.precioUnitario = round2(cd * factor);
       }
       if (n.children && n.children.length > 0) {
         applyFactorRecursive(n.children);
@@ -247,15 +296,18 @@ export function saveSettings() {
 
   closeSettingsModal();
   persistLocalData();
-  renderTAB1();
+  // closeApuPanel() ya limpia activeSelectedId y ejecuta renderTAB1() una sola vez
 
   if (state.activeSelectedId) {
     const sel = findNodeById(state.treeData, state.activeSelectedId);
-    if (sel) renderAPUInsumos(sel);
+    if (sel && (!sel.children || sel.children.length === 0)) { renderAPUInsumos(sel); } else { renderTAB1(); }
+  } else {
+    renderTAB1();
   }
 
   // Re-renderizar Insumos Generales para actualizar encabezados y totales con la nueva moneda
-  renderInsumosGenerales();
+  const viewInsumosEl = document.getElementById('view-insumos');
+  if (!viewInsumosEl || !viewInsumosEl.classList.contains('hidden')) { renderInsumosGenerales(); }
 
   showToast(`✅ Configuración guardada. Moneda activa: ${newSymbol} (${newCurrency})`, 'success');
 }
@@ -279,7 +331,7 @@ export function resetToDemoData() {
   saveState();
   closeSettingsModal();
   closeApuPanel();
-  renderTAB1();
+  // closeApuPanel() ya limpia activeSelectedId y ejecuta renderTAB1() una sola vez
   showToast('Catálogo demo restablecido', 'info');
 }
 
@@ -289,29 +341,66 @@ export function clearAllData() {
   saveState();
   closeSettingsModal();
   closeApuPanel();
-  renderTAB1();
+  // closeApuPanel() ya limpia activeSelectedId y ejecuta renderTAB1() una sola vez
   showToast('Presupuesto vaciado', 'warning');
 }
 
-// Cambio de pestañas principales: Catálogo vs Insumos Generales
+// Cambio de pestañas principales: Catálogo vs Insumos Generales vs Calendario de Obra vs Estimaciones
 export function switchTab(tab) {
+  if (typeof canCurrentUserAccessTab === 'function' && !canCurrentUserAccessTab(tab)) {
+    const tabNames = {
+      cat: 'Catálogo Base',
+      insumos: 'Insumos Base',
+      calendario: 'Calendario de Obra',
+      estimaciones: 'Estimaciones de Obra'
+    };
+    showToast(`🔒 No tienes permiso asignado para acceder a la pestaña "${tabNames[tab] || tab}". Esta pestaña está restringida solo a los miembros autorizados por el administrador.`, 'warning');
+    return;
+  }
+
   const viewCat = document.getElementById('view-cat');
   const viewInsumos = document.getElementById('view-insumos');
+  const viewCalendario = document.getElementById('view-calendario');
+  const viewEstimaciones = document.getElementById('view-estimaciones');
   const btnCat = document.getElementById('tab-btn-cat');
   const btnInsumos = document.getElementById('tab-btn-insumos');
+  const btnCalendario = document.getElementById('tab-btn-calendario');
+  const btnEstimaciones = document.getElementById('tab-btn-estimaciones');
   if (!viewCat || !viewInsumos || !btnCat || !btnInsumos) return;
+
+  const activeClass = "px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white transition flex items-center gap-1.5 cursor-pointer shadow-xs";
+  const inactiveClass = "px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer";
+
+  viewCat.classList.add('hidden');
+  viewInsumos.classList.add('hidden');
+  if (viewCalendario) viewCalendario.classList.add('hidden');
+  if (viewEstimaciones) viewEstimaciones.classList.add('hidden');
+
+  btnCat.className = inactiveClass;
+  btnInsumos.className = inactiveClass;
+  if (btnCalendario) btnCalendario.className = inactiveClass;
+  if (btnEstimaciones) btnEstimaciones.className = inactiveClass;
 
   if (tab === 'cat') {
     viewCat.classList.remove('hidden');
-    viewInsumos.classList.add('hidden');
-    btnCat.className = "px-3 py-1 rounded text-xs font-semibold bg-blue-600 text-white transition flex items-center gap-1.5";
-    btnInsumos.className = "px-3 py-1 rounded text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5";
-  } else {
-    viewCat.classList.add('hidden');
+    btnCat.className = activeClass;
+  } else if (tab === 'insumos') {
     viewInsumos.classList.remove('hidden');
-    btnCat.className = "px-3 py-1 rounded text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5";
-    btnInsumos.className = "px-3 py-1 rounded text-xs font-semibold bg-blue-600 text-white transition flex items-center gap-1.5";
-    renderInsumosGenerales();
+    btnInsumos.className = activeClass;
+    const viewInsumosEl = document.getElementById('view-insumos');
+  if (!viewInsumosEl || !viewInsumosEl.classList.contains('hidden')) { renderInsumosGenerales(); }
+  } else if (tab === 'calendario') {
+    if (viewCalendario) viewCalendario.classList.remove('hidden');
+    if (btnCalendario) btnCalendario.className = activeClass;
+    renderCalendarioObra();
+  } else if (tab === 'estimaciones') {
+    if (viewEstimaciones) viewEstimaciones.classList.remove('hidden');
+    if (btnEstimaciones) btnEstimaciones.className = activeClass;
+    renderEstimacionesView();
   }
   updateUndoRedoButtons();
+  if (typeof renderAllTabAssignedMembers === 'function') {
+    renderAllTabAssignedMembers();
+  }
 }
+

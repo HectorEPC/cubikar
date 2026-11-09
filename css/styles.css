@@ -1,8 +1,39 @@
 /* Estilos personalizados del Sistema de Control de Obra */
 
-.selected-row {
+/* Fondo uniforme hasta el final de la página en "Mis Proyectos de Obra" (Portal) */
+html.portal-active,
+body.portal-active,
+html:has(#view-portal:not(.hidden)),
+body:has(#view-portal:not(.hidden)) {
+  height: auto !important;
+  min-height: 100vh !important;
+  background-color: #0f172a !important;
+}
+
+#view-portal {
+  min-height: 100vh;
+  height: auto;
+  flex: 1 0 auto;
+  background-color: #0f172a;
+}
+
+/* Fila seleccionada en todas las tablas y vistas del área de proyecto (igual a Catálogo Base) */
+.selected-row,
+tr.selected-row,
+tr.selected-row > td,
+[data-gantt-left-row].selected-row,
+[data-gantt-right-row].selected-row {
   background-color: #e0f2fe !important;
-  border-left: 4px solid #0284c7;
+}
+
+tr.selected-row,
+[data-gantt-left-row].selected-row {
+  border-left: 4px solid #0284c7 !important;
+}
+
+tr.selected-row > td:first-child,
+[data-gantt-left-row].selected-row {
+  box-shadow: inset 4px 0 0 #0284c7 !important;
 }
 
 /* Menús desplegables de acciones de fila */
@@ -124,4 +155,652 @@ textarea.desc-input {
 .color-picker-dot::-moz-color-swatch {
   border: none;
   border-radius: 50%;
+}
+
+/* Barra de Desplazamiento y Zoom estilo Adobe Premiere Pro para Calendario de Obra */
+#gantt-timeline-panel::-webkit-scrollbar:horizontal {
+  height: 0px !important;
+  display: none !important;
+}
+
+#gantt-premiere-thumb:hover {
+  filter: brightness(1.1);
+}
+
+#gantt-premiere-thumb:active {
+  cursor: grabbing;
+}
+
+/* Barras de desplazamiento institucionales para Calendario de Obra y Estimaciones (Fondo claro estilo Catálogo Base) */
+#gantt-left-panel::-webkit-scrollbar,
+#gantt-timeline-panel::-webkit-scrollbar,
+#financial-table-panel::-webkit-scrollbar,
+#curva-s-panel::-webkit-scrollbar,
+.calendario-premiere-scroll::-webkit-scrollbar {
+  width: 9px !important;
+  height: 9px !important;
+}
+
+#gantt-left-panel::-webkit-scrollbar-track,
+#gantt-timeline-panel::-webkit-scrollbar-track,
+#financial-table-panel::-webkit-scrollbar-track,
+#curva-s-panel::-webkit-scrollbar-track,
+.calendario-premiere-scroll::-webkit-scrollbar-track {
+  background: #f8fafc !important; /* slate-50 */
+  border: 1px solid #e2e8f0 !important; /* slate-200 */
+  border-radius: 4px;
+  box-shadow: none !important;
+}
+
+#gantt-left-panel::-webkit-scrollbar-thumb,
+#gantt-timeline-panel::-webkit-scrollbar-thumb,
+#financial-table-panel::-webkit-scrollbar-thumb,
+#curva-s-panel::-webkit-scrollbar-thumb,
+.calendario-premiere-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important; /* slate-300 */
+  border: 1px solid #94a3b8 !important; /* slate-400 */
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+
+#gantt-left-panel::-webkit-scrollbar-thumb:hover,
+#gantt-timeline-panel::-webkit-scrollbar-thumb:hover,
+#financial-table-panel::-webkit-scrollbar-thumb:hover,
+#curva-s-panel::-webkit-scrollbar-thumb:hover,
+.calendario-premiere-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important; /* slate-400 */
+  border-color: #64748b !important;
+}
+
+#gantt-left-panel::-webkit-scrollbar-thumb:active,
+#gantt-timeline-panel::-webkit-scrollbar-thumb:active,
+#financial-table-panel::-webkit-scrollbar-thumb:active,
+#curva-s-panel::-webkit-scrollbar-thumb:active,
+.calendario-premiere-scroll::-webkit-scrollbar-thumb:active {
+  background: #3b82f6 !important;
+  border-color: #2563eb !important;
+}
+
+#gantt-left-panel,
+#gantt-timeline-panel,
+#financial-table-panel,
+#curva-s-panel,
+.calendario-premiere-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc !important;
+}
+
+/* Scrollbars institucionales para Estimaciones (Fondo claro estilo Catálogo Base) */
+#estimaciones-table-container::-webkit-scrollbar {
+  width: 9px !important;
+  height: 9px !important;
+}
+#estimaciones-table-container::-webkit-scrollbar-track {
+  background: #f8fafc !important; /* slate-50 */
+  border: 1px solid #e2e8f0 !important; /* slate-200 */
+  border-radius: 4px;
+  box-shadow: none !important;
+}
+#estimaciones-table-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important; /* slate-300 */
+  border: 1px solid #94a3b8 !important; /* slate-400 */
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+#estimaciones-table-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+#estimaciones-table-container::-webkit-scrollbar-thumb:active {
+  background: #3b82f6 !important;
+  border-color: #2563eb !important;
+}
+#estimaciones-table-container {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc !important;
+}
+
+/* Divisor vertical entre conceptos y gantt (Estilo Claro Catálogo Base) */
+#gantt-resizer {
+  background: #e2e8f0; /* slate-200 */
+  border-color: #cbd5e1; /* slate-300 */
+}
+
+#gantt-resizer:hover {
+  border-color: #2563eb;
+  background: #3b82f6;
+}
+
+/* ============================================================
+   ESTILOS DESTACADOS PARA SELECTORES DE FECHA (INPUT DATE)
+   Iconos de calendario con color llamativo y alto contraste
+   ============================================================ */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px;
+  margin-left: 2px;
+  /* Tono Azul Corporativo (#2563eb) visible sobre fondo claro */
+  filter: invert(24%) sepia(85%) saturate(3000%) hue-rotate(210deg) brightness(90%) contrast(105%);
+  opacity: 0.95;
+  transition: filter 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(18%) sepia(90%) saturate(4000%) hue-rotate(215deg) brightness(80%) contrast(115%);
+  transform: scale(1.15);
+  opacity: 1;
+}
+
+/* Icono en campo de Día Actual / Corte (tono Rosa/Carmesí) */
+input[type="date"].text-rose-100::-webkit-calendar-picker-indicator,
+input[type="date"].text-rose-800::-webkit-calendar-picker-indicator {
+  filter: invert(20%) sepia(90%) saturate(4500%) hue-rotate(335deg) brightness(90%) contrast(110%);
+}
+
+input[type="date"].text-rose-100::-webkit-calendar-picker-indicator:hover,
+input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
+  filter: invert(15%) sepia(95%) saturate(5000%) hue-rotate(340deg) brightness(85%) contrast(120%);
+  transform: scale(1.15);
+  opacity: 1;
+}
+
+/* ============================================================
+   ESTILOS DE SELECTOR DE FECHA EN PESTAÑAS CALENDARIO Y ESTIMACIONES (FONDO CLARO)
+   Icono de calendario visible de alto contraste (Azul Intenso)
+   ============================================================ */
+#view-calendario input[type="date"]::-webkit-calendar-picker-indicator,
+.calendario-date-input::-webkit-calendar-picker-indicator,
+#view-estimaciones input[type="date"]::-webkit-calendar-picker-indicator,
+.estimaciones-date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px;
+  margin-left: 2px;
+  /* Icono azul intenso corporativo (#2563eb) visible sobre fondo blanco */
+  filter: invert(24%) sepia(85%) saturate(3000%) hue-rotate(210deg) brightness(90%) contrast(105%) !important;
+  opacity: 1 !important;
+  display: inline-block !important;
+  visibility: visible !important;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+#view-calendario input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.calendario-date-input::-webkit-calendar-picker-indicator:hover,
+#view-estimaciones input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.estimaciones-date-input::-webkit-calendar-picker-indicator:hover {
+  filter: invert(18%) sepia(90%) saturate(4000%) hue-rotate(215deg) brightness(80%) contrast(115%) !important;
+  transform: scale(1.15);
+  opacity: 1 !important;
+}
+
+/* ==========================================================================
+   MODO NOCTURNO EJECUTIVO (html.dark-mode)
+   La Vista de Día conserva el 100% de la paleta original sin alteraciones.
+   ========================================================================== */
+@media not print {
+  html.dark-mode {
+    color-scheme: dark;
+  }
+
+  /* Lienzo principal de la aplicación */
+  html.dark-mode body,
+  html.dark-mode #workspace-main-content {
+    background-color: #090d16 !important;
+    color: #e2e8f0 !important;
+  }
+
+  /* Conservar el mismo fondo continuo en el Portal ("Mis Proyectos de Obra") también en Modo Nocturno */
+  html.dark-mode.portal-active,
+  html.dark-mode body.portal-active,
+  html.dark-mode:has(#view-portal:not(.hidden)),
+  html.dark-mode body:has(#view-portal:not(.hidden)),
+  html.dark-mode #view-portal {
+    background-color: #0f172a !important;
+  }
+
+  /* Superficies primarias: Contenedores, paneles, modales y renglones blancos */
+  html.dark-mode .bg-white:not(.animate-pulse) {
+    background-color: #0f172a !important;
+    color: #e2e8f0;
+  }
+
+  /* Superficies secundarias: Barras de herramientas, encabezados de tabla y franjas KPI */
+  html.dark-mode .bg-slate-50,
+  html.dark-mode [class*="bg-slate-50/"] {
+    background-color: #131c2e !important;
+  }
+
+  html.dark-mode .bg-slate-100,
+  html.dark-mode [class*="bg-slate-100/"] {
+    background-color: #172236 !important;
+  }
+
+  html.dark-mode .bg-slate-200,
+  html.dark-mode [class*="bg-slate-200/"] {
+    background-color: #1e293b !important;
+  }
+
+  /* Controles interactivos elevados sobre barras y encabezados */
+  html.dark-mode button.bg-white,
+  html.dark-mode select.bg-white,
+  html.dark-mode input.bg-white,
+  html.dark-mode textarea.bg-white,
+  html.dark-mode #calendario-scale-selector,
+  html.dark-mode #gantt-zoom-controls,
+  html.dark-mode #tab-members-cat,
+  html.dark-mode #tab-members-calendario,
+  html.dark-mode #tab-members-estimaciones,
+  html.dark-mode #tab-members-insumos,
+  html.dark-mode .dropdown-menu {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #e2e8f0 !important;
+  }
+
+  html.dark-mode button.bg-white:hover:not(:disabled) {
+    background-color: #29374d !important;
+  }
+
+  /* Tarjetas KPI en Calendario y Estimaciones */
+  html.dark-mode .grid-cols-6 > div.bg-white {
+    background-color: #152033 !important;
+    border-color: #26354d !important;
+  }
+
+  /* Hover de filas y botones secundarios */
+  html.dark-mode .hover\:bg-slate-50:hover,
+  html.dark-mode [class*="hover:bg-slate-50/"]:hover {
+    background-color: #172236 !important;
+  }
+
+  html.dark-mode .hover\:bg-slate-100:hover,
+  html.dark-mode [class*="hover:bg-slate-100/"]:hover,
+  html.dark-mode .hover\:bg-slate-200:hover {
+    background-color: #243247 !important;
+  }
+
+  html.dark-mode tr.hover\:brightness-95:hover {
+    filter: brightness(1.18) !important;
+  }
+
+  /* Fila seleccionada en todas las tablas del área de proyecto (Modo Nocturno) */
+  html.dark-mode .selected-row,
+  html.dark-mode tr.selected-row,
+  html.dark-mode tr.selected-row > td,
+  html.dark-mode [data-gantt-left-row].selected-row,
+  html.dark-mode [data-gantt-right-row].selected-row {
+    background-color: #132f4c !important;
+  }
+
+  html.dark-mode tr.selected-row,
+  html.dark-mode [data-gantt-left-row].selected-row {
+    border-left: 4px solid #38bdf8 !important;
+  }
+
+  html.dark-mode tr.selected-row > td:first-child,
+  html.dark-mode [data-gantt-left-row].selected-row {
+    box-shadow: inset 4px 0 0 #38bdf8 !important;
+  }
+
+  /* Bordes y líneas divisorias */
+  html.dark-mode .border-slate-100 {
+    border-color: #1e293b !important;
+  }
+
+  html.dark-mode .border-slate-200,
+  html.dark-mode [class*="border-slate-200/"] {
+    border-color: #26354d !important;
+  }
+
+  html.dark-mode .border-slate-300 {
+    border-color: #334155 !important;
+  }
+
+  html.dark-mode .border-slate-400 {
+    border-color: #475569 !important;
+  }
+
+  html.dark-mode .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #1e293b !important;
+  }
+
+  html.dark-mode .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #26354d !important;
+  }
+
+  /* Separadores verticales de 1px en barras de herramientas */
+  html.dark-mode div.bg-slate-300 {
+    background-color: #334155 !important;
+  }
+
+  /* Jerarquía tipográfica sobre fondos oscuros (preservando badges amarillos brillantes) */
+  html.dark-mode .text-slate-900:not(.bg-amber-400):not(.bg-amber-300):not(.bg-yellow-300):not(.bg-yellow-400) {
+    color: #f8fafc !important;
+  }
+
+  html.dark-mode .text-slate-800 {
+    color: #f1f5f9 !important;
+  }
+
+  html.dark-mode .text-slate-700 {
+    color: #cbd5e1 !important;
+  }
+
+  html.dark-mode .text-slate-600 {
+    color: #94a3b8 !important;
+  }
+
+  html.dark-mode .text-slate-500 {
+    color: #8496ae !important;
+  }
+
+  /* Inputs, textareas y selects editables */
+  html.dark-mode input:not([type="color"]):not([type="checkbox"]):not([type="radio"]),
+  html.dark-mode textarea,
+  html.dark-mode select {
+    color: #f1f5f9;
+  }
+
+  html.dark-mode input::placeholder,
+  html.dark-mode textarea::placeholder {
+    color: #64748b !important;
+  }
+
+  html.dark-mode .focus\:bg-white:focus {
+    background-color: #1e293b !important;
+  }
+
+  html.dark-mode select option {
+    background-color: #1e293b;
+    color: #f1f5f9;
+  }
+
+  /* Columnas fijas (sticky) de Estimaciones con fondo opaco para evitar traslape al desplazar */
+  html.dark-mode tr.bg-white .col-estimaciones-clave,
+  html.dark-mode tr.bg-white .col-estimaciones-concepto {
+    background-color: #0f172a !important;
+  }
+
+  html.dark-mode tr.bg-white:hover .col-estimaciones-clave,
+  html.dark-mode tr.bg-white:hover .col-estimaciones-concepto {
+    background-color: #162238 !important;
+  }
+
+  html.dark-mode tr:hover .col-estimaciones-clave.bg-slate-50,
+  html.dark-mode tr:hover .col-estimaciones-concepto.bg-slate-50 {
+    background-color: #1d2b42 !important;
+  }
+
+  html.dark-mode .col-estimaciones-unid {
+    background-color: #162033 !important;
+    border-right-color: #475569 !important;
+  }
+
+  /* Tintes semánticos de tarjetas APU, Insumos Generales, Calendario y Estimaciones */
+  /* Azul */
+  html.dark-mode .bg-blue-50,
+  html.dark-mode [class*="bg-blue-50/"] {
+    background-color: rgba(37, 99, 235, 0.14) !important;
+  }
+  html.dark-mode .bg-blue-100 {
+    background-color: rgba(59, 130, 246, 0.22) !important;
+  }
+  html.dark-mode .border-blue-100,
+  html.dark-mode .border-blue-200,
+  html.dark-mode [class*="border-blue-200/"] {
+    border-color: rgba(96, 165, 250, 0.32) !important;
+  }
+  html.dark-mode .text-blue-900,
+  html.dark-mode .text-blue-800,
+  html.dark-mode .text-blue-700 {
+    color: #60a5fa !important;
+  }
+  html.dark-mode .bg-blue-600.text-white,
+  html.dark-mode .bg-blue-600 span {
+    color: #ffffff !important;
+  }
+
+  /* Verde Esmeralda */
+  html.dark-mode .bg-emerald-50,
+  html.dark-mode [class*="bg-emerald-50/"] {
+    background-color: rgba(16, 185, 129, 0.14) !important;
+  }
+  html.dark-mode .bg-emerald-100 {
+    background-color: rgba(16, 185, 129, 0.22) !important;
+  }
+  html.dark-mode .border-emerald-200,
+  html.dark-mode .border-emerald-300 {
+    border-color: rgba(52, 211, 153, 0.35) !important;
+  }
+  html.dark-mode .text-emerald-900,
+  html.dark-mode .text-emerald-800,
+  html.dark-mode .text-emerald-700 {
+    color: #34d399 !important;
+  }
+
+  /* Ámbar */
+  html.dark-mode .bg-amber-50,
+  html.dark-mode [class*="bg-amber-50/"] {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+  }
+  html.dark-mode .bg-amber-100 {
+    background-color: rgba(245, 158, 11, 0.22) !important;
+  }
+  html.dark-mode .border-amber-200,
+  html.dark-mode .border-amber-300 {
+    border-color: rgba(251, 191, 36, 0.35) !important;
+  }
+  html.dark-mode .text-amber-900,
+  html.dark-mode .text-amber-800,
+  html.dark-mode .text-amber-700 {
+    color: #fbbf24 !important;
+  }
+
+  /* Naranja (Herramienta) */
+  html.dark-mode .bg-orange-50,
+  html.dark-mode [class*="bg-orange-50/"] {
+    background-color: rgba(249, 115, 22, 0.14) !important;
+  }
+  html.dark-mode .border-orange-200 {
+    border-color: rgba(251, 146, 60, 0.35) !important;
+  }
+  html.dark-mode .text-orange-800,
+  html.dark-mode .text-orange-700 {
+    color: #fb923c !important;
+  }
+
+  /* Púrpura / Violeta / Índigo */
+  html.dark-mode .bg-purple-50,
+  html.dark-mode [class*="bg-purple-50/"],
+  html.dark-mode .bg-violet-50,
+  html.dark-mode .bg-indigo-50 {
+    background-color: rgba(139, 92, 246, 0.14) !important;
+  }
+  html.dark-mode .bg-purple-100,
+  html.dark-mode .bg-indigo-100 {
+    background-color: rgba(139, 92, 246, 0.22) !important;
+  }
+  html.dark-mode .border-purple-100,
+  html.dark-mode .border-purple-200,
+  html.dark-mode .border-indigo-200 {
+    border-color: rgba(167, 139, 250, 0.35) !important;
+  }
+  html.dark-mode .text-purple-900,
+  html.dark-mode .text-purple-800,
+  html.dark-mode .text-purple-700 {
+    color: #c084fc !important;
+  }
+  html.dark-mode .text-indigo-950,
+  html.dark-mode .text-indigo-800,
+  html.dark-mode .text-indigo-700 {
+    color: #818cf8 !important;
+  }
+
+  /* Cian / Cielo */
+  html.dark-mode .bg-cyan-50,
+  html.dark-mode [class*="bg-cyan-50/"],
+  html.dark-mode .bg-sky-50,
+  html.dark-mode [class*="bg-sky-50/"] {
+    background-color: rgba(6, 182, 212, 0.13) !important;
+  }
+  html.dark-mode .border-cyan-100,
+  html.dark-mode .border-cyan-200,
+  html.dark-mode .border-sky-200 {
+    border-color: rgba(34, 211, 238, 0.32) !important;
+  }
+  html.dark-mode .text-cyan-900,
+  html.dark-mode .text-cyan-800,
+  html.dark-mode .text-cyan-700,
+  html.dark-mode .text-sky-800,
+  html.dark-mode .text-sky-700 {
+    color: #38bdf8 !important;
+  }
+
+  /* Rosa / Rojo */
+  html.dark-mode .bg-rose-50,
+  html.dark-mode [class*="bg-rose-50/"],
+  html.dark-mode .bg-red-50 {
+    background-color: rgba(244, 63, 94, 0.14) !important;
+  }
+  html.dark-mode .bg-rose-100,
+  html.dark-mode .bg-red-100 {
+    background-color: rgba(244, 63, 94, 0.22) !important;
+  }
+  html.dark-mode .border-rose-200,
+  html.dark-mode .border-red-200 {
+    border-color: rgba(251, 113, 133, 0.35) !important;
+  }
+  html.dark-mode .text-rose-900,
+  html.dark-mode .text-rose-800,
+  html.dark-mode .text-rose-700,
+  html.dark-mode .text-red-700,
+  html.dark-mode .text-red-600 {
+    color: #fb7185 !important;
+  }
+
+  /* Banner Google Search Grounding en modo nocturno */
+  html.dark-mode #apu-grounding-box {
+    background: linear-gradient(135deg, rgba(30, 58, 138, 0.35), rgba(49, 46, 129, 0.35), rgba(88, 28, 135, 0.30)) !important;
+    border-color: rgba(96, 165, 250, 0.35) !important;
+  }
+
+  /* Divisores redimensionables y barras de desplazamiento tipo Premiere */
+  html.dark-mode #gantt-resizer,
+  html.dark-mode #panel-resizer {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+  }
+
+  html.dark-mode #gantt-resizer:hover,
+  html.dark-mode #panel-resizer:hover {
+    background-color: #2563eb !important;
+    border-color: #3b82f6 !important;
+  }
+
+  html.dark-mode #gantt-premiere-track,
+  html.dark-mode #estimaciones-scroll-track {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+  }
+
+  html.dark-mode #gantt-premiere-thumb {
+    background: linear-gradient(to bottom, #334155, #1e293b) !important;
+    border-color: #475569 !important;
+  }
+
+  html.dark-mode #gantt-premiere-handle-left,
+  html.dark-mode #gantt-premiere-handle-right {
+    background-color: #475569 !important;
+  }
+
+  /* Barras de desplazamiento nativas y de paneles en modo nocturno */
+  html.dark-mode ::-webkit-scrollbar-track,
+  html.dark-mode #gantt-left-panel::-webkit-scrollbar-track,
+  html.dark-mode #gantt-timeline-panel::-webkit-scrollbar-track,
+  html.dark-mode #financial-table-panel::-webkit-scrollbar-track,
+  html.dark-mode #curva-s-panel::-webkit-scrollbar-track,
+  html.dark-mode .calendario-premiere-scroll::-webkit-scrollbar-track,
+  html.dark-mode #estimaciones-table-container::-webkit-scrollbar-track {
+    background: #0f172a !important;
+    border-color: #1e293b !important;
+  }
+
+  html.dark-mode ::-webkit-scrollbar-thumb,
+  html.dark-mode #gantt-left-panel::-webkit-scrollbar-thumb,
+  html.dark-mode #gantt-timeline-panel::-webkit-scrollbar-thumb,
+  html.dark-mode #financial-table-panel::-webkit-scrollbar-thumb,
+  html.dark-mode #curva-s-panel::-webkit-scrollbar-thumb,
+  html.dark-mode .calendario-premiere-scroll::-webkit-scrollbar-thumb,
+  html.dark-mode #estimaciones-table-container::-webkit-scrollbar-thumb {
+    background: #334155 !important;
+    border-color: #475569 !important;
+  }
+
+  html.dark-mode ::-webkit-scrollbar-thumb:hover,
+  html.dark-mode #gantt-left-panel::-webkit-scrollbar-thumb:hover,
+  html.dark-mode #gantt-timeline-panel::-webkit-scrollbar-thumb:hover,
+  html.dark-mode #financial-table-panel::-webkit-scrollbar-thumb:hover,
+  html.dark-mode #curva-s-panel::-webkit-scrollbar-thumb:hover,
+  html.dark-mode .calendario-premiere-scroll::-webkit-scrollbar-thumb:hover,
+  html.dark-mode #estimaciones-table-container::-webkit-scrollbar-thumb:hover {
+    background: #475569 !important;
+  }
+
+  html.dark-mode *,
+  html.dark-mode #gantt-left-panel,
+  html.dark-mode #gantt-timeline-panel,
+  html.dark-mode #financial-table-panel,
+  html.dark-mode #curva-s-panel,
+  html.dark-mode .calendario-premiere-scroll,
+  html.dark-mode #estimaciones-table-container {
+    scrollbar-color: #334155 #0f172a !important;
+  }
+
+  /* Iconos de calendario en selectores de fecha sobre fondo nocturno */
+  html.dark-mode input[type="date"]::-webkit-calendar-picker-indicator,
+  html.dark-mode #view-calendario input[type="date"]::-webkit-calendar-picker-indicator,
+  html.dark-mode .calendario-date-input::-webkit-calendar-picker-indicator,
+  html.dark-mode #view-estimaciones input[type="date"]::-webkit-calendar-picker-indicator,
+  html.dark-mode .estimaciones-date-input::-webkit-calendar-picker-indicator {
+    filter: invert(72%) sepia(55%) saturate(2200%) hue-rotate(190deg) brightness(105%) contrast(102%) !important;
+  }
+
+  html.dark-mode input[type="date"].text-rose-100::-webkit-calendar-picker-indicator,
+  html.dark-mode input[type="date"].text-rose-800::-webkit-calendar-picker-indicator {
+    filter: invert(65%) sepia(72%) saturate(3200%) hue-rotate(318deg) brightness(105%) contrast(102%) !important;
+  }
+}
+
+/* ==========================================================================
+   ESTADO DE CANDADO DE BLOQUEO (MODO SOLO CONSULTA E IMPRESIÓN)
+   ========================================================================== */
+#view-cat[data-tab-locked="true"] button[onclick^="addRootRow"],
+#view-cat[data-tab-locked="true"] button[onclick^="duplicarSelectedRow"],
+#view-cat[data-tab-locked="true"] button[onclick^="pegarSelectedRow"],
+#view-cat[data-tab-locked="true"] button[onclick^="moverSelectedRow"],
+#view-cat[data-tab-locked="true"] button[onclick^="deleteSelectedRow"],
+#view-cat[data-tab-locked="true"] button[onclick^="addInsumo"],
+#view-cat[data-tab-locked="true"] button[onclick^="openAiGeneratorModal"],
+#view-insumos[data-tab-locked="true"] button[onclick^="combinarInsumosSeleccionados"],
+#view-insumos[data-tab-locked="true"] button[onclick^="actualizarCostosConIASeleccionados"],
+#view-insumos[data-tab-locked="true"] #btn-ai-general-insumos {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+}
+
+#view-calendario[data-tab-locked="true"] #calendario-container .calendario-date-input,
+#view-calendario[data-tab-locked="true"] #calendario-main-content input,
+#view-calendario[data-tab-locked="true"] #calendario-main-content select,
+#view-calendario[data-tab-locked="true"] #calendario-main-content .gantt-bar-concept {
+  pointer-events: none !important;
+  opacity: 0.78;
+}
+
+/* ==========================================================================
+   IMPORTADOR UNIVERSAL DE ARCHIVOS Y PRESUPUESTOS (SIEMPRE AL FRENTE DE TODO)
+   ========================================================================== */
+#universal-import-modal {
+  z-index: 100000 !important;
 }

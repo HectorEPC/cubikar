@@ -24,3 +24,8 @@ $RECYCLE.BIN/
 *.tmp
 *.bak
 *~
+respaldos/
+*.zip
+scratch/
+test_*
+*.ps1

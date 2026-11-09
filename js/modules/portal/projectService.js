@@ -4,12 +4,17 @@
 import {
   STORAGE_KEY_USER,
   STORAGE_KEY_PROJECTS,
+  STORAGE_KEY_INVITATIONS,
+  STORAGE_KEY_PLAN_INVITATIONS,
   getStorageKey,
   getSettingsKey,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
 } from '../../config/constants.js';
 import { defaultTreeData, defaultSettings } from '../../config/defaultData.js';
+import { cleanMojibake } from '../../core/textSanitizer.js';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js';
+import { deleteProjectFromCloud } from '../../core/cloudProjectService.js';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -20,6 +25,13 @@ export const AVATARS_BY_SEX = {
 
 // Cuentas de demostración de Google con foto real
 export const GOOGLE_PRESET_ACCOUNTS = [
+  {
+    name: "Hepc 90",
+    email: "admin.general@constructora.com",
+    avatar: "",
+    sexo: "Masculino",
+    dob: "1990-01-01"
+  },
   {
     name: "Arq. Carlos Alberto Gómez",
     email: "carlos.gomez.arq@gmail.com",
@@ -62,17 +74,301 @@ export const SAMPLE_LOGOS = {
   building: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='16' fill='%230f172a'/%3E%3Cpath d='M25,80 L25,35 L45,20 L45,80 Z' fill='%2338bdf8'/%3E%3Cpath d='M45,80 L45,35 L75,35 L75,80 Z' fill='%230284c7'/%3E%3C/svg%3E"
 };
 
+export const STORAGE_KEY_SUBSCRIPTION = 'adm_const_subscription';
+export const STORAGE_KEY_REGISTERED_USERS = 'control_obra_registered_accounts_v1';
+export const STORAGE_KEY_FEATURED_PROFILES = 'control_obra_featured_profiles_v1';
+export const STORAGE_KEY_CLOSED_SESSIONS = 'control_obra_closed_sessions_v1';
+
+export function getClosedSessionsList() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CLOSED_SESSIONS);
+    let list = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list)) list = [];
+    return list.map(e => (typeof e === 'string' ? e.toLowerCase().trim() : '')).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
+export function markSessionClosed(email) {
+  if (!email) return;
+  try {
+    const cleanEmail = email.toLowerCase().trim();
+    const list = getClosedSessionsList();
+    if (!list.includes(cleanEmail)) {
+      list.push(cleanEmail);
+      localStorage.setItem(STORAGE_KEY_CLOSED_SESSIONS, JSON.stringify(list));
+    }
+  } catch (e) {}
+}
+
+export function markSessionOpen(emailOrUser) {
+  if (!emailOrUser) return;
+  const email = typeof emailOrUser === 'string' ? emailOrUser : emailOrUser.email;
+  if (!email) return;
+  try {
+    const cleanEmail = email.toLowerCase().trim();
+    const list = getClosedSessionsList();
+    const filtered = list.filter(e => e !== cleanEmail);
+    localStorage.setItem(STORAGE_KEY_CLOSED_SESSIONS, JSON.stringify(filtered));
+  } catch (e) {}
+}
+
+export function getRegisteredUsersList() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_REGISTERED_USERS);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return [];
+}
+
+export function saveRegisteredUserAccount(userObj) {
+  if (!userObj || !userObj.email) return;
+  try {
+    const list = getRegisteredUsersList();
+    const cleanEmail = userObj.email.toLowerCase().trim();
+    const filtered = list.filter(u => (u.email || '').toLowerCase().trim() !== cleanEmail);
+    filtered.push(userObj);
+    localStorage.setItem(STORAGE_KEY_REGISTERED_USERS, JSON.stringify(filtered));
+    markSessionOpen(cleanEmail);
+    addFeaturedProfile(userObj);
+  } catch (e) {}
+}
+
+export function findRegisteredUserAccount(email) {
+  if (!email) return null;
+  const cleanEmail = email.toLowerCase().trim();
+  const list = getRegisteredUsersList();
+  return list.find(u => (u.email || '').toLowerCase().trim() === cleanEmail) || null;
+}
+
+// ==========================================
+// GESTIÓN DE PERFILES DESTACADOS (SESIONES INICIADAS)
+// ==========================================
+export function getFeaturedProfilesList() {
+  try {
+    const closedList = getClosedSessionsList();
+    const closedSet = new Set(closedList);
+    const seenEmails = new Set();
+    const result = [];
+
+    const addProfileCandidate = (p) => {
+      if (!p || !p.email) return;
+      const em = p.email.toLowerCase().trim();
+      // Si la cuenta ha cerrado sesión explícitamente en este equipo, ignorarla
+      if (closedSet.has(em)) return;
+      if (seenEmails.has(em)) return;
+      seenEmails.add(em);
+
+      result.push({
+        name: p.name || em.split('@')[0],
+        email: em,
+        avatar: p.avatar || (AVATARS_BY_SEX && AVATARS_BY_SEX[p.sexo]) || (AVATARS_BY_SEX && AVATARS_BY_SEX['Masculino']) || 'assets/branding/cubikar_icon_transparent.png',
+        sexo: p.sexo || 'Masculino',
+        role: p.role || 'Admin General',
+        roleLabel: p.roleLabel || 'Administrador',
+        dob: p.dob || '',
+        subscription: p.subscription || null,
+        lastLogin: p.lastLogin || p.registeredAt || new Date().toISOString()
+      });
+    };
+
+    // 1. Usuario actualmente activo en sesión
+    const curr = getCurrentUser();
+    if (curr) {
+      addProfileCandidate(curr);
+    }
+
+    // 2. Perfiles explícitamente guardados en STORAGE_KEY_FEATURED_PROFILES
+    const rawFeatured = localStorage.getItem(STORAGE_KEY_FEATURED_PROFILES);
+    if (rawFeatured) {
+      try {
+        const list = JSON.parse(rawFeatured);
+        if (Array.isArray(list)) list.forEach(addProfileCandidate);
+      } catch (_) {}
+    }
+
+    // 3. Usuario guardado anteriormente (getSavedUserProfile)
+    const savedUser = getSavedUserProfile();
+    if (savedUser) {
+      addProfileCandidate(savedUser);
+    }
+
+    // 4. Todas las cuentas registradas en esta computadora
+    const registered = getRegisteredUsersList();
+    if (Array.isArray(registered)) {
+      registered.forEach(addProfileCandidate);
+    }
+
+    return result;
+  } catch (e) {
+    console.error('Error obteniendo perfiles destacados:', e);
+    return [];
+  }
+}
+
+export function addFeaturedProfile(user) {
+  if (!user || !user.email) return;
+  try {
+    const cleanEmail = user.email.toLowerCase().trim();
+    markSessionOpen(cleanEmail);
+
+    const raw = localStorage.getItem(STORAGE_KEY_FEATURED_PROFILES);
+    let list = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list)) list = [];
+    const filtered = list.filter(p => (p.email || '').toLowerCase().trim() !== cleanEmail);
+
+    const profileEntry = {
+      name: user.name || cleanEmail.split('@')[0],
+      email: cleanEmail,
+      avatar: user.avatar || (AVATARS_BY_SEX && AVATARS_BY_SEX[user.sexo]) || (AVATARS_BY_SEX && AVATARS_BY_SEX['Masculino']) || 'assets/branding/cubikar_icon_transparent.png',
+      sexo: user.sexo || 'Masculino',
+      role: user.role || 'Admin General',
+      roleLabel: user.roleLabel || 'Administrador',
+      dob: user.dob || '',
+      subscription: user.subscription || null,
+      lastLogin: new Date().toISOString()
+    };
+
+    filtered.unshift(profileEntry);
+    localStorage.setItem(STORAGE_KEY_FEATURED_PROFILES, JSON.stringify(filtered));
+    try {
+      localStorage.removeItem('control_obra_user_profile_dismissed');
+    } catch (_) {}
+  } catch (e) {}
+}
+
+export function removeFeaturedProfile(email) {
+  if (!email) return;
+  try {
+    const cleanEmail = email.toLowerCase().trim();
+    markSessionClosed(cleanEmail);
+
+    const rawFeatured = localStorage.getItem(STORAGE_KEY_FEATURED_PROFILES);
+    if (rawFeatured) {
+      try {
+        const list = JSON.parse(rawFeatured);
+        if (Array.isArray(list)) {
+          const filtered = list.filter(p => (p.email || '').toLowerCase().trim() !== cleanEmail);
+          localStorage.setItem(STORAGE_KEY_FEATURED_PROFILES, JSON.stringify(filtered));
+        }
+      } catch (_) {}
+    }
+
+    // Si la sesión activa o guardada coincide con la cuenta que se quita, cerrar sesión automáticamente
+    const curr = getCurrentUser();
+    if (curr && (curr.email || '').toLowerCase().trim() === cleanEmail) {
+      localStorage.removeItem(STORAGE_KEY_USER);
+      localStorage.removeItem(STORAGE_KEY_USER + '_last');
+    }
+    const saved = getSavedUserProfile();
+    if (saved && (saved.email || '').toLowerCase().trim() === cleanEmail) {
+      localStorage.removeItem(STORAGE_KEY_USER);
+      localStorage.removeItem(STORAGE_KEY_USER + '_last');
+    }
+
+    const remaining = getFeaturedProfilesList();
+    if (remaining.length === 0) {
+      localStorage.removeItem(STORAGE_KEY_USER);
+      localStorage.removeItem(STORAGE_KEY_USER + '_last');
+      localStorage.setItem('control_obra_user_profile_dismissed', 'true');
+    }
+  } catch (e) {}
+}
+
+// Purga total de todas las cuentas registradas e información de usuarios
+export function purgeAllRegisteredAccountsAndUsers() {
+  try {
+    localStorage.removeItem(STORAGE_KEY_REGISTERED_USERS);
+    localStorage.removeItem(STORAGE_KEY_FEATURED_PROFILES);
+    localStorage.removeItem(STORAGE_KEY_CLOSED_SESSIONS);
+    localStorage.removeItem(STORAGE_KEY_USER);
+    localStorage.removeItem(STORAGE_KEY_USER + '_last');
+    localStorage.removeItem('control_obra_user_profile_dismissed');
+    localStorage.removeItem(STORAGE_KEY_SUBSCRIPTION);
+    localStorage.removeItem(STORAGE_KEY_INVITATIONS);
+    localStorage.removeItem(STORAGE_KEY_PLAN_INVITATIONS);
+    localStorage.removeItem('control_obra_clipboard_concept_v1');
+    localStorage.removeItem('sb-' + 'supabase-auth-token');
+    // Limpiar cualquier clave relacionada con perfiles de usuario
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('control_obra_user') || k.startsWith('control_obra_featured') || k.startsWith('control_obra_closed') || k.startsWith('sb-') || k.includes('auth-token') || k.startsWith('adm_const_subscription'))) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+  } catch (e) {
+    console.warn('Error purgando cuentas:', e);
+  }
+}
+
 // ==========================================
 // GESTIÓN DE USUARIO
 // ==========================================
 export function getCurrentUser() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_USER);
-    return raw ? JSON.parse(raw) : null;
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (u && !u.subscription) {
+        const subRaw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+        if (subRaw) {
+          try {
+            u.subscription = JSON.parse(subRaw);
+          } catch (e) {}
+        }
+      }
+      return u;
+    }
+    return null;
   } catch (e) {
     console.error('Error leyendo usuario:', e);
     return null;
   }
+}
+
+// Retorna el usuario guardado en localStorage sin forzar ningún fallback inventado
+export function getSavedUserProfile() {
+  try {
+    const isDismissed = localStorage.getItem('control_obra_user_profile_dismissed');
+    if (isDismissed === 'true') {
+      return null;
+    }
+    const raw = localStorage.getItem(STORAGE_KEY_USER + '_last') || localStorage.getItem(STORAGE_KEY_USER);
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (u && !u.subscription) {
+        const subRaw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+        if (subRaw) {
+          try {
+            u.subscription = JSON.parse(subRaw);
+          } catch (e) {}
+        }
+      }
+      return u;
+    }
+  } catch (e) {}
+  return null;
+}
+
+export function getLastKnownUser() {
+  const saved = getSavedUserProfile();
+  if (saved) return saved;
+
+  const fallback = {
+    name: 'Hepc 90',
+    email: 'admin.general@constructora.com',
+    avatar: '',
+    role: 'Admin General',
+    sexo: 'Masculino'
+  };
+  try {
+    const subRaw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+    if (subRaw) fallback.subscription = JSON.parse(subRaw);
+  } catch (e) {}
+  return fallback;
 }
 
 export function saveCurrentUser(user) {
@@ -80,7 +376,21 @@ export function saveCurrentUser(user) {
     if (!user) {
       localStorage.removeItem(STORAGE_KEY_USER);
     } else {
+      try {
+        localStorage.removeItem('control_obra_user_profile_dismissed');
+      } catch (e) {}
+      if (!user.subscription) {
+        const subRaw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+        if (subRaw) {
+          try {
+            user.subscription = JSON.parse(subRaw);
+          } catch (e) {}
+        }
+      }
       localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+      try {
+        localStorage.setItem(STORAGE_KEY_USER + '_last', JSON.stringify(user));
+      } catch (e) {}
     }
   } catch (e) {
     console.error('Error guardando usuario:', e);
@@ -98,7 +408,78 @@ export function getProjectsList() {
       // Asegurar que cada proyecto tenga su lista de colaboradores con permisos
       const currentUser = getCurrentUser();
       let changed = false;
+
+      // Asegurar que el proyecto auténtico Casa Laura (Opus 2014) esté siempre registrado
+      const hasCasaLaura = list.some(p => p.id === 'proj-opus-casa-laura' || (p.projectName && p.projectName.toLowerCase().includes('casa laura')));
+      if (!hasCasaLaura) {
+        const proj3Id = 'proj-opus-casa-laura';
+        const proj3Settings = Object.assign({}, defaultSettings, {
+          companyName: 'Constructora Opus México',
+          companyLogo: SAMPLE_LOGOS.building,
+          projectName: 'Casa Laura (Opus 2014)',
+          projectLocation: 'Fraccionamiento Residencial, Puebla, Pue.',
+          currency: 'MXN',
+          currencySymbol: '$',
+          applySobrecosto: false,
+          pctIndirectos: 0.00,
+          pctFinanciamiento: 0.00,
+          pctUtilidad: 0.00,
+          pctAdicionales: 0.00
+        });
+        const proj3Tree = JSON.parse(JSON.stringify(CASA_LAURA_PROJECT));
+        try {
+          localStorage.setItem(getSettingsKey(proj3Id), JSON.stringify(proj3Settings));
+          localStorage.setItem(getStorageKey(proj3Id), JSON.stringify(proj3Tree));
+        } catch (e) {}
+
+        list.push({
+          id: proj3Id,
+          companyName: proj3Settings.companyName,
+          companyLogo: proj3Settings.companyLogo,
+          projectName: proj3Settings.projectName,
+          projectLocation: proj3Settings.projectLocation,
+          tipoObra: 'Vivienda',
+          currency: proj3Settings.currency,
+          currencySymbol: proj3Settings.currencySymbol,
+          factorSobrecosto: 1.0000,
+          totalPresupuesto: 2043699.54,
+          conceptCount: 94,
+          partidasCount: 12,
+          createdAt: '2024-05-20',
+          members: [
+            {
+              id: 'mem-' + (currentUser ? currentUser.email : 'owner'),
+              name: (currentUser && currentUser.name) || 'Administrador de Obra',
+              email: (currentUser && currentUser.email) || 'admin@constructora.com',
+              avatar: (currentUser && currentUser.avatar) || AVATARS_BY_SEX['Masculino'],
+              role: 'editar'
+            }
+          ]
+        });
+        changed = true;
+      }
+
       list.forEach(p => {
+        if (p.projectName) p.projectName = cleanMojibake(p.projectName);
+        if (p.companyName) p.companyName = cleanMojibake(p.companyName);
+        if (p.projectLocation) p.projectLocation = cleanMojibake(p.projectLocation);
+        if (p.tipoObra) p.tipoObra = cleanMojibake(p.tipoObra);
+        if (Array.isArray(p.members)) {
+          p.members.forEach(m => {
+            if (!Array.isArray(m.allowedTabs)) {
+              if (m.role === 'editar') {
+                m.allowedTabs = ['cat', 'insumos', 'calendario', 'estimaciones'];
+              } else if (m.email && m.email.includes('mariana')) {
+                m.allowedTabs = ['insumos', 'estimaciones'];
+              } else if (m.email && m.email.includes('roberto')) {
+                m.allowedTabs = ['cat', 'calendario'];
+              } else {
+                m.allowedTabs = ['cat', 'insumos'];
+              }
+              changed = true;
+            }
+          });
+        }
         if (!p.members || !Array.isArray(p.members) || p.members.length === 0) {
           p.members = [
             {
@@ -106,14 +487,24 @@ export function getProjectsList() {
               name: (currentUser && currentUser.name) || 'Administrador de Obra',
               email: (currentUser && currentUser.email) || 'admin@constructora.com',
               avatar: (currentUser && currentUser.avatar) || AVATARS_BY_SEX['Masculino'],
-              role: 'editar'
+              role: 'editar',
+              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones']
             },
             {
               id: 'mem-colab-01',
               name: 'Ing. Mariana Torres Morales',
               email: 'mariana.torres.costos@gmail.com',
               avatar: AVATARS_BY_SEX['Femenino'],
-              role: 'escribir'
+              role: 'escribir',
+              allowedTabs: ['insumos', 'estimaciones']
+            },
+            {
+              id: 'mem-colab-02',
+              name: 'Arq. Roberto Méndez Silva',
+              email: 'roberto.mendez.obras@gmail.com',
+              avatar: AVATARS_BY_SEX['Masculino'],
+              role: 'leer',
+              allowedTabs: ['cat', 'calendario']
             }
           ];
           changed = true;
@@ -133,6 +524,13 @@ export function getProjectsList() {
           } else {
             p.tipoObra = 'Edificación';
           }
+          changed = true;
+        }
+
+        // Garantizar que cada proyecto tenga ownerEmail
+        if (!p.ownerEmail) {
+          const firstEditor = Array.isArray(p.members) ? p.members.find(m => m.role === 'editar') : null;
+          p.ownerEmail = firstEditor?.email || 'admin.general@constructora.com';
           changed = true;
         }
 
@@ -157,6 +555,29 @@ export function saveProjectsList(projects) {
   } catch (e) {
     console.error('Error guardando proyectos:', e);
   }
+}
+
+// Obtener proyectos accesibles para un usuario dado
+// En el perfil del usuario solo aparecerán los proyectos que creó y aquellos en los que aceptó la invitación (miembro activo).
+export function getProjectsForUser(user) {
+  const allProjects = getProjectsList();
+  if (!user || !user.email) return allProjects;
+  const emailLower = user.email.toLowerCase().trim();
+
+  return allProjects.filter(p => {
+    // Es el creador/propietario del proyecto
+    if (p.ownerEmail && p.ownerEmail.toLowerCase().trim() === emailLower) {
+      return true;
+    }
+    // O es miembro activo (no pendiente de invitación)
+    if (Array.isArray(p.members)) {
+      return p.members.some(m => {
+        const mEmail = (m.email || '').toLowerCase().trim();
+        return mEmail === emailLower && m.status !== 'pending';
+      });
+    }
+    return false;
+  });
 }
 
 export function getProjectById(id) {
@@ -288,13 +709,54 @@ function initializeDefaultProjects() {
     createdAt: '2026-10-10'
   });
 
+  // Proyecto 3: Casa Laura (Opus 2014)
+  const proj3Id = 'proj-opus-casa-laura';
+  const proj3Settings = Object.assign({}, defaultSettings, {
+    companyName: 'Constructora Opus México',
+    companyLogo: SAMPLE_LOGOS.building,
+    projectName: 'Casa Laura (Opus 2014)',
+    projectLocation: 'Fraccionamiento Residencial, Puebla, Pue.',
+    currency: 'MXN',
+    currencySymbol: '$',
+    applySobrecosto: false,
+    pctIndirectos: 0.00,
+    pctFinanciamiento: 0.00,
+    pctUtilidad: 0.00,
+    pctAdicionales: 0.00
+  });
+
+  const proj3Tree = JSON.parse(JSON.stringify(CASA_LAURA_PROJECT));
+
+  try {
+    localStorage.setItem(getSettingsKey(proj3Id), JSON.stringify(proj3Settings));
+    localStorage.setItem(getStorageKey(proj3Id), JSON.stringify(proj3Tree));
+  } catch (e) {}
+
+  initialProjects.push({
+    id: proj3Id,
+    companyName: proj3Settings.companyName,
+    companyLogo: proj3Settings.companyLogo,
+    projectName: proj3Settings.projectName,
+    projectLocation: proj3Settings.projectLocation,
+    tipoObra: 'Vivienda',
+    currency: proj3Settings.currency,
+    currencySymbol: proj3Settings.currencySymbol,
+    factorSobrecosto: 1.0000,
+    totalPresupuesto: 2043699.54,
+    conceptCount: 94,
+    partidasCount: 12,
+    createdAt: '2024-05-20'
+  });
+
   saveProjectsList(initialProjects);
   return initialProjects;
 }
 
 // Crear un nuevo proyecto
 export function createNewProject(params) {
-  const newId = 'proj-' + Date.now();
+  const newId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+    ? crypto.randomUUID()
+    : 'proj-' + Date.now();
   
   const projSettings = Object.assign({}, defaultSettings, {
     companyName: params.companyName,
@@ -324,6 +786,48 @@ export function createNewProject(params) {
     (1 + projSettings.pctIndirectos/100) * (1 + projSettings.pctFinanciamiento/100) * (1 + projSettings.pctUtilidad/100) * (1 + projSettings.pctAdicionales/100) : 1.0;
 
   const currentUser = getCurrentUser();
+  const targetOwnerEmail = (params.ownerEmail || (currentUser && currentUser.email) || 'admin.general@constructora.com').toLowerCase().trim();
+  const targetOwnerPlanId = params.ownerPlanId || (params.ownerEmail ? 'free' : getUserPlanId(currentUser));
+
+  // Determinar miembros iniciales
+  let initialMembers = [];
+  if (Array.isArray(params.members) && params.members.length > 0) {
+    initialMembers = params.members;
+  } else {
+    const isUnderOtherHost = currentUser && currentUser.email && targetOwnerEmail !== currentUser.email.toLowerCase().trim();
+    if (isUnderOtherHost) {
+      initialMembers = [
+        {
+          id: 'mem-' + targetOwnerEmail,
+          name: params.hostName || params.companyName || 'Propietario de Obra',
+          email: targetOwnerEmail,
+          avatar: AVATARS_BY_SEX['Masculino'],
+          role: 'editar',
+          status: 'active'
+        },
+        {
+          id: 'mem-' + currentUser.email,
+          name: currentUser.name || 'Editor de Obra',
+          email: currentUser.email,
+          avatar: currentUser.avatar || AVATARS_BY_SEX['Masculino'],
+          role: 'editar',
+          status: 'active'
+        }
+      ];
+    } else {
+      initialMembers = [
+        {
+          id: 'mem-' + (currentUser ? currentUser.email : Date.now()),
+          name: (currentUser && currentUser.name) || 'Administrador de Obra',
+          email: (currentUser && currentUser.email) || 'admin@constructora.com',
+          avatar: (currentUser && currentUser.avatar) || AVATARS_BY_SEX['Masculino'],
+          role: 'editar',
+          status: 'active'
+        }
+      ];
+    }
+  }
+
   const projectEntry = {
     id: newId,
     companyName: projSettings.companyName,
@@ -337,15 +841,9 @@ export function createNewProject(params) {
     totalPresupuesto: calculateTreeTotal(projTree),
     conceptCount: countTreeConcepts(projTree),
     partidasCount: countTreePartidas(projTree),
-    members: [
-      {
-        id: 'mem-' + (currentUser ? currentUser.email : Date.now()),
-        name: (currentUser && currentUser.name) || 'Administrador de Obra',
-        email: (currentUser && currentUser.email) || 'admin@constructora.com',
-        avatar: (currentUser && currentUser.avatar) || AVATARS_BY_SEX['Masculino'],
-        role: 'editar'
-      }
-    ],
+    ownerEmail: targetOwnerEmail,
+    ownerPlanId: targetOwnerPlanId,
+    members: initialMembers,
     createdAt: params.createdAt || new Date().toISOString().slice(0, 10)
   };
 
@@ -379,6 +877,10 @@ export function duplicateProject(projectId) {
   try {
     localStorage.setItem(getSettingsKey(newId), JSON.stringify(copySettings));
     localStorage.setItem(getStorageKey(newId), JSON.stringify(copyTree));
+    const origEst = localStorage.getItem(`estimaciones_data_${projectId}`);
+    if (origEst) {
+      localStorage.setItem(`estimaciones_data_${newId}`, origEst);
+    }
   } catch(e) {}
 
   const newProj = Object.assign({}, orig, {
@@ -413,11 +915,12 @@ export function addProjectMember(projectId, memberData) {
   // Verificar si ya existe por email
   const existingIdx = proj.members.findIndex(m => m.email && m.email.toLowerCase() === memberData.email.toLowerCase());
   const newMember = {
-    id: memberData.id || ('mem-' + Date.now()),
+    id: memberData.id || ('mem-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5)),
     name: memberData.name.trim(),
     email: memberData.email.trim(),
     avatar: memberData.avatar || AVATARS_BY_SEX['Masculino'],
-    role: memberData.role || 'editar' // 'editar', 'escribir', 'leer'
+    role: memberData.role || 'editar', // 'editar', 'escribir', 'leer'
+    allowedTabs: Array.isArray(memberData.allowedTabs) ? memberData.allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones']
   };
 
   if (existingIdx >= 0) {
@@ -435,8 +938,20 @@ export function removeProjectMember(projectId, memberId) {
   const proj = list.find(p => p.id === projectId);
   if (!proj || !Array.isArray(proj.members)) return false;
 
+  const targetMember = proj.members.find(m => m.id === memberId);
   proj.members = proj.members.filter(m => m.id !== memberId);
   saveProjectsList(list);
+
+  // También limpiar cualquier invitación pendiente asociada
+  if (targetMember && targetMember.email) {
+    try {
+      const invs = getStoredInvitations().filter(
+        inv => !(inv.projectId === projectId && inv.email.toLowerCase() === targetMember.email.toLowerCase())
+      );
+      saveStoredInvitations(invs);
+    } catch (e) {}
+  }
+
   return true;
 }
 
@@ -454,11 +969,61 @@ export function updateProjectMemberRole(projectId, memberId, newRole) {
   return false;
 }
 
+// Actualizar pestañas permitidas para un miembro
+export function updateProjectMemberTabs(projectId, memberId, allowedTabs) {
+  const list = getProjectsList();
+  const proj = list.find(p => p.id === projectId);
+  if (!proj || !Array.isArray(proj.members)) return false;
+
+  const mem = proj.members.find(m => m.id === memberId);
+  if (mem) {
+    mem.allowedTabs = Array.isArray(allowedTabs) ? allowedTabs : [];
+    saveProjectsList(list);
+    return true;
+  }
+  return false;
+}
+
+// Actualizar los miembros asignados a una pestaña específica de este proyecto
+export function setTabAssignedMembers(projectId, tabId, memberIds) {
+  const list = getProjectsList();
+  const proj = list.find(p => p.id === projectId);
+  if (!proj || !Array.isArray(proj.members)) return false;
+
+  const idSet = new Set(memberIds);
+  proj.members.forEach(m => {
+    if (!Array.isArray(m.allowedTabs)) {
+      m.allowedTabs = ['cat', 'insumos', 'calendario', 'estimaciones'];
+    }
+    if (idSet.has(m.id)) {
+      if (!m.allowedTabs.includes(tabId)) {
+        m.allowedTabs.push(tabId);
+      }
+    } else {
+      m.allowedTabs = m.allowedTabs.filter(t => t !== tabId);
+    }
+  });
+
+  saveProjectsList(list);
+  return true;
+}
+
+// Obtener los miembros de este proyecto asignados a una pestaña específica
+export function getTabAssignedMembers(projectId, tabId) {
+  const members = getProjectMembers(projectId);
+  return members.filter(m => {
+    if (!Array.isArray(m.allowedTabs)) return true;
+    return m.allowedTabs.includes(tabId);
+  });
+}
+
 // Eliminar proyecto
 export function deleteProject(projectId) {
   try {
     localStorage.removeItem(getSettingsKey(projectId));
     localStorage.removeItem(getStorageKey(projectId));
+    localStorage.removeItem(`estimaciones_data_${projectId}`);
+    deleteProjectFromCloud(projectId);
   } catch(e) {}
 
   const list = getProjectsList().filter(p => p.id !== projectId);
@@ -490,6 +1055,780 @@ export function syncActiveProjectSummary(projectId, treeData, settings) {
   list[idx].partidasCount = countTreePartidas(treeData);
 
   saveProjectsList(list);
+}
+
+// ==========================================
+// GESTIÓN DE INVITACIONES Y PERMISOS DE PROYECTO
+// ==========================================
+
+export function getStoredInvitations() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_INVITATIONS);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+export function saveStoredInvitations(invitations) {
+  try {
+    localStorage.setItem(STORAGE_KEY_INVITATIONS, JSON.stringify(invitations || []));
+  } catch (e) {}
+}
+
+// Obtener invitaciones pendientes para un usuario específico (por email)
+export function getPendingInvitationsForUser(userEmail) {
+  if (!userEmail) return [];
+  const emailLower = userEmail.toLowerCase().trim();
+  const allInvs = getStoredInvitations();
+  const allProjects = getProjectsList();
+
+  return allInvs.filter(inv => {
+    if (inv.status !== 'pending') return false;
+    if ((inv.email || '').toLowerCase().trim() !== emailLower) return false;
+    // Verificar que el proyecto aún exista
+    return allProjects.some(p => p.id === inv.projectId);
+  });
+}
+
+// Crear o actualizar una invitación de proyecto
+export function createProjectInvitation({ projectId, email, name, role = 'editar', allowedTabs = [], invitedBy = null }) {
+  if (!projectId || !email) return null;
+  const list = getProjectsList();
+  const proj = list.find(p => p.id === projectId);
+  if (!proj) return null;
+
+  const invs = getStoredInvitations();
+  const emailClean = email.trim().toLowerCase();
+
+  // Eliminar invitaciones previas pendientes hacia este mismo email y proyecto
+  const filteredInvs = invs.filter(i => !(i.projectId === projectId && (i.email || '').toLowerCase() === emailClean));
+
+  const invId = 'inv-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+  const newInvitation = {
+    id: invId,
+    projectId,
+    projectName: proj.projectName || 'Proyecto de Obra',
+    companyName: proj.companyName || '',
+    email: emailClean,
+    name: (name || emailClean.split('@')[0]).trim(),
+    role: role || 'editar',
+    allowedTabs: Array.isArray(allowedTabs) ? allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones'],
+    invitedBy: invitedBy ? {
+      name: invitedBy.name || 'Administrador',
+      email: invitedBy.email || ''
+    } : null,
+    planId: getProjectEffectivePlan(projectId),
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+
+  filteredInvs.unshift(newInvitation);
+  saveStoredInvitations(filteredInvs);
+
+  // Registrar también al miembro en el proyecto en estado 'pending'
+  addProjectMember(projectId, {
+    name: newInvitation.name,
+    email: newInvitation.email,
+    avatar: AVATARS_BY_SEX['Masculino'],
+    role: newInvitation.role,
+    allowedTabs: newInvitation.allowedTabs,
+    status: 'pending'
+  });
+
+  return newInvitation;
+}
+
+// Aceptar invitación a un proyecto
+export function acceptProjectInvitation(invitationId, currentUser) {
+  const invs = getStoredInvitations();
+  const inv = invs.find(i => i.id === invitationId);
+  if (!inv) return { ok: false, error: 'Invitación no encontrada' };
+
+  inv.status = 'accepted';
+  inv.acceptedAt = new Date().toISOString();
+  saveStoredInvitations(invs);
+
+  // Marcar al miembro como 'active' en el proyecto
+  const list = getProjectsList();
+  const proj = list.find(p => p.id === inv.projectId);
+  if (proj && Array.isArray(proj.members)) {
+    const mem = proj.members.find(m => (m.email || '').toLowerCase().trim() === inv.email.toLowerCase().trim());
+    if (mem) {
+      mem.status = 'active';
+      if (currentUser) {
+        mem.name = currentUser.name || mem.name;
+        mem.avatar = currentUser.avatar || mem.avatar;
+      }
+    } else {
+      proj.members.push({
+        id: 'mem-' + Date.now(),
+        name: currentUser?.name || inv.name,
+        email: inv.email,
+        avatar: currentUser?.avatar || AVATARS_BY_SEX['Masculino'],
+        role: inv.role,
+        allowedTabs: inv.allowedTabs,
+        status: 'active'
+      });
+    }
+    saveProjectsList(list);
+  }
+
+  return { ok: true, projectId: inv.projectId, projectName: inv.projectName };
+}
+
+// Rechazar o quitar invitación
+export function rejectProjectInvitation(invitationId) {
+  const invs = getStoredInvitations();
+  const inv = invs.find(i => i.id === invitationId);
+  if (!inv) return false;
+
+  const nextInvs = invs.filter(i => i.id !== invitationId);
+  saveStoredInvitations(nextInvs);
+
+  // Remover también de los miembros del proyecto si estaba como pending
+  if (inv.projectId && inv.email) {
+    const list = getProjectsList();
+    const proj = list.find(p => p.id === inv.projectId);
+    if (proj && Array.isArray(proj.members)) {
+      proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== inv.email.toLowerCase().trim());
+      saveProjectsList(list);
+    }
+  }
+
+  return true;
+}
+
+// Sincronizar y actualizar el plan de suscripción en todos los proyectos propiedad del usuario
+export function syncOwnerProjectsPlan(ownerEmail, newPlanId) {
+  if (!ownerEmail || !newPlanId) return false;
+  const targetEmail = ownerEmail.toLowerCase().trim();
+  const list = getProjectsList();
+  let modified = false;
+
+  list.forEach(proj => {
+    if ((proj.ownerEmail || '').toLowerCase().trim() === targetEmail) {
+      if (proj.ownerPlanId !== newPlanId) {
+        proj.ownerPlanId = newPlanId;
+        modified = true;
+      }
+    }
+  });
+
+  if (modified) {
+    saveProjectsList(list);
+  }
+  return modified;
+}
+
+// Determinar el plan de suscripción aplicable al proyecto (hereda la suscripción del dueño)
+export function getProjectEffectivePlan(projectId) {
+  const proj = typeof projectId === 'object' ? projectId : getProjectById(projectId);
+  if (!proj) return 'free';
+
+  // Buscar la suscripción del creador/dueño actual en sesión
+  if (proj.ownerEmail) {
+    const ownerEmail = proj.ownerEmail.toLowerCase().trim();
+    const curr = getCurrentUser();
+    if (curr && (curr.email || '').toLowerCase().trim() === ownerEmail && curr.subscription?.planId) {
+      return curr.subscription.planId;
+    }
+    // Probar si hay datos guardados de usuario previo
+    try {
+      const last = getLastKnownUser();
+      if (last && (last.email || '').toLowerCase().trim() === ownerEmail && last.subscription?.planId) {
+        return last.subscription.planId;
+      }
+    } catch (e) {}
+  }
+
+  // Si tiene un plan guardado en la obra
+  if (proj.ownerPlanId) return proj.ownerPlanId;
+
+  return 'free'; // Fallback por defecto seguro a plan Gratuita
+}
+
+// ==========================================
+// LÍMITES POR PLAN DE SUSCRIPCIÓN
+// ==========================================
+export const PLAN_LIMITS = {
+  free: {
+    name: 'Gratuita',
+    maxProjects: 2,
+    maxConcepts: 100,
+    maxMembers: 5,
+    storageMb: 6,
+    canInvite: true
+  },
+  plus: {
+    name: 'Plus',
+    maxProjects: 15,
+    maxConcepts: 1500,
+    maxMembers: 10,
+    storageMb: 50,
+    canInvite: true
+  },
+  pro: {
+    name: 'Pro',
+    maxProjects: 50,
+    maxConcepts: 3500,
+    maxMembers: 20,
+    storageMb: 200,
+    canInvite: true
+  }
+};
+
+export function getPlanLimits(planId) {
+  return PLAN_LIMITS[planId] || PLAN_LIMITS.free;
+}
+
+// Obtener plan del usuario
+export function getUserPlanId(user = null) {
+  const u = user || getCurrentUser();
+  if (u?.subscription?.planId) return u.subscription.planId;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.planId) return parsed.planId;
+    }
+  } catch (e) {}
+  return 'free';
+}
+
+// Validar si el usuario puede crear proyectos según su plan y límites (en modo propio o bajo anfitrión)
+export function canUserCreateProject(user = null, targetScope = null) {
+  const u = user || getCurrentUser();
+  if (!u || !u.email) return { allowed: false, reason: 'Debes iniciar sesión para crear proyectos.' };
+
+  const uEmail = u.email.toLowerCase().trim();
+
+  // Verificar si se está creando en el espacio de un anfitrión (Modo Anfitrión)
+  const hostEmail = (targetScope && typeof targetScope === 'string' && targetScope.startsWith('owner:'))
+    ? targetScope.replace('owner:', '').toLowerCase().trim()
+    : null;
+
+  if (hostEmail && hostEmail !== uEmail) {
+    const allProjects = getProjectsList();
+    const hostProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === hostEmail);
+
+    let hostName = hostEmail;
+    let hostPlanId = 'free';
+    let userHasEditorRole = false;
+
+    // Buscar en proyectos del anfitrión donde este usuario es miembro
+    for (const p of hostProjects) {
+      if (p.companyName && hostName === hostEmail) hostName = p.companyName;
+      if (p.ownerPlanId) hostPlanId = p.ownerPlanId;
+      if (Array.isArray(p.members)) {
+        const mem = p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
+        if (mem && mem.role === 'editar') {
+          userHasEditorRole = true;
+        }
+      }
+    }
+
+    // Revisar también invitaciones almacenadas
+    const invitations = getStoredInvitations();
+    const myInv = invitations.find(inv => 
+      (inv.ownerEmail || '').toLowerCase().trim() === hostEmail && 
+      (inv.email || '').toLowerCase().trim() === uEmail &&
+      inv.status === 'accepted'
+    );
+    if (myInv) {
+      if (myInv.ownerName && hostName === hostEmail) hostName = myInv.ownerName;
+      if (myInv.ownerPlanId) hostPlanId = myInv.ownerPlanId;
+      if (myInv.role === 'editar') userHasEditorRole = true;
+    }
+
+    // Administrador General siempre tiene permisos
+    if (u.role === 'Admin General' || u.email === 'admin.general@constructora.com') {
+      userHasEditorRole = true;
+      hostPlanId = 'pro';
+    }
+
+    if (!userHasEditorRole) {
+      return {
+        allowed: false,
+        reason: `Solo los colaboradores con rol de Editor pueden crear nuevos proyectos en la organización de ${hostName}. Tu rol actual no permite crear obras aquí.`,
+        isHostContext: true,
+        hostEmail,
+        hostName,
+        userRole: 'lector/escritor'
+      };
+    }
+
+    const hostLimits = getPlanLimits(hostPlanId);
+    const hostProjectsCount = hostProjects.length;
+
+    if (hostProjectsCount >= hostLimits.maxProjects && u.role !== 'Admin General') {
+      return {
+        allowed: false,
+        reason: `El anfitrión (${hostName}) ha alcanzado el límite de ${hostLimits.maxProjects} proyectos activos para su Plan ${hostLimits.name}.`,
+        planId: hostPlanId,
+        maxProjects: hostLimits.maxProjects,
+        currentProjects: hostProjectsCount,
+        isHostContext: true,
+        hostEmail,
+        hostName
+      };
+    }
+
+    return {
+      allowed: true,
+      planId: hostPlanId,
+      maxProjects: hostLimits.maxProjects,
+      currentProjects: hostProjectsCount,
+      isHostContext: true,
+      hostEmail,
+      hostName
+    };
+  }
+
+  // Modo Proyectos Propios: Administrador General siempre puede sin límite
+  if (u.role === 'Admin General' || u.email === 'admin.general@constructora.com') {
+    return { allowed: true, planId: 'pro', maxProjects: Infinity, currentProjects: 0, isHostContext: false };
+  }
+
+  const planId = getUserPlanId(u);
+  const limits = getPlanLimits(planId);
+
+  // Contar los proyectos propios creados por este usuario
+  const allProjects = getProjectsList();
+  const ownedProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === uEmail);
+  const currentCount = ownedProjects.length;
+
+  if (currentCount >= limits.maxProjects) {
+    return {
+      allowed: false,
+      reason: `Has alcanzado el límite de ${limits.maxProjects} proyectos activos para tu suscripción ${limits.name}. Actualiza tu plan para crear más obras.`,
+      planId,
+      maxProjects: limits.maxProjects,
+      currentProjects: currentCount,
+      isHostContext: false
+    };
+  }
+
+  return {
+    allowed: true,
+    planId,
+    maxProjects: limits.maxProjects,
+    currentProjects: currentCount,
+    isHostContext: false
+  };
+}
+
+// Obtener lista de anfitriones/organizaciones que han invitado al usuario
+export function getWorkspaceInviters(user = null, allProjectsList = null) {
+  const u = user || getCurrentUser();
+  if (!u || !u.email) return [];
+  const uEmail = u.email.toLowerCase().trim();
+  const projects = allProjectsList || getProjectsForUser(u);
+
+  const map = new Map();
+  projects.forEach(p => {
+    const oEmail = (p.ownerEmail || '').toLowerCase().trim();
+    if (oEmail && oEmail !== uEmail) {
+      if (!map.has(oEmail)) {
+        let hostName = p.ownerName;
+        if (!hostName) {
+          const preset = GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === oEmail);
+          if (preset) hostName = preset.name;
+        }
+        if (!hostName) {
+          hostName = p.companyName || oEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+        const planId = p.ownerPlanId || getProjectEffectivePlan(p.id) || 'free';
+        const planLimits = getPlanLimits(planId);
+
+        map.set(oEmail, {
+          email: oEmail,
+          name: hostName,
+          companyName: p.companyName || '',
+          planId: planId,
+          planName: planLimits.name,
+          maxProjects: planLimits.maxProjects,
+          maxMembers: planLimits.maxMembers,
+          count: 0,
+          isEditor: false,
+          roles: new Set()
+        });
+      }
+
+      const entry = map.get(oEmail);
+      entry.count++;
+
+      if (Array.isArray(p.members)) {
+        const mem = p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
+        if (mem && mem.role) {
+          entry.roles.add(mem.role);
+          if (mem.role === 'editar') {
+            entry.isEditor = true;
+          }
+        }
+      }
+    }
+  });
+
+  return Array.from(map.values()).map(inv => {
+    let myRoleDisplay = 'Leer';
+    if (inv.isEditor) {
+      myRoleDisplay = 'Editor';
+    } else if (inv.roles.has('escribir')) {
+      myRoleDisplay = 'Escribir';
+    }
+    return {
+      ...inv,
+      myRoleDisplay
+    };
+  });
+}
+
+// Validar si el usuario puede invitar a colaboradores a un proyecto específico
+export function canUserInviteToProject(projectId, user = null) {
+  const u = user || getCurrentUser();
+  if (!u || !u.email) return { allowed: false, reason: 'Debes iniciar sesión.' };
+
+  if (u.role === 'Admin General' || u.email === 'admin.general@constructora.com') {
+    return { allowed: true, maxMembers: Infinity, currentMembers: 0 };
+  }
+
+  const proj = getProjectById(projectId);
+  if (!proj) return { allowed: false, reason: 'Proyecto no encontrado.' };
+
+  const uEmail = u.email.toLowerCase().trim();
+  const isOwner = (proj.ownerEmail || '').toLowerCase().trim() === uEmail;
+
+  // Si no es el dueño, verificar si es miembro con rol 'editar' (Editor)
+  let isEditor = false;
+  if (Array.isArray(proj.members)) {
+    const mem = proj.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
+    if (mem && mem.role === 'editar') {
+      isEditor = true;
+    }
+  }
+
+  if (!isOwner && !isEditor) {
+    return {
+      allowed: false,
+      reason: 'Solo el creador del proyecto o colaboradores con rol de Editor pueden invitar nuevos usuarios.'
+    };
+  }
+
+  // Verificar el límite de colaboradores según el plan de la obra (heredado del creador)
+  const effectivePlanId = getProjectEffectivePlan(projectId);
+  const limits = getPlanLimits(effectivePlanId);
+  const members = Array.isArray(proj.members) ? proj.members : [];
+  const currentMembersCount = members.length;
+
+  if (currentMembersCount >= limits.maxMembers) {
+    return {
+      allowed: false,
+      reason: `Este proyecto ha alcanzado el límite de ${limits.maxMembers} colaboradores permitidos en el Plan ${limits.name}. Para invitar a más colaboradores, actualiza la suscripción de la obra.`,
+      planId: effectivePlanId,
+      maxMembers: limits.maxMembers,
+      currentMembers: currentMembersCount
+    };
+  }
+
+  return {
+    allowed: true,
+    planId: effectivePlanId,
+    maxMembers: limits.maxMembers,
+    currentMembers: currentMembersCount
+  };
+}
+
+// Determinar el rol del usuario en un proyecto
+export function getUserRoleInProject(projectId, user = null) {
+  const u = user || getCurrentUser();
+  if (!u || !u.email) return null;
+
+  const proj = getProjectById(projectId);
+  if (!proj) return null;
+
+  const uEmail = u.email.toLowerCase().trim();
+  if (proj.ownerEmail && proj.ownerEmail.toLowerCase().trim() === uEmail) {
+    return 'owner'; // Dueño / Creador
+  }
+
+  if (Array.isArray(proj.members)) {
+    const mem = proj.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
+    return mem ? mem.role : null;
+  }
+
+  return null;
+}
+
+// ==========================================
+// GESTIÓN DE INVITACIONES AL PLAN DE SUSCRIPCIÓN
+// ==========================================
+export function getStoredPlanInvitations() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PLAN_INVITATIONS);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+export function saveStoredPlanInvitations(invitations) {
+  try {
+    localStorage.setItem(STORAGE_KEY_PLAN_INVITATIONS, JSON.stringify(invitations || []));
+  } catch (e) {}
+}
+
+export function getPlanCollaboratorsForOwner(ownerEmail) {
+  if (!ownerEmail) return [];
+  const oEmail = ownerEmail.toLowerCase().trim();
+  const allPlanInvs = getStoredPlanInvitations();
+  const map = new Map();
+
+  allPlanInvs.forEach(inv => {
+    if ((inv.ownerEmail || '').toLowerCase().trim() === oEmail) {
+      const email = (inv.email || '').toLowerCase().trim();
+      if (email && !map.has(email)) {
+        map.set(email, {
+          id: inv.id,
+          name: inv.name || email.split('@')[0],
+          email: email,
+          role: inv.role || 'editar',
+          status: inv.status || 'pending',
+          avatar: inv.avatar || AVATARS_BY_SEX['Masculino'],
+          invitedAt: inv.invitedAt || new Date().toISOString(),
+          isPlanDirect: true
+        });
+      }
+    }
+  });
+
+  const allProjects = getProjectsList();
+  allProjects.forEach(p => {
+    if ((p.ownerEmail || '').toLowerCase().trim() === oEmail && Array.isArray(p.members)) {
+      p.members.forEach(m => {
+        const mEmail = (m.email || '').toLowerCase().trim();
+        if (mEmail && mEmail !== oEmail) {
+          if (!map.has(mEmail)) {
+            map.set(mEmail, {
+              id: m.id || ('mem-' + mEmail),
+              name: m.name || mEmail.split('@')[0],
+              email: mEmail,
+              role: m.role || 'editar',
+              status: m.status || 'active',
+              avatar: m.avatar || AVATARS_BY_SEX['Masculino'],
+              invitedAt: m.invitedAt || new Date().toISOString(),
+              isPlanDirect: false
+            });
+          }
+        }
+      });
+    }
+  });
+
+  return Array.from(map.values());
+}
+
+export function canUserInviteToPlan(user = null) {
+  const u = user || getCurrentUser();
+  if (!u || !u.email) return { allowed: false, reason: 'Debes iniciar sesión para invitar usuarios a tu plan.' };
+
+  if (u.role === 'Admin General' || u.email === 'admin.general@constructora.com') {
+    return {
+      allowed: true,
+      planId: 'pro',
+      planName: 'Pro',
+      maxMembers: Infinity,
+      currentMembers: 0,
+      remaining: Infinity
+    };
+  }
+
+  const planId = getUserPlanId(u);
+  const limits = getPlanLimits(planId);
+  const currentCollaborators = getPlanCollaboratorsForOwner(u.email);
+  const currentCount = currentCollaborators.length;
+
+  if (currentCount >= limits.maxMembers) {
+    return {
+      allowed: false,
+      reason: `Has alcanzado el límite de ${limits.maxMembers} usuarios permitidos en tu suscripción ${limits.name}. Actualiza tu plan para invitar más miembros.`,
+      planId,
+      planName: limits.name,
+      maxMembers: limits.maxMembers,
+      currentMembers: currentCount,
+      remaining: 0
+    };
+  }
+
+  return {
+    allowed: true,
+    planId,
+    planName: limits.name,
+    maxMembers: limits.maxMembers,
+    currentMembers: currentCount,
+    remaining: limits.maxMembers - currentCount
+  };
+}
+
+export function createPlanInvitation({ email, name, role = 'editar', avatar = null, user = null }) {
+  if (!email) return { ok: false, error: 'Debes indicar un correo electrónico válido.' };
+
+  const currentUser = user || getCurrentUser();
+  if (!currentUser || !currentUser.email) {
+    return { ok: false, error: 'Usuario no autenticado.' };
+  }
+
+  const check = canUserInviteToPlan(currentUser);
+  if (!check.allowed) {
+    return { ok: false, error: check.reason, limitReached: true };
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const ownerEmail = currentUser.email.toLowerCase().trim();
+
+  if (cleanEmail === ownerEmail) {
+    return { ok: false, error: 'No puedes invitarte a ti mismo a tu propio plan.' };
+  }
+
+  const planId = getUserPlanId(currentUser);
+  const planLimits = getPlanLimits(planId);
+  const invs = getStoredPlanInvitations();
+
+  const filtered = invs.filter(i => !(
+    (i.ownerEmail || '').toLowerCase().trim() === ownerEmail &&
+    (i.email || '').toLowerCase().trim() === cleanEmail
+  ));
+
+  const invId = 'plan-inv-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+  const newInv = {
+    id: invId,
+    ownerEmail: ownerEmail,
+    ownerName: currentUser.name || 'Anfitrión',
+    ownerPlanId: planId,
+    ownerPlanName: planLimits.name,
+    email: cleanEmail,
+    name: name || cleanEmail.split('@')[0],
+    role: role || 'editar',
+    avatar: avatar || AVATARS_BY_SEX['Masculino'],
+    status: 'pending',
+    invitedAt: new Date().toISOString()
+  };
+
+  filtered.push(newInv);
+  saveStoredPlanInvitations(filtered);
+
+  // Vincular también a los proyectos propios para que aparezca en el equipo con acceso
+  const allProjects = getProjectsList();
+  let modifiedProjects = false;
+  allProjects.forEach(proj => {
+    if ((proj.ownerEmail || '').toLowerCase().trim() === ownerEmail) {
+      if (!Array.isArray(proj.members)) proj.members = [];
+      const existing = proj.members.find(m => (m.email || '').toLowerCase().trim() === cleanEmail);
+      if (!existing) {
+        proj.members.push({
+          id: 'mem-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+          name: newInv.name,
+          email: cleanEmail,
+          avatar: newInv.avatar,
+          role: newInv.role,
+          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones'],
+          status: 'pending'
+        });
+        modifiedProjects = true;
+      }
+    }
+  });
+
+  if (modifiedProjects) {
+    saveProjectsList(allProjects);
+  }
+
+  return { ok: true, invitation: newInv };
+}
+
+export function removePlanCollaborator(collaboratorEmail, user = null) {
+  if (!collaboratorEmail) return false;
+  const currentUser = user || getCurrentUser();
+  if (!currentUser || !currentUser.email) return false;
+
+  const ownerEmail = currentUser.email.toLowerCase().trim();
+  const targetEmail = collaboratorEmail.toLowerCase().trim();
+
+  const invs = getStoredPlanInvitations().filter(i => !(
+    (i.ownerEmail || '').toLowerCase().trim() === ownerEmail &&
+    (i.email || '').toLowerCase().trim() === targetEmail
+  ));
+  saveStoredPlanInvitations(invs);
+
+  // Remover también de los proyectos del anfitrión
+  const allProjects = getProjectsList();
+  let modified = false;
+  allProjects.forEach(proj => {
+    if ((proj.ownerEmail || '').toLowerCase().trim() === ownerEmail && Array.isArray(proj.members)) {
+      const prevLen = proj.members.length;
+      proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== targetEmail);
+      if (proj.members.length !== prevLen) modified = true;
+    }
+  });
+
+  if (modified) saveProjectsList(allProjects);
+  return true;
+}
+
+export function updatePlanCollaboratorRole(collaboratorEmail, newRole, user = null) {
+  if (!collaboratorEmail || !newRole) return false;
+  const currentUser = user || getCurrentUser();
+  if (!currentUser || !currentUser.email) return false;
+
+  const ownerEmail = currentUser.email.toLowerCase().trim();
+  const targetEmail = collaboratorEmail.toLowerCase().trim();
+
+  // 1. Actualizar en invitaciones persistentes al plan de suscripción
+  const planInvs = getStoredPlanInvitations();
+  let planInvsModified = false;
+  planInvs.forEach(inv => {
+    if ((inv.ownerEmail || '').toLowerCase().trim() === ownerEmail &&
+        (inv.email || '').toLowerCase().trim() === targetEmail) {
+      inv.role = newRole;
+      planInvsModified = true;
+    }
+  });
+  if (planInvsModified) {
+    saveStoredPlanInvitations(planInvs);
+  }
+
+  // 2. Actualizar en invitaciones pendientes a proyectos de este anfitrión
+  const projInvs = getStoredInvitations();
+  let projInvsModified = false;
+  projInvs.forEach(inv => {
+    if ((inv.ownerEmail || '').toLowerCase().trim() === ownerEmail &&
+        (inv.email || '').toLowerCase().trim() === targetEmail) {
+      inv.role = newRole;
+      projInvsModified = true;
+    }
+  });
+  if (projInvsModified) {
+    saveStoredInvitations(projInvs);
+  }
+
+  // 3. Actualizar en los miembros de todos los proyectos propiedad del dueño
+  const allProjects = getProjectsList();
+  let projectsModified = false;
+  allProjects.forEach(proj => {
+    if ((proj.ownerEmail || '').toLowerCase().trim() === ownerEmail && Array.isArray(proj.members)) {
+      proj.members.forEach(m => {
+        if ((m.email || '').toLowerCase().trim() === targetEmail) {
+          m.role = newRole;
+          projectsModified = true;
+        }
+      });
+    }
+  });
+  if (projectsModified) {
+    saveProjectsList(allProjects);
+  }
+
+  return true;
 }
 
 // ==========================================

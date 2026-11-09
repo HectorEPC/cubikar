@@ -1,5 +1,7 @@
 import { state } from '../state/store.js';
-import { formatMoney, round2 } from './formatters.js';
+import { formatMoney, round2, round5 } from './formatters.js';
+
+export { round2, round5 };
 
 // Cálculo del Factor de Sobrecosto (FSR/Indirectos/Financiamiento/Utilidad)
 export function getFactorSobrecosto() {
@@ -21,13 +23,15 @@ export function updateSobrecostoBadge() {
 
   if (state.settings.applySobrecosto) {
     const factor = getFactorSobrecosto();
-    const pctIncremento = ((factor - 1) * 100).toFixed(2);
-    badge.className = "text-xs px-2.5 py-1 rounded border border-amber-600 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 flex items-center gap-1.5 transition font-mono";
-    label.innerText = `Sobrecosto: +${pctIncremento}%`;
+    const pctIncremento = ((factor - 1) * 100).toFixed(1);
+    badge.className = "w-11 h-11 rounded-xl border border-amber-500/50 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 flex flex-col items-center justify-center transition font-mono shadow-xs cursor-pointer group";
+    label.innerText = `+${pctIncremento}%`;
+    badge.setAttribute('title', `Sobrecosto Activo: +${pctIncremento}% (Clic para configurar)`);
     if (cdContainer) cdContainer.classList.remove('hidden');
   } else {
-    badge.className = "text-xs px-2.5 py-1 rounded border border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700 flex items-center gap-1.5 transition";
-    label.innerText = `Sobrecosto: Inactivo`;
+    badge.className = "w-11 h-11 rounded-xl border border-slate-800 bg-slate-900/80 text-slate-400 hover:bg-slate-850 hover:text-slate-200 hover:border-slate-700 flex flex-col items-center justify-center transition cursor-pointer group shadow-2xs";
+    label.innerText = "Inactivo";
+    badge.setAttribute('title', "Sobrecosto: Inactivo (Clic para activar/configurar)");
     if (cdContainer) cdContainer.classList.add('hidden');
   }
 }
@@ -40,6 +44,9 @@ export function calculateParentTotal(node) {
     return round2(cant * pu);
   }
   const sum = node.children.reduce((acc, child) => acc + calculateParentTotal(child), 0);
+  if (sum === 0 && (node.precioUnitario || 0) > 0 && (node.cantidad || 0) > 0) {
+    return round2((node.cantidad || 0) * (node.precioUnitario || 0));
+  }
   return round2(sum);
 }
 
@@ -52,6 +59,10 @@ export function calculateParentDirectTotal(node) {
     return round2(cant * cdVal);
   }
   const sum = node.children.reduce((acc, child) => acc + calculateParentDirectTotal(child), 0);
+  if (sum === 0 && (node.costoDirecto || node.precioUnitario || 0) > 0 && (node.cantidad || 0) > 0) {
+    const cd = node.costoDirecto !== undefined ? node.costoDirecto : node.precioUnitario;
+    return round2((node.cantidad || 0) * (cd || 0));
+  }
   return round2(sum);
 }
 

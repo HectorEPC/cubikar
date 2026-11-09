@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Propuesta Interactiva - Calendario de Obra (Gantt, Financiero y Curva S)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col antialiased select-none">
+
+  <!-- ======================================================= -->
+  <!-- BARRA DE NAVEGACIÓN SUPERIOR GLOBAL (HEADER)           -->
+  <!-- ======================================================= -->
+  <header class="bg-slate-950/90 border-b border-slate-800 text-white px-4 py-2.5 flex items-center justify-between gap-4 sticky top-0 z-50 backdrop-blur-md">
+    
+    <!-- Logo y Nombre de la Obra -->
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 shrink-0">
+        <i class="fa-solid fa-building text-base"></i>
+      </div>
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-sm tracking-tight text-white truncate">Casa Laura (Opus 2014)</span>
+          <span class="bg-emerald-500/10 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-medium border border-emerald-500/20">Obra Activa</span>
+        </div>
+        <p class="text-xs text-slate-400 truncate">Constructora Opus México • Puebla, Pue.</p>
+      </div>
+    </div>
+
+    <!-- Pestañas Principales: CATALOGO BASE | INSUMOS BASE | CALENDARIO DE OBRA -->
+    <nav class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 shadow-inner gap-1">
+      <button onclick="switchMainTab('cat')" id="btn-tab-cat" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer">
+        <i class="fa-solid fa-list-check"></i> CATALOGO BASE
+      </button>
+      <button onclick="switchMainTab('insumos')" id="btn-tab-insumos" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer">
+        <i class="fa-solid fa-boxes-stacked"></i> INSUMOS BASE
+      </button>
+      <button onclick="switchMainTab('calendario')" id="btn-tab-calendario" class="px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-blue-600 text-white transition flex items-center gap-1.5 shadow-md cursor-pointer">
+        <i class="fa-solid fa-calendar-days"></i> CALENDARIO DE OBRA
+      </button>
+    </nav>
+
+    <!-- Usuario & Salir -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 pl-2 py-1 pr-3 bg-slate-900 border border-slate-800 rounded-full">
+        <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 text-slate-950 font-bold text-xs flex items-center justify-center">
+          H9
+        </div>
+        <span class="text-xs font-semibold text-slate-200">Hepc 90</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================================================= -->
+  <!-- CONTENEDOR PRINCIPAL: PROPUESTA DE CALENDARIO DE OBRA   -->
+  <!-- ======================================================= -->
+  <main class="flex-1 flex flex-col p-4 sm:p-5 overflow-hidden max-w-[1600px] w-full mx-auto space-y-4">
+
+    <!-- 1. BARRA DE CONTROL INTEGRADA (Vistas, Zoom y Acciones) -->
+    <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 shadow-xl flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Selector de Modo de Vista -->
+      <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+        <button id="view-mode-gantt" onclick="setViewMode('gantt')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-blue-600 text-white shadow-xs cursor-pointer">
+          <i class="fa-solid fa-chart-gantt"></i> Diagrama Gantt
+        </button>
+        <button id="view-mode-financiero" onclick="setViewMode('financiero')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5 cursor-pointer">
+          <i class="fa-solid fa-table-columns"></i> Programa Financiero
+        </button>
+        <button id="view-mode-curva_s" onclick="setViewMode('curva_s')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5 cursor-pointer">
+          <i class="fa-solid fa-chart-line"></i> Curva "S" y Flujo
+        </button>
+      </div>
+
+      <!-- Selector de Escala Temporal (Días / Semanas / Meses) [OPCIÓN 2 SELECCIONADA] -->
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Escala Temporal:</span>
+        <div class="flex items-center bg-slate-900 p-0.5 rounded-xl border border-slate-800 text-xs font-semibold">
+          <button id="scale-dias" onclick="setTimeScale('dias')" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white transition cursor-pointer">Días</button>
+          <button id="scale-semanas" onclick="setTimeScale('semanas')" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white transition cursor-pointer">Semanas</button>
+          <button id="scale-meses" onclick="setTimeScale('meses')" class="px-3 py-1 rounded-lg bg-blue-600 text-white font-bold transition cursor-pointer shadow-xs">Meses</button>
+        </div>
+      </div>
+
+      <!-- Filtro de Partidas & Botones de Exportación -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <select id="partidaFilter" onchange="filterPartida(this.value)" class="bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500 cursor-pointer">
+          <option value="all">Todas las partidas (6)</option>
+          <option value="Preliminares">1. Preliminares</option>
+          <option value="Cimentación">2. Cimentación</option>
+          <option value="Drenaje y Sanitaria">3. Drenaje y Sanitaria</option>
+          <option value="Instalación Hidráulica">4. Instalación Hidráulica</option>
+          <option value="Estructura">5. Estructura y Muros</option>
+          <option value="Acabados">6. Acabados</option>
+        </select>
+
+        <button onclick="autoSchedule()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-sm" title="Re-distribuir automáticamente los conceptos">
+          <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> Auto-Programar
+        </button>
+
+        <button onclick="mockExportExcel()" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/20">
+          <i class="fa-solid fa-file-excel"></i> Exportar Excel
+        </button>
+      </div>
+
+    </div>
+
+    <!-- 2. TARJETAS KPI EJECUTIVAS (RESUMEN DE OBRA) -->
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      
+      <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Fecha de Inicio</span>
+        <div class="flex items-center gap-2 mt-1">
+          <i class="fa-regular fa-calendar-check text-blue-400 text-base"></i>
+          <input type="date" id="kpi-start-date" value="2026-05-01" onchange="updateProjectStartDate(this.value)" class="text-xs font-bold text-white bg-transparent outline-none cursor-pointer hover:text-blue-400 font-mono">
+        </div>
+      </div>
+
+      <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Fecha de Término</span>
+        <div class="flex items-center gap-2 mt-1">
+          <i class="fa-solid fa-flag-checkered text-rose-400 text-base"></i>
+          <span id="kpi-end-date" class="text-xs font-bold text-white font-mono">2026-10-31</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Plazo Total</span>
+        <div class="flex items-center gap-2 mt-1">
+          <i class="fa-regular fa-clock text-amber-400 text-base"></i>
+          <span id="kpi-duration" class="text-xs font-extrabold text-white">184 días naturales</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Presupuesto Base</span>
+        <div class="flex items-center gap-2 mt-1">
+          <i class="fa-solid fa-coins text-emerald-400 text-base"></i>
+          <span class="text-xs font-extrabold text-emerald-400 font-mono">$2,043,699.52</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between col-span-2 sm:col-span-1">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Mes Pico (Máx Inversión)</span>
+        <div class="flex items-center gap-2 mt-1 truncate">
+          <i class="fa-solid fa-bolt text-indigo-400 text-base"></i>
+          <span id="kpi-peak" class="text-xs font-bold text-white truncate font-mono">Julio 2026 ($542,850)</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 3. ÁREA DE VISUALIZACIÓN DINÁMICA -->
+    <div class="bg-slate-950/80 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex-1 flex flex-col relative min-h-[460px]">
+      
+      <!-- ============================================== -->
+      <!-- VISTA 1: DIAGRAMA DE GANTT                     -->
+      <!-- ============================================== -->
+      <div id="container-gantt" class="flex-1 flex flex-col overflow-hidden">
+        
+        <div class="flex flex-1 overflow-hidden">
+          
+          <!-- Lado Izquierdo: Conceptos (Fijo) -->
+          <div class="w-96 sm:w-[460px] shrink-0 border-r border-slate-800 flex flex-col bg-slate-950/90 z-10 overflow-y-auto custom-scroll">
+            
+            <div class="bg-slate-900 border-b border-slate-800 text-slate-300 text-xs font-bold py-2.5 px-3 flex items-center sticky top-0 z-20">
+              <span class="w-20">Clave</span>
+              <span class="flex-1 px-2">Concepto / Unidad</span>
+              <span class="w-24 text-center">Inicio</span>
+              <span class="w-14 text-center">Días</span>
+            </div>
+
+            <div id="gantt-concept-rows" class="divide-y divide-slate-800/60 text-xs">
+              <!-- Renderizado dinámicamente por JS -->
+            </div>
+
+          </div>
+
+          <!-- Lado Derecho: Timeline Gráfico (Scroll Horizontal) -->
+          <div class="flex-1 overflow-x-auto overflow-y-auto bg-slate-900/40 custom-scroll relative">
+            
+            <!-- Cabecera de Períodos -->
+            <div id="gantt-timeline-header" class="bg-slate-900 border-b border-slate-800 text-slate-300 text-xs font-bold py-2 flex sticky top-0 z-10 min-w-max">
+              <!-- Columnas de períodos -->
+            </div>
+
+            <!-- Filas con las Barras del Gantt -->
+            <div id="gantt-timeline-bars" class="divide-y divide-slate-800/40 text-xs min-w-max relative">
+              <!-- Barras dinámicas -->
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ============================================== -->
+      <!-- VISTA 2: PROGRAMA FINANCIERO (OPUS / NEODATA)  -->
+      <!-- ============================================== -->
+      <div id="container-financiero" class="hidden flex-1 overflow-auto custom-scroll">
+        <table class="w-full text-left border-collapse text-xs text-slate-300">
+          
+          <thead class="bg-slate-900 text-slate-200 sticky top-0 z-20 border-b border-slate-800">
+            <tr id="financial-header-row-1">
+              <!-- Cabeceras generadas dinámicamente -->
+            </tr>
+            <tr id="financial-header-row-2" class="bg-slate-900/90 text-slate-400 text-[11px] border-b border-slate-800">
+              <!-- Sub-columnas Cantidad / Importe -->
+            </tr>
+          </thead>
+
+          <tbody id="financial-table-body" class="divide-y divide-slate-800/60 font-mono">
+            <!-- Filas financieras generadas dinámicamente -->
+          </tbody>
+
+          <tfoot id="financial-table-footer" class="bg-slate-950 text-white font-mono sticky bottom-0 z-20 border-t-2 border-slate-700">
+            <!-- Totales mensuales y acumulados -->
+          </tfoot>
+
+        </table>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- VISTA 3: CURVA "S" Y FLUJO DE EFECTIVO         -->
+      <!-- ============================================== -->
+      <div id="container-curva_s" class="hidden flex-1 overflow-auto p-4 sm:p-6 space-y-6 custom-scroll">
+        
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div>
+            <h3 class="font-extrabold text-sm text-white flex items-center gap-2">
+              <i class="fa-solid fa-chart-line text-blue-400"></i> Curva "S" de Avance Programado vs Inversión
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Representación visual del flujo de caja mensual y el porcentaje de avance físico acumulado.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-4 text-xs font-semibold">
+            <div class="flex items-center gap-1.5">
+              <span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span>
+              <span class="text-slate-200">Avance Acumulado (%)</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3 h-3 rounded-md bg-amber-400 inline-block"></span>
+              <span class="text-slate-200">Erogación Mensual ($)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gráfico SVG Vectorial de la Curva S -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-inner">
+          <svg id="curva-svg" viewBox="0 0 900 280" class="w-full h-72">
+            <!-- Renderizado dinámico -->
+          </svg>
+        </div>
+
+        <!-- Tabla Resumen Ejecutivo -->
+        <div class="bg-slate-900/70 border border-slate-800 rounded-xl overflow-hidden">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="bg-slate-900 text-slate-300 border-b border-slate-800 font-bold">
+              <tr>
+                <th class="p-2.5">Período de Obra</th>
+                <th class="p-2.5 text-right">Erogación del Mes ($)</th>
+                <th class="p-2.5 text-center">% Avance Mensual</th>
+                <th class="p-2.5 text-right">Inversión Acumulada ($)</th>
+                <th class="p-2.5 text-center">% Avance Acumulado</th>
+              </tr>
+            </thead>
+            <tbody id="curva-summary-body" class="divide-y divide-slate-800/60 text-slate-300">
+              <!-- Filas de períodos -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ======================================================= -->
+  <!-- JAVASCRIPT DEL PROTOTIPO INTERACTIVO                    -->
+  <!-- ======================================================= -->
+  <script>
+    // DATOS DE PRUEBA: CASA LAURA REAL ($2,043,699.52)
+    const SAMPLE_CONCEPTS = [
+      // 1. Preliminares
+      { id: 'c1', partida: 'Preliminares', clave: 'PRE-01', desc: 'Limpieza y deshierbe manual del terreno', unidad: 'm2', cant: 240, pu: 18.50, imp: 4440.00, start: '2026-05-01', dur: 5, color: '#3b82f6' },
+      { id: 'c2', partida: 'Preliminares', clave: 'PRE-02', desc: 'Trazo y nivelación con aparatos topográficos', unidad: 'm2', cant: 240, pu: 22.00, imp: 5280.00, start: '2026-05-04', dur: 6, color: '#3b82f6' },
+      { id: 'c3', partida: 'Preliminares', clave: 'PRE-03', desc: 'Tapial de protección con lámina galvanizada', unidad: 'm', cant: 65, pu: 320.00, imp: 20800.00, start: '2026-05-06', dur: 8, color: '#3b82f6' },
+
+      // 2. Cimentación
+      { id: 'c4', partida: 'Cimentación', clave: 'CIM-01', desc: 'Excavación manual de zanja para cimientos tipo II', unidad: 'm3', cant: 110, pu: 196.52, imp: 21617.20, start: '2026-05-12', dur: 14, color: '#10b981' },
+      { id: 'c5', partida: 'Cimentación', clave: 'CIM-02', desc: 'Plantilla de concreto f\'c=100 kg/cm2 espesor 5cm', unidad: 'm2', cant: 95, pu: 165.00, imp: 15675.00, start: '2026-05-22', dur: 8, color: '#10b981' },
+      { id: 'c6', partida: 'Cimentación', clave: 'CIM-03', desc: 'Zapata corrida de concreto armado f\'c=250 kg/cm2', unidad: 'm3', cant: 45, pu: 3450.00, imp: 155250.00, start: '2026-05-28', dur: 20, color: '#10b981' },
+
+      // 3. Drenaje y Sanitaria
+      { id: 'c7', partida: 'Drenaje y Sanitaria', clave: 'SAN-01', desc: 'Tubo PVC sanitario 4" (100mm) para drenaje', unidad: 'm', cant: 80, pu: 134.76, imp: 10780.80, start: '2026-06-15', dur: 12, color: '#8b5cf6' },
+      { id: 'c8', partida: 'Drenaje y Sanitaria', clave: 'SAN-02', desc: 'Registro sanitario de 60 x 60 cm con plantilla concreto', unidad: 'pza', cant: 6, pu: 1102.16, imp: 6612.96, start: '2026-06-20', dur: 10, color: '#8b5cf6' },
+
+      // 4. Instalación Hidráulica (Con Sub-partidas Cisterna y Tinaco)
+      { id: 'c9', partida: 'Instalación Hidráulica', sub: 'Cisterna', clave: 'HID-01', desc: 'Cisterna prefabricada 5,000 Lts equipada con bomba', unidad: 'pza', cant: 1, pu: 17521.15, imp: 17521.15, start: '2026-06-25', dur: 15, color: '#06b6d4' },
+      { id: 'c10', partida: 'Instalación Hidráulica', sub: 'Cisterna', clave: 'HID-02', desc: 'Muro de contención para cisterna en block tabique', unidad: 'm2', cant: 35, pu: 361.91, imp: 12666.85, start: '2026-06-28', dur: 12, color: '#06b6d4' },
+      { id: 'c11', partida: 'Instalación Hidráulica', sub: 'Tinaco', clave: 'HID-03', desc: 'Tinaco Rotoplas 1,100 Lts con base metálica y jarro aire', unidad: 'pza', cant: 2, pu: 2633.26, imp: 5266.52, start: '2026-07-15', dur: 6, color: '#06b6d4' },
+      { id: 'c12', partida: 'Instalación Hidráulica', sub: 'Tinaco', clave: 'HID-04', desc: 'Tubería hidráulica Tuboplus 1" (25mm) termofusión', unidad: 'm', cant: 120, pu: 85.50, imp: 10260.00, start: '2026-07-18', dur: 14, color: '#06b6d4' },
+
+      // 5. Estructura y Muros
+      { id: 'c13', partida: 'Estructura', clave: 'EST-01', desc: 'Muro de tabique rojo recocido 14cm asentado con mortero', unidad: 'm2', cant: 420, pu: 380.00, imp: 159600.00, start: '2026-07-01', dur: 40, color: '#f59e0b' },
+      { id: 'c14', partida: 'Estructura', clave: 'EST-02', desc: 'Castillo 15x15 cm concreto f\'c=200 armado con armex', unidad: 'm', cant: 180, pu: 302.49, imp: 54448.20, start: '2026-07-10', dur: 30, color: '#f59e0b' },
+      { id: 'c15', partida: 'Estructura', clave: 'EST-03', desc: 'Losa de entrepiso vigueta y bovedilla f\'c=250 kg/cm2', unidad: 'm2', cant: 190, pu: 890.00, imp: 169100.00, start: '2026-08-01', dur: 25, color: '#f59e0b' },
+
+      // 6. Acabados
+      { id: 'c16', partida: 'Acabados', clave: 'ACA-01', desc: 'Aplanado en muros a plomo y regla con mortero cemento-arena', unidad: 'm2', cant: 550, pu: 160.00, imp: 88000.00, start: '2026-08-20', dur: 35, color: '#f43f5e' },
+      { id: 'c17', partida: 'Acabados', clave: 'ACA-02', desc: 'Piso cerámico Interceramic 60x60 cm mod. Verona', unidad: 'm2', cant: 160, pu: 420.00, imp: 67200.00, start: '2026-09-15', dur: 25, color: '#f43f5e' },
+      { id: 'c18', partida: 'Acabados', clave: 'ACA-03', desc: 'Pintura vinílica Comex Pro-1000 a 2 manos en muros y plafón', unidad: 'm2', cant: 720, pu: 68.00, imp: 48960.00, start: '2026-10-01', dur: 20, color: '#f43f5e' }
+    ];
+
+    let currentScale = 'meses'; // 'dias' | 'semanas' | 'meses'
+    let currentViewMode = 'gantt'; // 'gantt' | 'financiero' | 'curva_s'
+    let currentFilteredPartida = 'all';
+
+    // Generador de períodos según escala
+    function getPeriods(scale) {
+      if (scale === 'meses') {
+        return [
+          { key: '2026-05', label: 'Mayo 2026', short: 'M1', days: 31, start: '2026-05-01', end: '2026-05-31' },
+          { key: '2026-06', label: 'Junio 2026', short: 'M2', days: 30, start: '2026-06-01', end: '2026-06-30' },
+          { key: '2026-07', label: 'Julio 2026', short: 'M3', days: 31, start: '2026-07-01', end: '2026-07-31' },
+          { key: '2026-08', label: 'Agosto 2026', short: 'M4', days: 31, start: '2026-08-01', end: '2026-08-31' },
+          { key: '2026-09', label: 'Septiembre 2026', short: 'M5', days: 30, start: '2026-09-01', end: '2026-09-30' },
+          { key: '2026-10', label: 'Octubre 2026', short: 'M6', days: 31, start: '2026-10-01', end: '2026-10-31' }
+        ];
+      } else if (scale === 'semanas') {
+        const weeks = [];
+        for (let i = 1; i <= 26; i++) {
+          weeks.push({
+            key: `W${i}`,
+            label: `Sem ${i}`,
+            short: `S${i}`,
+            days: 7
+          });
+        }
+        return weeks;
+      } else {
+        const days = [];
+        for (let i = 1; i <= 45; i++) {
+          days.push({
+            key: `D${i}`,
+            label: `Día ${i}`,
+            short: `D${i}`,
+            days: 1
+          });
+        }
+        return days;
+      }
+    }
+
+    function diffDays(s1, s2) {
+      const d1 = new Date(s1);
+      const d2 = new Date(s2);
+      return Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+    }
+
+    function addDays(s, days) {
+      const d = new Date(s);
+      d.setDate(d.getDate() + days);
+      return d.toISOString().split('T')[0];
+    }
+
+    // Renderizado del Diagrama Gantt
+    function renderGantt() {
+      const periods = getPeriods(currentScale);
+      const concepts = SAMPLE_CONCEPTS.filter(c => currentFilteredPartida === 'all' || c.partida === currentFilteredPartida);
+
+      // Tabla izquierda
+      const listEl = document.getElementById('gantt-concept-rows');
+      listEl.innerHTML = concepts.map(c => `
+        <div class="py-2 px-3 hover:bg-slate-800/50 flex items-center justify-between group transition">
+          <span class="w-20 font-mono text-blue-400 font-bold truncate">${c.clave}</span>
+          <div class="flex-1 px-2 min-w-0">
+            <span class="block truncate text-slate-200 font-medium">${c.desc}</span>
+            <span class="text-[11px] text-slate-500 font-mono">${c.cant} ${c.unidad} • $${c.imp.toLocaleString('es-MX', {minimumFractionDigits:2})}</span>
+          </div>
+          <div class="w-24 text-center">
+            <input type="date" value="${c.start}" onchange="onConceptDateChange('${c.id}', this.value, ${c.dur})" class="text-[11px] bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 outline-none focus:border-blue-500 font-mono text-slate-200 w-full text-center">
+          </div>
+          <div class="w-14 text-center">
+            <input type="number" min="1" value="${c.dur}" onchange="onConceptDurChange('${c.id}', '${c.start}', this.value)" class="text-[11px] bg-slate-900 border border-slate-700 rounded px-1 py-0.5 outline-none focus:border-blue-500 font-mono text-white font-bold w-12 text-center">
+          </div>
+        </div>
+      `).join('');
+
+      // Cabecera Timeline
+      const headerEl = document.getElementById('gantt-timeline-header');
+      headerEl.innerHTML = periods.map(p => `
+        <div class="w-28 text-center px-1 border-r border-slate-800 shrink-0">
+          <span class="block text-xs font-bold text-slate-200">${p.label}</span>
+          <span class="text-[10px] text-slate-400 font-mono">${p.days}d</span>
+        </div>
+      `).join('');
+
+      // Barras de Timeline
+      const barsEl = document.getElementById('gantt-timeline-bars');
+      const minStart = '2026-05-01';
+      const totalDays = 184;
+      const totalWidth = periods.length * 112; // 112px por período
+
+      barsEl.innerHTML = concepts.map(c => {
+        const offset = Math.max(0, diffDays(minStart, c.start));
+        const pxPerDay = totalWidth / totalDays;
+        const left = offset * pxPerDay;
+        const width = Math.max(16, c.dur * pxPerDay);
+
+        return `
+          <div class="h-10 py-2 px-1 relative hover:bg-slate-800/30 transition">
+            <div class="absolute h-5 rounded-md shadow-lg flex items-center justify-between px-2 text-[11px] text-white font-bold cursor-pointer group hover:scale-[1.01] transition-all"
+                 style="left: ${left}px; width: ${width}px; background-color: ${c.color};"
+                 title="${c.clave}: ${c.desc}&#10;Inicio: ${c.start} (${c.dur} días)&#10;Monto: $${c.imp.toLocaleString('es-MX')}">
+              <span class="truncate">${c.clave}</span>
+              <span class="text-[10px] font-mono opacity-90">${c.dur}d</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Renderizado del Programa Financiero (Tabla Opus / Neodata)
+    function renderFinanciero() {
+      const periods = getPeriods(currentScale);
+      const concepts = SAMPLE_CONCEPTS.filter(c => currentFilteredPartida === 'all' || c.partida === currentFilteredPartida);
+
+      // Cabecera Row 1
+      const hRow1 = document.getElementById('financial-header-row-1');
+      hRow1.innerHTML = `
+        <th class="py-2.5 px-3 font-bold w-20 text-center border-r border-slate-800">Clave</th>
+        <th class="py-2.5 px-3 font-bold min-w-[260px] border-r border-slate-800">Concepto de Obra</th>
+        <th class="py-2.5 px-2 font-bold w-12 text-center border-r border-slate-800">Unid</th>
+        <th class="py-2.5 px-3 font-bold w-20 text-right border-r border-slate-800">Cant Total</th>
+        <th class="py-2.5 px-3 font-bold w-24 text-right border-r border-slate-800">P.U. ($)</th>
+        <th class="py-2.5 px-3 font-bold w-28 text-right border-r border-slate-800 bg-slate-950 text-white">Importe Total</th>
+        ${periods.map(p => `
+          <th colspan="2" class="py-1 px-2 text-center border-r border-slate-800 font-bold bg-slate-900">
+            ${p.label}
+          </th>
+        `).join('')}
+      `;
+
+      // Cabecera Row 2
+      const hRow2 = document.getElementById('financial-header-row-2');
+      hRow2.innerHTML = `
+        <th colspan="6" class="border-r border-slate-800"></th>
+        ${periods.map(() => `
+          <th class="py-1 px-1 text-center w-16 border-r border-slate-800 font-mono">Cant</th>
+          <th class="py-1 px-2 text-right w-24 border-r border-slate-800 font-mono">Importe ($)</th>
+        `).join('')}
+      `;
+
+      // Cuerpo
+      const bodyEl = document.getElementById('financial-table-body');
+      bodyEl.innerHTML = concepts.map(c => `
+        <tr class="hover:bg-slate-800/40 text-xs transition">
+          <td class="py-2 px-3 text-center text-blue-400 font-mono font-bold">${c.clave}</td>
+          <td class="py-2 px-3 text-slate-200 font-medium truncate max-w-[260px]" title="${c.desc}">${c.desc}</td>
+          <td class="py-2 px-2 text-center text-slate-400 font-mono">${c.unidad}</td>
+          <td class="py-2 px-3 text-right text-slate-300 font-mono">${c.cant.toFixed(2)}</td>
+          <td class="py-2 px-3 text-right text-slate-400 font-mono">$${c.pu.toFixed(2)}</td>
+          <td class="py-2 px-3 text-right font-bold text-white bg-slate-950/60 font-mono">$${c.imp.toLocaleString('es-MX', {minimumFractionDigits:2})}</td>
+          
+          ${periods.map((p, idx) => {
+            const isCovered = (idx === 0 && c.start.includes('2026-05')) ||
+                              (idx === 1 && (c.start.includes('2026-06') || c.start.includes('2026-05'))) ||
+                              (idx === 2 && (c.start.includes('2026-07') || c.start.includes('2026-06'))) ||
+                              (idx === 3 && (c.start.includes('2026-08') || c.start.includes('2026-07'))) ||
+                              (idx === 4 && (c.start.includes('2026-09') || c.start.includes('2026-08'))) ||
+                              (idx === 5 && (c.start.includes('2026-10') || c.start.includes('2026-09')));
+
+            const pCant = isCovered ? (c.cant / 2).toFixed(2) : '0.00';
+            const pImp = isCovered ? (c.imp / 2).toFixed(2) : '0.00';
+
+            return `
+              <td class="py-1 px-1 text-center border-l border-slate-800">
+                <input type="number" value="${isCovered ? pCant : ''}" placeholder="0.00" onchange="onFinancialInput('${c.id}', '${p.key}', 'cant', this.value)" class="w-14 text-center bg-slate-900 border border-transparent hover:border-slate-700 focus:border-blue-500 rounded px-1 py-0.5 text-xs text-slate-300 outline-none">
+              </td>
+              <td class="py-1 px-2 text-right border-r border-slate-800">
+                <input type="number" value="${isCovered ? pImp : ''}" placeholder="$0.00" onchange="onFinancialInput('${c.id}', '${p.key}', 'imp', this.value)" class="w-20 text-right bg-slate-900 border border-transparent hover:border-slate-700 focus:border-blue-500 rounded px-1 py-0.5 text-xs text-emerald-400 font-bold outline-none">
+              </td>
+            `;
+          }).join('')}
+        </tr>
+      `).join('');
+
+      // Footer
+      const footEl = document.getElementById('financial-table-footer');
+      footEl.innerHTML = `
+        <tr class="bg-slate-950 font-bold border-t-2 border-slate-700">
+          <td colspan="6" class="py-2.5 px-3 text-right uppercase text-xs text-amber-300 font-sans">Total Período ($):</td>
+          ${periods.map((p, idx) => `
+            <td colspan="2" class="py-2.5 px-2 text-right font-mono font-bold text-amber-300 border-r border-slate-800">
+              $${((idx + 1) * 115200).toLocaleString('es-MX', {minimumFractionDigits:2})}
+            </td>
+          `).join('')}
+        </tr>
+        <tr class="bg-slate-900/90 text-[11px] text-slate-400">
+          <td colspan="6" class="py-2 px-3 text-right uppercase font-sans">% Avance Período:</td>
+          ${periods.map((p, idx) => `
+            <td colspan="2" class="py-2 px-2 text-right font-mono text-slate-300 border-r border-slate-800">
+              ${(16.6).toFixed(1)}%
+            </td>
+          `).join('')}
+        </tr>
+        <tr class="bg-black text-xs text-emerald-400 font-bold">
+          <td colspan="6" class="py-2.5 px-3 text-right uppercase font-sans">Total Acumulado ($):</td>
+          ${periods.map((p, idx) => `
+            <td colspan="2" class="py-2.5 px-2 text-right font-mono text-emerald-400 border-r border-slate-800">
+              $${(((idx + 1) * 340616)).toLocaleString('es-MX', {minimumFractionDigits:2})}
+            </td>
+          `).join('')}
+        </tr>
+      `;
+    }
+
+    // Renderizado de la Curva S y Tabla Resumen
+    function renderCurvaS() {
+      const svg = document.getElementById('curva-svg');
+      const data = [
+        { label: 'Mayo', pct: 6.5, imp: 132840, acc: 132840 },
+        { label: 'Junio', pct: 21.0, imp: 296300, acc: 429140 },
+        { label: 'Julio', pct: 47.5, imp: 541200, acc: 970340 },
+        { label: 'Agosto', pct: 74.0, imp: 541000, acc: 1511340 },
+        { label: 'Septiembre', pct: 91.0, imp: 347200, acc: 1858540 },
+        { label: 'Octubre', pct: 100.0, imp: 185159.52, acc: 2043699.52 }
+      ];
+
+      const W = 900;
+      const H = 260;
+      const padX = 60;
+      const padY = 30;
+      const chartW = W - padX * 2;
+      const chartH = H - padY * 2;
+
+      const pts = data.map((d, i) => {
+        const x = padX + (i / (data.length - 1)) * chartW;
+        const y = padY + chartH - (d.pct / 100) * chartH;
+        return { x, y, ...d };
+      });
+
+      const polyStr = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      const areaStr = `${pts[0].x},${padY + chartH} ` + polyStr + ` ${pts[pts.length - 1].x},${padY + chartH}`;
+
+      svg.innerHTML = `
+        <defs>
+          <linearGradient id="gradS" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.0"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Cuadrícula -->
+        ${[0, 25, 50, 75, 100].map(pct => {
+          const y = padY + chartH - (pct / 100) * chartH;
+          return `
+            <line x1="${padX}" y1="${y}" x2="${padX + chartW}" y2="${y}" stroke="#334155" stroke-dasharray="3,3" stroke-width="1"/>
+            <text x="${padX - 10}" y="${y + 4}" fill="#94a3b8" font-size="11" font-family="monospace" text-anchor="end">${pct}%</text>
+          `;
+        }).join('')}
+
+        <!-- Barras de Inversión Mensual ($) -->
+        ${pts.map((p, i) => {
+          const barH = (p.imp / 600000) * (chartH * 0.7);
+          const x = p.x - 14;
+          const y = padY + chartH - barH;
+          return `
+            <rect x="${x}" y="${y}" width="28" height="${barH}" fill="#f59e0b" opacity="0.8" rx="4">
+              <title>${p.label}: $${p.imp.toLocaleString('es-MX')} (${(p.imp/2043699.52*100).toFixed(1)}%)</title>
+            </rect>
+          `;
+        }).join('')}
+
+        <!-- Área Sombreada Curva S -->
+        <polygon points="${areaStr}" fill="url(#gradS)"/>
+
+        <!-- Línea Curva S -->
+        <polyline fill="none" stroke="#60a5fa" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" points="${polyStr}"/>
+
+        <!-- Puntos Interactivos -->
+        ${pts.map(p => `
+          <circle cx="${p.x}" cy="${p.y}" r="5" fill="#ffffff" stroke="#2563eb" stroke-width="3">
+            <title>${p.label}: ${p.pct}% Acumulado ($${p.acc.toLocaleString('es-MX')})</title>
+          </circle>
+          <text x="${p.x}" y="${padY + chartH + 20}" fill="#cbd5e1" font-size="11" font-family="sans-serif" text-anchor="middle" font-weight="600">${p.label}</text>
+        `).join('')}
+      `;
+
+      // Tabla Resumen
+      const bEl = document.getElementById('curva-summary-body');
+      bEl.innerHTML = data.map(d => `
+        <tr class="hover:bg-slate-800/40">
+          <td class="p-2.5 font-bold text-white">${d.label} 2026</td>
+          <td class="p-2.5 text-right text-amber-300 font-bold">$${d.imp.toLocaleString('es-MX', {minimumFractionDigits:2})}</td>
+          <td class="p-2.5 text-center text-slate-300">${(d.imp / 2043699.52 * 100).toFixed(1)}%</td>
+          <td class="p-2.5 text-right text-emerald-400 font-bold">$${d.acc.toLocaleString('es-MX', {minimumFractionDigits:2})}</td>
+          <td class="p-2.5 text-center text-blue-400 font-black">${d.pct.toFixed(1)}%</td>
+        </tr>
+      `).join('');
+    }
+
+    // Handlers de Control
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      document.getElementById('view-mode-gantt').className = mode === 'gantt' ? 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-blue-600 text-white shadow-xs cursor-pointer' : 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5 cursor-pointer';
+      document.getElementById('view-mode-financiero').className = mode === 'financiero' ? 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-blue-600 text-white shadow-xs cursor-pointer' : 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5 cursor-pointer';
+      document.getElementById('view-mode-curva_s').className = mode === 'curva_s' ? 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-blue-600 text-white shadow-xs cursor-pointer' : 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5 cursor-pointer';
+
+      document.getElementById('container-gantt').classList.toggle('hidden', mode !== 'gantt');
+      document.getElementById('container-financiero').classList.toggle('hidden', mode !== 'financiero');
+      document.getElementById('container-curva_s').classList.toggle('hidden', mode !== 'curva_s');
+
+      if (mode === 'gantt') renderGantt();
+      else if (mode === 'financiero') renderFinanciero();
+      else renderCurvaS();
+    }
+
+    function setTimeScale(scale) {
+      currentScale = scale;
+      ['dias', 'semanas', 'meses'].forEach(s => {
+        const btn = document.getElementById(`scale-${s}`);
+        if (s === scale) {
+          btn.className = 'px-3 py-1 rounded-lg bg-blue-600 text-white font-bold transition cursor-pointer shadow-xs';
+        } else {
+          btn.className = 'px-3 py-1 rounded-lg text-slate-400 hover:text-white transition cursor-pointer';
+        }
+      });
+      if (currentViewMode === 'gantt') renderGantt();
+      else if (currentViewMode === 'financiero') renderFinanciero();
+      else renderCurvaS();
+    }
+
+    function filterPartida(partida) {
+      currentFilteredPartida = partida;
+      if (currentViewMode === 'gantt') renderGantt();
+      else if (currentViewMode === 'financiero') renderFinanciero();
+    }
+
+    function onConceptDateChange(id, date, dur) {
+      const c = SAMPLE_CONCEPTS.find(x => x.id === id);
+      if (c) {
+        c.start = date;
+        c.dur = dur;
+        renderGantt();
+      }
+    }
+
+    function onConceptDurChange(id, date, dur) {
+      const c = SAMPLE_CONCEPTS.find(x => x.id === id);
+      if (c) {
+        c.start = date;
+        c.dur = Math.max(1, parseInt(dur, 10) || 1);
+        renderGantt();
+      }
+    }
+
+    function onFinancialInput(id, periodKey, field, val) {
+      // Demostración de Opción C: Al editar en la tabla financiera, se ajusta el Gantt
+      console.log(`Editado concepto ${id} período ${periodKey}: ${field}=${val}`);
+    }
+
+    function autoSchedule() {
+      let curr = '2026-05-01';
+      SAMPLE_CONCEPTS.forEach(c => {
+        c.start = curr;
+        curr = addDays(curr, 2);
+      });
+      renderGantt();
+      alert('¡Cronograma re-programado secuencialmente con éxito!');
+    }
+
+    function mockExportExcel() {
+      alert('Exportando a Microsoft Excel: Programa_Obra_Casa_Laura.xlsx con columnas de períodos, cantidades, importes y curva acumulada.');
+    }
+
+    function switchMainTab(tab) {
+      alert(`Cambiando a pestaña: ${tab.toUpperCase()}`);
+    }
+
+    function updateProjectStartDate(d) {
+      document.getElementById('kpi-start-date').value = d;
+      alert(`Fecha de inicio de obra actualizada a: ${d}`);
+    }
+
+    // Inicialización
+    renderGantt();
+  </script>
+
+</body>
+</html>

@@ -1,5 +1,13 @@
 [
   {
+    "id": "casa_laura_opus",
+    "name": "Proyecto Opus - Casa Laura (Matrices APU)",
+    "category": "Edificación Residencial",
+    "file": "data/casa_laura_opus.json",
+    "itemsCount": 510,
+    "description": "94 conceptos reales de edificación y acabados con 414 insumos, matrices APU completas, rendimientos certificados y precios unitarios Opus."
+  },
+  {
     "id": "bimsa_edificacion_2018",
     "name": "BIMSA Edificación 2018",
     "category": "Edificación",

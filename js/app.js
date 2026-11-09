@@ -1,9 +1,68 @@
+import {
+  renderCalendarioObra,
+  setCalendarioViewMode,
+  setCalendarioTimeScale,
+  filterCalendarioPartida,
+  changeProjectStartDate,
+  onGanttDateInput,
+  onGanttDurationInput,
+  onFinancialCellEdit,
+  triggerAutoDistributeSchedule,
+  exportCurrentScheduleExcel,
+  printCalendarioObra,
+  toggleCalendarioNodeGroup,
+  expandAllCalendarioGroups,
+  collapseAllCalendarioGroups,
+  toggleCalendarioJustifyText,
+  changeGanttZoom,
+  initGanttResizer,
+  syncGanttScroll,
+  initGanttBarDrag,
+  initPremiereZoomBar,
+  updatePremiereZoomBarUI,
+  scrollGanttTimelineStep,
+  fitGanttTimelineEntireProject,
+  changeGanttTodayDateAction,
+  resetGanttTodayDateAction,
+  initGanttTodayLineDrag,
+  openCalendarioJornadaModal,
+  closeCalendarioJornadaModal,
+  switchCalendarioJornadaTab,
+  renderCalendarioJornadaModal,
+  toggleNonWorkingDayOfWeek,
+  setNonWorkingDaysPreset,
+  addFestivoFromModal,
+  removeFestivoFromModal,
+  loadMexicanHolidaysToModal,
+  addLluviaFromModal,
+  removeLluviaFromModal,
+  saveCalendarioJornadaModal,
+  toggleCalendarioCriticalPath,
+  toggleCalendarioLinkMode,
+  handleCalendarioBarLinkClick,
+  undoCalendarioScheduleAction,
+  redoCalendarioScheduleAction,
+  onGanttPredecessorSelect,
+  clearAllCalendarioLinksAction,
+  openConceptDependenciesModal,
+  closeConceptDependenciesModal,
+  clearConceptDependenciesFromModal,
+  saveConceptDependenciesModal,
+  openCalendarioAiModal,
+  closeCalendarioAiModal,
+  refreshCalendarioAiPreview,
+  runCalendarioGeminiAiProposal,
+  applyCalendarioAiProposal,
+  selectCalendarioRow
+} from './modules/calendario/calendarioView.js';
 import { initStore, state, syncClipboardFromStorage } from './state/store.js';
-import { STORAGE_KEY_CLIPBOARD } from './config/constants.js';
+import { STORAGE_KEY_CLIPBOARD, getActiveProjectId } from './config/constants.js';
 import { undoAction, redoAction, updateUndoRedoButtons, setHistoryRenderCallback } from './state/history.js';
 import { showToast } from './ui/notifications.js';
 import { formatMoney, formatQty } from './core/formatters.js';
 import { getFactorSobrecosto, updateSobrecostoBadge, updateGrandTotal } from './core/calculations.js';
+import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime } from './core/realtimeSync.js';
+import { initAuthListener } from './core/authService.js';
 
 import {
   findNodeById,
@@ -25,6 +84,10 @@ import {
   deleteSelectedRow,
   updateNode,
   toggleExpand,
+  collapseAllCatalogNodes,
+  expandAllCatalogNodes,
+  agruparCatalogoConceptos,
+  desagruparCatalogoConceptos,
   updateNodeColor,
   clearNodeColor,
   toggleSelectNode,
@@ -43,14 +106,16 @@ import {
   importSelectedConceptsToCurrentProject
 } from './modules/catalog/importFromProjectModal.js';
 
-import { renderTAB1, selectRow, closeApuPanel, toggleDropdownMenu, closeAllDropdownMenus } from './modules/catalog/catalogView.js';
+import { renderTAB1, selectRow, highlightCatalogRowInPlace, closeApuPanel, toggleDropdownMenu, closeAllDropdownMenus } from './modules/catalog/catalogView.js';
 
 import {
   addInsumo,
   updateInsumo,
   removeInsumo,
   filterMatriz,
-  filterInsumos
+  filterInsumos,
+  limpiarMatrizConceptoSeleccionado,
+  limpiarMatricesCasillas
 } from './modules/apu/apuService.js';
 
 import {
@@ -81,11 +146,28 @@ import {
   selectCombinarTarget,
   ejecutarCombinacionInsumos,
   filterInsumosCategoryView,
-  toggleInsumoCard
+  toggleInsumoCard,
+  agruparInsumosBase,
+  desagruparInsumosBase,
+  collapseAllInsumosCategories,
+  expandAllInsumosCategories,
+  actualizarCostoIndividualConIA,
+  actualizarCostosConIASeleccionados,
+  actualizarTodosLosInsumosSeleccionadosConIA,
+  selectInsumoBaseRow
 } from './modules/insumosGenerales/insumosView.js';
 
-import { testGeminiConnection, executeAiGeneration } from './modules/ai/geminiClient.js';
-import { executeLocalGeneration } from './modules/ai/localEstimator.js';
+import { testGeminiConnection, executeAiGeneration, generarMatrizCasillasGoogleIA } from './modules/ai/geminiClient.js';
+import {
+  executeLocalGeneration,
+  openLocalCatalogSelectorModal,
+  closeLocalCatalogSelectorModal,
+  toggleSelectAllLocalCatalogs,
+  updateLocalCatalogSelectedCount,
+  confirmAndExecuteLocalGeneration,
+  generarMatrizCasillasLocal,
+  getSelectedLeafConcepts
+} from './modules/ai/localEstimator.js';
 import { exportData, importData } from './modules/io/csvHandler.js';
 import { initPanelResizer } from './ui/resizer.js';
 
@@ -95,13 +177,19 @@ import {
   handleUniversalFileSelect,
   onSheetSelectChange,
   executeImport,
-  toggleImportDestination
+  toggleImportDestination,
+  resetImportModalUI,
+  onZoneSelectChange,
+  calculateParsedBudgetTotal,
+  loadCasaLauraOpusDirectly
 } from './modules/io/universalImporter.js';
 
 import {
   printTab1Catalog,
   printApuMatrix,
-  printInsumosGenerales
+  printInsumosGenerales,
+  printCalendarioObraFormat,
+  printEstimacionesFormat
 } from './modules/io/printService.js';
 
 import {
@@ -167,15 +255,65 @@ import {
 } from './ui/brandingController.js';
 
 import {
+  STORAGE_KEY_THEME,
+  initThemeMode,
+  toggleThemeMode,
+  applyThemeMode,
+  isNightMode,
+  setThemeRenderCallback
+} from './ui/themeController.js';
+
+import {
+  isTabLocked,
+  setTabLocked,
+  toggleTabLock,
+  guardTabUnlocked,
+  applyTabLocksToDOM,
+  setTabLockRenderCallback
+} from './ui/tabLockController.js';
+
+import {
+  toggleProjectChatDock,
+  toggleProjectChatMaximize,
+  printProjectChatReport,
+  openProjectChatForPartida,
+  clearProjectChatPartidaFilter,
+  setProjectChatFilter,
+  onProjectChatAuthorChange,
+  toggleProjectChatTagPicker,
+  addProjectChatPendingTag,
+  removeProjectChatPendingTag,
+  sendProjectChatMessage,
+  deleteProjectChatMessage,
+  jumpToProjectChatTag,
+  renderProjectChatDock,
+  setProjectChatRefreshCallback,
+  toggleMentionNotificationsPopover,
+  closeMentionNotificationsPopover,
+  onNotificationsUserFilterChange,
+  markAllMentionsAsRead,
+  openMentionNotification,
+  renderSidebarNotificationsUI
+} from './modules/chat/projectChat.js';
+
+import {
   initPortal,
+  showPortalView,
   renderPortalAuth,
   updatePortalHeaderUserArea,
+  updateWorkspaceHeaderUser,
   switchAuthTab,
   setRegSexo,
   handleCustomPhotoUpload,
   handleRegisterSubmit,
   handleLoginSubmit,
+  quickLoginWithFeaturedUser,
+  removeFeaturedUserAccount,
   quickLoginWithSavedUser,
+  removeSavedUserQuickProfile,
+  purgeAllUsersAndAccountsAction,
+  togglePasswordVisibility,
+  checkPasswordMatchLive,
   triggerGoogleSignIn,
   closeGoogleAuthModal,
   selectGoogleAccount,
@@ -185,6 +323,8 @@ import {
   onProjectSearchInput,
   setCompanyFilter,
   setTipoObraFilter,
+  setProjectScopeFilter,
+  setProjectDashboardMode,
   toggleSortDate,
   toggleSortAZ,
   resetProjectFilters,
@@ -195,7 +335,9 @@ import {
   goToProjectsDashboard,
   duplicateProjectAction,
   deleteProjectAction,
+  syncProjectToCloudAction,
   openNuevoProyectoModal,
+  openNewProjectModal,
   closeNuevoProyectoModal,
   goToWizardStep,
   handleWizardLogoFile,
@@ -211,6 +353,7 @@ import {
   selectProfileAvatar,
   handleProfilePhotoUpload,
   saveProfileChanges,
+  deleteUserAccount,
   logoutUser,
   toggleUserDropdown,
   closeUserDropdown,
@@ -219,13 +362,90 @@ import {
   renderMemberAvatarsHTML,
   openInviteModal,
   closeInviteModal,
+  switchInviteModalTab,
+  setInviteTabCheckboxes,
+  toggleMemberTabPermission,
+  setMemberAllTabsPermission,
   setInviteSexo,
   handleInvitePhotoUpload,
   selectInvitePreset,
   submitInviteMember,
   changeMemberRole,
-  removeMemberFromProject
+  removeMemberFromProject,
+  getActiveOrFallbackProjectId,
+  copyProjectInviteLink,
+  renderHeaderCollaborators,
+  openPlanInviteModal,
+  closePlanInviteModal,
+  switchPlanInviteModalTab,
+  setPlanInviteSexo,
+  updatePlanInviteAvatarPreview,
+  handlePlanInvitePhotoUpload,
+  selectPlanInvitePreset,
+  submitPlanInviteMember,
+  changePlanCollaboratorRole,
+  onRemovePlanCollaboratorClick,
+  copyPlanInviteLink,
+  TAB_METADATA,
+  canCurrentUserAccessTab,
+  updateNavigationTabsAccess,
+  renderTabAssignedAvatars,
+  renderAllTabAssignedMembers,
+  openTabMembersAssignModal,
+  closeTabMembersAssignModal,
+  renderTabMembersModalList,
+  onTabMemberCheckChange,
+  toggleSelectAllTabMembers,
+  saveTabMembersAssignment,
+  simulateUserView,
+  toggleComparisonModal,
+  switchPortalView,
+  switchView,
+  toggleCardMenu,
+  filterProjects,
+  toggleSort,
+  setStatusFilter,
+  resetFilters,
+  exportProjectToExcelAction
 } from './modules/portal/portalController.js';
+
+import {
+  openSubscriptionModal,
+  closeSubscriptionModal,
+  setSubscriptionBillingCycle,
+  selectSubscriptionPlan,
+  renderSubscriptionCards,
+  updateSubscriptionBadgesUI,
+  getCurrentSubscription
+} from './modules/portal/subscriptionModal.js';
+
+import {
+  renderEstimacionesView,
+  onSwitchActiveEstimacion,
+  promptCreateNewEstimacion,
+  confirmDeleteCurrentEstimacion,
+  onChangeEstimacionDate,
+  onEstimacionCantEjeInput,
+  onEstimacionCantEjeBlur,
+  formatCantEjeTwoDecimals,
+  toggleActiveEstimacionLock,
+  onEstimacionesAnticipoInput,
+  onEstimacionesIvaInput,
+  onSearchEstimaciones,
+  toggleEstimacionesGroup,
+  collapseAllEstimacionesPartidas,
+  expandAllEstimacionesPartidas,
+  printEstimacionActual,
+  adjustConceptoColumnWidth,
+  resetConceptoColumnWidth,
+  scrollEstimacionesTableStep,
+  openEstimacionConceptPhotosModal,
+  closeEstimacionConceptPhotosModal,
+  onEstimacionPhotoUrlPreviewInput,
+  clearEstimacionConceptPhotoSlot,
+  saveEstimacionConceptPhotosModal,
+  selectEstimacionRow
+} from './modules/estimaciones/estimacionesView.js';
 
 // Exponer funciones públicas al objeto global window para compatibilidad total con eventos inline del HTML
 Object.assign(window, {
@@ -235,6 +455,99 @@ Object.assign(window, {
   
   // Tabs & Views
   switchTab,
+  toggleThemeMode,
+  applyThemeMode,
+  isNightMode,
+  isTabLocked,
+  setTabLocked,
+  toggleTabLock,
+  guardTabUnlocked,
+  applyTabLocksToDOM,
+  openSubscriptionModal,
+  closeSubscriptionModal,
+  setSubscriptionBillingCycle,
+  selectSubscriptionPlan,
+  getCurrentSubscription,
+  updateSubscriptionBadgesUI,
+  
+  // Estimaciones de Obra
+  renderEstimacionesView,
+  onSwitchActiveEstimacion,
+  promptCreateNewEstimacion,
+  confirmDeleteCurrentEstimacion,
+  onChangeEstimacionDate,
+  onEstimacionCantEjeInput,
+  onEstimacionCantEjeBlur,
+  formatCantEjeTwoDecimals,
+  toggleActiveEstimacionLock,
+  onEstimacionesAnticipoInput,
+  onEstimacionesIvaInput,
+  onSearchEstimaciones,
+  toggleEstimacionesGroup,
+  collapseAllEstimacionesPartidas,
+  expandAllEstimacionesPartidas,
+  printEstimacionActual,
+  adjustConceptoColumnWidth,
+  resetConceptoColumnWidth,
+  scrollEstimacionesTableStep,
+  selectEstimacionRow,
+  
+  // Calendario de Obra (Gantt, Financiero, Curva S)
+  renderCalendarioObra,
+  setCalendarioViewMode,
+  setCalendarioTimeScale,
+  filterCalendarioPartida,
+  changeProjectStartDate,
+  onGanttDateInput,
+  onGanttDurationInput,
+  onFinancialCellEdit,
+  triggerAutoDistributeSchedule,
+  exportCurrentScheduleExcel,
+  printCalendarioObra,
+  toggleCalendarioNodeGroup,
+  expandAllCalendarioGroups,
+  collapseAllCalendarioGroups,
+  toggleCalendarioJustifyText,
+  changeGanttZoom,
+  initGanttResizer,
+  syncGanttScroll,
+  initGanttBarDrag,
+  initPremiereZoomBar,
+  updatePremiereZoomBarUI,
+  scrollGanttTimelineStep,
+  fitGanttTimelineEntireProject,
+  changeGanttTodayDateAction,
+  resetGanttTodayDateAction,
+  initGanttTodayLineDrag,
+  openCalendarioJornadaModal,
+  closeCalendarioJornadaModal,
+  switchCalendarioJornadaTab,
+  renderCalendarioJornadaModal,
+  toggleNonWorkingDayOfWeek,
+  setNonWorkingDaysPreset,
+  addFestivoFromModal,
+  removeFestivoFromModal,
+  loadMexicanHolidaysToModal,
+  addLluviaFromModal,
+  removeLluviaFromModal,
+  saveCalendarioJornadaModal,
+  toggleCalendarioCriticalPath,
+  toggleCalendarioLinkMode,
+  handleCalendarioBarLinkClick,
+  undoCalendarioScheduleAction,
+  redoCalendarioScheduleAction,
+  onGanttPredecessorSelect,
+  clearAllCalendarioLinksAction,
+  openConceptDependenciesModal,
+  closeConceptDependenciesModal,
+  clearConceptDependenciesFromModal,
+  saveConceptDependenciesModal,
+  openCalendarioAiModal,
+  closeCalendarioAiModal,
+  refreshCalendarioAiPreview,
+  runCalendarioGeminiAiProposal,
+  applyCalendarioAiProposal,
+  selectCalendarioRow,
   
   // Catalog Actions
   addRootRow,
@@ -263,11 +576,16 @@ Object.assign(window, {
   deleteSelectedRow,
   updateNode,
   toggleExpand,
+  collapseAllCatalogNodes,
+  expandAllCatalogNodes,
+  agruparCatalogoConceptos,
+  desagruparCatalogoConceptos,
   updateNodeColor,
   clearNodeColor,
   toggleSelectNode,
   toggleSelectAll,
   selectRow,
+  highlightCatalogRowInPlace,
   closeApuPanel,
   renderTAB1,
   toggleDropdownMenu,
@@ -277,6 +595,8 @@ Object.assign(window, {
   addInsumo,
   updateInsumo,
   removeInsumo,
+  limpiarMatrizConceptoSeleccionado,
+  limpiarMatricesCasillas,
   filterMatriz,
   filterInsumos,
   dismissGroundingBox,
@@ -301,6 +621,14 @@ Object.assign(window, {
   ejecutarCombinacionInsumos,
   filterInsumosCategoryView,
   toggleInsumoCard,
+  agruparInsumosBase,
+  desagruparInsumosBase,
+  collapseAllInsumosCategories,
+  expandAllInsumosCategories,
+  actualizarCostoIndividualConIA,
+  actualizarCostosConIASeleccionados,
+  actualizarTodosLosInsumosSeleccionadosConIA,
+  selectInsumoBaseRow,
 
   // AI & Estimator
   openAiGeneratorModal,
@@ -309,6 +637,14 @@ Object.assign(window, {
   testGeminiConnection,
   executeAiGeneration,
   executeLocalGeneration,
+  openLocalCatalogSelectorModal,
+  closeLocalCatalogSelectorModal,
+  toggleSelectAllLocalCatalogs,
+  updateLocalCatalogSelectedCount,
+  confirmAndExecuteLocalGeneration,
+  generarMatrizCasillasLocal,
+  generarMatrizCasillasGoogleIA,
+  getSelectedLeafConcepts,
 
   // Settings & Modals
   openSettingsModal,
@@ -331,6 +667,11 @@ Object.assign(window, {
   onSheetSelectChange,
   executeImport,
   toggleImportDestination,
+  resetImportModalUI,
+  onZoneSelectChange,
+  calculateParsedBudgetTotal,
+  loadCasaLauraOpusDirectly,
+  reloadCasaLauraOpus: loadCasaLauraOpusDirectly,
 
   // Master Catalog (Opción 1)
   openMasterCatalogModal,
@@ -379,17 +720,27 @@ Object.assign(window, {
   printTab1Catalog,
   printApuMatrix,
   printInsumosGenerales,
+  printCalendarioObraFormat,
+  printEstimacionesFormat,
 
   // Portal, Perfil y Multi-Proyecto
   initPortal,
+  showPortalView,
   renderPortalAuth,
   updatePortalHeaderUserArea,
+  updateWorkspaceHeaderUser,
   switchAuthTab,
   setRegSexo,
   handleCustomPhotoUpload,
   handleRegisterSubmit,
   handleLoginSubmit,
+  quickLoginWithFeaturedUser,
+  removeFeaturedUserAccount,
   quickLoginWithSavedUser,
+  removeSavedUserQuickProfile,
+  purgeAllUsersAndAccountsAction,
+  togglePasswordVisibility,
+  checkPasswordMatchLive,
   triggerGoogleSignIn,
   closeGoogleAuthModal,
   selectGoogleAccount,
@@ -399,6 +750,8 @@ Object.assign(window, {
   onProjectSearchInput,
   setCompanyFilter,
   setTipoObraFilter,
+  setProjectScopeFilter,
+  setProjectDashboardMode,
   toggleSortDate,
   toggleSortAZ,
   resetProjectFilters,
@@ -409,7 +762,9 @@ Object.assign(window, {
   goToProjectsDashboard,
   duplicateProjectAction,
   deleteProjectAction,
+  syncProjectToCloudAction,
   openNuevoProyectoModal,
+  openNewProjectModal,
   closeNuevoProyectoModal,
   goToWizardStep,
   handleWizardLogoFile,
@@ -425,6 +780,7 @@ Object.assign(window, {
   selectProfileAvatar,
   handleProfilePhotoUpload,
   saveProfileChanges,
+  deleteUserAccount,
   logoutUser,
   toggleUserDropdown,
   closeUserDropdown,
@@ -433,12 +789,53 @@ Object.assign(window, {
   renderMemberAvatarsHTML,
   openInviteModal,
   closeInviteModal,
+  switchInviteModalTab,
+  setInviteTabCheckboxes,
+  toggleMemberTabPermission,
+  setMemberAllTabsPermission,
   setInviteSexo,
   handleInvitePhotoUpload,
   selectInvitePreset,
   submitInviteMember,
   changeMemberRole,
-  removeMemberFromProject
+  removeMemberFromProject,
+  getActiveOrFallbackProjectId,
+  copyProjectInviteLink,
+  renderHeaderCollaborators,
+  openPlanInviteModal,
+  closePlanInviteModal,
+  switchPlanInviteModalTab,
+  setPlanInviteSexo,
+  updatePlanInviteAvatarPreview,
+  handlePlanInvitePhotoUpload,
+  selectPlanInvitePreset,
+  submitPlanInviteMember,
+  changePlanCollaboratorRole,
+  onRemovePlanCollaboratorClick,
+  copyPlanInviteLink,
+  TAB_METADATA,
+  canCurrentUserAccessTab,
+  updateNavigationTabsAccess,
+  renderTabAssignedAvatars,
+  renderAllTabAssignedMembers,
+  openTabMembersAssignModal,
+  closeTabMembersAssignModal,
+  renderTabMembersModalList,
+  onTabMemberCheckChange,
+  toggleSelectAllTabMembers,
+  saveTabMembersAssignment,
+  simulateUserView,
+  toggleComparisonModal,
+  switchPortalView,
+  switchView,
+  toggleCardMenu,
+  filterProjects,
+  toggleSort,
+  setStatusFilter,
+  resetFilters,
+  subscribeToProjectRealtime,
+  unsubscribeFromProjectRealtime,
+  exportProjectToExcelAction
 });
 
 // Atajos de teclado:
@@ -454,7 +851,20 @@ document.addEventListener('keydown', (e) => {
       moverSelectedRow(e.key === 'ArrowUp' ? 'up' : 'down');
     }
   } else if (!isEditingText && (e.ctrlKey || e.metaKey)) {
-    if (e.key === 'c' || e.key === 'C') {
+    const viewCalendario = document.getElementById('view-calendario');
+    const isCalendarioActive = viewCalendario && !viewCalendario.classList.contains('hidden');
+
+    if (isCalendarioActive && (e.key === 'z' || e.key === 'Z')) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        redoCalendarioScheduleAction();
+      } else {
+        undoCalendarioScheduleAction();
+      }
+    } else if (isCalendarioActive && (e.key === 'y' || e.key === 'Y')) {
+      e.preventDefault();
+      redoCalendarioScheduleAction();
+    } else if (e.key === 'c' || e.key === 'C') {
       if (state.activeSelectedId) {
         e.preventDefault();
         copiarSelectedRow();
@@ -466,12 +876,89 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// Selección universal de filas en cualquier tabla del área de proyecto (mismo color y estilo que Catálogo Base)
+function handleWorkspaceTableRowSelection(e) {
+  const target = e.target;
+  if (!target || typeof target.closest !== 'function') return;
+
+  // Ignorar fuera del área de proyecto o ventana maximizada de matriz
+  if (!target.closest('#workspace-container') && !target.closest('#matriz-modal')) return;
+
+  // Soporte para filas divididas del Gantt (panel izquierdo y derecho)
+  const ganttRow = target.closest('[data-gantt-left-row], [data-gantt-right-row]');
+  if (ganttRow) {
+    const rowId = ganttRow.getAttribute('data-gantt-left-row') || ganttRow.getAttribute('data-gantt-right-row');
+    if (rowId) selectCalendarioRow(rowId, e);
+    return;
+  }
+
+  const tr = target.closest('tbody tr');
+  if (!tr) return;
+
+  // Ignorar filas vacías informativas de una sola celda con colspan
+  if (tr.children.length === 1 && tr.children[0].hasAttribute('colspan')) return;
+
+  if (tr.dataset.nodeId) {
+    highlightCatalogRowInPlace(tr.dataset.nodeId);
+    return;
+  }
+  if (tr.dataset.itemKey) {
+    selectInsumoBaseRow(tr.dataset.itemKey);
+    return;
+  }
+  if (tr.dataset.finRow) {
+    selectCalendarioRow(tr.dataset.finRow, e);
+    return;
+  }
+  if (tr.dataset.curvaRow) {
+    selectCalendarioRow(tr.dataset.curvaRow, e);
+    return;
+  }
+  if (tr.dataset.estRow) {
+    selectEstimacionRow(tr.dataset.estRow, e);
+    return;
+  }
+
+  // Cualquier otra tabla dentro del área de proyecto
+  const tbody = tr.parentElement;
+  if (tbody) {
+    tbody.querySelectorAll('tr.selected-row').forEach((r) => r.classList.remove('selected-row'));
+    tr.classList.add('selected-row');
+  }
+}
+
+document.addEventListener('click', handleWorkspaceTableRowSelection);
+document.addEventListener('focusin', handleWorkspaceTableRowSelection);
+
 // Sincronizar portapapeles compartido en tiempo real entre pestañas
 window.addEventListener('storage', (e) => {
   if (e.key === STORAGE_KEY_CLIPBOARD) {
     syncClipboardFromStorage();
     updateClipboardUI();
+  renderHeaderCollaborators();
+  renderAllTabAssignedMembers();
+  updateNavigationTabsAccess();
     renderTAB1();
+  }
+});
+
+// Conectar callback de renderizado al cambiar el candado de bloqueo de pestaña
+setTabLockRenderCallback((tabKey) => {
+  updateUndoRedoButtons();
+  if (tabKey === 'cat') {
+    renderTAB1();
+    if (state.activeSelectedId) {
+      const activeNode = findNodeById(state.treeData, state.activeSelectedId);
+      if (activeNode && (!activeNode.children || activeNode.children.length === 0)) {
+        renderAPUInsumos(activeNode);
+      }
+    }
+  } else if (tabKey === 'insumos') {
+    renderInsumosGenerales();
+  } else if (tabKey === 'calendario') {
+    renderCalendarioObra();
+  } else if (tabKey === 'estimaciones') {
+    renderEstimacionesView();
   }
 });
 
@@ -482,7 +969,49 @@ setHistoryRenderCallback(() => {
   if (viewInsumos && !viewInsumos.classList.contains('hidden')) {
     renderInsumosGenerales();
   }
+  const viewCalendario = document.getElementById('view-calendario');
+  if (viewCalendario && !viewCalendario.classList.contains('hidden')) {
+    renderCalendarioObra();
+  }
 });
+
+// Conectar callback de renderizado al cambiar entre Vista de Día y Modo Nocturno
+setThemeRenderCallback(() => {
+  renderTAB1();
+  if (state.activeSelectedId) {
+    const activeNode = findNodeById(state.treeData, state.activeSelectedId);
+    if (activeNode && (!activeNode.children || activeNode.children.length === 0)) {
+      renderAPUInsumos(activeNode);
+    }
+  }
+  const viewInsumos = document.getElementById('view-insumos');
+  if (viewInsumos && !viewInsumos.classList.contains('hidden')) {
+    renderInsumosGenerales();
+  }
+  const viewCalendario = document.getElementById('view-calendario');
+  if (viewCalendario && !viewCalendario.classList.contains('hidden')) {
+    renderCalendarioObra();
+  }
+  const viewEstimaciones = document.getElementById('view-estimaciones');
+  if (viewEstimaciones && !viewEstimaciones.classList.contains('hidden')) {
+    renderEstimacionesView();
+  }
+  const subModal = document.getElementById('modal-suscripcion-usuario');
+  if (subModal && !subModal.classList.contains('hidden')) {
+    renderSubscriptionCards();
+  }
+});
+
+// Sincronizar tema visual entre pestañas abiertas
+window.addEventListener('storage', (e) => {
+  if (e.key === STORAGE_KEY_THEME) {
+    applyThemeMode(e.newValue === 'night' ? 'night' : 'day', { persist: false, notify: false, rerender: true });
+  }
+});
+
+// Inicializar tema visual (Vista de Día por defecto o Modo Nocturno guardado)
+initThemeMode();
+try { initAuthListener(); } catch (_) {}
 
 // Inicialización de la aplicación al cargar el módulo
 const isWorkspaceActive = initPortal();
@@ -494,4 +1023,60 @@ if (isWorkspaceActive) {
   updateUndoRedoButtons();
   updateClipboardUI();
   openReferenceDb().catch(err => console.warn('IndexedDB reference DB:', err));
+  const activePId = getActiveProjectId();
+  if (activePId) {
+    try {
+      subscribeToProjectRealtime(activePId);
+    } catch (e) {
+      console.warn('[Realtime] Aviso al conectar canal de obra:', e);
+    }
+  }
 }
+
+// Asegurar renderizado de colaboradores en el encabezado de proyecto
+if (typeof document !== 'undefined') {
+  renderHeaderCollaborators();
+  renderAllTabAssignedMembers();
+  updateNavigationTabsAccess();
+  updateSubscriptionBadgesUI();
+  applyTabLocksToDOM();
+  renderProjectChatDock();
+}
+
+window.toggleProjectChatDock = toggleProjectChatDock;
+window.toggleProjectChatMaximize = toggleProjectChatMaximize;
+window.printProjectChatReport = printProjectChatReport;
+window.openProjectChatForPartida = openProjectChatForPartida;
+window.clearProjectChatPartidaFilter = clearProjectChatPartidaFilter;
+window.setProjectChatFilter = setProjectChatFilter;
+window.onProjectChatAuthorChange = onProjectChatAuthorChange;
+window.toggleProjectChatTagPicker = toggleProjectChatTagPicker;
+window.addProjectChatPendingTag = addProjectChatPendingTag;
+window.removeProjectChatPendingTag = removeProjectChatPendingTag;
+window.sendProjectChatMessage = sendProjectChatMessage;
+window.deleteProjectChatMessage = deleteProjectChatMessage;
+window.jumpToProjectChatTag = jumpToProjectChatTag;
+window.renderProjectChatDock = renderProjectChatDock;
+window.toggleMentionNotificationsPopover = toggleMentionNotificationsPopover;
+window.closeMentionNotificationsPopover = closeMentionNotificationsPopover;
+window.onNotificationsUserFilterChange = onNotificationsUserFilterChange;
+window.markAllMentionsAsRead = markAllMentionsAsRead;
+window.openMentionNotification = openMentionNotification;
+window.renderSidebarNotificationsUI = renderSidebarNotificationsUI;
+window.openEstimacionConceptPhotosModal = openEstimacionConceptPhotosModal;
+window.closeEstimacionConceptPhotosModal = closeEstimacionConceptPhotosModal;
+window.onEstimacionPhotoUrlPreviewInput = onEstimacionPhotoUrlPreviewInput;
+window.clearEstimacionConceptPhotoSlot = clearEstimacionConceptPhotoSlot;
+window.saveEstimacionConceptPhotosModal = saveEstimacionConceptPhotosModal;
+
+setProjectChatRefreshCallback(() => {
+  renderTAB1();
+  const viewCalendario = document.getElementById('view-calendario');
+  if (viewCalendario && !viewCalendario.classList.contains('hidden')) {
+    renderCalendarioObra();
+  }
+  const viewEstimaciones = document.getElementById('view-estimaciones');
+  if (viewEstimaciones && !viewEstimaciones.classList.contains('hidden')) {
+    renderEstimacionesView();
+  }
+});

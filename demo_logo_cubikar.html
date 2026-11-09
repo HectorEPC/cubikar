@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>cubikar — Isotipo Grande en Barra Superior</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .font-saas { font-family: 'Poppins', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen py-10 px-4 md:px-8">
+
+  <!-- Header -->
+  <header class="max-w-4xl mx-auto mb-10 text-center">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-semibold mb-3 tracking-wide">
+      Ajuste Visual &bull; Icono Más Grande &bull; Sin Espacio Vacío
+    </div>
+    <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-white mb-3 font-saas">
+      Barra Superior: <span class="text-blue-500">cubikar</span>
+    </h1>
+    <p class="text-slate-400 text-base md:text-lg max-w-xl mx-auto">
+      Se recortaron los márgenes transparentes vacíos y se aumentó el tamaño en la barra de navegación para que se aprecie con total claridad.
+    </p>
+  </header>
+
+  <!-- Simulación idéntica a la Barra del Portal (Mis Proyectos de Obra) -->
+  <section class="max-w-5xl mx-auto mb-12">
+    <h2 class="text-lg font-bold text-white mb-3">En la Barra del Portal (Mis Proyectos de Obra)</h2>
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+      
+      <!-- Top Navbar idéntica a tu captura -->
+      <div class="bg-slate-950 px-6 py-3.5 border-b border-slate-800 flex items-center justify-between">
+        
+        <!-- Logo Grande y Destacado -->
+        <div class="flex items-center space-x-3.5 cursor-pointer group">
+          <img src="assets/branding/cubikar_icon_transparent.png?v=4" alt="cubikar" class="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain drop-shadow-xl group-hover:scale-105 transition duration-200 shrink-0">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-extrabold text-2xl sm:text-3xl tracking-tight text-white font-sans">cubikar<span class="text-rose-500 font-black">.</span></span>
+              <span class="bg-blue-500/10 text-blue-400 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-500/20">Portal Multi-Proyecto</span>
+            </div>
+            <p class="text-xs text-slate-300">Presupuestos Base • Matrices APU • Insumos Generales</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button class="bg-amber-500/10 text-amber-300 border border-amber-500/30 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+            <span>Ver Análisis: Antes vs Después</span>
+          </button>
+          <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">
+            HE
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview Note -->
+      <div class="p-6 text-center text-xs text-slate-400 bg-slate-900/50">
+        El icono ahora aprovecha el 98% del lienzo: se ve significativamente más grande, con colores vivos y 100% libre de cualquier contorno o recuadro blanco sobre el fondo oscuro.
+      </div>
+    </div>
+  </section>
+
+  <!-- Simulación idéntica a la Portada de Inicio de Sesión / Registro -->
+  <section class="max-w-xl mx-auto mb-12">
+    <h2 class="text-lg font-bold text-white mb-3 text-center">En la Portada de Inicio de Sesión</h2>
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+      <!-- Encabezado de la Portada -->
+      <div class="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white p-6 sm:p-8 text-center relative overflow-hidden">
+        <div class="relative w-36 h-36 sm:w-44 sm:h-44 mx-auto mb-2 flex items-center justify-center">
+          <div class="absolute inset-0 bg-blue-500/15 rounded-full blur-2xl pointer-events-none"></div>
+          <img src="assets/branding/cubikar_icon_transparent.png?v=4" alt="cubikar" class="relative w-full h-full object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-300">
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight font-sans mb-1 text-white">cubikar<span class="text-rose-500">.</span></h1>
+        <p class="text-xs text-slate-300 mt-1 max-w-sm mx-auto">
+          Presupuestos Base, Matrices de Precios Unitarios (APU) e Insumos Generales
+        </p>
+      </div>
+      <div class="p-6 text-center text-xs text-slate-500 bg-slate-50">
+        Isotipo flotante en gran formato sin borde blanco exterior, integrándose directamente con el degradado nocturno.
+      </div>
+    </div>
+  </section>
+
+</body>
+</html>

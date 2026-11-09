@@ -1,10 +1,12 @@
-import { state, persistSettings } from '../../state/store.js';
+import { state, persistSettings, persistLocalData } from '../../state/store.js';
 import { saveState } from '../../state/history.js';
 import { showToast } from '../../ui/notifications.js';
-import { findNodeById, getNodeHierarchyPath } from '../catalog/treeService.js';
+import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
 import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js';
-import { closeAiGeneratorModal } from '../../ui/modalController.js';
+import { closeAiGeneratorModal, openAiGeneratorModal, aiModalTargetMode, aiModalSingleNodeId } from '../../ui/modalController.js';
+import { round2, getFactorSobrecosto } from '../../core/calculations.js';
+import { round5 } from '../../core/formatters.js';
 
 // Extractor robusto de JSON para respuestas de Gemini
 export function extractJsonFromAiResponse(text) {
@@ -80,41 +82,32 @@ export async function testGeminiConnection() {
   }
 }
 
-// Ejecución de Generación con IA y Google Search Grounding
-export async function executeAiGeneration() {
-  const apiKeyInput = (document.getElementById('ai-modal-api-key')?.value || '').trim();
-  const errorBox = document.getElementById('ai-modal-error');
-  const errorTitle = document.getElementById('ai-modal-error-title');
-  const errorMsg = document.getElementById('ai-modal-error-msg');
-  const loadingBox = document.getElementById('ai-modal-loading');
-  const loadingText = document.getElementById('ai-modal-loading-text');
-  const btnRun = document.getElementById('btn-ai-modal-run');
-  const btnLocal = document.getElementById('btn-ai-modal-local');
+// Generar matrices APU con Google IA para conceptos seleccionados con casilla
+export async function generarMatrizCasillasGoogleIA() {
+  let selected = getSelectedLeafConcepts ? getSelectedLeafConcepts() : [];
+  if (selected.length === 0 && state.activeSelectedId) {
+    const active = findNodeById(state.treeData, state.activeSelectedId);
+    if (active && (!active.children || active.children.length === 0)) {
+      active.selected = true;
+      selected.push(active);
+      persistLocalData();
+      renderTAB1();
+    }
+  }
 
-  if (!apiKeyInput) {
-    if (errorBox) errorBox.classList.remove('hidden');
-    if (errorTitle) errorTitle.innerText = 'Se requiere API Key';
-    if (errorMsg) errorMsg.innerText = 'Para realizar búsquedas en Google Search Grounding en tiempo real, ingresa tu API Key gratuita de Gemini.';
-    document.getElementById('ai-modal-api-key')?.focus();
+  if (selected.length === 0) {
+    showToast('Selecciona con la casilla (checkbox) los conceptos cuya matriz deseas generar con Google IA.', 'warning');
     return;
   }
 
-  // Guardar API Key para futuros usos
-  state.settings.apiKey = apiKeyInput;
-  persistSettings();
-  const cfgInput = document.getElementById('cfg-api-key');
-  if (cfgInput) cfgInput.value = apiKeyInput;
+  openAiGeneratorModal(false);
+}
 
-  if (errorBox) errorBox.classList.add('hidden');
-  if (loadingBox) loadingBox.classList.remove('hidden');
-  if (btnRun) btnRun.disabled = true;
-  if (btnLocal) btnLocal.disabled = true;
-
-  const node = findNodeById(state.treeData, state.activeSelectedId);
-  if (!node) {
-    closeAiGeneratorModal();
-    return;
-  }
+/**
+ * Consulta a Gemini con Google Search Grounding para estructurar la matriz de un concepto individual.
+ */
+export async function queryGeminiSingleConcept(node, apiKeyInput, onStatus) {
+  if (!node) return { success: false, error: 'Nodo no válido' };
 
   const pathArr = getNodeHierarchyPath(state.treeData, node.id) || [];
   const fullPath = pathArr.join('  >  ');
@@ -124,14 +117,14 @@ Utiliza Google Search Grounding para investigar precios comerciales y rendimient
 
 Datos de la fila seleccionada en TAB1-CAT-BASE:
 - Ubicación / Partida en presupuesto: "${fullPath}"
-- Clave de concepto: "${node.clave}"
-- Descripción exacta del concepto: "${node.descripcion}"
-- Unidad de medida del concepto: "${node.unidad}"
-- Cantidad de obra en presupuesto: ${node.cantidad || 1} ${node.unidad}
+- Clave de concepto: "${node.clave || ''}"
+- Descripción exacta del concepto: "${node.descripcion || ''}"
+- Unidad de medida del concepto: "${node.unidad || 'pza'}"
+- Cantidad de obra en presupuesto: ${node.cantidad || 1} ${node.unidad || 'pza'}
 
 REGLA FUNDAMENTAL DE PRECIOS UNITARIOS (APU):
-La propiedad 'cantidad' de CADA insumo (Material, Mano de Obra, Equipo/Herramienta, Subcontrato) DEBE SER ESTRICTAMENTE el consumo o rendimiento unitario necesario para elaborar EXACTAMENTE UNA UNIDAD (1 ${node.unidad}) del concepto.
-¡NO debes multiplicar por la cantidad total de obra del presupuesto (${node.cantidad || 1})! Únicamente el consumo por 1 ${node.unidad}.
+La propiedad 'cantidad' de CADA insumo (Material, Mano de Obra, Equipo/Herramienta, Subcontrato) DEBE SER ESTRICTAMENTE el consumo o rendimiento unitario necesario para elaborar EXACTAMENTE UNA UNIDAD (1 ${node.unidad || 'pza'}) del concepto.
+¡NO debes multiplicar por la cantidad total de obra del presupuesto (${node.cantidad || 1})! Únicamente el consumo por 1 ${node.unidad || 'pza'}.
 Ejemplos de congruencia matemática:
 - Si el concepto es en m2 y lleva concreto (m3) con espesor 10 cm: cantidad = 1.0 * 0.10 * 1.05 desperdicio = 0.105 m3.
 - Si lleva malla electrosoldada en m2: cantidad = 1.10 m2 (considerando 10% traslapes).
@@ -140,7 +133,7 @@ Ejemplos de congruencia matemática:
 
 Instrucciones prioritarias con Google Search:
 1. Realiza búsquedas en Google de los precios actuales de mercado en México para los materiales comerciales que componen este concepto (puestos en obra).
-2. Busca los salarios de cuadrillas (oficiales + peones) con Factor de Salario Real y sus rendimientos por cada 1 ${node.unidad} según tabuladores CMIC / Neodata / Opus.
+2. Busca los salarios de cuadrillas (oficiales + peones) con Factor de Salario Real y sus rendimientos por cada 1 ${node.unidad || 'pza'} según tabuladores CMIC / Neodata / Opus.
 3. Determina el equipo, maquinaria y herramienta requerida.
 4. Clasifica los insumos en los rubros: "Material", "Mano de Obra", "Herramienta", "Equipo", "Maquinaria" o "Subcontrato".
 5. Al final de tu análisis, devuelve OBLIGATORIAMENTE un bloque de código JSON con esta estructura exacta:
@@ -184,15 +177,14 @@ Instrucciones prioritarias con Google Search:
     { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] }
   ];
 
-  let success = false;
   let lastError = '';
 
   for (let att of attempts) {
     try {
-      if (loadingText) {
-        loadingText.innerText = att.tools 
+      if (onStatus) {
+        onStatus(att.tools 
           ? `Buscando cotizaciones en Google Search Grounding con ${att.model}...`
-          : `Consultando modelo ${att.model}...`;
+          : `Consultando modelo ${att.model}...`);
       }
 
       const reqPayload = {
@@ -230,8 +222,6 @@ Instrucciones prioritarias con Google Search:
 
       const parsed = extractJsonFromAiResponse(textContent);
       if (parsed && Array.isArray(parsed.insumos) && parsed.insumos.length > 0) {
-        saveState();
-
         const groundingMeta = candidate.groundingMetadata;
         const searchQueries = groundingMeta?.webSearchQueries || [];
         const sources = (groundingMeta?.groundingChunks || []).map(chunk => ({
@@ -257,13 +247,20 @@ Instrucciones prioritarias con Google Search:
             tipo: cleanTipo,
             descripcion: item.descripcion || 'Insumo de obra',
             unidad: item.unidad || 'pza',
-            cantidad: Math.round(((parseFloat(item.cantidad) || 1) + Number.EPSILON) * 100) / 100,
-            costoUnitario: Math.round(((parseFloat(item.costoUnitario) || 0) + Number.EPSILON) * 100) / 100
+            cantidad: round5(parseFloat(item.cantidad) || 1),
+            costoUnitario: round2(parseFloat(item.costoUnitario) || 0)
           };
         });
 
-        success = true;
-        break;
+        // Calcular costo directo y precio unitario con factor de sobrecosto
+        const totalCD = round2(node.insumos.reduce((acc, ins) => acc + (ins.cantidad * ins.costoUnitario), 0));
+        const factorSobrecosto = getFactorSobrecosto();
+        const totalPU = round2(totalCD * factorSobrecosto);
+
+        node.costoDirecto = totalCD;
+        node.precioUnitario = totalPU;
+
+        return { success: true };
       }
     } catch (err) {
       lastError = err.message || 'Error de red';
@@ -271,18 +268,110 @@ Instrucciones prioritarias con Google Search:
     }
   }
 
-  if (success) {
+  return { success: false, error: lastError };
+}
+
+// Ejecución de Generación con IA y Google Search Grounding (Lote o Individual)
+export async function executeAiGeneration() {
+  const apiKeyInput = (document.getElementById('ai-modal-api-key')?.value || '').trim();
+  const errorBox = document.getElementById('ai-modal-error');
+  const errorTitle = document.getElementById('ai-modal-error-title');
+  const errorMsg = document.getElementById('ai-modal-error-msg');
+  const loadingBox = document.getElementById('ai-modal-loading');
+  const loadingText = document.getElementById('ai-modal-loading-text');
+  const btnRun = document.getElementById('btn-ai-modal-run');
+
+  if (!apiKeyInput) {
+    if (errorBox) errorBox.classList.remove('hidden');
+    if (errorTitle) errorTitle.innerText = 'Se requiere API Key';
+    if (errorMsg) errorMsg.innerText = 'Para realizar búsquedas en Google Search Grounding en tiempo real, ingresa tu API Key gratuita de Gemini.';
+    document.getElementById('ai-modal-api-key')?.focus();
+    return;
+  }
+
+  // Guardar API Key para futuros usos
+  state.settings.apiKey = apiKeyInput;
+  persistSettings();
+  const cfgInput = document.getElementById('cfg-api-key');
+  if (cfgInput) cfgInput.value = apiKeyInput;
+
+  let targets = [];
+  if (aiModalTargetMode === 'single') {
+    const targetNode = findNodeById(state.treeData, aiModalSingleNodeId || state.activeSelectedId);
+    if (targetNode && (!targetNode.children || targetNode.children.length === 0)) {
+      targets = [targetNode];
+    }
+  } else {
+    targets = getSelectedLeafConcepts ? getSelectedLeafConcepts() : [];
+    if (targets.length === 0 && state.activeSelectedId) {
+      const activeNode = findNodeById(state.treeData, state.activeSelectedId);
+      if (activeNode && (!activeNode.children || activeNode.children.length === 0)) {
+        targets = [activeNode];
+      }
+    }
+  }
+
+  if (targets.length === 0) {
+    showToast('Selecciona al menos un concepto en la tabla primero.', 'warning');
     closeAiGeneratorModal();
-    renderAPUInsumos(node);
-    renderInsumosUnitarios(node);
+    return;
+  }
+
+  if (errorBox) errorBox.classList.add('hidden');
+  if (loadingBox) loadingBox.classList.remove('hidden');
+  if (btnRun) btnRun.disabled = true;
+
+  saveState();
+
+  let successCount = 0;
+  let lastError = '';
+
+  for (let i = 0; i < targets.length; i++) {
+    const node = targets[i];
+    const prefix = targets.length > 1 ? `(${i + 1}/${targets.length}) ` : '';
+
+    if (loadingText) {
+      loadingText.innerText = `${prefix}Consultando Google Search para [${node.clave || ''}] ${node.descripcion.substring(0, 30)}...`;
+    }
+
+    try {
+      const res = await queryGeminiSingleConcept(node, apiKeyInput, (status) => {
+        if (loadingText) loadingText.innerText = `${prefix}${status}`;
+      });
+
+      if (res.success) {
+        successCount++;
+      } else {
+        lastError = res.error || 'Fallo al procesar respuesta';
+      }
+    } catch (err) {
+      lastError = err.message || 'Error de conexión';
+      console.error(`Error en concepto ${node.clave}:`, err);
+    }
+  }
+
+  if (successCount > 0) {
+    persistLocalData();
+    closeAiGeneratorModal();
+
+    if (state.activeSelectedId) {
+      const activeNode = findNodeById(state.treeData, state.activeSelectedId);
+      if (activeNode) {
+        renderAPUInsumos(activeNode);
+        renderInsumosUnitarios(activeNode);
+      }
+    }
     renderTAB1();
-    showToast('Matriz generada con Google Search Grounding', 'success');
+
+    const msg = targets.length === 1
+      ? 'Matriz generada con Google Search Grounding'
+      : `✅ Matrices generadas con Google IA para ${successCount} de ${targets.length} conceptos`;
+    showToast(msg, 'success');
   } else {
     if (loadingBox) loadingBox.classList.add('hidden');
     if (errorBox) errorBox.classList.remove('hidden');
     if (errorTitle) errorTitle.innerText = 'Error al consultar Google Search';
     if (errorMsg) errorMsg.innerText = `${lastError}. Verifica tu API Key o prueba la conexión.`;
     if (btnRun) btnRun.disabled = false;
-    if (btnLocal) btnLocal.disabled = false;
   }
 }

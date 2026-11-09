@@ -250,7 +250,7 @@ function renderSourceConceptsList() {
                       <span class="font-medium text-slate-800">${ins.descripcion}</span>
                     </div>
                     <div class="text-right shrink-0 font-mono text-[10px] text-slate-700">
-                      <span>${Number(ins.cantidad || 0).toFixed(2)} ${ins.unidad}</span>
+                      <span>${Number(ins.cantidad || 0).toFixed(5)} ${ins.unidad}</span>
                       <span class="text-slate-400 mx-1">×</span>
                       <span class="font-bold text-slate-900">$${Number(ins.costoUnitario || 0).toFixed(2)}</span>
                     </div>

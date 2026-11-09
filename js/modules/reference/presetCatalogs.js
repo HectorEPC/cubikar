@@ -3,6 +3,7 @@
 
 import { showToast } from '../../ui/notifications.js';
 import { saveReferenceCatalog, listReferenceCatalogs } from './referenceDb.js';
+import { flattenPresetData } from '../ai/localMatrixEngine.js';
 
 let manifestCache = null;
 
@@ -40,7 +41,9 @@ export async function installPresetCatalog(presetId) {
     const res = await fetch(preset.file);
     if (!res.ok) throw new Error(`No se pudo leer ${preset.file} (${res.status})`);
     
-    const data = await res.json();
+    const rawText = await res.text();
+    const data = JSON.parse(rawText.replace(/^\uFEFF/, ''));
+    const itemsList = flattenPresetData(data);
     
     await saveReferenceCatalog({
       id: data.id || preset.id,
@@ -48,9 +51,9 @@ export async function installPresetCatalog(presetId) {
       category: data.category || preset.category,
       type: 'mixto',
       sourceFileName: preset.file
-    }, data.items || []);
+    }, itemsList);
 
-    showToast(`¡${preset.name} instalado con éxito (${(data.items || []).length.toLocaleString()} registros)!`, 'success');
+    showToast(`¡${preset.name} instalado con éxito (${itemsList.length.toLocaleString()} registros)!`, 'success');
     
     if (window.refreshMasterCatalogList) {
       await window.refreshMasterCatalogList();
@@ -91,15 +94,17 @@ export async function installAllPresets() {
       showToast(`Instalando ${preset.name} (${preset.itemsCount.toLocaleString()} registros)...`, 'info');
       const res = await fetch(preset.file);
       if (res.ok) {
-        const data = await res.json();
+        const rawText = await res.text();
+        const data = JSON.parse(rawText.replace(/^\uFEFF/, ''));
+        const itemsList = flattenPresetData(data);
         await saveReferenceCatalog({
           id: data.id || preset.id,
           name: data.name || preset.name,
           category: data.category || preset.category,
           type: 'mixto',
           sourceFileName: preset.file
-        }, data.items || []);
-        totalInstalled += (data.items || []).length;
+        }, itemsList);
+        totalInstalled += itemsList.length;
       }
     }
 

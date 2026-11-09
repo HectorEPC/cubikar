@@ -4,7 +4,7 @@
 import { state, persistLocalData } from '../../state/store.js';
 import { saveState } from '../../state/history.js';
 import { showToast } from '../../ui/notifications.js';
-import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js';
+import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js';
 import { getFactorSobrecosto } from '../../core/calculations.js';
 import { findNodeById } from '../catalog/treeService.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
@@ -12,6 +12,14 @@ import { renderAPUInsumos, renderInsumosUnitarios } from './apuView.js';
 import { addInsumo, removeInsumo, updateInsumo, filterMatriz } from './apuService.js';
 
 let currentMatrizModalTab = 'matriz'; // 'matriz' | 'explosion'
+let selectedModalApuRowIdx = null;
+let selectedModalExplosionRowIdx = null;
+
+function highlightModalTableRow(tbody, targetTr) {
+  if (!tbody || !targetTr) return;
+  tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
+  targetTr.classList.add('selected-row');
+}
 
 // Abrir la ventana modal maximizada de Matriz APU
 export function openMatrizModal() {
@@ -144,7 +152,7 @@ export function renderModalMatriz(node) {
   let visibleCount = 0;
 
   node.insumos.forEach(ins => {
-    const cant = round2(ins.cantidad || 0);
+    const cant = round5(ins.cantidad || 0);
     const costo = round2(ins.costoUnitario || 0);
     const total = round2(cant * costo);
 
@@ -182,12 +190,23 @@ export function renderModalMatriz(node) {
       }
 
       visibleCount++;
-      const cant = round2(ins.cantidad || 0);
+      const cant = round5(ins.cantidad || 0);
       const costo = round2(ins.costoUnitario || 0);
       const total = round2(cant * costo);
 
       const tr = document.createElement('tr');
-      tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+      const rowColor = getInsumoRowColorClass(ins.tipo);
+      const isSelected = selectedModalApuRowIdx === idx;
+      tr.dataset.insumoIdx = idx;
+      tr.className = `${rowColor} ${isSelected ? 'selected-row' : ''} cursor-pointer transition border-b border-slate-100`;
+      tr.onclick = () => {
+        selectedModalApuRowIdx = idx;
+        highlightModalTableRow(tbody, tr);
+      };
+      tr.onfocusin = () => {
+        selectedModalApuRowIdx = idx;
+        highlightModalTableRow(tbody, tr);
+      };
       tr.innerHTML = `
         <td class="p-2 align-top pt-2.5">
           <input type="text" value="${ins.clave || ''}" 
@@ -197,7 +216,7 @@ export function renderModalMatriz(node) {
         </td>
         <td class="p-2 align-top pt-2.5">
           <select onchange="updateModalInsumo(${idx}, 'tipo', this.value)" 
-                  class="text-xs text-slate-700 bg-transparent border border-slate-200 hover:border-slate-300 rounded px-1.5 py-1 focus:bg-white focus:ring-1 focus:ring-blue-500 font-sans cursor-pointer w-full">
+                  class="text-xs font-semibold rounded px-2 py-1 border cursor-pointer w-full ${ins.tipo === 'Material' ? 'bg-blue-100/80 text-blue-800 border-blue-200' : (ins.tipo === 'Mano de Obra' ? 'bg-amber-100/80 text-amber-800 border-amber-200' : (ins.tipo === 'Herramienta' ? 'bg-orange-100/80 text-orange-800 border-orange-200' : (ins.tipo === 'Equipo' ? 'bg-purple-100/80 text-purple-800 border-purple-200' : (ins.tipo === 'Maquinaria' ? 'bg-rose-100/80 text-rose-800 border-rose-200' : (ins.tipo === 'Subcontrato' ? 'bg-emerald-100/80 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200')))))}">
             <option value="Material" ${ins.tipo === 'Material' ? 'selected' : ''}>Material</option>
             <option value="Mano de Obra" ${ins.tipo === 'Mano de Obra' ? 'selected' : ''}>Mano de Obra</option>
             <option value="Herramienta" ${ins.tipo === 'Herramienta' ? 'selected' : ''}>Herramienta</option>
@@ -216,8 +235,8 @@ export function renderModalMatriz(node) {
                  onchange="updateModalInsumo(${idx}, 'unidad', this.value)" 
                  class="w-16 bg-transparent text-center text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white rounded px-1 py-1 font-mono">
         </td>
-        <td class="p-2 align-top pt-2.5 text-right">
-          <input type="number" step="0.01" min="0" value="${Number(cant).toFixed(2)}" 
+        <td class="p-2 align-top pt-2.5 text-right w-28 min-w-[110px]">
+          <input type="number" step="0.00001" min="0" value="${Number(cant).toFixed(5)}" 
                  title="Consumo unitario necesario para elaborar exactamente 1 ${node.unidad || 'ud'} de concepto" 
                  onchange="updateModalInsumo(${idx}, 'cantidad', parseFloat(this.value)||0)" 
                  class="w-24 text-right bg-transparent border border-slate-200 hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-1 text-xs font-mono font-semibold text-slate-800">
@@ -235,7 +254,7 @@ export function renderModalMatriz(node) {
         </td>
         <td class="p-2 align-top pt-2.5 text-center">
           <button onclick="removeModalInsumo(${idx})" 
-                  class="text-slate-400 hover:text-red-600 hover:bg-red-50 rounded p-1.5 transition" 
+                  class="text-slate-400 hover:text-red-600 hover:bg-red-50 rounded p-1.5 transition cursor-pointer" 
                   title="Eliminar insumo de la matriz">
             <i class="fa-solid fa-trash-can text-xs"></i>
           </button>
@@ -323,7 +342,7 @@ function renderModalExplosion(node) {
   let grandTotalObra = 0;
 
   node.insumos.forEach(ins => {
-    const cantUnit = round2(ins.cantidad || 0);
+    const cantUnit = round5(ins.cantidad || 0);
     const cantidadTotalObra = round2(cantUnit * conceptoCantidad);
     const costoUnit = round2(ins.costoUnitario || 0);
     const totalImporteObra = round2(cantidadTotalObra * costoUnit);
@@ -338,7 +357,14 @@ function renderModalExplosion(node) {
     else if (ins.tipo === 'Subcontrato') tipoBadgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
 
     const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+    const expIdx = node.insumos.indexOf(ins);
+    const isExpSelected = selectedModalExplosionRowIdx === expIdx;
+    tr.dataset.explosionIdx = expIdx;
+    tr.className = `${isExpSelected ? 'selected-row' : 'hover:bg-slate-50'} cursor-pointer transition border-b border-slate-100`;
+    tr.onclick = () => {
+      selectedModalExplosionRowIdx = expIdx;
+      highlightModalTableRow(tbody, tr);
+    };
     tr.innerHTML = `
       <td class="p-2.5 font-semibold text-slate-700 text-xs align-middle">
         ${ins.clave || '-'}

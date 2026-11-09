@@ -2,8 +2,9 @@
 // Consolidación de insumos de todas las matrices del presupuesto activo
 
 import { state } from '../../state/store.js';
-import { round2 } from '../../core/formatters.js';
+import { round2, round5 } from '../../core/formatters.js';
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js';
 
 // Normalizar texto para agrupar insumos idénticos con precisión
 export function normalizeInsumoText(text) {
@@ -65,7 +66,16 @@ export function getConsolidatedDataMap() {
           // Si el concepto tiene costo pero aún no tiene matriz asignada, generar su matriz integrada
           if (!node.insumos || node.insumos.length === 0) {
             if (parseFloat(node.precioUnitario) > 0 || parseFloat(node.costoDirecto) > 0) {
-              node.insumos = generateIntegratedMatrixForConcept(node);
+              const opusInsumos = getExactOpusInsumosForClave(node.clave);
+              if (opusInsumos && opusInsumos.length > 0) {
+                node.insumos = JSON.parse(JSON.stringify(opusInsumos));
+                node.insumos.forEach(ins => {
+                  ins.cantidad = round5(ins.cantidad);
+                  ins.costoUnitario = round2(ins.costoUnitario);
+                });
+              } else {
+                node.insumos = generateIntegratedMatrixForConcept(node);
+              }
             }
           }
 
@@ -93,13 +103,13 @@ export function getConsolidatedDataMap() {
               }
 
               // Cantidad unitaria en la matriz (para 1 unidad de concepto)
-              const cantUnitaria = round2(ins.cantidad || 0);
+              const cantUnitaria = round5(ins.cantidad || 0);
               // Cantidad total en obra = (volumen del concepto en obra) * (consumo unitario de la matriz)
               const cantTotalEnConcepto = round2(cantUnitaria * cantConcepto);
               const importeEnConcepto = round2(cantTotalEnConcepto * costoUnit);
 
               consolidated[tipo][key].cantidadTotal = round2(consolidated[tipo][key].cantidadTotal + cantTotalEnConcepto);
-              consolidated[tipo][key].sumCantUnitaria = round2(consolidated[tipo][key].sumCantUnitaria + cantUnitaria);
+              consolidated[tipo][key].sumCantUnitaria = round5(consolidated[tipo][key].sumCantUnitaria + cantUnitaria);
               consolidated[tipo][key].totalImporte = round2(consolidated[tipo][key].totalImporte + importeEnConcepto);
 
               consolidated[tipo][key].sources.push({

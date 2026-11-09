@@ -437,7 +437,7 @@ function calibrateMatrixSum(insumos, targetCost) {
   if (!insumos || insumos.length === 0) return;
 
   insumos.forEach(ins => {
-    ins.cantidad = Math.round(((Number(ins.cantidad) || 0) + Number.EPSILON) * 100) / 100;
+    ins.cantidad = Math.round(((Number(ins.cantidad) || 0) + Number.EPSILON) * 100000) / 100000;
     ins.costoUnitario = Math.round(((Number(ins.costoUnitario) || 0) + Number.EPSILON) * 100) / 100;
   });
 
