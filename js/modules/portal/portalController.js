@@ -1043,10 +1043,10 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
 
   if (scope === 'owned') {
     return `
-      <div class="flex items-center gap-2 bg-slate-900/90 border border-amber-500/30 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
+      <div class="flex items-center gap-2 bg-slate-900/90 border border-amber-500/40 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
         <i class="fa-solid fa-crown text-amber-400"></i>
-        <span class="text-slate-300">Membresía activa: <strong class="text-white">${userPlanLimits.name}</strong></span>
-        <span class="text-amber-300 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-bold">${ownedCount}/${userPlanLimits.maxProjects} obras</span>
+        <span class="text-slate-300">🏷️ Membresía activa: <strong class="text-white">Plan ${userPlanLimits.name}</strong></span>
+        <span class="text-amber-300 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/30 font-bold">(${ownedCount}/${userPlanLimits.maxProjects} obras)</span>
       </div>
     `;
   }
@@ -1064,9 +1064,9 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
 
     if (isEditor) {
       return `
-        <div class="flex items-center gap-2 bg-emerald-950/60 border border-emerald-500/40 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
+        <div class="flex items-center gap-2 bg-emerald-950/70 border border-emerald-500/50 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
           <i class="fa-solid fa-circle-check text-emerald-400"></i>
-          <span class="text-emerald-200">Membresía de <strong class="text-white">${hostName}</strong>: <span class="text-emerald-300 font-semibold">${planName}</span> (${hostCount}/${maxProjects})</span>
+          <span class="text-emerald-200">🏷️ Membresía: <strong class="text-white">Plan ${planName}</strong> (${hostCount}/${maxProjects} obras)</span>
           <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-md font-bold text-[10.5px]">⭐ Editor (Puedes crear obras)</span>
         </div>
       `;
@@ -1074,8 +1074,8 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
       return `
         <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
           <i class="fa-solid fa-user-lock text-slate-400"></i>
-          <span class="text-slate-300">Membresía de <strong class="text-white">${hostName}</strong>: <span class="text-slate-200">${planName}</span></span>
-          <span class="bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-md font-medium text-[10.5px]">Rol: ${roleDisplay}</span>
+          <span class="text-slate-300">🏷️ Membresía: <strong class="text-white">Plan ${planName}</strong></span>
+          <span class="bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-md font-medium text-[10.5px]">🔒 Rol: ${roleDisplay} (Solo lectura / colaborador)</span>
         </div>
       `;
     }
@@ -1085,7 +1085,7 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
   return `
     <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
       <i class="fa-solid fa-globe text-blue-400"></i>
-      <span class="text-slate-300">Vista Global: <strong class="text-white">${allProjects.length} obras visibles</strong></span>
+      <span class="text-slate-300">🌐 Vista Global &bull; <strong class="text-white">${allProjects.length} obras accesibles</strong></span>
     </div>
   `;
 }
@@ -1113,14 +1113,14 @@ export function renderHeaderCreateButtonHTML(user, scope) {
       return `
         <button onclick="showToast('${(check.reason || 'Solo colaboradores con rol de Editor pueden crear proyectos aquí.').replace(/'/g, "\\'")}', 'warning');" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-medium text-xs transition border border-slate-800 cursor-pointer" title="${(check.reason || '').replace(/"/g, '&quot;')}">
           <i class="fa-solid fa-lock text-xs text-amber-400"></i>
-          <span>Solo Editores Pueden Crear</span>
+          <span>🔒 Solo Editores Pueden Crear</span>
         </button>
       `;
     }
     return `
       <button onclick="showToast('${(check.reason || 'Límite de proyectos del anfitrión alcanzado.').replace(/'/g, "\\'")}', 'warning');" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-medium text-xs transition border border-slate-800 cursor-pointer" title="${(check.reason || '').replace(/"/g, '&quot;')}">
         <i class="fa-solid fa-lock text-xs text-amber-400"></i>
-        <span>Límite del Anfitrión (${check.currentProjects}/${check.maxProjects})</span>
+        <span>🔒 Límite del Anfitrión (${check.currentProjects}/${check.maxProjects})</span>
       </button>
     `;
   }
@@ -1144,6 +1144,11 @@ export function renderPortalDashboard() {
     return;
   }
   updatePortalHeaderUserArea(user);
+  try {
+    if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.requestPeerSync === 'function') {
+      window.CubikarRealtime.requestPeerSync();
+    }
+  } catch (_) {}
 
   // Sincronizar en segundo plano proyectos desde Supabase si hay sesión activa
   if (isSupabaseConfigured() && user?.id) {
@@ -1204,6 +1209,68 @@ export function renderPortalDashboard() {
       </div>
     </div>
 
+    ${(() => {
+      const pendingInvs = (user && user.email) ? getPendingInvitationsForUser(user.email) : [];
+      if (!pendingInvs || pendingInvs.length === 0) return '';
+      return `
+        <!-- Banner de Notificación de Invitaciones Pendientes en el Dashboard -->
+        <div class="bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 border-2 border-blue-500/60 rounded-2xl p-4 sm:p-5 shadow-2xl space-y-3 animate-in fade-in">
+          <div class="flex items-center justify-between pb-2 border-b border-blue-500/30">
+            <div class="flex items-center gap-2.5">
+              <span class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white text-sm shadow">
+                <i class="fa-solid fa-envelope-open-text text-amber-300"></i>
+              </span>
+              <div>
+                <h3 class="text-white font-bold text-sm sm:text-base leading-tight">
+                  ¡Tienes ${pendingInvs.length} invitación${pendingInvs.length === 1 ? '' : 'es'} pendiente${pendingInvs.length === 1 ? '' : 's'} para colaborar!
+                </h3>
+                <p class="text-xs text-blue-200 mt-0.5">
+                  Acepta para incorporarte a la obra y plan del anfitrión con permisos inmediatos.
+                </p>
+              </div>
+            </div>
+            <span class="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-full font-bold uppercase">
+              Invitación de Obra
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            ${pendingInvs.map(inv => `
+              <div class="p-3 bg-slate-900/90 border border-blue-500/40 rounded-xl flex flex-col justify-between gap-3 shadow">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <h4 class="text-sm font-bold text-white truncate" title="${inv.projectName}">
+                      📁 ${inv.projectName}
+                    </h4>
+                    <span class="text-xs text-slate-300 block mt-0.5 truncate">
+                      Invitado por: <strong class="text-amber-300">${inv.ownerName || inv.companyName || 'Anfitrión'}</strong>
+                    </span>
+                    <span class="text-[11px] text-slate-400 block mt-0.5">
+                      Membresía: <b class="text-slate-200">${inv.ownerPlanId ? `Plan ${inv.ownerPlanId.toUpperCase()}` : 'Plan Anfitrión'}</b>
+                    </span>
+                  </div>
+                  <span class="px-2.5 py-1 rounded-full text-[10.5px] font-bold shrink-0 ${inv.role === 'editar' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-purple-500/20 text-purple-300 border border-purple-500/40'}">
+                    ${inv.role === 'editar' ? '⭐ Rol: Editor' : (inv.role === 'escribir' ? '✍️ Rol: Escribir' : '👁️ Rol: Leer')}
+                  </span>
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                  <button type="button" onclick="handleRejectInvitationAction('${inv.id}')"
+                          class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-300 hover:text-rose-300 border border-slate-700 text-xs font-semibold transition cursor-pointer">
+                    Rechazar
+                  </button>
+                  <button type="button" onclick="handleAcceptInvitationAction('${inv.id}')"
+                          class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-blue-600/40 active:scale-95 transition flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-check text-xs"></i>
+                    <span>Aceptar y Entrar</span>
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    })()}
+
     <!-- Menú Desplegable: Selector de Espacio de Trabajo con Botón de Invitaciones al Plan -->
     <div class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 border border-slate-800 rounded-2xl p-3 sm:p-3.5 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
       <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0">
@@ -1212,25 +1279,25 @@ export function renderPortalDashboard() {
             <i class="fa-solid fa-briefcase"></i>
           </div>
           <div>
-            <span class="text-xs font-bold text-white block">Espacio de trabajo</span>
+            <span class="text-xs font-bold text-white block">Modo de Trabajo:</span>
           </div>
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-          <!-- Menú desplegable reducido a la mitad -->
-          <div class="relative w-52 sm:w-64 min-w-0">
+          <!-- Menú desplegable de Modo de Trabajo -->
+          <div class="relative w-64 sm:w-80 min-w-0">
             <select id="projectScopeModeSelect" onchange="setProjectScopeFilter(this.value)"
                     class="w-full appearance-none bg-slate-950 border border-slate-700 hover:border-blue-500 focus:border-blue-500 text-white font-semibold text-xs sm:text-sm rounded-xl pl-3 pr-8 py-2.5 transition outline-none cursor-pointer shadow-inner truncate">
               <option value="owned" ${currentScopeFilter === 'owned' ? 'selected' : ''}>
-                Mis proyectos
+                👑 Mis Proyectos Propios (${userPlanLimits.name} ${ownedCount}/${userPlanLimits.maxProjects})
               </option>
               ${invitersList.map(inv => `
                 <option value="owner:${inv.email}" ${currentScopeFilter === `owner:${inv.email}` ? 'selected' : ''}>
-                  ${inv.name}
+                  👤 Espacio de ${inv.name} (${inv.isEditor ? '⭐ Editor' : `Rol: ${inv.myRoleDisplay}`})
                 </option>
               `).join('')}
               <option value="all" ${currentScopeFilter === 'all' ? 'selected' : ''}>
-                Todos los proyectos
+                🌐 Vista Global: Todos los Proyectos
               </option>
             </select>
             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-blue-400">

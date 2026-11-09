@@ -1090,12 +1090,72 @@ export function getPendingInvitationsForUser(userEmail) {
   const allInvs = getStoredInvitations();
   const allProjects = getProjectsList();
 
-  return allInvs.filter(inv => {
-    if (inv.status !== 'pending') return false;
-    if ((inv.email || '').toLowerCase().trim() !== emailLower) return false;
-    // Verificar que el proyecto aún exista
-    return allProjects.some(p => p.id === inv.projectId);
+  const results = [];
+  const seenKeys = new Set();
+
+  // 1. Invitaciones formales de proyectos
+  allInvs.forEach(inv => {
+    if (inv.status !== 'pending') return;
+    if ((inv.email || '').toLowerCase().trim() !== emailLower) return;
+    const key = (inv.projectId || '') + '|' + emailLower;
+    if (seenKeys.has(key)) return;
+    seenKeys.add(key);
+    results.push(inv);
   });
+
+  // 2. Invitaciones al plan de suscripción almacenadas
+  const planInvs = getStoredPlanInvitations();
+  planInvs.forEach(pInv => {
+    if (pInv.status !== 'pending') return;
+    if ((pInv.email || '').toLowerCase().trim() !== emailLower) return;
+
+    const hostEmail = (pInv.ownerEmail || '').toLowerCase().trim();
+    const hostProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === hostEmail);
+
+    if (hostProjects.length > 0) {
+      hostProjects.forEach(hp => {
+        const key = hp.id + '|' + emailLower;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          results.push({
+            id: 'plan-inv-' + hp.id + '-' + pInv.id,
+            projectId: hp.id,
+            projectName: hp.projectName,
+            companyName: hp.companyName || '',
+            ownerEmail: hostEmail,
+            ownerName: pInv.ownerName || hp.companyName || 'Anfitrión',
+            ownerPlanId: pInv.ownerPlanId || 'free',
+            email: emailLower,
+            name: pInv.name,
+            role: pInv.role || 'editar',
+            status: 'pending',
+            createdAt: pInv.invitedAt || new Date().toISOString()
+          });
+        }
+      });
+    } else {
+      const key = 'plan|' + hostEmail;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        results.push({
+          id: pInv.id,
+          projectId: 'plan-access',
+          projectName: `Espacio de ${pInv.ownerName || hostEmail}`,
+          companyName: pInv.ownerName || '',
+          ownerEmail: hostEmail,
+          ownerName: pInv.ownerName || 'Anfitrión',
+          ownerPlanId: pInv.ownerPlanId || 'free',
+          email: emailLower,
+          name: pInv.name,
+          role: pInv.role || 'editar',
+          status: 'pending',
+          createdAt: pInv.invitedAt || new Date().toISOString()
+        });
+      }
+    }
+  });
+
+  return results;
 }
 
 // Crear o actualizar una invitación de proyecto
@@ -1117,6 +1177,9 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
     projectId,
     projectName: proj.projectName || 'Proyecto de Obra',
     companyName: proj.companyName || '',
+    ownerEmail: (proj.ownerEmail || (invitedBy && invitedBy.email) || '').toLowerCase().trim(),
+    ownerName: proj.ownerName || (invitedBy && invitedBy.name) || proj.companyName || 'Anfitrión',
+    ownerPlanId: proj.ownerPlanId || getProjectEffectivePlan(projectId) || 'free',
     email: emailClean,
     name: (name || emailClean.split('@')[0]).trim(),
     role: role || 'editar',
@@ -1500,6 +1563,34 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
     }
   });
 
+  // Revisar también si hay invitaciones aceptadas en STORAGE_KEY_PLAN_INVITATIONS
+  const planInvs = getStoredPlanInvitations();
+  planInvs.forEach(pInv => {
+    const oEmail = (pInv.ownerEmail || '').toLowerCase().trim();
+    const guestEmail = (pInv.email || '').toLowerCase().trim();
+    if (guestEmail === uEmail && oEmail && oEmail !== uEmail) {
+      if (!map.has(oEmail)) {
+        const planLimits = getPlanLimits(pInv.ownerPlanId || 'free');
+        map.set(oEmail, {
+          email: oEmail,
+          name: pInv.ownerName || oEmail,
+          companyName: pInv.ownerName || '',
+          planId: pInv.ownerPlanId || 'free',
+          planName: planLimits.name,
+          maxProjects: planLimits.maxProjects,
+          maxMembers: planLimits.maxMembers,
+          count: 0,
+          isEditor: pInv.role === 'editar',
+          roles: new Set([pInv.role || 'editar'])
+        });
+      } else {
+        const entry = map.get(oEmail);
+        if (pInv.role === 'editar') entry.isEditor = true;
+        entry.roles.add(pInv.role || 'editar');
+      }
+    }
+  });
+
   return Array.from(map.values()).map(inv => {
     let myRoleDisplay = 'Leer';
     if (inv.isEditor) {
@@ -1772,6 +1863,39 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
   if (modifiedProjects) {
     saveProjectsList(allProjects);
   }
+
+  // Generar invitaciones en getStoredInvitations() para cada proyecto propio del anfitrión y emitir broadcast
+  const allStoredInvs = getStoredInvitations();
+  allProjects.forEach(proj => {
+    if ((proj.ownerEmail || '').toLowerCase().trim() === ownerEmail) {
+      const exists = allStoredInvs.some(i => i.projectId === proj.id && (i.email || '').toLowerCase().trim() === cleanEmail);
+      if (!exists) {
+        const pInvEntry = {
+          id: 'inv-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+          projectId: proj.id,
+          projectName: proj.projectName || 'Proyecto de Obra',
+          companyName: proj.companyName || '',
+          ownerEmail: ownerEmail,
+          ownerName: currentUser.name || 'Anfitrión',
+          ownerPlanId: planId,
+          email: cleanEmail,
+          name: newInv.name,
+          role: newInv.role,
+          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones'],
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        };
+        allStoredInvs.unshift(pInvEntry);
+
+        try {
+          if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastNewInvitation === 'function') {
+            window.CubikarRealtime.broadcastNewInvitation(pInvEntry, proj);
+          }
+        } catch (e) {}
+      }
+    }
+  });
+  saveStoredInvitations(allStoredInvs);
 
   return { ok: true, invitation: newInv };
 }

@@ -7,6 +7,8 @@ import {
   getCurrentUser,
   getStoredInvitations,
   saveStoredInvitations,
+  getStoredPlanInvitations,
+  saveStoredPlanInvitations,
   getProjectsList,
   saveProjectsList
 } from '../modules/portal/projectService.js';
@@ -592,6 +594,32 @@ function handlePeerSyncRequest({ email }) {
   const myProjectsForTarget = allProjects.filter(p =>
     Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === targetEmail)
   );
+
+  // Incluir también invitaciones al plan
+  const allPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
+  const myPlanInvsForTarget = allPlanInvs.filter(i => (i.email || '').toLowerCase().trim() === targetEmail);
+  if (myPlanInvsForTarget.length > 0) {
+    myPlanInvsForTarget.forEach(pi => {
+      myProjectsForTarget.forEach(p => {
+        if (!myInvsForTarget.some(inv => inv.projectId === p.id)) {
+          myInvsForTarget.push({
+            id: 'plan-inv-' + p.id + '-' + pi.id,
+            projectId: p.id,
+            projectName: p.projectName,
+            companyName: p.companyName || '',
+            ownerEmail: currentUser.email.toLowerCase().trim(),
+            ownerName: currentUser.name || 'Anfitrión',
+            ownerPlanId: pi.ownerPlanId || 'free',
+            email: targetEmail,
+            name: pi.name,
+            role: pi.role || 'editar',
+            status: 'pending',
+            createdAt: pi.invitedAt || new Date().toISOString()
+          });
+        }
+      });
+    });
+  }
 
   if (myInvsForTarget.length > 0 || myProjectsForTarget.length > 0) {
     globalSyncChannel.send({
