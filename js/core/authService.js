@@ -60,7 +60,7 @@ export async function signInWithGoogle() {
 
   let cleanRedirect = window.location.href.split('#')[0].split('?')[0];
   if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
-    cleanRedirect = 'http://localhost:8000/index.html';
+    cleanRedirect = 'http://localhost:3000/index.html';
   }
 
   const { data, error } = await sb.auth.signInWithOAuth({
