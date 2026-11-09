@@ -160,7 +160,20 @@ export function syncLocalUserSession(user, perfil, force = false) {
   const initial = (perfil?.nombre_completo || user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'U').charAt(0).toUpperCase();
   const fallbackAvatar = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%230284c7'/%3E%3Ctext x='50' y='64' font-size='42' font-family='Arial,sans-serif' font-weight='bold' fill='white' text-anchor='middle'%3E${initial}%3C/text%3E%3C/svg%3E`;
 
+  const cleanEmail = (user.email || '').toLowerCase().trim();
+  let userSub = null;
+  const userSubRaw = typeof localStorage !== 'undefined' ? localStorage.getItem(`adm_const_subscription_${cleanEmail}`) : null;
+  if (userSubRaw) {
+    try {
+      userSub = JSON.parse(userSubRaw);
+    } catch (_) {}
+  }
+  if (!userSub) {
+    userSub = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
+  }
+
   const localUser = {
+    subscription: userSub,
     id: user.id,
     name: perfil?.nombre_completo || user.user_metadata?.full_name || user.user_metadata?.name || user.email,
     email: user.email,

@@ -1,4 +1,4 @@
-import {
+﻿import {
   renderCalendarioObra,
   setCalendarioViewMode,
   setCalendarioTimeScale,
@@ -367,6 +367,7 @@ import {
   handleProfilePhotoUpload,
   saveProfileChanges,
   deleteUserAccount,
+  deleteCurrentUserAccountAction,
   logoutUser,
   toggleUserDropdown,
   closeUserDropdown,
@@ -802,6 +803,7 @@ Object.assign(window, {
   handleProfilePhotoUpload,
   saveProfileChanges,
   deleteUserAccount,
+  deleteCurrentUserAccountAction,
   logoutUser,
   toggleUserDropdown,
   closeUserDropdown,

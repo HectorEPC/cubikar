@@ -1,11 +1,35 @@
-﻿// js/modules/portal/subscriptionModal.js
+// js/modules/portal/subscriptionModal.js
 // Gestión integral de Planes de Suscripción del Usuario: Gratuita, Plus y Pro
 
-import { getCurrentUser, saveCurrentUser } from './projectService.js';
+import {
+  getCurrentUser,
+  saveCurrentUser,
+  getLastKnownUser,
+  syncOwnerProjectsPlan,
+  findRegisteredUserAccount,
+  saveRegisteredUserAccount,
+  addFeaturedProfile
+} from './projectService.js';
 import { showToast } from '../../ui/notifications.js';
 import { isNightMode } from '../../ui/themeController.js';
 
 export const STORAGE_KEY_SUBSCRIPTION = 'adm_const_subscription';
+
+// Migración de compatibilidad: Asegurar que el plan quede ligado a la cuenta que lo compró
+// y eliminar la clave global compartida para que no se filtre a otras cuentas ni a nuevos registros.
+try {
+  if (typeof localStorage !== 'undefined') {
+    const legacyRaw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+    if (legacyRaw) {
+      const curr = getCurrentUser();
+      const em = (curr?.email || '').toLowerCase().trim();
+      if (em && !localStorage.getItem(`adm_const_subscription_${em}`)) {
+        localStorage.setItem(`adm_const_subscription_${em}`, legacyRaw);
+      }
+      localStorage.removeItem(STORAGE_KEY_SUBSCRIPTION);
+    }
+  }
+} catch (_) {}
 
 // Enlaces oficiales de Stripe Checkout (Modo Prueba) vinculados a tu cuenta
 export const STRIPE_PAYMENT_LINKS = {
@@ -119,89 +143,10 @@ export function getPlanById(planId) {
 
 export function getCurrentSubscription() {
   try {
-    // Si hay un espacio de trabajo activo que pertenece a otro titular invitado, reflejar la membresía de dicho anfitrión
-    if (typeof localStorage !== 'undefined') {
-      const rawWs = localStorage.getItem('control_obra_active_workspace_v1');
-      if (rawWs) {
-        let wsData = null;
-        try {
-          wsData = JSON.parse(rawWs);
-        } catch (e) {
-          if (typeof rawWs === 'string' && rawWs.startsWith('owner:')) {
-            wsData = { ownerEmail: rawWs.replace('owner:', '').trim() };
-          }
-        }
-        const currentUser = getCurrentUser();
-        const myEmail = currentUser?.email?.toLowerCase().trim();
-        if (wsData?.ownerEmail && wsData.ownerEmail.toLowerCase().trim() !== myEmail) {
-          const ownerEmail = wsData.ownerEmail.toLowerCase().trim();
-          const rawOwnerSub = localStorage.getItem(`adm_const_subscription_${ownerEmail}`);
-          if (rawOwnerSub) {
-            const parsed = JSON.parse(rawOwnerSub);
-            const validPlan = getPlanById(parsed?.planId);
-            return {
-              planId: validPlan.id,
-              billingCycle: parsed?.billingCycle === 'annual' ? 'annual' : 'monthly',
-              updatedAt: parsed?.updatedAt || null,
-              isInherited: true,
-              ownerEmail: ownerEmail
-            };
-          }
-          try {
-            const rawReg = localStorage.getItem('control_obra_registered_accounts_v1');
-            if (rawReg) {
-              const regList = JSON.parse(rawReg);
-              const acc = regList.find(a => (a.email || '').toLowerCase().trim() === ownerEmail);
-              if (acc?.subscription?.planId) {
-                const validPlan = getPlanById(acc.subscription.planId);
-                return {
-                  planId: validPlan.id,
-                  billingCycle: acc.subscription.billingCycle === 'annual' ? 'annual' : 'monthly',
-                  updatedAt: acc.subscription.updatedAt || null,
-                  isInherited: true,
-                  ownerEmail: ownerEmail
-                };
-              }
-            }
-            const rawProj = localStorage.getItem('control_obra_projects_v1');
-            if (rawProj) {
-              const pList = JSON.parse(rawProj);
-              const hp = pList.find(p => (p.ownerEmail || '').toLowerCase().trim() === ownerEmail && p.ownerPlanId);
-              if (hp?.ownerPlanId) {
-                const validPlan = getPlanById(hp.ownerPlanId);
-                return {
-                  planId: validPlan.id,
-                  billingCycle: 'monthly',
-                  updatedAt: null,
-                  isInherited: true,
-                  ownerEmail: ownerEmail
-                };
-              }
-            }
-          } catch (_) {}
-          return {
-            planId: 'free',
-            billingCycle: 'monthly',
-            updatedAt: null,
-            isInherited: true,
-            ownerEmail: ownerEmail
-          };
-        }
-      }
-    }
-
     const user = getCurrentUser();
-    if (user && user.subscription && user.subscription.planId) {
-      const validPlan = getPlanById(user.subscription.planId);
-      return {
-        planId: validPlan.id,
-        billingCycle: user.subscription.billingCycle === 'annual' ? 'annual' : 'monthly',
-        updatedAt: user.subscription.updatedAt || null
-      };
-    }
-
-    if (typeof localStorage !== 'undefined') {
-      const raw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+    if (user?.email && typeof localStorage !== 'undefined') {
+      const cleanEmail = user.email.toLowerCase().trim();
+      const raw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
       if (raw) {
         const parsed = JSON.parse(raw);
         const validPlan = getPlanById(parsed?.planId);
@@ -211,6 +156,15 @@ export function getCurrentSubscription() {
           updatedAt: parsed?.updatedAt || null
         };
       }
+    }
+
+    if (user && user.subscription && user.subscription.planId) {
+      const validPlan = getPlanById(user.subscription.planId);
+      return {
+        planId: validPlan.id,
+        billingCycle: user.subscription.billingCycle === 'annual' ? 'annual' : 'monthly',
+        updatedAt: user.subscription.updatedAt || null
+      };
     }
   } catch (e) {
     // Fallback seguro a plan Gratuita
@@ -234,7 +188,7 @@ export function saveSubscription(planId, billingCycle = activeBillingCycle) {
 
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY_SUBSCRIPTION, JSON.stringify(payload));
+      // Guardar de forma estricta y permanente para el usuario específico que compró el plan
       const user = getCurrentUser();
       if (user?.email) {
         localStorage.setItem(`adm_const_subscription_${user.email.toLowerCase().trim()}`, JSON.stringify(payload));
@@ -247,6 +201,22 @@ export function saveSubscription(planId, billingCycle = activeBillingCycle) {
     if (user) {
       user.subscription = payload;
       saveCurrentUser(user);
+      const cleanEmail = (user.email || '').toLowerCase().trim();
+      if (cleanEmail) {
+        try {
+          const regUser = findRegisteredUserAccount(cleanEmail);
+          if (regUser) {
+            regUser.subscription = payload;
+            saveRegisteredUserAccount(regUser);
+          } else {
+            saveRegisteredUserAccount(user);
+          }
+          addFeaturedProfile(user);
+        } catch (_) {}
+        try {
+          syncOwnerProjectsPlan(cleanEmail, validPlan.id);
+        } catch (_) {}
+      }
     }
   } catch (e) {}
 
@@ -480,7 +450,12 @@ export function selectSubscriptionPlan(planId) {
     saveSubscription('free', activeBillingCycle);
     renderSubscriptionCards();
     updateSubscriptionBadgesUI();
-    showToast('✨ Plan Gratuito activo');
+    try {
+      if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+        window.refreshProjectsGridUI();
+      }
+    } catch (_) {}
+    showToast(`\u{2728} Plan Gratuito activo`);
     return;
   }
 
@@ -499,5 +474,10 @@ export function selectSubscriptionPlan(planId) {
   saveSubscription(plan.id, activeBillingCycle);
   renderSubscriptionCards();
   updateSubscriptionBadgesUI();
-  showToast(`✨ Suscripción actualizada al plan ${plan.name}`);
+  try {
+    if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+      window.refreshProjectsGridUI();
+    }
+  } catch (_) {}
+    showToast(`\u{2728} Suscripci\u{00F3}n actualizada al plan ${plan.name}`);
 }

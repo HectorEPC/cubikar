@@ -50,6 +50,7 @@ import {
   markSessionClosed,
   markSessionOpen,
   purgeAllRegisteredAccountsAndUsers,
+  deleteUserAccountAndData,
   PROJECT_ROLES,
   AVATARS_BY_SEX,
   GOOGLE_PRESET_ACCOUNTS,
@@ -587,7 +588,22 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
   const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
 
   // Guardar siempre en la base de datos de cuentas locales de respaldo
+  const cleanEmail = email.toLowerCase().trim();
+  let userPlanSub = { planId: 'free', billingCycle: 'monthly', updatedAt: new Date().toISOString() };
+  try {
+    const existingRaw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
+    if (existingRaw) {
+      const parsed = JSON.parse(existingRaw);
+      if (parsed?.planId) userPlanSub = parsed;
+    } else {
+      localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(userPlanSub));
+    }
+  } catch (_) {}
+  currentScopeFilter = 'owned';
+  setActiveWorkspaceData(cleanEmail, name || cleanEmail);
+  const initialFreeSub = userPlanSub;
   const localAccount = {
+    subscription: initialFreeSub,
     name,
     email,
     password,
@@ -664,6 +680,7 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
 
   // Fallback local (localStorage)
   const newUser = {
+    subscription: initialFreeSub,
     name,
     email,
     sexo,
@@ -716,6 +733,9 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
         lastLogin: new Date().toISOString()
       };
       saveCurrentUser(loggedUser);
+      updateSubscriptionBadgesUI();
+      updatePortalHeaderUserArea(loggedUser);
+      updateWorkspaceHeaderUser(loggedUser);
       saveRegisteredUserAccount(loggedUser);
       showToast(`¡Hola de nuevo, ${displayName}!`, 'success');
 
@@ -742,10 +762,19 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
     }
   }
 
-  // 3. Fallback de usuario activo en sesión local
+  // 3. Fallback de cuenta registrada localmente
+  const cleanEmail = email.toLowerCase().trim();
+  const regUser = findRegisteredUserAccount(cleanEmail) || GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === cleanEmail);
+  if (regUser) {
+    quickLoginWithFeaturedUser(cleanEmail, returnProjectId);
+    return;
+  }
+
   const savedUser = getCurrentUser();
-  if (savedUser && savedUser.email && savedUser.email.toLowerCase() === email) {
-    showToast(`¡Hola de nuevo, ${savedUser.name}!`);
+  if (savedUser && (savedUser.email || '').toLowerCase().trim() === cleanEmail) {
+    currentScopeFilter = 'owned';
+    setActiveWorkspaceData(cleanEmail, savedUser.name || cleanEmail);
+    showToast(`Â¡Hola de nuevo, ${savedUser.name}!`);
     if (returnProjectId) {
       openProjectInWorkspace(returnProjectId);
     } else {
@@ -754,7 +783,7 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
     }
   } else {
     // Si no existe la cuenta ni localmente ni en nube
-    showToast('No se encontró una cuenta con ese correo. Por favor regístrate.', 'error');
+    showToast('No se encontrÃ³ una cuenta con ese correo. Por favor regÃ­strate.', 'error');
   }
 }
 
@@ -872,9 +901,32 @@ export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
       user = saved;
     }
   }
+  if (!user) {
+    const preset = GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === cleanEmail);
+    if (preset) {
+      user = Object.assign({}, preset, { role: 'Admin General', roleLabel: 'Administrador' });
+    }
+  }
 
   if (user) {
+    try {
+      const userSubRaw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
+      if (userSubRaw) {
+        user.subscription = JSON.parse(userSubRaw);
+      } else {
+        user.subscription = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
+        localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(user.subscription));
+      }
+    } catch (_) {}
+
+    // Restablecer de inmediato el espacio de trabajo activo y el filtro al propio del usuario
+    currentScopeFilter = 'owned';
+    setActiveWorkspaceData(cleanEmail, user.name || cleanEmail);
+
     saveCurrentUser(user);
+    updateSubscriptionBadgesUI();
+    updatePortalHeaderUserArea(user);
+    updateWorkspaceHeaderUser(user);
     addFeaturedProfile(user);
     markSessionOpen(user.email);
     showToast(`SesiÃ³n iniciada como ${user.name}`);
@@ -1720,10 +1772,22 @@ export function refreshProjectsGridUI() {
   const invitersList = getWorkspaceInviters(user, allProjects);
   const filtered = getFilteredProjectsList(allProjects);
 
-  // Sincronizar el selector de Modo / Espacio de Trabajo
+  const uEmail = (user?.email || '').toLowerCase().trim();
+  const ownedProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === uEmail);
+  const ownedCount = ownedProjects.length;
+  const userPlanId = getUserPlanId(user);
+  const userPlanLimits = getPlanLimits(userPlanId);
+
+  // Sincronizar el selector de Modo / Espacio de Trabajo y su etiqueta de membresÃ­a
   const modeSelect = document.getElementById('projectScopeModeSelect');
-  if (modeSelect && modeSelect.value !== currentScopeFilter) {
-    modeSelect.value = currentScopeFilter;
+  if (modeSelect) {
+    if (modeSelect.value !== currentScopeFilter) {
+      modeSelect.value = currentScopeFilter;
+    }
+    const ownedOption = modeSelect.querySelector('option[value="owned"]');
+    if (ownedOption) {
+      ownedOption.textContent = `\u{1F451} Mis Proyectos Propios (${userPlanLimits.name} ${ownedCount}/${userPlanLimits.maxProjects})`;
+    }
   }
 
   // Actualizar el indicador visual de estado y membresía
@@ -2582,7 +2646,9 @@ export function onProfileEditSexoChange(sexo) {
     const a = document.getElementById('profile-edit-avatar-img');
     if (a) a.src = u.avatar;
   updateSubscriptionBadgesUI();
-    saveCurrentUser(u);
+
+  saveCurrentUser(u);
+  saveRegisteredUserAccount(u);
   }
 }
 
@@ -2595,7 +2661,10 @@ export function selectProfileAvatar(key) {
   const a = document.getElementById('profile-edit-avatar-img');
   if (a) a.src = u.avatar;
   updateSubscriptionBadgesUI();
+
+
   saveCurrentUser(u);
+  saveRegisteredUserAccount(u);
 }
 
 export function handleProfilePhotoUpload(e) {
@@ -2608,7 +2677,9 @@ export function handleProfilePhotoUpload(e) {
       u.avatar = evt.target.result;
       const a = document.getElementById('profile-edit-avatar-img');
       if (a) a.src = evt.target.result;
-      saveCurrentUser(u);
+  
+  saveCurrentUser(u);
+  saveRegisteredUserAccount(u);
       showToast('Foto de perfil actualizada');
     }
   };
@@ -2624,12 +2695,23 @@ export function saveProfileChanges() {
   const s = document.getElementById('profile-edit-sexo');
   const d = document.getElementById('profile-edit-dob');
 
+  const oldEmail = (u.email || '').toLowerCase().trim();
   if (n) u.name = n.value.trim();
   if (e) u.email = e.value.trim();
   if (s) u.sexo = s.value;
   if (d) u.dob = d.value;
+  const newEmail = (u.email || '').toLowerCase().trim();
+  if (oldEmail && newEmail && oldEmail !== newEmail && typeof localStorage !== 'undefined') {
+    const existingSub = localStorage.getItem(`adm_const_subscription_${oldEmail}`);
+    if (existingSub) {
+      localStorage.setItem(`adm_const_subscription_${newEmail}`, existingSub);
+    }
+  }
   
+
+
   saveCurrentUser(u);
+  saveRegisteredUserAccount(u);
   closeProfileModal();
   updateWorkspaceHeaderUser(u);
   updatePortalHeaderUserArea(u);
@@ -2642,16 +2724,75 @@ export function saveProfileChanges() {
   showToast('Perfil actualizado correctamente');
 }
 
-export function logoutUser() {
-  if (!confirm('¿Deseas cerrar sesión para cambiar de usuario o crear uno nuevo? Tus proyectos se conservarán intactos.')) return;
-  const current = getCurrentUser();
-  if (current && current.email) {
-    removeFeaturedProfile(current.email);
+// Eliminar definitivamente la cuenta del usuario activo y todos sus archivos
+export async function deleteCurrentUserAccountAction() {
+  const user = getCurrentUser();
+  if (!user || !user.email) {
+    showToast('No hay una sesiÃ³n activa para eliminar.', 'warning');
+    closeProfileModal();
+    return;
   }
+
+  const cleanEmail = user.email.toLowerCase().trim();
+  const userName = user.name || cleanEmail;
+
+  const confirmMsg =
+    `âš ï¸ Â¿ELIMINAR TU CUENTA DEFINITIVAMENTE?\n\n` +
+    `EstÃ¡s a punto de eliminar permanentemente la cuenta de "${userName}" (${cleanEmail}).\n\n` +
+    `â€¢ Se ELIMINARÃN TODOS TUS ARCHIVOS, proyectos de obra, catÃ¡logos y matrices APU vinculados a este usuario.\n` +
+    `â€¢ Toda tu informaciÃ³n se borrarÃ¡ por completo de este equipo.\n` +
+    `â€¢ Si en el futuro te vuelves a registrar con este mismo correo (${cleanEmail}), la cuenta aparecerÃ¡ en blanco, totalmente nueva.\n\n` +
+    `Â¿Deseas confirmar la eliminaciÃ³n definitiva ahora?`;
+
+  if (!confirm(confirmMsg)) {
+    return;
+  }
+
+  try {
+    // Si Supabase estÃ¡ activo, eliminar el registro de perfil y desloguear
+    const sb = getSupabaseClient();
+    if (sb) {
+      try {
+        if (user.id) {
+          await sb.from('perfiles').delete().eq('id', user.id);
+        } else {
+          await sb.from('perfiles').delete().eq('email', cleanEmail);
+        }
+      } catch (cloudErr) {
+        console.warn('[Supabase] Aviso al eliminar perfil remoto:', cloudErr);
+      }
+      try {
+        await sb.auth.signOut();
+      } catch (_) {}
+    }
+
+    // Eliminar la cuenta y todos sus archivos asociados localmente
+    deleteUserAccountAndData(cleanEmail);
+
+    setActiveProjectId(null);
+    closeProfileModal();
+    updatePortalHeaderUserArea(null);
+    renderSidebarNotificationsUI();
+
+    showToast(`Tu cuenta (${cleanEmail}) y todos sus archivos han sido eliminados permanentemente.`, 'info');
+    showPortalView('register');
+  } catch (err) {
+    console.error('Error al eliminar cuenta:', err);
+    showToast('Error al eliminar la cuenta: ' + (err.message || err), 'error');
+  }
+}
+
+export function logoutUser() {
+  if (!confirm('Â¿Deseas cerrar sesiÃ³n para cambiar de usuario o crear uno nuevo? Tus proyectos se conservarÃ¡n intactos.')) return;
   saveCurrentUser(null);
+  try {
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_WORKSPACE);
+    localStorage.removeItem('control_obra_active_workspace_v1');
+  } catch (_) {}
+  currentScopeFilter = 'owned';
   updatePortalHeaderUserArea(null);
   renderSidebarNotificationsUI();
-  showToast('Has cerrado sesión exitosamente.');
+  showToast('Has cerrado sesiÃ³n exitosamente.');
   if (window.location.search) {
     window.location.href = window.location.pathname;
   } else {
@@ -2660,115 +2801,10 @@ export function logoutUser() {
 }
 
 // Eliminar permanentemente la cuenta del usuario actual y todos sus datos/archivos locales
+// Alias para mantener compatibilidad
 export async function deleteUserAccount() {
-  const user = getCurrentUser() || getLastKnownUser();
-  const userName = user?.name || 'este usuario';
-  const userEmail = (user?.email || '').toLowerCase().trim();
-
-  const confirmMsg = `⚠️ ADVERTENCIA: Esta acción es completamente IRREVERSIBLE.\n\n` +
-    `¿Estás absolutamente seguro de que deseas eliminar la cuenta de "${userName}"?\n\n` +
-    `• Se borrarán TODOS tus proyectos, archivos de obra, matrices y catálogos creados.\n` +
-    `• Se eliminará tu perfil, configuración, colaboradores e historial de sesión.\n` +
-    `• Toda la información guardada localmente será destruida.`;
-
-  if (!confirm(confirmMsg)) return;
-
-  const doubleConfirm = prompt(`Para confirmar la eliminación definitiva, escribe "ELIMINAR" en mayúsculas:`);
-  if (doubleConfirm !== 'ELIMINAR') {
-    showToast('Operación cancelada. Tu cuenta y archivos no fueron modificados.', 'info');
-    return;
-  }
-
-  try {
-    // 1. Si los proyectos pertenecen al usuario, eliminar sus llaves de datos
-    const allProjects = getProjectsList();
-    const remainingProjects = [];
-
-    allProjects.forEach(proj => {
-      const isOwner = userEmail && proj.ownerEmail && (proj.ownerEmail.toLowerCase().trim() === userEmail);
-      if (isOwner) {
-        deleteProject(proj.id);
-      } else {
-        // Si solo era miembro en el proyecto de otro, retirarlo de la lista
-        if (Array.isArray(proj.members)) {
-          proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== userEmail);
-        }
-        remainingProjects.push(proj);
-      }
-    });
-
-    saveProjectsList(remainingProjects);
-
-    // 2. Limpiar invitaciones y plan invitations asociadas
-    try {
-      const rawInvs = localStorage.getItem('control_obra_invitations_v1');
-      if (rawInvs) {
-        const invs = JSON.parse(rawInvs);
-        const filtered = invs.filter(i => 
-          (i.ownerEmail || '').toLowerCase().trim() !== userEmail &&
-          (i.email || '').toLowerCase().trim() !== userEmail
-        );
-        localStorage.setItem('control_obra_invitations_v1', JSON.stringify(filtered));
-      }
-    } catch(e) {}
-
-    try {
-      const rawPlanInvs = localStorage.getItem('control_obra_plan_invitations_v1');
-      if (rawPlanInvs) {
-        const planInvs = JSON.parse(rawPlanInvs);
-        const filteredPlan = planInvs.filter(i => 
-          (i.ownerEmail || '').toLowerCase().trim() !== userEmail &&
-          (i.email || '').toLowerCase().trim() !== userEmail
-        );
-        localStorage.setItem('control_obra_plan_invitations_v1', JSON.stringify(filteredPlan));
-      }
-    } catch(e) {}
-
-    // 3. Eliminar llaves de perfil, suscripción y sesión
-    if (userEmail) {
-      removeFeaturedProfile(userEmail);
-    }
-    localStorage.removeItem('control_obra_user_profile_v1');
-    localStorage.removeItem('control_obra_user_profile_v1_last');
-    localStorage.setItem('control_obra_user_profile_dismissed', 'true');
-    localStorage.removeItem('adm_const_subscription');
-    localStorage.removeItem('control_obra_clipboard_concept_v1');
-
-    // 4. Limpiar historial de chat y menciones/notificaciones por completo
-    try {
-      clearAllChatHistory();
-    } catch(e) {}
-
-    // 5. Restablecer y dejar en blanco la campana de notificaciones de inmediato
-    try {
-      updatePortalHeaderUserArea(null);
-      renderSidebarNotificationsUI();
-    } catch (e) {}
-
-    // 6. Si Supabase está en uso, cerrar sesión remota
-    try {
-      await signOut();
-    } catch (e) {}
-
-    // 7. Cerrar modal y notificar
-    closeProfileModal();
-    showToast('Tu cuenta y todos sus archivos han sido eliminados correctamente.', 'info');
-
-    // 8. Redirigir a vista inicial de login limpia
-    setTimeout(() => {
-      if (window.location.search) {
-        window.location.href = window.location.pathname;
-      } else {
-        showPortalView('login');
-      }
-    }, 400);
-
-  } catch (err) {
-    console.error('Error al eliminar cuenta:', err);
-    showToast('Ocurrió un error al procesar la eliminación de la cuenta', false);
-  }
+  return deleteCurrentUserAccountAction();
 }
-
 // ==========================================
 // USUARIO EN LA BARRA SUPERIOR DEL PORTAL
 // ==========================================

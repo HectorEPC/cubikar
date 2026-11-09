@@ -1,4 +1,4 @@
-// js/modules/portal/projectService.js
+﻿// js/modules/portal/projectService.js
 // Servicio centralizado para usuarios, proyectos multi-obra y almacenamiento aislado
 
 import {
@@ -129,6 +129,25 @@ export function saveRegisteredUserAccount(userObj) {
     const list = getRegisteredUsersList();
     const cleanEmail = userObj.email.toLowerCase().trim();
     const filtered = list.filter(u => (u.email || '').toLowerCase().trim() !== cleanEmail);
+
+    let sub = null;
+    if (typeof localStorage !== 'undefined') {
+      const subRaw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
+      if (subRaw) {
+        try {
+          const parsed = JSON.parse(subRaw);
+          if (parsed?.planId) sub = parsed;
+        } catch (_) {}
+      }
+    }
+    if (!sub) {
+      sub = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
+      try {
+        localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(sub));
+      } catch (_) {}
+    }
+    userObj.subscription = sub;
+
     filtered.push(userObj);
     localStorage.setItem(STORAGE_KEY_REGISTERED_USERS, JSON.stringify(filtered));
     markSessionOpen(cleanEmail);
@@ -140,7 +159,19 @@ export function findRegisteredUserAccount(email) {
   if (!email) return null;
   const cleanEmail = email.toLowerCase().trim();
   const list = getRegisteredUsersList();
-  return list.find(u => (u.email || '').toLowerCase().trim() === cleanEmail) || null;
+  const found = list.find(u => (u.email || '').toLowerCase().trim() === cleanEmail) || null;
+  if (found && typeof localStorage !== 'undefined') {
+    const subRaw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
+    if (subRaw) {
+      try {
+        const parsed = JSON.parse(subRaw);
+        if (parsed?.planId) found.subscription = parsed;
+      } catch (_) {}
+    } else {
+      found.subscription = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
+    }
+  }
+  return found;
 }
 
 // ==========================================
@@ -156,7 +187,6 @@ export function getFeaturedProfilesList() {
     const addProfileCandidate = (p) => {
       if (!p || !p.email) return;
       const em = p.email.toLowerCase().trim();
-      // Si la cuenta ha cerrado sesión explícitamente en este equipo, ignorarla
       if (closedSet.has(em)) return;
       if (seenEmails.has(em)) return;
       seenEmails.add(em);
@@ -169,18 +199,29 @@ export function getFeaturedProfilesList() {
         role: p.role || 'Admin General',
         roleLabel: p.roleLabel || 'Administrador',
         dob: p.dob || '',
-        subscription: p.subscription || null,
+        subscription: (() => {
+          if (typeof localStorage !== 'undefined') {
+            const raw = localStorage.getItem(`adm_const_subscription_${em}`);
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                if (parsed?.planId) return parsed;
+              } catch (_) {}
+            }
+          }
+          return { planId: 'free', billingCycle: 'monthly', updatedAt: null };
+        })(),
         lastLogin: p.lastLogin || p.registeredAt || new Date().toISOString()
       });
     };
 
-    // 1. Usuario actualmente activo en sesión
+    // 1. Usuario actualmente activo en sesiÃ³n
     const curr = getCurrentUser();
     if (curr) {
       addProfileCandidate(curr);
     }
 
-    // 2. Perfiles explícitamente guardados en STORAGE_KEY_FEATURED_PROFILES
+    // 2. Perfiles explÃ­citamente guardados en STORAGE_KEY_FEATURED_PROFILES
     const rawFeatured = localStorage.getItem(STORAGE_KEY_FEATURED_PROFILES);
     if (rawFeatured) {
       try {
@@ -227,15 +268,23 @@ export function addFeaturedProfile(user) {
       role: user.role || 'Admin General',
       roleLabel: user.roleLabel || 'Administrador',
       dob: user.dob || '',
-      subscription: user.subscription || null,
+      subscription: (() => {
+        if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed?.planId) return parsed;
+            } catch (_) {}
+          }
+        }
+        return { planId: 'free', billingCycle: 'monthly', updatedAt: null };
+      })(),
       lastLogin: new Date().toISOString()
     };
 
     filtered.unshift(profileEntry);
     localStorage.setItem(STORAGE_KEY_FEATURED_PROFILES, JSON.stringify(filtered));
-    try {
-      localStorage.removeItem('control_obra_user_profile_dismissed');
-    } catch (_) {}
   } catch (e) {}
 }
 
@@ -306,6 +355,101 @@ export function purgeAllRegisteredAccountsAndUsers() {
 }
 
 // ==========================================
+// ELIMINACIÃ“N DEFINITIVA DE CUENTA Y ARCHIVOS
+// ==========================================
+export function deleteUserAccountAndData(email) {
+  if (!email) return false;
+  const cleanEmail = email.toLowerCase().trim();
+
+  try {
+    // 1. Eliminar todos los proyectos creados / pertenecientes a este usuario
+    const allProjects = getProjectsList();
+    const projectsToDelete = allProjects.filter(p => {
+      const oEmail = (p.ownerEmail || '').toLowerCase().trim();
+      return oEmail === cleanEmail;
+    });
+
+    projectsToDelete.forEach(p => {
+      try {
+        localStorage.removeItem(getSettingsKey(p.id));
+        localStorage.removeItem(getStorageKey(p.id));
+        localStorage.removeItem(`estimaciones_data_${p.id}`);
+        localStorage.removeItem(`adm_const_state_${p.id}`);
+        localStorage.removeItem(`adm_const_sobrecosto_${p.id}`);
+        localStorage.removeItem(`project_chat_${p.id}`);
+        deleteProjectFromCloud(p.id);
+      } catch (_) {}
+    });
+
+    // 2. Guardar lista de proyectos restantes (excluyendo los del usuario y quitÃ¡ndolo de colaboradores de otros proyectos)
+    const remainingProjects = allProjects.filter(p => {
+      const oEmail = (p.ownerEmail || '').toLowerCase().trim();
+      return oEmail !== cleanEmail;
+    }).map(p => {
+      if (Array.isArray(p.members)) {
+        p.members = p.members.filter(m => (m.email || '').toLowerCase().trim() !== cleanEmail);
+      }
+      return p;
+    });
+    saveProjectsList(remainingProjects);
+
+    // 3. Limpiar invitaciones asociadas a este correo
+    try {
+      const invs = getStoredInvitations().filter(inv => {
+        const iEmail = (inv.email || inv.inviteeEmail || '').toLowerCase().trim();
+        const oEmail = (inv.ownerEmail || inv.inviterEmail || '').toLowerCase().trim();
+        return iEmail !== cleanEmail && oEmail !== cleanEmail;
+      });
+      saveStoredInvitations(invs);
+    } catch (_) {}
+
+    try {
+      const planInvs = getStoredPlanInvitations().filter(pInv => {
+        const iEmail = (pInv.email || pInv.inviteeEmail || '').toLowerCase().trim();
+        const oEmail = (pInv.ownerEmail || '').toLowerCase().trim();
+        return iEmail !== cleanEmail && oEmail !== cleanEmail;
+      });
+      saveStoredPlanInvitations(planInvs);
+    } catch (_) {}
+
+    // 4. Quitar de cuentas registradas en este equipo
+    try {
+      const registered = getRegisteredUsersList().filter(u => (u.email || '').toLowerCase().trim() !== cleanEmail);
+      localStorage.setItem(STORAGE_KEY_REGISTERED_USERS, JSON.stringify(registered));
+    } catch (_) {}
+
+    // 5. Quitar de perfiles destacados
+    removeFeaturedProfile(cleanEmail);
+
+    // 6. Quitar de sesiones cerradas
+    try {
+      const closed = getClosedSessionsList().filter(e => e !== cleanEmail);
+      localStorage.setItem(STORAGE_KEY_CLOSED_SESSIONS, JSON.stringify(closed));
+    } catch (_) {}
+
+    // 7. Limpiar suscripciones o datos locales especÃ­ficos del correo
+    try {
+      localStorage.removeItem(`adm_const_subscription_${cleanEmail}`);
+    } catch (_) {}
+
+    // 8. Si es el usuario activo actual, limpiar sesiÃ³n activa y espacio de trabajo
+    const current = getCurrentUser();
+    if (current && (current.email || '').toLowerCase().trim() === cleanEmail) {
+      saveCurrentUser(null);
+      localStorage.removeItem(STORAGE_KEY_USER);
+      localStorage.removeItem(STORAGE_KEY_USER + '_last');
+      localStorage.removeItem(STORAGE_KEY_ACTIVE_WORKSPACE);
+      localStorage.removeItem('control_obra_clipboard_concept_v1');
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error eliminando cuenta y datos de usuario:', err);
+    return false;
+  }
+}
+
+// ==========================================
 // GESTIÓN DE USUARIO
 // ==========================================
 export function getCurrentUser() {
@@ -313,13 +457,20 @@ export function getCurrentUser() {
     const raw = localStorage.getItem(STORAGE_KEY_USER);
     if (raw) {
       const u = JSON.parse(raw);
-      if (u && !u.subscription) {
-        const subRaw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+      const cleanEmail = (u?.email || '').toLowerCase().trim();
+      if (cleanEmail && typeof localStorage !== 'undefined') {
+        const subRaw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
         if (subRaw) {
           try {
-            u.subscription = JSON.parse(subRaw);
+            const parsed = JSON.parse(subRaw);
+            if (parsed?.planId) {
+              u.subscription = parsed;
+            }
           } catch (e) {}
         }
+      }
+      if (u && !u.subscription) {
+        u.subscription = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
       }
       return u;
     }
@@ -340,13 +491,20 @@ export function getSavedUserProfile() {
     const raw = localStorage.getItem(STORAGE_KEY_USER + '_last') || localStorage.getItem(STORAGE_KEY_USER);
     if (raw) {
       const u = JSON.parse(raw);
-      if (u && !u.subscription) {
-        const subRaw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+      const cleanEmail = (u?.email || '').toLowerCase().trim();
+      if (cleanEmail && typeof localStorage !== 'undefined') {
+        const subRaw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
         if (subRaw) {
           try {
-            u.subscription = JSON.parse(subRaw);
+            const parsed = JSON.parse(subRaw);
+            if (parsed?.planId) {
+              u.subscription = parsed;
+            }
           } catch (e) {}
         }
+      }
+      if (u && !u.subscription) {
+        u.subscription = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
       }
       return u;
     }
@@ -366,7 +524,8 @@ export function getLastKnownUser() {
     sexo: 'Masculino'
   };
   try {
-    const subRaw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+    const cleanEmail = (fallback.email || '').toLowerCase().trim();
+    const subRaw = cleanEmail ? localStorage.getItem(`adm_const_subscription_${cleanEmail}`) : null;
     if (subRaw) fallback.subscription = JSON.parse(subRaw);
   } catch (e) {}
   return fallback;
@@ -380,13 +539,36 @@ export function saveCurrentUser(user) {
       try {
         localStorage.removeItem('control_obra_user_profile_dismissed');
       } catch (e) {}
-      if (!user.subscription) {
-        const subRaw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+      const cleanUserEmail = (user?.email || '').toLowerCase().trim();
+
+      // Sincronizar siempre con la suscripciÃ³n aislada del usuario
+      if (cleanUserEmail && typeof localStorage !== 'undefined') {
+        const subRaw = localStorage.getItem(`adm_const_subscription_${cleanUserEmail}`);
         if (subRaw) {
           try {
-            user.subscription = JSON.parse(subRaw);
-          } catch (e) {}
+            const parsedSub = JSON.parse(subRaw);
+            if (parsedSub?.planId) {
+              if (user.subscription && user.subscription.updatedAt && parsedSub.updatedAt && new Date(user.subscription.updatedAt) > new Date(parsedSub.updatedAt)) {
+                localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(user.subscription));
+              } else {
+                user.subscription = parsedSub;
+              }
+            }
+          } catch (_) {}
+        } else {
+          // Si el usuario no tiene suscripciÃ³n previa, inicia en gratuita
+          if (user.subscription && user.subscription.planId && user.subscription.planId !== 'free' && user.subscription.updatedAt) {
+            localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(user.subscription));
+          } else {
+            const initialFree = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
+            user.subscription = initialFree;
+            localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(initialFree));
+          }
         }
+      }
+
+      if (!user.subscription) {
+        user.subscription = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
       }
       localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
       try {
@@ -1544,9 +1726,17 @@ export function getProjectEffectivePlan(projectId) {
   const proj = typeof projectId === 'object' ? projectId : getProjectById(projectId);
   if (!proj) return 'free';
 
-  // Buscar la suscripción del creador/dueño actual en sesión
+  // Buscar la suscripciÃ³n del creador/dueÃ±o actual en sesiÃ³n
   if (proj.ownerEmail) {
     const ownerEmail = proj.ownerEmail.toLowerCase().trim();
+    try {
+      const raw = localStorage.getItem(`adm_const_subscription_${ownerEmail}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.planId) return parsed.planId;
+      }
+    } catch (e) {}
+
     const curr = getCurrentUser();
     if (curr && (curr.email || '').toLowerCase().trim() === ownerEmail && curr.subscription?.planId) {
       return curr.subscription.planId;
@@ -1603,14 +1793,23 @@ export function getPlanLimits(planId) {
 // Obtener plan del usuario
 export function getUserPlanId(user = null) {
   const u = user || getCurrentUser();
+  const cleanEmail = (u?.email || '').toLowerCase().trim();
+  if (cleanEmail && typeof localStorage !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.planId) {
+          if (u) {
+            if (!u.subscription) u.subscription = {};
+            u.subscription.planId = parsed.planId;
+          }
+          return parsed.planId;
+        }
+      }
+    } catch (e) {}
+  }
   if (u?.subscription?.planId) return u.subscription.planId;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed?.planId) return parsed.planId;
-    }
-  } catch (e) {}
   return 'free';
 }
 
