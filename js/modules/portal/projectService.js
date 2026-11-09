@@ -1219,77 +1219,302 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
   return newInvitation;
 }
 
-// Aceptar invitación a un proyecto
-export function acceptProjectInvitation(invitationId, currentUser) {
+// Aceptar invitación a un proyecto o al plan de un anfitrión
+export function acceptProjectInvitation(invitationId, currentUser = null) {
+  const user = currentUser || getCurrentUser();
+  const userEmail = (user?.email || '').toLowerCase().trim();
+
   const invs = getStoredInvitations();
-  const inv = invs.find(i => i.id === invitationId);
-  if (!inv) return { ok: false, error: 'Invitación no encontrada' };
-
-  inv.status = 'accepted';
-  inv.acceptedAt = new Date().toISOString();
-  saveStoredInvitations(invs);
-
-  // Marcar al miembro como 'active' en el proyecto
+  const planInvs = getStoredPlanInvitations();
   const list = getProjectsList();
-  const proj = list.find(p => p.id === inv.projectId);
-  if (proj && Array.isArray(proj.members)) {
-    const mem = proj.members.find(m => (m.email || '').toLowerCase().trim() === inv.email.toLowerCase().trim());
-    if (mem) {
-      mem.status = 'active';
-      if (currentUser) {
-        mem.name = currentUser.name || mem.name;
-        mem.avatar = currentUser.avatar || mem.avatar;
-      }
-    } else {
-      proj.members.push({
-        id: 'mem-' + Date.now(),
-        name: currentUser?.name || inv.name,
-        email: inv.email,
-        avatar: currentUser?.avatar || AVATARS_BY_SEX['Masculino'],
-        role: inv.role,
-        allowedTabs: inv.allowedTabs,
-        status: 'active'
-      });
-    }
-    saveProjectsList(list);
+
+  let targetInv = null;
+  let targetPlanInv = null;
+  let targetProjectId = null;
+  let targetProjectName = null;
+
+  // 1. Buscar en invitaciones formales de proyectos por ID exacto
+  targetInv = invs.find(i => i.id === invitationId);
+
+  // 2. Buscar en invitaciones al plan por ID exacto o coincidencia de sufijo
+  if (!targetInv) {
+    targetPlanInv = planInvs.find(pi => 
+      pi.id === invitationId ||
+      invitationId === `plan-inv-${pi.id}` ||
+      (typeof invitationId === 'string' && (invitationId.endsWith(`-${pi.id}`) || invitationId.includes(pi.id)))
+    );
   }
 
-  try {
-    if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationAccepted === 'function') {
-      window.CubikarRealtime.broadcastInvitationAccepted(inv, currentUser);
+  // 3. Si la ID tiene prefijo 'plan-inv-{projId}-{planInvId}'
+  if (!targetInv && typeof invitationId === 'string' && invitationId.startsWith('plan-inv-')) {
+    const raw = invitationId.replace('plan-inv-', '');
+    const foundProj = list.find(p => raw.startsWith(p.id));
+    if (foundProj) {
+      targetProjectId = foundProj.id;
+      targetProjectName = foundProj.projectName;
+      const restId = raw.replace(foundProj.id + '-', '');
+      if (!targetPlanInv) {
+        targetPlanInv = planInvs.find(pi => pi.id === restId || (pi.email || '').toLowerCase().trim() === userEmail);
+      }
     }
-  } catch (e) {}
+  }
 
-  return { ok: true, projectId: inv.projectId, projectName: inv.projectName };
+  // 4. Si aún no se encontró por ID, buscar la invitación pendiente por correo del usuario conectado
+  if (!targetInv && !targetPlanInv && userEmail) {
+    targetInv = invs.find(i => (i.email || '').toLowerCase().trim() === userEmail && i.status === 'pending');
+    if (!targetInv) {
+      targetPlanInv = planInvs.find(pi => (pi.email || '').toLowerCase().trim() === userEmail && pi.status === 'pending');
+    }
+  }
+
+  // 5. Si aún no se encontró, buscar en miembros de proyectos si el usuario está registrado con status 'pending'
+  if (!targetInv && !targetPlanInv && userEmail) {
+    const projWithMember = list.find(p => 
+      Array.isArray(p.members) && 
+      p.members.some(m => (m.email || '').toLowerCase().trim() === userEmail && (m.status === 'pending' || m.id === invitationId))
+    );
+    if (projWithMember) {
+      const mem = projWithMember.members.find(m => (m.email || '').toLowerCase().trim() === userEmail);
+      if (mem) {
+        mem.status = 'active';
+        if (user) {
+          mem.name = user.name || mem.name;
+          mem.avatar = user.avatar || mem.avatar;
+        }
+        saveProjectsList(list);
+
+        try {
+          if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationAccepted === 'function') {
+            window.CubikarRealtime.broadcastInvitationAccepted({
+              id: invitationId,
+              projectId: projWithMember.id,
+              projectName: projWithMember.projectName,
+              ownerEmail: projWithMember.ownerEmail,
+              email: userEmail,
+              name: user?.name || mem.name,
+              role: mem.role || 'editar'
+            }, user);
+          }
+        } catch (e) {}
+
+        return { ok: true, projectId: projWithMember.id, projectName: projWithMember.projectName };
+      }
+    }
+  }
+
+  if (!targetInv && !targetPlanInv) {
+    return { ok: false, error: 'Invitación no encontrada' };
+  }
+
+  // Aceptar Invitación Formal de Proyecto
+  if (targetInv) {
+    targetInv.status = 'accepted';
+    targetInv.acceptedAt = new Date().toISOString();
+    saveStoredInvitations(invs);
+
+    targetProjectId = targetInv.projectId;
+    targetProjectName = targetInv.projectName;
+
+    const proj = list.find(p => p.id === targetInv.projectId);
+    if (proj) {
+      targetProjectName = proj.projectName;
+      if (!Array.isArray(proj.members)) proj.members = [];
+      const mem = proj.members.find(m => (m.email || '').toLowerCase().trim() === (targetInv.email || userEmail).toLowerCase().trim());
+      if (mem) {
+        mem.status = 'active';
+        if (user) {
+          mem.name = user.name || mem.name;
+          mem.avatar = user.avatar || mem.avatar;
+        }
+      } else {
+        proj.members.push({
+          id: 'mem-' + Date.now(),
+          name: user?.name || targetInv.name,
+          email: targetInv.email || userEmail,
+          avatar: user?.avatar || AVATARS_BY_SEX['Masculino'],
+          role: targetInv.role || 'editar',
+          allowedTabs: targetInv.allowedTabs || ['cat', 'insumos', 'calendario', 'estimaciones'],
+          status: 'active'
+        });
+      }
+      saveProjectsList(list);
+    }
+
+    // Si también existía invitación de plan con este anfitrión, marcarla como aceptada
+    if (targetInv.ownerEmail) {
+      const hostEmail = (targetInv.ownerEmail || '').toLowerCase().trim();
+      const pInv = planInvs.find(pi => (pi.ownerEmail || '').toLowerCase().trim() === hostEmail && (pi.email || '').toLowerCase().trim() === (targetInv.email || userEmail).toLowerCase().trim());
+      if (pInv) {
+        pInv.status = 'accepted';
+        pInv.acceptedAt = new Date().toISOString();
+        saveStoredPlanInvitations(planInvs);
+      }
+    }
+
+    try {
+      if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationAccepted === 'function') {
+        window.CubikarRealtime.broadcastInvitationAccepted(targetInv, user);
+      }
+    } catch (e) {}
+
+    return { ok: true, projectId: targetProjectId, projectName: targetProjectName || 'Proyecto de Obra' };
+  }
+
+  // Aceptar Invitación al Plan de Suscripción del Anfitrión
+  if (targetPlanInv) {
+    targetPlanInv.status = 'accepted';
+    targetPlanInv.acceptedAt = new Date().toISOString();
+    saveStoredPlanInvitations(planInvs);
+
+    const hostEmail = (targetPlanInv.ownerEmail || '').toLowerCase().trim();
+    const hostProjects = list.filter(p => (p.ownerEmail || '').toLowerCase().trim() === hostEmail);
+
+    let assignedProj = null;
+    if (targetProjectId) {
+      assignedProj = hostProjects.find(p => p.id === targetProjectId);
+    }
+    if (!assignedProj && hostProjects.length > 0) {
+      assignedProj = hostProjects[0];
+    }
+
+    // Agregar al usuario como miembro activo en todas las obras del anfitrión
+    hostProjects.forEach(hp => {
+      if (!Array.isArray(hp.members)) hp.members = [];
+      const mem = hp.members.find(m => (m.email || '').toLowerCase().trim() === userEmail);
+      if (mem) {
+        mem.status = 'active';
+        mem.role = targetPlanInv.role || 'editar';
+        if (user) {
+          mem.name = user.name || mem.name;
+          mem.avatar = user.avatar || mem.avatar;
+        }
+      } else {
+        hp.members.push({
+          id: 'mem-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+          name: user?.name || targetPlanInv.name || userEmail.split('@')[0],
+          email: userEmail,
+          avatar: user?.avatar || AVATARS_BY_SEX['Masculino'],
+          role: targetPlanInv.role || 'editar',
+          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones'],
+          status: 'active'
+        });
+      }
+    });
+    if (hostProjects.length > 0) {
+      saveProjectsList(list);
+    }
+
+    // Marcar como aceptadas las invitaciones correspondientes en getStoredInvitations()
+    invs.forEach(i => {
+      if ((i.ownerEmail || '').toLowerCase().trim() === hostEmail && (i.email || '').toLowerCase().trim() === userEmail) {
+        i.status = 'accepted';
+        i.acceptedAt = new Date().toISOString();
+      }
+    });
+    saveStoredInvitations(invs);
+
+    const finalProjId = assignedProj ? assignedProj.id : 'plan-access';
+    const finalProjName = assignedProj ? assignedProj.projectName : `Espacio de ${targetPlanInv.ownerName || hostEmail}`;
+
+    try {
+      if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationAccepted === 'function') {
+        window.CubikarRealtime.broadcastInvitationAccepted({
+          id: targetPlanInv.id,
+          projectId: finalProjId,
+          projectName: finalProjName,
+          ownerEmail: hostEmail,
+          email: userEmail,
+          name: user?.name || targetPlanInv.name,
+          role: targetPlanInv.role || 'editar'
+        }, user);
+      }
+    } catch (e) {}
+
+    return { ok: true, projectId: finalProjId, projectName: finalProjName };
+  }
+
+  return { ok: false, error: 'Invitación no encontrada' };
 }
 
 // Rechazar o quitar invitación
 export function rejectProjectInvitation(invitationId) {
+  const user = getCurrentUser();
+  const userEmail = (user?.email || '').toLowerCase().trim();
+
   const invs = getStoredInvitations();
-  const inv = invs.find(i => i.id === invitationId);
-  if (!inv) return false;
+  const planInvs = getStoredPlanInvitations();
+  const list = getProjectsList();
 
-  const nextInvs = invs.filter(i => i.id !== invitationId);
-  saveStoredInvitations(nextInvs);
+  let rejected = false;
 
-  // Remover también de los miembros del proyecto si estaba como pending
-  if (inv.projectId && inv.email) {
-    const list = getProjectsList();
-    const proj = list.find(p => p.id === inv.projectId);
-    if (proj && Array.isArray(proj.members)) {
-      proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== inv.email.toLowerCase().trim());
-      saveProjectsList(list);
+  // 1. Buscar en invitaciones formales de proyectos
+  const invIdx = invs.findIndex(i => 
+    i.id === invitationId || 
+    (userEmail && (i.email || '').toLowerCase().trim() === userEmail && i.id === invitationId)
+  );
+  if (invIdx >= 0) {
+    const inv = invs[invIdx];
+    invs.splice(invIdx, 1);
+    saveStoredInvitations(invs);
+    rejected = true;
+
+    if (inv.projectId) {
+      const proj = list.find(p => p.id === inv.projectId);
+      if (proj && Array.isArray(proj.members)) {
+        proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== (inv.email || '').toLowerCase().trim());
+        saveProjectsList(list);
+      }
     }
+
+    try {
+      if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationRejected === 'function') {
+        window.CubikarRealtime.broadcastInvitationRejected(inv, user);
+      }
+    } catch (e) {}
   }
 
-  try {
-    const currentUser = getCurrentUser();
-    if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationRejected === 'function') {
-      window.CubikarRealtime.broadcastInvitationRejected(inv, currentUser);
-    }
-  } catch (e) {}
+  // 2. Buscar en invitaciones al plan
+  const planIdx = planInvs.findIndex(pi => 
+    pi.id === invitationId || 
+    (typeof invitationId === 'string' && (invitationId.includes(pi.id) || invitationId.endsWith(`-${pi.id}`))) ||
+    (userEmail && (pi.email || '').toLowerCase().trim() === userEmail && (pi.id === invitationId || pi.status === 'pending'))
+  );
+  if (planIdx >= 0) {
+    const pInv = planInvs[planIdx];
+    planInvs.splice(planIdx, 1);
+    saveStoredPlanInvitations(planInvs);
+    rejected = true;
 
-  return true;
+    const hostEmail = (pInv.ownerEmail || '').toLowerCase().trim();
+    list.forEach(p => {
+      if ((p.ownerEmail || '').toLowerCase().trim() === hostEmail && Array.isArray(p.members)) {
+        p.members = p.members.filter(m => (m.email || '').toLowerCase().trim() !== userEmail || m.status !== 'pending');
+      }
+    });
+    saveProjectsList(list);
+
+    try {
+      if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationRejected === 'function') {
+        window.CubikarRealtime.broadcastInvitationRejected({ id: pInv.id, ownerEmail: hostEmail, email: userEmail }, user);
+      }
+    } catch (e) {}
+  }
+
+  // 3. Si estaba en members de algún proyecto con status 'pending'
+  if (!rejected && userEmail) {
+    list.forEach(p => {
+      if (Array.isArray(p.members)) {
+        const memIdx = p.members.findIndex(m => (m.email || '').toLowerCase().trim() === userEmail && (m.status === 'pending' || m.id === invitationId));
+        if (memIdx >= 0) {
+          p.members.splice(memIdx, 1);
+          saveProjectsList(list);
+          rejected = true;
+        }
+      }
+    });
+  }
+
+  return rejected;
 }
 
 // Sincronizar y actualizar el plan de suscripción en todos los proyectos propiedad del usuario

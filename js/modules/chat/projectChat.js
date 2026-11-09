@@ -543,10 +543,20 @@ export function handleAcceptInvitationAction(invId) {
   }
   const result = acceptProjectInvitation(invId, currentUser);
   if (result.ok) {
-    showToast(`🎉 ¡Invitación aceptada! Abriendo proyecto "${result.projectName}"...`);
+    showToast(`🎉 ¡Invitación aceptada! Accediendo a "${result.projectName}"...`);
     renderSidebarNotificationsUI();
+    if (typeof window.refreshProjectsGridUI === 'function') {
+      try { window.refreshProjectsGridUI(); } catch (_) {}
+    }
+    if (typeof window.renderPortalDashboard === 'function') {
+      try { window.renderPortalDashboard(); } catch (_) {}
+    }
     setTimeout(() => {
-      window.location.href = `${window.location.pathname}?project=${encodeURIComponent(result.projectId)}`;
+      if (result.projectId && result.projectId !== 'plan-access') {
+        window.location.href = `${window.location.pathname}?project=${encodeURIComponent(result.projectId)}`;
+      } else {
+        window.location.reload();
+      }
     }, 400);
   } else {
     showToast(result.error || 'No se pudo aceptar la invitación', 'warning');
@@ -558,6 +568,14 @@ export function handleRejectInvitationAction(invId) {
   if (ok) {
     showToast('Invitación rechazada', 'info');
     renderSidebarNotificationsUI();
+    if (typeof window.refreshProjectsGridUI === 'function') {
+      try { window.refreshProjectsGridUI(); } catch (_) {}
+    }
+    if (typeof window.renderPortalDashboard === 'function') {
+      try { window.renderPortalDashboard(); } catch (_) {}
+    }
+  } else {
+    showToast('No se encontró la invitación', 'warning');
   }
 }
 
