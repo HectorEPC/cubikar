@@ -1,5 +1,4 @@
 @echo off
-chcp 65001 >nul
 title Cubikar - Servidor Local
 cls
 echo =======================================================================
@@ -7,9 +6,9 @@ echo                       CUBIKAR - CONTROL DE OBRA
 echo =======================================================================
 echo.
 echo Iniciando servidor local en http://localhost:8000 ...
-echo Abriendo Cubikar en tu navegador con soporte completo para Google OAuth...
+echo Abriendo Cubikar en tu navegador...
 echo.
-echo (Para cerrar el servidor, simplemente cierra esta ventana de consola)
+echo (Para cerrar el servidor, simplemente cierra esta ventana)
 echo =======================================================================
 echo.
 
