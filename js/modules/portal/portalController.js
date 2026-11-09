@@ -1,4 +1,4 @@
-// js/modules/portal/portalController.js
+﻿// js/modules/portal/portalController.js
 // Controlador integral para la pantalla de inicio, perfil, proyectos y navegación multi-obra
 
 import {
@@ -174,7 +174,7 @@ export function showPortalView(mode = 'dashboard', returnProjectId = null) {
     }
   }
 
-  const effectiveReturnId = returnProjectId || getActiveProjectId() || null;
+  const effectiveReturnId = returnProjectId || null;
   const user = getCurrentUser();
 
   if (mode === 'dashboard' && user) {
@@ -632,7 +632,8 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
       if (returnProjectId) {
         openProjectInWorkspace(returnProjectId);
       } else {
-        renderPortalDashboard();
+        setActiveProjectId(null);
+        showPortalView('dashboard');
         renderSidebarNotificationsUI();
       }
       return;
@@ -676,7 +677,8 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
   if (returnProjectId) {
     openProjectInWorkspace(returnProjectId);
   } else {
-    renderPortalDashboard();
+    setActiveProjectId(null);
+    showPortalView('dashboard');
     renderSidebarNotificationsUI();
   }
 }
@@ -720,7 +722,8 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
       if (returnProjectId) {
         openProjectInWorkspace(returnProjectId);
       } else {
-        renderPortalDashboard();
+        setActiveProjectId(null);
+        showPortalView('dashboard');
         renderSidebarNotificationsUI();
       }
       return;
@@ -850,6 +853,14 @@ if (typeof window !== 'undefined') {
 export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
   if (!email) return;
   const cleanEmail = email.toLowerCase().trim();
+  const current = getCurrentUser();
+  if (current && current.email && current.email.toLowerCase().trim() !== cleanEmail) {
+    try {
+      const sb = getSupabaseClient();
+      if (sb) sb.auth.signOut();
+    } catch (_) {}
+  }
+
   const featured = getFeaturedProfilesList();
   let user = featured.find(p => (p.email || '').toLowerCase().trim() === cleanEmail);
   if (!user) {
@@ -865,15 +876,17 @@ export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
   if (user) {
     saveCurrentUser(user);
     addFeaturedProfile(user);
-    showToast(`Sesión iniciada como ${user.name}`);
+    markSessionOpen(user.email);
+    showToast(`SesiÃ³n iniciada como ${user.name}`);
     if (returnProjectId) {
       openProjectInWorkspace(returnProjectId);
     } else {
-      renderPortalDashboard();
+      setActiveProjectId(null);
+      showPortalView('dashboard');
       renderSidebarNotificationsUI();
     }
   } else {
-    showToast('No se encontró el perfil seleccionado.', 'error');
+    showToast('No se encontrÃ³ el perfil seleccionado.', 'error');
   }
 }
 
@@ -2220,6 +2233,7 @@ export function goToProjectsDashboard() {
       setActiveWorkspaceData(user.email, user.name || user.email);
     }
   } catch (e) {}
+  setActiveProjectId(null);
   showPortalView('dashboard');
 }
 

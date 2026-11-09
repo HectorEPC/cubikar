@@ -2,7 +2,7 @@
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
-import { saveCurrentUser, markSessionOpen, saveRegisteredUserAccount } from '../modules/portal/projectService.js';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, saveRegisteredUserAccount } from '../modules/portal/projectService.js';
 
 /**
  * Registro con Correo Electrónico y Contraseña
@@ -44,7 +44,7 @@ export async function signInWithPassword({ email, password }) {
   if (error) throw error;
 
   const perfil = await fetchUserProfile(data.user.id);
-  syncLocalUserSession(data.user, perfil);
+  syncLocalUserSession(data.user, perfil, true);
 
   return { session: data.session, user: data.user, perfil };
 }
@@ -149,8 +149,13 @@ export async function fetchUserProfile(userId) {
 /**
  * Sincroniza la sesión con el estado local del portal
  */
-export function syncLocalUserSession(user, perfil) {
+export function syncLocalUserSession(user, perfil, force = false) {
   if (!user) return;
+  const current = getCurrentUser();
+  if (!force && current && current.email && user.email && current.email.toLowerCase().trim() !== user.email.toLowerCase().trim()) {
+    console.info('[Supabase Auth] Sesión remota difiere del usuario activo local, respetando usuario activo actual.');
+    return;
+  }
   const rawAvatar = perfil?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
   const initial = (perfil?.nombre_completo || user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'U').charAt(0).toUpperCase();
   const fallbackAvatar = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%230284c7'/%3E%3Ctext x='50' y='64' font-size='42' font-family='Arial,sans-serif' font-weight='bold' fill='white' text-anchor='middle'%3E${initial}%3C/text%3E%3C/svg%3E`;
@@ -183,8 +188,9 @@ export function initAuthListener(onAuthChangeCallback) {
   sb.auth.onAuthStateChange(async (event, session) => {
     console.info(`[Supabase Auth] Evento: ${event}`);
     if (session?.user) {
+      const isExplicitLogin = (event === 'SIGNED_IN' || event === 'USER_UPDATED');
       const perfil = await fetchUserProfile(session.user.id);
-      syncLocalUserSession(session.user, perfil);
+      syncLocalUserSession(session.user, perfil, isExplicitLogin);
       if (onAuthChangeCallback) onAuthChangeCallback(event, session, perfil);
     } else {
       if (onAuthChangeCallback) onAuthChangeCallback(event, null, null);
