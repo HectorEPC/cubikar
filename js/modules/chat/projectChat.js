@@ -1,11 +1,20 @@
-﻿// js/modules/chat/projectChat.js
+// js/modules/chat/projectChat.js
 // Ventana de Chat independiente por Proyecto (plegable y desplegable abajo a la derecha)
 // conectada con Partidas de Nivel 1 (icono de alta visibilidad fa-comments),
 // Usuarios Asignados (@), Estimaciones (#), Reportes (!) y Notificaciones de Menciones en la barra lateral izquierda.
 
 import { state } from '../../state/store.js';
 import { getActiveProjectId } from '../../config/constants.js';
-import { getProjectById, getProjectsList, getCurrentUser, getLastKnownUser, AVATARS_BY_SEX } from '../portal/projectService.js';
+import {
+  getProjectById,
+  getProjectsList,
+  getCurrentUser,
+  getLastKnownUser,
+  AVATARS_BY_SEX,
+  getPendingInvitationsForUser,
+  acceptProjectInvitation,
+  rejectProjectInvitation
+} from '../portal/projectService.js';
 import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js';
 import { showToast } from '../../ui/notifications.js';
 
@@ -526,7 +535,38 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
   }, 60);
 }
 
-function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterHandle, partidas, scope = 'current') {
+export function handleAcceptInvitationAction(invId) {
+  const currentUser = getCurrentUser();
+  if (!currentUser) {
+    showToast('Inicia sesión para aceptar la invitación', 'warning');
+    return;
+  }
+  const result = acceptProjectInvitation(invId, currentUser);
+  if (result.ok) {
+    showToast(`🎉 ¡Invitación aceptada! Abriendo proyecto "${result.projectName}"...`);
+    renderSidebarNotificationsUI();
+    setTimeout(() => {
+      window.location.href = `${window.location.pathname}?project=${encodeURIComponent(result.projectId)}`;
+    }, 400);
+  } else {
+    showToast(result.error || 'No se pudo aceptar la invitación', 'warning');
+  }
+}
+
+export function handleRejectInvitationAction(invId) {
+  const ok = rejectProjectInvitation(invId);
+  if (ok) {
+    showToast('Invitación rechazada', 'info');
+    renderSidebarNotificationsUI();
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.handleAcceptInvitationAction = handleAcceptInvitationAction;
+  window.handleRejectInvitationAction = handleRejectInvitationAction;
+}
+
+function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterHandle, partidas, scope = 'current', pendingInvitations = []) {
   const isPortalScope = scope === 'all';
   const headerTitle = isPortalScope
     ? 'Notificaciones de Todos los Proyectos'
@@ -568,6 +608,62 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
         ` : ''}
         <button type="button" onclick="event.stopPropagation(); closeMentionNotificationsPopover()"
                 class="w-6 h-6 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white inline-flex items-center justify-center cursor-pointer transition">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- SECCIÓN DE INVITACIONES PENDIENTES (Si hay invitaciones recibidas) -->
+    ${pendingInvitations && pendingInvitations.length > 0 ? `
+      <div onclick="event.stopPropagation()" class="p-3 bg-gradient-to-r from-blue-950/90 via-indigo-950/80 to-slate-900 border-b border-blue-500/40 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-extrabold text-blue-300 flex items-center gap-1.5 uppercase tracking-wider">
+            <i class="fa-solid fa-envelope-open-text text-amber-400"></i>
+            Invitaciones Pendientes (${pendingInvitations.length})
+          </span>
+          <span class="text-[9.5px] bg-blue-500/20 text-blue-300 border border-blue-400/30 px-1.5 py-0.2 rounded-full font-bold">
+            Entrar a la Obra
+          </span>
+        </div>
+
+        <div class="space-y-2 max-h-56 overflow-y-auto custom-scroll pr-1">
+          ${pendingInvitations.map(inv => `
+            <div class="p-2.5 bg-slate-950/90 border border-blue-500/40 rounded-xl space-y-2 shadow-lg">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <h5 class="text-xs font-bold text-white truncate" title="${inv.projectName}">
+                    📁 ${inv.projectName}
+                  </h5>
+                  <span class="text-[10.5px] text-slate-300 block truncate">
+                    Invitado por: <strong class="text-amber-300">${inv.ownerName || inv.companyName || 'Anfitrión'}</strong>
+                  </span>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${inv.role === 'editar' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-purple-500/20 text-purple-300 border border-purple-500/40'}">
+                  ${inv.role === 'editar' ? '⭐ Rol: Editor' : (inv.role === 'escribir' ? '✍️ Rol: Escribir' : '👁️ Rol: Leer')}
+                </span>
+              </div>
+
+              <div class="flex items-center justify-between pt-1.5 border-t border-slate-800/80 gap-2 text-xs">
+                <span class="text-[10px] text-slate-400 truncate">
+                  Membresía: <b class="text-slate-200">${inv.ownerPlanId ? `Plan ${inv.ownerPlanId.toUpperCase()}` : 'Plan Anfitrión'}</b>
+                </span>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button type="button" onclick="handleRejectInvitationAction('${inv.id}')"
+                          class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-[10.5px] font-semibold transition cursor-pointer"
+                          title="Rechazar invitación">
+                    Rechazar
+                  </button>
+                  <button type="button" onclick="handleAcceptInvitationAction('${inv.id}')"
+                          class="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10.5px] transition shadow shadow-blue-600/30 active:scale-95 cursor-pointer flex items-center gap-1">
+                    <i class="fa-solid fa-check text-[10px]"></i> Aceptar y Entrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
           <i class="fa-solid fa-xmark text-xs"></i>
         </button>
       </div>
@@ -680,9 +776,13 @@ export function renderSidebarNotificationsUI() {
 
   const filterHandle = selectedNotificationsHandle || 'all';
 
+  // Obtener invitaciones pendientes hacia el usuario conectado
+  const pendingInvitations = (currentUser && currentUser.email) ? getPendingInvitationsForUser(currentUser.email) : [];
+  const pendingInvsCount = pendingInvitations.length;
+
   // 1) Campana en el Área de Proyectos (barra lateral izquierda): notificaciones donde mencionaron usuarios en el proyecto activo
   const projectMentions = getUserMentionsNotifications(filterHandle, 'current');
-  const projectUnreadCount = projectMentions.filter(item => !item.isRead).length;
+  const projectUnreadCount = projectMentions.filter(item => !item.isRead).length + pendingInvsCount;
   const projectBadgeText = projectUnreadCount > 99 ? '99+' : String(projectUnreadCount);
 
   if (badgeEl) {
@@ -699,7 +799,7 @@ export function renderSidebarNotificationsUI() {
 
   // 2) Campana en "Mis Proyectos de Obra" (portal): recopila todas las notificaciones que etiquetaron los usuarios de todos los proyectos
   const allProjectsMentions = getUserMentionsNotifications(filterHandle, 'all');
-  const allProjectsUnreadCount = allProjectsMentions.filter(item => !item.isRead).length;
+  const allProjectsUnreadCount = allProjectsMentions.filter(item => !item.isRead).length + pendingInvsCount;
   const portalBadgeText = allProjectsUnreadCount > 99 ? '99+' : String(allProjectsUnreadCount);
 
   if (portalBadgeEl) {
@@ -731,7 +831,8 @@ export function renderSidebarNotificationsUI() {
       projectUsers,
       filterHandle,
       partidas,
-      'current'
+      'current',
+      pendingInvitations
     );
   }
 
@@ -744,7 +845,8 @@ export function renderSidebarNotificationsUI() {
       allUsers,
       filterHandle,
       partidas,
-      'all'
+      'all',
+      pendingInvitations
     );
   }
 }

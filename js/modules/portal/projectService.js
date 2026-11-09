@@ -6,6 +6,7 @@ import {
   STORAGE_KEY_PROJECTS,
   STORAGE_KEY_INVITATIONS,
   STORAGE_KEY_PLAN_INVITATIONS,
+  STORAGE_KEY_ACTIVE_WORKSPACE,
   getStorageKey,
   getSettingsKey,
   DEFAULT_STORAGE_KEY,
@@ -851,6 +852,12 @@ export function createNewProject(params) {
   list.unshift(projectEntry);
   saveProjectsList(list);
 
+  try {
+    if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastNewProject === 'function') {
+      window.CubikarRealtime.broadcastNewProject(projectEntry);
+    }
+  } catch (e) {}
+
   return projectEntry;
 }
 
@@ -1136,6 +1143,16 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
     status: 'pending'
   });
 
+  // Emitir broadcast en tiempo real vía WebSockets a otros usuarios conectados
+  try {
+    if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastNewInvitation === 'function') {
+      const updatedProj = getProjectById(projectId);
+      window.CubikarRealtime.broadcastNewInvitation(newInvitation, updatedProj);
+    }
+  } catch (e) {
+    console.warn('[Realtime] Error emitiendo invitación:', e);
+  }
+
   return newInvitation;
 }
 
@@ -1174,6 +1191,12 @@ export function acceptProjectInvitation(invitationId, currentUser) {
     saveProjectsList(list);
   }
 
+  try {
+    if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationAccepted === 'function') {
+      window.CubikarRealtime.broadcastInvitationAccepted(inv, currentUser);
+    }
+  } catch (e) {}
+
   return { ok: true, projectId: inv.projectId, projectName: inv.projectName };
 }
 
@@ -1195,6 +1218,13 @@ export function rejectProjectInvitation(invitationId) {
       saveProjectsList(list);
     }
   }
+
+  try {
+    const currentUser = getCurrentUser();
+    if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationRejected === 'function') {
+      window.CubikarRealtime.broadcastInvitationRejected(inv, currentUser);
+    }
+  } catch (e) {}
 
   return true;
 }
@@ -1874,4 +1904,45 @@ function countTreePartidas(nodes) {
   }
   traverse(nodes);
   return count;
+}
+
+
+// ==========================================
+// GESTIÓN DE ESPACIO DE TRABAJO ACTIVO
+// ==========================================
+export function setActiveWorkspaceData(ownerEmail, ownerName = '') {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const payload = {
+        ownerEmail: (ownerEmail || '').toLowerCase().trim(),
+        ownerName: ownerName || ownerEmail || '',
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem(STORAGE_KEY_ACTIVE_WORKSPACE, JSON.stringify(payload));
+    }
+  } catch (e) {
+    console.error('Error guardando active workspace:', e);
+  }
+}
+
+export function getActiveWorkspaceData() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(STORAGE_KEY_ACTIVE_WORKSPACE);
+      if (raw) {
+        try {
+          return JSON.parse(raw);
+        } catch (_) {
+          if (typeof raw === 'string' && raw.startsWith('owner:')) {
+            return { ownerEmail: raw.replace('owner:', '').trim(), ownerName: '' };
+          }
+        }
+      }
+    }
+  } catch (e) {}
+  const u = getCurrentUser();
+  return {
+    ownerEmail: (u?.email || '').toLowerCase().trim(),
+    ownerName: u?.name || u?.email || ''
+  };
 }

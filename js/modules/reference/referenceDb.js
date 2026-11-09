@@ -1,4 +1,4 @@
-// js/modules/reference/referenceDb.js
+﻿// js/modules/reference/referenceDb.js
 // Gestor de base de datos local IndexedDB para Catálogos Maestros de Referencia
 
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
@@ -32,6 +32,22 @@ export function getWorkspacePlanInfo(ownerEmail) {
         const parsed = JSON.parse(rawUserSub);
         if (parsed?.planId && PLAN_STORAGE_MB[parsed.planId]) {
           return PLAN_STORAGE_MB[parsed.planId];
+        }
+      }
+      const rawReg = localStorage.getItem('control_obra_registered_accounts_v1');
+      if (rawReg) {
+        const regList = JSON.parse(rawReg);
+        const acc = regList.find(a => (a.email || '').toLowerCase().trim() === normEmail);
+        if (acc?.subscription?.planId && PLAN_STORAGE_MB[acc.subscription.planId]) {
+          return PLAN_STORAGE_MB[acc.subscription.planId];
+        }
+      }
+      const rawProj = localStorage.getItem('control_obra_projects_v1');
+      if (rawProj) {
+        const projList = JSON.parse(rawProj);
+        const hp = projList.find(p => (p.ownerEmail || '').toLowerCase().trim() === normEmail && p.ownerPlanId);
+        if (hp?.ownerPlanId && PLAN_STORAGE_MB[hp.ownerPlanId]) {
+          return PLAN_STORAGE_MB[hp.ownerPlanId];
         }
       }
     }

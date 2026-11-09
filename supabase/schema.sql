@@ -355,7 +355,30 @@ CREATE POLICY "Acceso a cronograma de mi empresa"
     );
 
 -- ==============================================================================
--- 10. PUBLICACIÓN EN TIEMPO REAL (Supabase Realtime)
+-- 10. TABLA DE INVITACIONES Y COLABORADORES DE OBRA
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.invitaciones (
+    id VARCHAR(100) PRIMARY KEY,
+    proyecto_id VARCHAR(100) NOT NULL,
+    proyecto_nombre VARCHAR(255) NOT NULL,
+    owner_email VARCHAR(255) NOT NULL,
+    owner_name VARCHAR(255) NOT NULL,
+    owner_plan_id VARCHAR(50) DEFAULT 'free',
+    invitee_name VARCHAR(255) NOT NULL,
+    invitee_email VARCHAR(255) NOT NULL,
+    rol VARCHAR(50) DEFAULT 'editar',
+    allowed_tabs JSONB DEFAULT '[]'::jsonb,
+    estado VARCHAR(50) DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.invitaciones ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso a invitaciones" ON public.invitaciones;
+CREATE POLICY "Acceso a invitaciones" ON public.invitaciones FOR ALL USING (true) WITH CHECK (true);
+
+-- ==============================================================================
+-- 11. PUBLICACIÓN EN TIEMPO REAL (Supabase Realtime)
 -- ==============================================================================
 DO $$
 BEGIN
@@ -365,6 +388,7 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.estimaciones;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.estimacion_detalles;
     ALTER PUBLICATION supabase_realtime ADD TABLE public.cronograma_actividades;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.invitaciones;
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;

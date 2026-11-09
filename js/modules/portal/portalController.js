@@ -53,7 +53,9 @@ import {
   PROJECT_ROLES,
   AVATARS_BY_SEX,
   GOOGLE_PRESET_ACCOUNTS,
-  SAMPLE_LOGOS
+  SAMPLE_LOGOS,
+  setActiveWorkspaceData,
+  getActiveWorkspaceData
 } from './projectService.js';
 import { showToast } from '../../ui/notifications.js';
 import { persistLocalData, state, initStore } from '../../state/store.js';
@@ -201,6 +203,11 @@ function showWorkspaceView(user, project) {
     workspaceContainer.style.display = 'flex';
   }
 
+  if (project && project.ownerEmail) {
+    const hostEmail = (project.ownerEmail || '').toLowerCase().trim();
+    const hostName = project.companyName || hostEmail;
+    setActiveWorkspaceData(hostEmail, hostName);
+  }
   updateWorkspaceHeaderUser(user);
   renderHeaderCollaborators();
   try {
@@ -1469,6 +1476,30 @@ let currentViewMode = 'grid'; // 'grid' | 'list'
 
 export function setProjectScopeFilter(scope) {
   currentScopeFilter = scope || 'owned';
+  const user = getCurrentUser();
+  const uEmail = (user?.email || '').toLowerCase().trim();
+
+  if (currentScopeFilter && currentScopeFilter.startsWith('owner:')) {
+    const targetEmail = currentScopeFilter.replace('owner:', '').toLowerCase().trim();
+    const allProjects = getProjectsForUser(user);
+    const inviters = getWorkspaceInviters(user, allProjects);
+    const inv = inviters.find(i => (i.email || '').toLowerCase().trim() === targetEmail);
+    setActiveWorkspaceData(targetEmail, inv?.name || targetEmail);
+  } else {
+    setActiveWorkspaceData(uEmail, user?.name || uEmail);
+  }
+
+  updateSubscriptionBadgesUI();
+  const actionArea = document.getElementById('portal-header-action-area');
+  if (actionArea && user) {
+    actionArea.innerHTML = renderHeaderCreateButtonHTML(user, currentScopeFilter);
+  }
+  const statusBadge = document.getElementById('mode-status-badge');
+  if (statusBadge && user) {
+    const allProjects = getProjectsForUser(user);
+    const inviters = getWorkspaceInviters(user, allProjects);
+    statusBadge.innerHTML = renderModeStatusBadgeHTML(currentScopeFilter, user, inviters, allProjects);
+  }
   refreshProjectsGridUI();
 }
 export const setProjectDashboardMode = setProjectScopeFilter;
@@ -2177,6 +2208,12 @@ export function goToProjectsDashboard() {
     const url = new URL(window.location.href);
     url.searchParams.delete('project');
     window.history.pushState({}, '', url.pathname + (url.search || ''));
+    if (currentScopeFilter && currentScopeFilter.startsWith('owner:')) {
+      const targetEmail = currentScopeFilter.replace('owner:', '').toLowerCase().trim();
+      setActiveWorkspaceData(targetEmail);
+    } else if (user) {
+      setActiveWorkspaceData(user.email, user.name || user.email);
+    }
   } catch (e) {}
   showPortalView('dashboard');
 }

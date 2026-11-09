@@ -1,4 +1,4 @@
-﻿import {
+import {
   renderCalendarioObra,
   setCalendarioViewMode,
   setCalendarioTimeScale,
@@ -61,7 +61,7 @@ import { undoAction, redoAction, updateUndoRedoButtons, setHistoryRenderCallback
 import { showToast } from './ui/notifications.js';
 import { formatMoney, formatQty } from './core/formatters.js';
 import { getFactorSobrecosto, updateSobrecostoBadge, updateGrandTotal } from './core/calculations.js';
-import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime } from './core/realtimeSync.js';
+import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalRealtimeSync } from './core/realtimeSync.js';
 import { initAuthListener } from './core/authService.js';
 
 import {
@@ -168,7 +168,18 @@ import {
   generarMatrizCasillasLocal,
   getSelectedLeafConcepts
 } from './modules/ai/localEstimator.js';
-import { exportData, importData } from './modules/io/csvHandler.js';
+import {
+  exportData,
+  importData,
+  openExportModal,
+  closeExportModal,
+  exportCatalogExcel,
+  exportCatalogOpusZip,
+  exportCatalogNeodataZip,
+  exportCatalogOpus,
+  exportCatalogNeodata,
+  exportCatalogCsv
+} from './modules/io/csvHandler.js';
 import { initPanelResizer } from './ui/resizer.js';
 
 import {
@@ -293,7 +304,9 @@ import {
   onNotificationsUserFilterChange,
   markAllMentionsAsRead,
   openMentionNotification,
-  renderSidebarNotificationsUI
+  renderSidebarNotificationsUI,
+  handleAcceptInvitationAction,
+  handleRejectInvitationAction
 } from './modules/chat/projectChat.js';
 
 import {
@@ -661,6 +674,14 @@ Object.assign(window, {
   // Import / Export
   exportData,
   importData,
+  openExportModal,
+  closeExportModal,
+  exportCatalogExcel,
+  exportCatalogOpusZip,
+  exportCatalogNeodataZip,
+  exportCatalogOpus,
+  exportCatalogNeodata,
+  exportCatalogCsv,
   openImportModal,
   closeImportModal,
   handleUniversalFileSelect,
@@ -1048,6 +1069,13 @@ if (isWorkspaceActive) {
       console.warn('[Realtime] Aviso al conectar canal de obra:', e);
     }
   }
+
+  // Inicializar canal WebSocket global para invitaciones y proyectos en tiempo real
+  try {
+    initGlobalRealtimeSync();
+  } catch (e) {
+    console.warn('[Realtime] Aviso inicializando sincronización global:', e);
+  }
 }
 
 // Asegurar renderizado de colaboradores en el encabezado de proyecto
@@ -1058,8 +1086,13 @@ if (typeof document !== 'undefined') {
   updateSubscriptionBadgesUI();
   applyTabLocksToDOM();
   renderProjectChatDock();
+  try {
+    initGlobalRealtimeSync();
+  } catch (e) {}
 }
 
+window.handleAcceptInvitationAction = handleAcceptInvitationAction;
+window.handleRejectInvitationAction = handleRejectInvitationAction;
 window.toggleProjectChatDock = toggleProjectChatDock;
 window.toggleProjectChatMaximize = toggleProjectChatMaximize;
 window.printProjectChatReport = printProjectChatReport;

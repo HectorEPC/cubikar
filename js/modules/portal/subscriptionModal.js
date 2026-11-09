@@ -1,4 +1,4 @@
-// js/modules/portal/subscriptionModal.js
+﻿// js/modules/portal/subscriptionModal.js
 // Gestión integral de Planes de Suscripción del Usuario: Gratuita, Plus y Pro
 
 import { getCurrentUser, saveCurrentUser } from './projectService.js';
@@ -147,6 +147,45 @@ export function getCurrentSubscription() {
               ownerEmail: ownerEmail
             };
           }
+          try {
+            const rawReg = localStorage.getItem('control_obra_registered_accounts_v1');
+            if (rawReg) {
+              const regList = JSON.parse(rawReg);
+              const acc = regList.find(a => (a.email || '').toLowerCase().trim() === ownerEmail);
+              if (acc?.subscription?.planId) {
+                const validPlan = getPlanById(acc.subscription.planId);
+                return {
+                  planId: validPlan.id,
+                  billingCycle: acc.subscription.billingCycle === 'annual' ? 'annual' : 'monthly',
+                  updatedAt: acc.subscription.updatedAt || null,
+                  isInherited: true,
+                  ownerEmail: ownerEmail
+                };
+              }
+            }
+            const rawProj = localStorage.getItem('control_obra_projects_v1');
+            if (rawProj) {
+              const pList = JSON.parse(rawProj);
+              const hp = pList.find(p => (p.ownerEmail || '').toLowerCase().trim() === ownerEmail && p.ownerPlanId);
+              if (hp?.ownerPlanId) {
+                const validPlan = getPlanById(hp.ownerPlanId);
+                return {
+                  planId: validPlan.id,
+                  billingCycle: 'monthly',
+                  updatedAt: null,
+                  isInherited: true,
+                  ownerEmail: ownerEmail
+                };
+              }
+            }
+          } catch (_) {}
+          return {
+            planId: 'free',
+            billingCycle: 'monthly',
+            updatedAt: null,
+            isInherited: true,
+            ownerEmail: ownerEmail
+          };
         }
       }
     }
