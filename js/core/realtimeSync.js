@@ -654,3 +654,14 @@ function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
     }
   }
 }
+
+if (typeof window !== 'undefined') {
+  window.CubikarRealtime = {
+    initGlobalRealtimeSync,
+    broadcastNewInvitation,
+    broadcastInvitationAccepted,
+    broadcastInvitationRejected,
+    broadcastNewProject,
+    requestPeerSync
+  };
+}

@@ -664,10 +664,6 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
         </div>
       </div>
     ` : ''}
-          <i class="fa-solid fa-xmark text-xs"></i>
-        </button>
-      </div>
-    </div>
 
     <!-- Selector de usuario para consultar todas las menciones o las de un usuario en específico -->
     <div onclick="event.stopPropagation()" class="px-3.5 py-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-2">
