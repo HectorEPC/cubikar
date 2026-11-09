@@ -1,4 +1,4 @@
-﻿// js/modules/portal/projectService.js
+// js/modules/portal/projectService.js
 // Servicio centralizado para usuarios, proyectos multi-obra y almacenamiento aislado
 
 import {
@@ -970,7 +970,7 @@ export function createNewProject(params) {
 
   const currentUser = getCurrentUser();
   const targetOwnerEmail = (params.ownerEmail || (currentUser && currentUser.email) || 'admin.general@constructora.com').toLowerCase().trim();
-  const targetOwnerPlanId = params.ownerPlanId || (params.ownerEmail ? 'free' : getUserPlanId(currentUser));
+  const targetOwnerPlanId = params.ownerPlanId || getUserPlanId(targetOwnerEmail);
 
   // Determinar miembros iniciales
   let initialMembers = [];
@@ -997,6 +997,23 @@ export function createNewProject(params) {
           status: 'active'
         }
       ];
+
+      // Vincular automáticamente a todos los demás colaboradores del plan del anfitrión (User A) con sus respectivos roles ('editar', 'escribir', 'leer')
+      const existingCollabs = getPlanCollaboratorsForOwner(targetOwnerEmail);
+      existingCollabs.forEach(collab => {
+        const cEmail = (collab.email || '').toLowerCase().trim();
+        if (cEmail && cEmail !== targetOwnerEmail && cEmail !== currentUser.email.toLowerCase().trim()) {
+          initialMembers.push({
+            id: 'mem-' + cEmail,
+            name: collab.name || cEmail.split('@')[0],
+            email: cEmail,
+            avatar: collab.avatar || AVATARS_BY_SEX['Masculino'],
+            role: collab.role || 'editar',
+            allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones'],
+            status: collab.status || 'active'
+          });
+        }
+      });
     } else {
       initialMembers = [
         {
@@ -1008,6 +1025,23 @@ export function createNewProject(params) {
           status: 'active'
         }
       ];
+
+      // Si el dueño mismo crea la obra, vincular automáticamente a los colaboradores ya invitados a su plan
+      const existingCollabs = getPlanCollaboratorsForOwner(targetOwnerEmail);
+      existingCollabs.forEach(collab => {
+        const cEmail = (collab.email || '').toLowerCase().trim();
+        if (cEmail && cEmail !== targetOwnerEmail) {
+          initialMembers.push({
+            id: 'mem-' + cEmail,
+            name: collab.name || cEmail.split('@')[0],
+            email: cEmail,
+            avatar: collab.avatar || AVATARS_BY_SEX['Masculino'],
+            role: collab.role || 'editar',
+            allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones'],
+            status: collab.status || 'active'
+          });
+        }
+      });
     }
   }
 
@@ -1726,34 +1760,14 @@ export function getProjectEffectivePlan(projectId) {
   const proj = typeof projectId === 'object' ? projectId : getProjectById(projectId);
   if (!proj) return 'free';
 
-  // Buscar la suscripciÃ³n del creador/dueÃ±o actual en sesiÃ³n
   if (proj.ownerEmail) {
-    const ownerEmail = proj.ownerEmail.toLowerCase().trim();
-    try {
-      const raw = localStorage.getItem(`adm_const_subscription_${ownerEmail}`);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.planId) return parsed.planId;
-      }
-    } catch (e) {}
-
-    const curr = getCurrentUser();
-    if (curr && (curr.email || '').toLowerCase().trim() === ownerEmail && curr.subscription?.planId) {
-      return curr.subscription.planId;
-    }
-    // Probar si hay datos guardados de usuario previo
-    try {
-      const last = getLastKnownUser();
-      if (last && (last.email || '').toLowerCase().trim() === ownerEmail && last.subscription?.planId) {
-        return last.subscription.planId;
-      }
-    } catch (e) {}
+    const livePlan = getUserPlanId(proj.ownerEmail);
+    if (livePlan && livePlan !== 'free') return livePlan;
   }
 
-  // Si tiene un plan guardado en la obra
   if (proj.ownerPlanId) return proj.ownerPlanId;
 
-  return 'free'; // Fallback por defecto seguro a plan Gratuita
+  return getUserPlanId(proj.ownerEmail) || 'free';
 }
 
 // ==========================================
@@ -1790,17 +1804,25 @@ export function getPlanLimits(planId) {
   return PLAN_LIMITS[planId] || PLAN_LIMITS.free;
 }
 
-// Obtener plan del usuario
-export function getUserPlanId(user = null) {
-  const u = user || getCurrentUser();
-  const cleanEmail = (u?.email || '').toLowerCase().trim();
+// Obtener plan del usuario (acepta objeto de usuario o correo electrónico directamente)
+export function getUserPlanId(userOrEmail = null) {
+  let cleanEmail = '';
+  let u = null;
+
+  if (typeof userOrEmail === 'string') {
+    cleanEmail = userOrEmail.toLowerCase().trim();
+  } else {
+    u = userOrEmail || getCurrentUser();
+    cleanEmail = (u?.email || '').toLowerCase().trim();
+  }
+
   if (cleanEmail && typeof localStorage !== 'undefined') {
     try {
       const raw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed?.planId) {
-          if (u) {
+          if (u && typeof u === 'object') {
             if (!u.subscription) u.subscription = {};
             u.subscription.planId = parsed.planId;
           }
@@ -1809,7 +1831,20 @@ export function getUserPlanId(user = null) {
       }
     } catch (e) {}
   }
-  if (u?.subscription?.planId) return u.subscription.planId;
+
+  if (u && typeof u === 'object' && u?.subscription?.planId) {
+    return u.subscription.planId;
+  }
+
+  if (cleanEmail) {
+    try {
+      const reg = findRegisteredUserAccount(cleanEmail);
+      if (reg?.subscription?.planId) return reg.subscription.planId;
+      const preset = GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === cleanEmail);
+      if (preset?.subscription?.planId) return preset.subscription.planId;
+    } catch (_) {}
+  }
+
   return 'free';
 }
 
@@ -1830,13 +1865,20 @@ export function canUserCreateProject(user = null, targetScope = null) {
     const hostProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === hostEmail);
 
     let hostName = hostEmail;
-    let hostPlanId = 'free';
+    try {
+      const registered = findRegisteredUserAccount(hostEmail);
+      if (registered?.name) hostName = registered.name;
+      const preset = GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === hostEmail);
+      if (preset?.name && hostName === hostEmail) hostName = preset.name;
+    } catch (_) {}
+
+    const hostPlanId = getUserPlanId(hostEmail);
     let userHasEditorRole = false;
 
-    // Buscar en proyectos del anfitrión donde este usuario es miembro
+    // Buscar en proyectos del anfitrión donde este usuario es miembro activo
     for (const p of hostProjects) {
       if (p.companyName && hostName === hostEmail) hostName = p.companyName;
-      if (p.ownerPlanId) hostPlanId = p.ownerPlanId;
+      if (p.ownerName && hostName === hostEmail) hostName = p.ownerName;
       if (Array.isArray(p.members)) {
         const mem = p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
         if (mem && mem.role === 'editar') {
@@ -1845,7 +1887,19 @@ export function canUserCreateProject(user = null, targetScope = null) {
       }
     }
 
-    // Revisar también invitaciones almacenadas
+    // Revisar invitaciones al plan de suscripción que hayan sido aceptadas
+    const planInvs = getStoredPlanInvitations();
+    const myPlanInv = planInvs.find(inv => 
+      (inv.ownerEmail || '').toLowerCase().trim() === hostEmail && 
+      (inv.email || '').toLowerCase().trim() === uEmail &&
+      inv.status === 'accepted'
+    );
+    if (myPlanInv) {
+      if (myPlanInv.ownerName && hostName === hostEmail) hostName = myPlanInv.ownerName;
+      if (myPlanInv.role === 'editar') userHasEditorRole = true;
+    }
+
+    // Revisar también invitaciones individuales a proyectos aceptadas
     const invitations = getStoredInvitations();
     const myInv = invitations.find(inv => 
       (inv.ownerEmail || '').toLowerCase().trim() === hostEmail && 
@@ -1854,14 +1908,12 @@ export function canUserCreateProject(user = null, targetScope = null) {
     );
     if (myInv) {
       if (myInv.ownerName && hostName === hostEmail) hostName = myInv.ownerName;
-      if (myInv.ownerPlanId) hostPlanId = myInv.ownerPlanId;
       if (myInv.role === 'editar') userHasEditorRole = true;
     }
 
-    // Administrador General siempre tiene permisos
+    // Administrador General siempre tiene permisos de edición
     if (u.role === 'Admin General' || u.email === 'admin.general@constructora.com') {
       userHasEditorRole = true;
-      hostPlanId = 'pro';
     }
 
     if (!userHasEditorRole) {
@@ -1940,66 +1992,86 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
   const u = user || getCurrentUser();
   if (!u || !u.email) return [];
   const uEmail = u.email.toLowerCase().trim();
-  const projects = allProjectsList || getProjectsForUser(u);
+  const userProjects = allProjectsList || getProjectsForUser(u);
 
   const map = new Map();
-  projects.forEach(p => {
+
+  // 1. Revisar obras donde el usuario es miembro activo aceptado
+  userProjects.forEach(p => {
     const oEmail = (p.ownerEmail || '').toLowerCase().trim();
     if (oEmail && oEmail !== uEmail) {
-      if (!map.has(oEmail)) {
-        let hostName = p.ownerName;
-        if (!hostName) {
-          const preset = GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === oEmail);
-          if (preset) hostName = preset.name;
-        }
-        if (!hostName) {
-          hostName = p.companyName || oEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        }
-        const planId = p.ownerPlanId || getProjectEffectivePlan(p.id) || 'free';
-        const planLimits = getPlanLimits(planId);
-
-        map.set(oEmail, {
-          email: oEmail,
-          name: hostName,
-          companyName: p.companyName || '',
-          planId: planId,
-          planName: planLimits.name,
-          maxProjects: planLimits.maxProjects,
-          maxMembers: planLimits.maxMembers,
-          count: 0,
-          isEditor: false,
-          roles: new Set()
-        });
-      }
-
-      const entry = map.get(oEmail);
-      entry.count++;
-
       if (Array.isArray(p.members)) {
         const mem = p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
-        if (mem && mem.role) {
-          entry.roles.add(mem.role);
-          if (mem.role === 'editar') {
-            entry.isEditor = true;
+        if (mem) {
+          if (!map.has(oEmail)) {
+            let hostName = p.ownerName;
+            try {
+              const reg = findRegisteredUserAccount(oEmail);
+              if (reg?.name) hostName = reg.name;
+              const preset = GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === oEmail);
+              if (preset?.name && (!hostName || hostName === oEmail)) hostName = preset.name;
+            } catch (_) {}
+
+            if (!hostName) {
+              hostName = p.companyName || oEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            }
+
+            const planId = getUserPlanId(oEmail) || p.ownerPlanId || 'free';
+            const planLimits = getPlanLimits(planId);
+
+            map.set(oEmail, {
+              email: oEmail,
+              name: hostName,
+              companyName: p.companyName || '',
+              planId: planId,
+              planName: planLimits.name,
+              maxProjects: planLimits.maxProjects,
+              maxMembers: planLimits.maxMembers,
+              count: 0,
+              isEditor: false,
+              roles: new Set()
+            });
+          }
+
+          const entry = map.get(oEmail);
+          entry.count++;
+
+          if (mem.role) {
+            entry.roles.add(mem.role);
+            if (mem.role === 'editar') {
+              entry.isEditor = true;
+            }
           }
         }
       }
     }
   });
 
-  // Revisar también si hay invitaciones aceptadas en STORAGE_KEY_PLAN_INVITATIONS
+  // 2. Revisar también si hay invitaciones aceptadas al plan de suscripción
   const planInvs = getStoredPlanInvitations();
   planInvs.forEach(pInv => {
     const oEmail = (pInv.ownerEmail || '').toLowerCase().trim();
     const guestEmail = (pInv.email || '').toLowerCase().trim();
-    if (guestEmail === uEmail && oEmail && oEmail !== uEmail) {
+    if (guestEmail === uEmail && oEmail && oEmail !== uEmail && pInv.status === 'accepted') {
+      let hostName = pInv.ownerName;
+      try {
+        const reg = findRegisteredUserAccount(oEmail);
+        if (reg?.name) hostName = reg.name;
+        const preset = GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === oEmail);
+        if (preset?.name && (!hostName || hostName === oEmail)) hostName = preset.name;
+      } catch (_) {}
+
+      if (!hostName) hostName = oEmail;
+
+      const planId = getUserPlanId(oEmail) || pInv.ownerPlanId || 'free';
+      const planLimits = getPlanLimits(planId);
+
       if (!map.has(oEmail)) {
-        const planLimits = getPlanLimits(pInv.ownerPlanId || 'free');
         map.set(oEmail, {
           email: oEmail,
-          name: pInv.ownerName || oEmail,
-          companyName: pInv.ownerName || '',
-          planId: pInv.ownerPlanId || 'free',
+          name: hostName,
+          companyName: hostName,
+          planId: planId,
           planName: planLimits.name,
           maxProjects: planLimits.maxProjects,
           maxMembers: planLimits.maxMembers,

@@ -1,4 +1,4 @@
-﻿// js/modules/portal/portalController.js
+// js/modules/portal/portalController.js
 // Controlador integral para la pantalla de inicio, perfil, proyectos y navegación multi-obra
 
 import {
@@ -1120,12 +1120,15 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
     const targetEmail = scope.replace('owner:', '').toLowerCase().trim();
     const inv = inviters.find(i => (i.email || '').toLowerCase().trim() === targetEmail);
     const hostName = inv?.name || targetEmail;
-    const planName = inv?.planName || 'Gratuito';
+    const hostPlanId = getUserPlanId(targetEmail);
+    const hostPlanLimits = getPlanLimits(hostPlanId);
+    const planName = hostPlanLimits.name;
     const isEditor = inv?.isEditor || false;
     const roleDisplay = inv?.myRoleDisplay || 'Leer';
-    const hostProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === targetEmail);
+    const allSysProjects = getProjectsList();
+    const hostProjects = allSysProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === targetEmail);
     const hostCount = hostProjects.length;
-    const maxProjects = inv?.maxProjects || 2;
+    const maxProjects = hostPlanLimits.maxProjects;
 
     if (isEditor) {
       return `
@@ -1139,7 +1142,7 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
       return `
         <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
           <i class="fa-solid fa-user-lock text-slate-400"></i>
-          <span class="text-slate-300">🏷️ Membresía: <strong class="text-white">Plan ${planName}</strong></span>
+          <span class="text-slate-300">🏷️ Membresía: <strong class="text-white">Plan ${planName}</strong> (${hostCount}/${maxProjects} obras)</span>
           <span class="bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-md font-medium text-[10.5px]">🔒 Rol: ${roleDisplay} (Solo lectura / colaborador)</span>
         </div>
       `;
@@ -1161,14 +1164,13 @@ export function renderHeaderCreateButtonHTML(user, scope) {
   const check = canUserCreateProject(u, scope);
 
   if (check.allowed) {
-    const btnLabel = check.isHostContext ? `+ Nuevo Proyecto (para ${check.hostName})` : '+ Nuevo Proyecto';
-    const btnTooltip = check.isHostContext ? `Crear proyecto en la organización de ${check.hostName} consumiendo su membresía ${getPlanLimits(check.planId).name}` : 'Crear un nuevo proyecto propio';
+    const btnTooltip = check.isHostContext ? `Crear proyecto en la organización de ${check.hostName} consumiendo su membresía Plan ${getPlanLimits(check.planId).name}` : 'Crear un nuevo proyecto propio';
     return `
       <button onclick="openNuevoProyectoModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer" title="${btnTooltip.replace(/"/g, '&quot;')}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
-        <span>${btnLabel}</span>
+        <span>+ Nuevo Proyecto</span>
       </button>
     `;
   }
@@ -1178,14 +1180,14 @@ export function renderHeaderCreateButtonHTML(user, scope) {
       return `
         <button onclick="showToast('${(check.reason || 'Solo colaboradores con rol de Editor pueden crear proyectos aquí.').replace(/'/g, "\\'")}', 'warning');" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-medium text-xs transition border border-slate-800 cursor-pointer" title="${(check.reason || '').replace(/"/g, '&quot;')}">
           <i class="fa-solid fa-lock text-xs text-amber-400"></i>
-          <span>🔒 Solo Editores Pueden Crear</span>
+          <span>Solo Editores Pueden Crear</span>
         </button>
       `;
     }
     return `
       <button onclick="showToast('${(check.reason || 'Límite de proyectos del anfitrión alcanzado.').replace(/'/g, "\\'")}', 'warning');" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-medium text-xs transition border border-slate-800 cursor-pointer" title="${(check.reason || '').replace(/"/g, '&quot;')}">
         <i class="fa-solid fa-lock text-xs text-amber-400"></i>
-        <span>🔒 Límite del Anfitrión (${check.currentProjects}/${check.maxProjects})</span>
+        <span>Límite del Anfitrión (${check.currentProjects}/${check.maxProjects})</span>
       </button>
     `;
   }
@@ -1288,19 +1290,19 @@ export function renderPortalDashboard() {
 
         <div class="flex items-center gap-2 shrink-0">
           <!-- Menú desplegable de Modo de Trabajo -->
-          <div class="relative w-64 sm:w-80 min-w-0">
+          <div class="relative w-40 sm:w-52 min-w-0">
             <select id="projectScopeModeSelect" onchange="setProjectScopeFilter(this.value)"
                     class="w-full appearance-none bg-slate-950 border border-slate-700 hover:border-blue-500 focus:border-blue-500 text-white font-semibold text-xs sm:text-sm rounded-xl pl-3 pr-8 py-2.5 transition outline-none cursor-pointer shadow-inner truncate">
               <option value="owned" ${currentScopeFilter === 'owned' ? 'selected' : ''}>
-                👑 Mis Proyectos Propios (${userPlanLimits.name} ${ownedCount}/${userPlanLimits.maxProjects})
+                Mis proyectos
               </option>
               ${invitersList.map(inv => `
                 <option value="owner:${inv.email}" ${currentScopeFilter === `owner:${inv.email}` ? 'selected' : ''}>
-                  👤 Espacio de ${inv.name} (${inv.isEditor ? '⭐ Editor' : `Rol: ${inv.myRoleDisplay}`})
+                  ${inv.name}
                 </option>
               `).join('')}
               <option value="all" ${currentScopeFilter === 'all' ? 'selected' : ''}>
-                🌐 Vista Global: Todos los Proyectos
+                Todos los proyectos
               </option>
             </select>
             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-blue-400">
@@ -1778,16 +1780,24 @@ export function refreshProjectsGridUI() {
   const userPlanId = getUserPlanId(user);
   const userPlanLimits = getPlanLimits(userPlanId);
 
-  // Sincronizar el selector de Modo / Espacio de Trabajo y su etiqueta de membresÃ­a
+  // Sincronizar el selector de Modo / Espacio de Trabajo
   const modeSelect = document.getElementById('projectScopeModeSelect');
   if (modeSelect) {
-    if (modeSelect.value !== currentScopeFilter) {
-      modeSelect.value = currentScopeFilter;
+    const desiredHTML = `
+      <option value="owned" ${currentScopeFilter === 'owned' ? 'selected' : ''}>Mis proyectos</option>
+      ${invitersList.map(inv => `
+        <option value="owner:${inv.email}" ${currentScopeFilter === `owner:${inv.email}` ? 'selected' : ''}>${inv.name}</option>
+      `).join('')}
+      <option value="all" ${currentScopeFilter === 'all' ? 'selected' : ''}>Todos los proyectos</option>
+    `.trim();
+
+    const currentOptionsSign = Array.from(modeSelect.options).map(o => `${o.value}:${o.textContent.trim()}`).join('|');
+    const newOptionsSign = `owned:Mis proyectos|${invitersList.map(inv => `owner:${inv.email}:${inv.name}`).join('|')}|all:Todos los proyectos`;
+
+    if (currentOptionsSign !== newOptionsSign) {
+      modeSelect.innerHTML = desiredHTML;
     }
-    const ownedOption = modeSelect.querySelector('option[value="owned"]');
-    if (ownedOption) {
-      ownedOption.textContent = `\u{1F451} Mis Proyectos Propios (${userPlanLimits.name} ${ownedCount}/${userPlanLimits.maxProjects})`;
-    }
+    modeSelect.value = currentScopeFilter;
   }
 
   // Actualizar el indicador visual de estado y membresía
@@ -2302,16 +2312,41 @@ export function goToProjectsDashboard() {
 }
 
 export function duplicateProjectAction(projectId) {
+  const p = getProjectById(projectId);
+  if (!p) return;
+  const user = getCurrentUser();
+  const uEmail = (user?.email || '').toLowerCase().trim();
+  const isOwner = (p.ownerEmail || '').toLowerCase().trim() === uEmail;
+  const myMem = Array.isArray(p.members) ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail) : null;
+  const isEditor = isOwner || myMem?.role === 'editar' || user?.role === 'Admin General';
+
+  if (!isEditor) {
+    showToast('🔒 Solo el propietario o colaboradores con rol de Editor pueden duplicar proyectos.', 'warning');
+    return;
+  }
+
   const dup = duplicateProject(projectId);
   if (dup) {
     showToast(`Proyecto "${dup.projectName}" duplicado exitosamente`);
-    renderPortalDashboard(); renderSidebarNotificationsUI();
+    renderPortalDashboard();
+    renderSidebarNotificationsUI();
   }
 }
 
 export function deleteProjectAction(projectId) {
   const p = getProjectById(projectId);
   if (!p) return;
+  const user = getCurrentUser();
+  const uEmail = (user?.email || '').toLowerCase().trim();
+  const isOwner = (p.ownerEmail || '').toLowerCase().trim() === uEmail;
+  const myMem = Array.isArray(p.members) ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail) : null;
+  const isEditor = isOwner || myMem?.role === 'editar' || user?.role === 'Admin General';
+
+  if (!isEditor) {
+    showToast('🔒 Solo el propietario o colaboradores con rol de Editor pueden eliminar este proyecto.', 'warning');
+    return;
+  }
+
   if (!confirm(`¿Deseas eliminar el proyecto "${p.projectName}"? Esta acción eliminará su catálogo y configuración.`)) return;
   deleteProject(projectId);
   showToast('Proyecto eliminado', false);
