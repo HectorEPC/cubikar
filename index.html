@@ -201,6 +201,13 @@
                 </div>
                 <i class="fa-solid fa-arrow-right text-xs"></i>
               </button>
+
+              <!-- BotÃ³n Exclusivo para Administrador de Cubikar -->
+              <button type="button" id="workspace-btn-admin-panel" onclick="closeUserDropdown(); openCubikarAdminModal()"
+                      class="hidden w-full px-3 py-2 text-left rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold border border-amber-500/30 flex items-center gap-2 transition cursor-pointer">
+                <i class="fa-solid fa-shield-halved text-amber-400 text-xs w-4 text-center"></i>
+                <span>Panel de AdministraciÃ³n</span>
+              </button>
               
               <button type="button" onclick="closeUserDropdown(); openProfileModal()" 
                       class="w-full px-3 py-2 text-left rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-2 transition cursor-pointer">
@@ -3925,6 +3932,410 @@
 
     </div>
   </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: SELECTOR DUAL DE INICIO PARA ADMINISTRADORES DE CUBIKAR -->
+  <!-- ========================================================================= -->
+  <div id="modal-admin-dual-login" style="z-index: 100002;" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[100002] hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Encabezado con corona y escudo -->
+      <div class="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-700 p-6 text-slate-950 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-slate-950/20 border border-slate-950/30 flex items-center justify-center text-slate-950 text-2xl shadow-inner shrink-0">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <span class="text-[11px] font-extrabold uppercase tracking-widest text-slate-950/80">Acceso Autorizado</span>
+          <h3 class="text-xl font-black text-slate-950 leading-tight">Bienvenido, Administrador</h3>
+          <p class="text-xs font-semibold text-slate-950/90 mt-0.5">Hola <strong id="admin-dual-login-username">Administrador</strong>, tu cuenta cuenta con privilegios administrativos. Elige cómo deseas ingresar:</p>
+        </div>
+      </div>
+
+      <!-- Cuadrícula de 2 Opciones -->
+      <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950/50">
+        
+        <!-- Tarjeta 1: Administración de la Aplicación -->
+        <div onclick="window._adminChoiceAdmin && window._adminChoiceAdmin()" 
+             class="group p-5 rounded-2xl bg-slate-900 border border-amber-500/40 hover:border-amber-400 hover:bg-amber-500/5 transition duration-200 cursor-pointer flex flex-col justify-between shadow-lg relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl pointer-events-none"></div>
+          <div>
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center text-lg mb-3 shadow-inner">
+              <i class="fa-solid fa-table-columns"></i>
+            </div>
+            <h4 class="font-extrabold text-sm text-white group-hover:text-amber-300 transition flex items-center gap-2">
+              <span>Administración Cubikar</span>
+              <i class="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition"></i>
+            </h4>
+            <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+              Base de datos completa de usuarios, métricas de ingresos SaaS, consumos de IA, costos y gestión de administradores.
+            </p>
+            <ul class="mt-3 space-y-1.5 text-[10.5px] text-slate-300">
+              <li class="flex items-center gap-1.5"><i class="fa-solid fa-check text-amber-400 text-[10px]"></i> Base de datos con 16 columnas</li>
+              <li class="flex items-center gap-1.5"><i class="fa-solid fa-check text-amber-400 text-[10px]"></i> Supervisión de planes y cobros</li>
+              <li class="flex items-center gap-1.5"><i class="fa-solid fa-check text-amber-400 text-[10px]"></i> Invitar más administradores</li>
+            </ul>
+          </div>
+          <button type="button" class="mt-5 w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-xs shadow-md transition flex items-center justify-center gap-1.5 pointer-events-none">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Entrar al Panel de Admin</span>
+          </button>
+        </div>
+
+        <!-- Tarjeta 2: Aplicación como Usuario Común -->
+        <div onclick="window._adminChoiceCommon && window._adminChoiceCommon()" 
+             class="group p-5 rounded-2xl bg-slate-900 border border-blue-500/30 hover:border-blue-400 hover:bg-blue-500/5 transition duration-200 cursor-pointer flex flex-col justify-between shadow-lg relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-xl pointer-events-none"></div>
+          <div>
+            <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center text-lg mb-3 shadow-inner">
+              <i class="fa-solid fa-compass-drafting"></i>
+            </div>
+            <h4 class="font-extrabold text-sm text-white group-hover:text-blue-300 transition flex items-center gap-2">
+              <span>Modo Usuario Común</span>
+              <i class="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition"></i>
+            </h4>
+            <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+              Ingresa al entorno habitual de Cubikar para crear obras, presupuestos base, matrices APU y calendarios Gantt.
+            </p>
+            <ul class="mt-3 space-y-1.5 text-[10.5px] text-slate-300">
+              <li class="flex items-center gap-1.5"><i class="fa-solid fa-check text-blue-400 text-[10px]"></i> Portal de proyectos y presupuestos</li>
+              <li class="flex items-center gap-1.5"><i class="fa-solid fa-check text-blue-400 text-[10px]"></i> Elaboración de matrices APU</li>
+              <li class="flex items-center gap-1.5"><i class="fa-solid fa-check text-blue-400 text-[10px]"></i> Retorno al admin desde tu perfil</li>
+            </ul>
+          </div>
+          <button type="button" class="mt-5 w-full py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 transition flex items-center justify-center gap-1.5 pointer-events-none">
+            <i class="fa-solid fa-right-to-bracket text-blue-400"></i>
+            <span>Abrir Aplicación de Obras</span>
+          </button>
+        </div>
+
+      </div>
+
+      <div class="bg-slate-900 px-6 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <span class="text-[11px] flex items-center gap-1.5">
+          <i class="fa-solid fa-circle-info text-amber-400"></i>
+          <span>Siempre puedes cambiar entre ambos modos desde el menú de perfil superior.</span>
+        </span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL COMPLETO: PANEL MASTER "BASES DE DATOS CUBIKAR" -->
+  <!-- ========================================================================= -->
+  <div id="modal-admin-cubikar" style="z-index: 100000;" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100000] hidden items-center justify-center p-2 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-[99vw] 2xl:max-w-[1850px] h-[96vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Encabezado Estilo Hoja de Cálculo Cubikar (Azul Corporativo Exacto) -->
+      <div class="bg-[#1b506f] text-white px-5 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0 border-b border-sky-900 shadow-md">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-amber-300 font-black text-base shadow-inner">
+            <i class="fa-solid fa-database"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-extrabold text-base tracking-wider uppercase text-white font-sans">BASES DE DATOS CUBIKAR</h2>
+              <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950">SUPERADMIN</span>
+            </div>
+            <p class="text-[11px] text-sky-100">Supervisión integral de clientes, membresías, consumos técnicos de IA y margen SaaS</p>
+          </div>
+        </div>
+
+        <!-- Botones de Acción de la Cabecera -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <button type="button" onclick="openCoAdminsModal()" 
+                  class="px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs">
+            <i class="fa-solid fa-user-shield text-amber-300"></i>
+            <span>Administradores</span>
+          </button>
+          
+          <button type="button" onclick="openMarketRatesModal()" 
+                  class="px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Configurar tarifas de mercado para cálculo de costos">
+            <i class="fa-solid fa-sliders text-sky-200"></i>
+            <span>Tarifas de Mercado</span>
+          </button>
+
+          <button type="button" onclick="exportCubikarDatabaseToExcel()" 
+                  class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-md">
+            <i class="fa-solid fa-file-excel"></i>
+            <span>Exportar Excel</span>
+          </button>
+
+          <button type="button" onclick="renderCubikarAdminTable()" 
+                  class="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                  title="Actualizar datos">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+
+          <button type="button" onclick="closeCubikarAdminModal()" 
+                  class="p-2 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white transition cursor-pointer"
+                  title="Cerrar panel administrativo">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjetas de Métricas Ejecutivas (KPIs) -->
+      <div class="bg-slate-950/70 px-5 py-3 border-b border-slate-800 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 shrink-0">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Total Usuarios</span>
+          <span id="admin-kpi-total-users" class="text-base font-extrabold text-white font-mono">0</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Usuarios Activos (≤15d)</span>
+          <span id="admin-kpi-active-users" class="text-base font-extrabold text-emerald-400 font-mono">0</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Ingreso por Suscripción</span>
+          <span id="admin-kpi-revenue" class="text-base font-extrabold text-white font-mono">$ 0.00</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Costo Técnico Recursos</span>
+          <span id="admin-kpi-cost" class="text-base font-extrabold text-amber-400 font-mono">$ 0.00</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 col-span-2 sm:col-span-1">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Margen Bruto</span>
+          <span id="admin-kpi-margin" class="text-base font-extrabold text-emerald-400 font-mono">0.0%</span>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros Idéntica a las Opciones Desplegables de Excel -->
+      <div class="bg-slate-900 px-5 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0 text-xs">
+        <div class="flex items-center gap-2 flex-1 max-w-md">
+          <div class="relative w-full">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+            <input type="text" oninput="setAdminTableSearch(this.value)" placeholder="Buscar por nombre o correo de cliente..."
+                   class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition">
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 flex-wrap">
+          <!-- Filtro Actividad -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] text-slate-400 font-bold">Actividad:</span>
+            <select onchange="setAdminFilterActivity(this.value)" class="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-hidden focus:border-blue-500 cursor-pointer">
+              <option value="all">Todas (Todos los estados)</option>
+              <option value="activo">🟢 Activo (≤15 días)</option>
+              <option value="reposo">🟡 Reposo (>15 días)</option>
+              <option value="inactivo">🔴 Inactivo</option>
+            </select>
+          </div>
+
+          <!-- Filtro Membresía -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] text-slate-400 font-bold">Membresía:</span>
+            <select onchange="setAdminFilterPlan(this.value)" class="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-hidden focus:border-blue-500 cursor-pointer">
+              <option value="all">Todos los Planes</option>
+              <option value="free">Gratuita</option>
+              <option value="plus">Plus ($350 MXN)</option>
+              <option value="pro">Pro ($950 MXN)</option>
+            </select>
+          </div>
+
+          <!-- Filtro Ciclo -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] text-slate-400 font-bold">Ciclo:</span>
+            <select onchange="setAdminFilterCycle(this.value)" class="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-hidden focus:border-blue-500 cursor-pointer">
+              <option value="all">Mensual y Anual</option>
+              <option value="monthly">Mensual</option>
+              <option value="annual">Anual (-20%)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla Maestra con las 16 Columnas Exactas -->
+      <div class="flex-1 overflow-auto custom-scroll bg-slate-950/80">
+        <table class="w-full text-left border-collapse border border-slate-800 text-xs min-w-[1700px]">
+          <thead class="sticky top-0 z-20 bg-[#1b506f] text-white select-none shadow-sm">
+            <tr>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center w-14">no</th>
+              <th class="px-3.5 py-2.5 font-bold border-r border-sky-800">Nombre de usuario</th>
+              <th class="px-3.5 py-2.5 font-bold border-r border-sky-800">Correo</th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">Fecha de registro</th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">Actividad</th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">Membrecia activa</th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">tipo de membrecia<br><span class="text-[9.5px] font-normal opacity-90">(mensual / anual)</span></th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">Inicio de membrecia</th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">Fin de membrecia</th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">Cantidad de usuarios<br>colaborativos por perfil</th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-right">Llamadas a la IA<br><span class="text-[9.5px] font-normal text-sky-200">(Tokens Gemini/OpenAI)</span></th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-right">Almacenamiento<br><span class="text-[9.5px] font-normal text-indigo-200">(Base de datos y Storage)</span></th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-right">Ancho de banda<br><span class="text-[9.5px] font-normal text-teal-200">(Realtime y Sync)</span></th>
+              <th class="px-3.5 py-2.5 font-bold border-r border-sky-800 text-right">Total de gastos en<br>suscripcion</th>
+              <th class="px-3.5 py-2.5 font-bold border-r border-sky-800 text-right">Total de gastos en recursos<br>consumidos por mes</th>
+              <th class="px-3.5 py-2.5 font-bold text-right min-w-[220px]">% de gastos en recursos consumidos por mes comparado<br>con su plan (si consumio todo el recurso)</th>
+            </tr>
+          </thead>
+          <tbody id="admin-cubikar-table-body" class="divide-y divide-slate-800/80 bg-slate-900/60 font-sans">
+            <!-- Inyectado dinámicamente por renderCubikarAdminTable() -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pie del Panel Maestro -->
+      <div class="bg-slate-900 px-5 py-2.5 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 text-xs text-slate-400">
+        <div class="flex items-center gap-3">
+          <span class="inline-flex items-center gap-1.5"><i class="fa-solid fa-circle text-[7px] text-emerald-400"></i> Activo (≤15 días)</span>
+          <span class="inline-flex items-center gap-1.5"><i class="fa-solid fa-moon text-[8px] text-amber-400"></i> Reposo (>15 días)</span>
+          <span class="inline-flex items-center gap-1.5"><i class="fa-solid fa-ban text-[8px] text-rose-400"></i> Inactivo</span>
+          <span class="inline-flex items-center gap-1.5 text-amber-400 font-semibold"><i class="fa-solid fa-triangle-exclamation text-[10px]"></i> Alerta ≥85% consumo enviada al usuario</span>
+        </div>
+        <div class="text-[11px] font-mono text-slate-500">
+          Cubikar Admin Engine v2.0 • Hepc90 Master
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SUB-MODAL: GESTIÓN DE CO-ADMINISTRADORES -->
+  <!-- ========================================================================= -->
+  <div id="modal-admin-coadmins" style="z-index: 100003;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100003] hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-950 p-5 text-white flex items-center justify-between border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center text-sm shadow-inner">
+            <i class="fa-solid fa-user-shield"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-sm text-white">Equipo de Administradores</h3>
+            <p class="text-[11px] text-slate-400">Invita o revoca permisos para gestionar la plataforma</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeCoAdminsModal()" class="text-slate-400 hover:text-white cursor-pointer p-1.5 rounded-lg transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <!-- Administrador Maestro Fijo -->
+        <div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between gap-3 text-xs">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-crown"></i>
+            </div>
+            <div>
+              <div class="font-extrabold text-white flex items-center gap-1.5">
+                <span>Administrador Maestro</span>
+                <span class="text-[9.5px] bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded-full font-bold">SUPERADMIN</span>
+              </div>
+              <div class="font-mono text-slate-400 text-[11px]">hepc.90@gmail.com</div>
+            </div>
+          </div>
+          <span class="text-[10px] text-amber-300 font-bold bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/40">Propietario</span>
+        </div>
+
+        <!-- Formulario para Invitar Nuevo Administrador -->
+        <form onsubmit="window.handleAddCoAdminSubmit(event)" class="p-3.5 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
+          <div class="text-xs font-bold text-white flex items-center gap-1.5">
+            <i class="fa-solid fa-user-plus text-blue-400"></i>
+            <span>Invitar Nuevo Administrador</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 mb-1">Nombre (Opcional)</label>
+              <input type="text" id="coadmin-name-input" placeholder="Ej. Ing. Carlos Ruiz"
+                     class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-400 mb-1">Correo Electrónico *</label>
+              <input type="email" id="coadmin-email-input" required placeholder="admin@constructora.com"
+                     class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500">
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[10px] text-slate-500">Tendrá permisos para editar, escribir y leer la base de datos.</span>
+            <button type="submit" class="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-md">
+              <i class="fa-solid fa-paper-plane text-[10px]"></i>
+              <span>Dar Acceso</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Lista de Co-Administradores Activos -->
+        <div class="space-y-2">
+          <div class="text-xs font-bold text-slate-400">Co-Administradores con Acceso</div>
+          <div id="coadmins-list-container" class="space-y-2 max-h-56 overflow-y-auto custom-scroll pr-1">
+            <!-- Inyectado por renderCoAdminsListUI() -->
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-slate-950 px-5 py-3 border-t border-slate-800 flex justify-end">
+        <button type="button" onclick="closeCoAdminsModal()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition cursor-pointer">
+          Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SUB-MODAL: CONFIGURACIÓN DE TARIFAS DE MERCADO -->
+  <!-- ========================================================================= -->
+  <div id="modal-admin-market-rates" style="z-index: 100003;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100003] hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-5 text-white flex items-center justify-between border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-sm shadow-inner">
+            <i class="fa-solid fa-sliders"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-sm text-white">Tarifas de Mercado de Infraestructura</h3>
+            <p class="text-[11px] text-slate-400">Actualiza las tarifas en $ MXN para el cálculo de costos reales</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeMarketRatesModal()" class="text-slate-400 hover:text-white cursor-pointer p-1.5 rounded-lg transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">
+            <i class="fa-solid fa-brain text-sky-400 mr-1"></i> Costo de IA por cada 1,000 Tokens ($ MXN)
+          </label>
+          <input type="number" step="0.0001" id="rate-input-ai"
+                 class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
+          <span class="text-[10px] text-slate-500 mt-1 block">Tarifa ponderada Gemini 1.5/2.0 Flash / OpenAI GPT-4o Mini (promedio $0.004 MXN / 1k tokens).</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">
+            <i class="fa-solid fa-database text-indigo-400 mr-1"></i> Almacenamiento por MB al mes ($ MXN)
+          </label>
+          <input type="number" step="0.00001" id="rate-input-storage"
+                 class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
+          <span class="text-[10px] text-slate-500 mt-1 block">Costo base Supabase / AWS S3 (~$0.0005 MXN por MB/mes).</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">
+            <i class="fa-solid fa-bolt text-teal-400 mr-1"></i> Transferencia y Sincronización Realtime por MB ($ MXN)
+          </label>
+          <input type="number" step="0.0001" id="rate-input-bandwidth"
+                 class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
+          <span class="text-[10px] text-slate-500 mt-1 block">Consumo de ancho de banda y WebSockets Realtime (~$0.002 MXN por MB).</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-950 px-5 py-3 border-t border-slate-800 flex items-center justify-between">
+        <button type="button" onclick="closeMarketRatesModal()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition cursor-pointer">
+          Cancelar
+        </button>
+        <button type="button" onclick="saveMarketRatesFromModal()" class="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition cursor-pointer shadow-md">
+          Guardar Tarifas
+        </button>
+      </div>
+
+    </div>
+  </div>
+
 
   <!-- Entrada Modular Principal ES6 -->
   <script type="module" src="js/app.js"></script>

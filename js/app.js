@@ -424,6 +424,24 @@ import {
 } from './modules/portal/portalController.js';
 
 import {
+  openCubikarAdminModal,
+  closeCubikarAdminModal,
+  renderCubikarAdminTable,
+  openCoAdminsModal,
+  closeCoAdminsModal,
+  openMarketRatesModal,
+  closeMarketRatesModal,
+  saveMarketRatesFromModal,
+  exportCubikarDatabaseToExcel,
+  setAdminTableSearch,
+  setAdminFilterActivity,
+  setAdminFilterPlan,
+  setAdminFilterCycle,
+  isUserAdmin,
+  isUserMasterAdmin,
+  showAdminDualLoginModal
+} from './modules/admin/cubikarAdmin.js';
+import {
   openSubscriptionModal,
   closeSubscriptionModal,
   setSubscriptionBillingCycle,

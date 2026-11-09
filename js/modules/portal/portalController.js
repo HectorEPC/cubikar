@@ -1,4 +1,4 @@
-// js/modules/portal/portalController.js
+﻿// js/modules/portal/portalController.js
 // Controlador integral para la pantalla de inicio, perfil, proyectos y navegación multi-obra
 
 import {
@@ -74,6 +74,11 @@ import {
   resetPasswordForEmail
 } from '../../core/authService.js';
 import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js';
+import {
+  isUserAdmin,
+  showAdminDualLoginModal,
+  openCubikarAdminModal
+} from '../admin/cubikarAdmin.js';
 import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js';
 
 let customPhotoTemp = null;
@@ -645,12 +650,27 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
 
       showToast(`¡Bienvenido a Cubikar, ${name}! Tu cuenta fue creada exitosamente.`, 'success');
 
-      if (returnProjectId) {
-        openProjectInWorkspace(returnProjectId);
+      const proceedSb = () => {
+        if (returnProjectId) {
+          openProjectInWorkspace(returnProjectId);
+        } else {
+          setActiveProjectId(null);
+          showPortalView('dashboard');
+          renderSidebarNotificationsUI();
+        }
+      };
+
+      if (isUserAdmin(email) && !returnProjectId) {
+        showAdminDualLoginModal(
+          loggedUser,
+          () => proceedSb(),
+          () => {
+            proceedSb();
+            openCubikarAdminModal();
+          }
+        );
       } else {
-        setActiveProjectId(null);
-        showPortalView('dashboard');
-        renderSidebarNotificationsUI();
+        proceedSb();
       }
       return;
     } catch (err) {
@@ -739,12 +759,27 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
       saveRegisteredUserAccount(loggedUser);
       showToast(`¡Hola de nuevo, ${displayName}!`, 'success');
 
-      if (returnProjectId) {
-        openProjectInWorkspace(returnProjectId);
+      const proceedSb = () => {
+        if (returnProjectId) {
+          openProjectInWorkspace(returnProjectId);
+        } else {
+          setActiveProjectId(null);
+          showPortalView('dashboard');
+          renderSidebarNotificationsUI();
+        }
+      };
+
+      if (isUserAdmin(email) && !returnProjectId) {
+        showAdminDualLoginModal(
+          loggedUser,
+          () => proceedSb(),
+          () => {
+            proceedSb();
+            openCubikarAdminModal();
+          }
+        );
       } else {
-        setActiveProjectId(null);
-        showPortalView('dashboard');
-        renderSidebarNotificationsUI();
+        proceedSb();
       }
       return;
     } catch (err) {
@@ -775,11 +810,26 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
     currentScopeFilter = 'owned';
     setActiveWorkspaceData(cleanEmail, savedUser.name || cleanEmail);
     showToast(`Â¡Hola de nuevo, ${savedUser.name}!`);
-    if (returnProjectId) {
-      openProjectInWorkspace(returnProjectId);
+    const proceedSaved = () => {
+      if (returnProjectId) {
+        openProjectInWorkspace(returnProjectId);
+      } else {
+        renderPortalDashboard();
+        renderSidebarNotificationsUI();
+      }
+    };
+
+    if (isUserAdmin(cleanEmail) && !returnProjectId) {
+      showAdminDualLoginModal(
+        savedUser,
+        () => proceedSaved(),
+        () => {
+          proceedSaved();
+          openCubikarAdminModal();
+        }
+      );
     } else {
-      renderPortalDashboard();
-      renderSidebarNotificationsUI();
+      proceedSaved();
     }
   } else {
     // Si no existe la cuenta ni localmente ni en nube
@@ -930,12 +980,27 @@ export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
     addFeaturedProfile(user);
     markSessionOpen(user.email);
     showToast(`SesiÃ³n iniciada como ${user.name}`);
-    if (returnProjectId) {
-      openProjectInWorkspace(returnProjectId);
+    const proceedNormal = () => {
+      if (returnProjectId) {
+        openProjectInWorkspace(returnProjectId);
+      } else {
+        setActiveProjectId(null);
+        showPortalView('dashboard');
+        renderSidebarNotificationsUI();
+      }
+    };
+
+    if (isUserAdmin(cleanEmail) && !returnProjectId) {
+      showAdminDualLoginModal(
+        user,
+        () => proceedNormal(),
+        () => {
+          proceedNormal();
+          openCubikarAdminModal();
+        }
+      );
     } else {
-      setActiveProjectId(null);
-      showPortalView('dashboard');
-      renderSidebarNotificationsUI();
+      proceedNormal();
     }
   } else {
     showToast('No se encontrÃ³ el perfil seleccionado.', 'error');
@@ -2904,6 +2969,13 @@ export function updatePortalHeaderUserArea(user) {
         </div>
 
         <div class="p-1.5 space-y-1 text-xs font-semibold">
+                    ${isUserAdmin(user?.email) ? `
+            <button type="button" onclick="closePortalUserDropdown(); openCubikarAdminModal()" 
+                    class="w-full text-left px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold border border-amber-500/35 flex items-center gap-2 transition cursor-pointer">
+              <i class="fa-solid fa-shield-halved text-amber-400 text-xs"></i>
+              <span>Panel de AdministraciÃ³n</span>
+            </button>
+          ` : ''}
           <button type="button" onclick="closePortalUserDropdown(); openProfileModal()" 
                   class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-2 transition cursor-pointer">
             <i class="fa-solid fa-user-gear text-blue-400 text-xs"></i>

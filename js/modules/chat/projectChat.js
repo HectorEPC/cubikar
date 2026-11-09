@@ -1,4 +1,4 @@
-// js/modules/chat/projectChat.js
+﻿// js/modules/chat/projectChat.js
 // Ventana de Chat independiente por Proyecto (plegable y desplegable abajo a la derecha)
 // conectada con Partidas de Nivel 1 (icono de alta visibilidad fa-comments),
 // Usuarios Asignados (@), Estimaciones (#), Reportes (!) y Notificaciones de Menciones en la barra lateral izquierda.
@@ -17,6 +17,8 @@ import {
 } from '../portal/projectService.js';
 import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js';
 import { showToast } from '../../ui/notifications.js';
+import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js';
+import { openSubscriptionModal } from '../portal/subscriptionModal.js';
 
 let isChatDockExpanded = false; // Inicia como pequeño círculo flotante abajo a la derecha
 let isChatMaximized = false; // Permite maximizar o restaurar el tamaño de la ventana del chat
@@ -584,7 +586,7 @@ if (typeof window !== 'undefined') {
   window.handleRejectInvitationAction = handleRejectInvitationAction;
 }
 
-function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterHandle, partidas, scope = 'current', pendingInvitations = []) {
+function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterHandle, partidas, scope = 'current', pendingInvitations = [], consumptionAlert = null) {
   const isPortalScope = scope === 'all';
   const headerTitle = isPortalScope
     ? 'Notificaciones de Todos los Proyectos'
@@ -630,6 +632,31 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
         </button>
       </div>
     </div>
+
+    <!-- ALERTA DE CONSUMO DEL PLAN (85%+) -->
+    ${consumptionAlert ? `
+      <div onclick="event.stopPropagation()" class="p-3 bg-gradient-to-r from-amber-950/95 via-slate-900 to-amber-950/90 border-b border-amber-500/50 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-extrabold text-amber-300 flex items-center gap-1.5 uppercase tracking-wider">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+            Aviso de Consumo del Plan (${consumptionAlert.pct}%)
+          </span>
+          <span class="text-[9.5px] bg-amber-500/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full font-bold">
+            ${consumptionAlert.planName}
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-200 leading-snug">
+          ${consumptionAlert.message}
+        </p>
+        <div class="pt-1">
+          <button type="button" onclick="closeMentionNotificationsPopover(); openSubscriptionModal()"
+                  class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+            <i class="fa-solid fa-crown text-[11px]"></i>
+            <span>${consumptionAlert.actionLabel}</span>
+          </button>
+        </div>
+      </div>
+    ` : ''}
 
     <!-- SECCIÓN DE INVITACIONES PENDIENTES (Si hay invitaciones recibidas) -->
     ${pendingInvitations && pendingInvitations.length > 0 ? `
@@ -793,10 +820,12 @@ export function renderSidebarNotificationsUI() {
   // Obtener invitaciones pendientes hacia el usuario conectado
   const pendingInvitations = (currentUser && currentUser.email) ? getPendingInvitationsForUser(currentUser.email) : [];
   const pendingInvsCount = pendingInvitations.length;
+  const consumptionAlert = (currentUser && currentUser.email) ? getActiveUserConsumptionAlert(currentUser.email) : null;
+  const consumptionAlertCount = consumptionAlert ? 1 : 0;
 
   // 1) Campana en el Área de Proyectos (barra lateral izquierda): notificaciones donde mencionaron usuarios en el proyecto activo
   const projectMentions = getUserMentionsNotifications(filterHandle, 'current');
-  const projectUnreadCount = projectMentions.filter(item => !item.isRead).length + pendingInvsCount;
+  const projectUnreadCount = projectMentions.filter(item => !item.isRead).length + pendingInvsCount + consumptionAlertCount;
   const projectBadgeText = projectUnreadCount > 99 ? '99+' : String(projectUnreadCount);
 
   if (badgeEl) {
@@ -813,7 +842,7 @@ export function renderSidebarNotificationsUI() {
 
   // 2) Campana en "Mis Proyectos de Obra" (portal): recopila todas las notificaciones que etiquetaron los usuarios de todos los proyectos
   const allProjectsMentions = getUserMentionsNotifications(filterHandle, 'all');
-  const allProjectsUnreadCount = allProjectsMentions.filter(item => !item.isRead).length + pendingInvsCount;
+  const allProjectsUnreadCount = allProjectsMentions.filter(item => !item.isRead).length + pendingInvsCount + consumptionAlertCount;
   const portalBadgeText = allProjectsUnreadCount > 99 ? '99+' : String(allProjectsUnreadCount);
 
   if (portalBadgeEl) {
@@ -846,7 +875,8 @@ export function renderSidebarNotificationsUI() {
       filterHandle,
       partidas,
       'current',
-      pendingInvitations
+      pendingInvitations,
+      consumptionAlert
     );
   }
 
@@ -860,7 +890,8 @@ export function renderSidebarNotificationsUI() {
       filterHandle,
       partidas,
       'all',
-      pendingInvitations
+      pendingInvitations,
+      consumptionAlert
     );
   }
 }
