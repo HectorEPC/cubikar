@@ -3031,6 +3031,7 @@ export function openInviteModal(projectId, defaultTab = 'members') {
   // Activar la pestaña solicitada (por defecto 'members')
   switchInviteModalTab(defaultTab);
 
+  modal.style.zIndex = '100000';
   modal.classList.remove('hidden');
   modal.classList.add('flex');
 }
@@ -3090,6 +3091,7 @@ export function openPlanInviteModal(defaultTab = 'collaborators') {
   renderPlanInviteModalContent();
   switchPlanInviteModalTab(defaultTab);
 
+  modal.style.zIndex = '100000';
   modal.classList.remove('hidden');
   modal.classList.add('flex');
 }

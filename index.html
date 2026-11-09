@@ -3337,7 +3337,7 @@
     <!-- ========================================== -->
   <!-- MODAL: INVITAR USUARIOS AL PLAN DE SUSCRIPCION -->
   <!-- ========================================== -->
-  <div id="modal-invitaciones-plan" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5">
+  <div id="modal-invitaciones-plan" style="z-index: 100000;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-[100000] hidden items-center justify-center p-3 sm:p-5">
     <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
       <!-- Header -->
       <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white p-4 sm:p-5 flex justify-between items-center shrink-0 border-b border-slate-800">
@@ -3421,25 +3421,6 @@
                 <i class="fa-solid fa-user-plus text-blue-600"></i> Formulario de Invitación
               </h4>
               <span class="text-[10px] text-slate-500 font-medium">Asigna rol y correo del invitado</span>
-            </div>
-
-            <!-- Cuentas rápidas de demostración -->
-            <div>
-              <span class="text-[10px] text-slate-500 font-semibold block mb-1">Cuentas rápidas de demostración:</span>
-              <div class="flex flex-wrap gap-1.5">
-                <button type="button" onclick="selectPlanInvitePreset(0)" class="text-[10px] bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 rounded-lg px-2 py-1 font-medium transition cursor-pointer">
-                  <i class="fa-solid fa-helmet-safety text-amber-500"></i> Arq. Carlos Gómez
-                </button>
-                <button type="button" onclick="selectPlanInvitePreset(1)" class="text-[10px] bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 rounded-lg px-2 py-1 font-medium transition cursor-pointer">
-                  <i class="fa-solid fa-helmet-safety text-pink-500"></i> Ing. Mariana Torres
-                </button>
-                <button type="button" onclick="selectPlanInvitePreset(2)" class="text-[10px] bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 rounded-lg px-2 py-1 font-medium transition cursor-pointer">
-                  <i class="fa-solid fa-helmet-safety text-blue-500"></i> Arq. Roberto Méndez
-                </button>
-                <button type="button" onclick="selectPlanInvitePreset(3)" class="text-[10px] bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-300 rounded-lg px-2 py-1 font-medium transition cursor-pointer">
-                  <i class="fa-solid fa-briefcase text-purple-500"></i> Lic. Sofía Valenzuela
-                </button>
-              </div>
             </div>
 
             <!-- Campos -->
