@@ -1,4 +1,4 @@
-﻿// js/modules/portal/portalController.js
+// js/modules/portal/portalController.js
 // Controlador integral para la pantalla de inicio, perfil, proyectos y navegación multi-obra
 
 import {
@@ -927,11 +927,18 @@ export function purgeAllUsersAndAccountsAction() {
 // ==========================================
 // CONECTOR GOOGLE / GMAIL AUTO-FILL
 // ==========================================
-export function triggerGoogleSignIn() {
-  const modal = document.getElementById('modal-google-auth');
-  if (modal) {
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+export async function triggerGoogleSignIn() {
+  if (!isSupabaseConfigured()) {
+    showToast('Supabase no está configurado para autenticación con Google.', 'error');
+    return;
+  }
+
+  try {
+    showToast('Conectando con Google...', 'info');
+    await signInWithGoogle();
+  } catch (err) {
+    console.error('Error al conectar con Google OAuth:', err);
+    showToast('Error al conectar con Google: ' + (err.message || 'Intente de nuevo'), 'error');
   }
 }
 

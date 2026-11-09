@@ -1,4 +1,4 @@
-import {
+﻿import {
   renderCalendarioObra,
   setCalendarioViewMode,
   setCalendarioTimeScale,
@@ -1011,7 +1011,24 @@ window.addEventListener('storage', (e) => {
 
 // Inicializar tema visual (Vista de Día por defecto o Modo Nocturno guardado)
 initThemeMode();
-try { initAuthListener(); } catch (_) {}
+try {
+  initAuthListener((event, session, perfil) => {
+    if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+      const workspaceContainer = document.getElementById('workspace-container');
+      const isWorkspaceVisible = workspaceContainer && !workspaceContainer.classList.contains('hidden') && workspaceContainer.style.display !== 'none';
+      if (!isWorkspaceVisible) {
+        showPortalView('dashboard');
+      } else {
+        try { updateWorkspaceHeaderUser(perfil || session.user); } catch (_) {}
+      }
+      try { renderSidebarNotificationsUI(); } catch (_) {}
+
+      if (typeof window !== 'undefined' && window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery'))) {
+        window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
+      }
+    }
+  });
+} catch (_) {}
 
 // Inicialización de la aplicación al cargar el módulo
 const isWorkspaceActive = initPortal();

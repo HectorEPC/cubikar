@@ -2,7 +2,7 @@
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
-import { saveCurrentUser } from '../modules/portal/projectService.js';
+import { saveCurrentUser, markSessionOpen, saveRegisteredUserAccount } from '../modules/portal/projectService.js';
 
 /**
  * Registro con Correo Electrónico y Contraseña
@@ -58,14 +58,22 @@ export async function signInWithGoogle() {
     throw new Error('Supabase no está disponible en este momento.');
   }
 
+  let cleanRedirect = window.location.href.split('#')[0].split('?')[0];
+  if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+    cleanRedirect = 'http://localhost:8000/index.html';
+  }
+
   const { data, error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: window.location.origin
+      redirectTo: cleanRedirect
     }
   });
 
   if (error) throw error;
+  if (data?.url && typeof window !== 'undefined') {
+    window.location.href = data.url;
+  }
   return data;
 }
 
@@ -143,17 +151,26 @@ export async function fetchUserProfile(userId) {
  */
 export function syncLocalUserSession(user, perfil) {
   if (!user) return;
+  const rawAvatar = perfil?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
+  const initial = (perfil?.nombre_completo || user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'U').charAt(0).toUpperCase();
+  const fallbackAvatar = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%230284c7'/%3E%3Ctext x='50' y='64' font-size='42' font-family='Arial,sans-serif' font-weight='bold' fill='white' text-anchor='middle'%3E${initial}%3C/text%3E%3C/svg%3E`;
+
   const localUser = {
     id: user.id,
-    name: perfil?.nombre_completo || user.user_metadata?.full_name || user.email,
+    name: perfil?.nombre_completo || user.user_metadata?.full_name || user.user_metadata?.name || user.email,
     email: user.email,
-    avatar: perfil?.avatar_url || user.user_metadata?.avatar_url || '',
+    avatar: rawAvatar || fallbackAvatar,
     role: perfil?.rol || 'admin',
     empresaId: perfil?.empresa_id || null,
     plan: perfil?.empresas?.plan || 'free',
     estadoSuscripcion: perfil?.empresas?.estado_suscripcion || 'trialing'
   };
   saveCurrentUser(localUser);
+  try {
+    saveRegisteredUserAccount(localUser);
+    markSessionOpen(localUser.email || localUser);
+  } catch (e) {}
+  return localUser;
 }
 
 /**
