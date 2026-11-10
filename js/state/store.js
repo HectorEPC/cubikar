@@ -193,6 +193,11 @@ export function triggerDebouncedCloudSync() {
     } catch (e) {
       console.warn('[CloudSync] Fallo silencioso en autosincronización:', e);
     }
+    try {
+      if (typeof window !== 'undefined' && typeof window.triggerDebouncedCloudStateSync === 'function') {
+        window.triggerDebouncedCloudStateSync();
+      }
+    } catch (_) {}
   }, 1200);
 }
 

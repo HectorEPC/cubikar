@@ -736,12 +736,23 @@ export function getProjectsList() {
   return initializeDefaultProjects();
 }
 
+function triggerCloudCollabSync(user) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.triggerDebouncedCloudStateSync === 'function') {
+      window.triggerDebouncedCloudStateSync(user);
+    } else if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
+      window.syncUserCollaborationToCloud(user);
+    }
+  } catch (_) {}
+}
+
 export function saveProjectsList(projects) {
   try {
     localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(projects));
   } catch (e) {
     console.error('Error guardando proyectos:', e);
   }
+  triggerCloudCollabSync();
 }
 
 // Obtener proyectos accesibles para un usuario dado
@@ -1304,6 +1315,7 @@ export function saveStoredInvitations(invitations) {
   try {
     localStorage.setItem(STORAGE_KEY_INVITATIONS, JSON.stringify(invitations || []));
   } catch (e) {}
+  triggerCloudCollabSync();
 }
 
 // Obtener invitaciones pendientes para un usuario específico (por email)
@@ -1442,14 +1454,6 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
   return newInvitation;
 }
 
-
-function triggerCloudCollabSync(user) {
-  try {
-    if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
-      window.syncUserCollaborationToCloud(user);
-    }
-  } catch (_) {}
-}
 
 // Aceptar invitación a un proyecto o al plan de un anfitrión
 export function acceptProjectInvitation(invitationId, currentUser = null) {
@@ -2218,6 +2222,7 @@ export function saveStoredPlanInvitations(invitations) {
   try {
     localStorage.setItem(STORAGE_KEY_PLAN_INVITATIONS, JSON.stringify(invitations || []));
   } catch (e) {}
+  triggerCloudCollabSync();
 }
 
 export function getPlanCollaboratorsForOwner(ownerEmail) {

@@ -674,6 +674,11 @@ function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
   }
 
   if (changed) {
+    try {
+      if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
+        window.syncUserCollaborationToCloud(currentUser);
+      }
+    } catch (_) {}
     if (typeof window.renderSidebarNotificationsUI === 'function') {
       window.renderSidebarNotificationsUI();
     }

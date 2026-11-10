@@ -299,12 +299,37 @@ export async function fetchCloudProjects() {
         ? (1 + ind / 100) * (1 + fin / 100) * (1 + uti / 100) * (1 + adi / 100) * (1 + seg / 100)
         : 1.0;
 
+      let existingProj = null;
+      try {
+        const rawList = localStorage.getItem('control_obra_projects_v1');
+        if (rawList) {
+          const parsed = JSON.parse(rawList);
+          existingProj = parsed.find(p => p.id === cp.id || p.cloudId === cp.id);
+        }
+      } catch (_) {}
+
+      const restoredMembers = (existingProj && Array.isArray(existingProj.members) && existingProj.members.length > 0)
+        ? existingProj.members
+        : [
+            {
+              id: 'mem-' + user.id,
+              name: user.name || user.email,
+              email: user.email,
+              avatar: user.avatar || '',
+              role: 'editar',
+              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones']
+            }
+          ];
+
       return {
         id: cp.id,
         cloudId: cp.id,
         isCloudSynced: true,
         projectName: cp.nombre,
-        companyName: user.name || 'Mi Constructora',
+        companyName: existingProj?.companyName || user.name || 'Mi Constructora',
+        ownerEmail: existingProj?.ownerEmail || (cp.creado_por === user.id ? user.email : user.email),
+        ownerName: existingProj?.ownerName || user.name || 'Anfitrión',
+        ownerPlanId: existingProj?.ownerPlanId || user.plan || 'free',
         projectLocation: cp.ubicacion || '',
         currency: cp.moneda || 'MXN',
         currencySymbol: cp.simbolo_moneda || '$',
@@ -317,16 +342,7 @@ export async function fetchCloudProjects() {
         pctFasar: Number(cp.pct_fasar ?? 70.0),
         factorSobrecosto: f,
         createdAt: cp.created_at ? cp.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
-        members: [
-          {
-            id: 'mem-' + user.id,
-            name: user.name || user.email,
-            email: user.email,
-            avatar: user.avatar || '',
-            role: 'editar',
-            allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones']
-          }
-        ]
+        members: restoredMembers
       };
     });
   } catch (err) {

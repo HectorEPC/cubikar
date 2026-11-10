@@ -1,6 +1,7 @@
 // js/core/collaborationCloudService.js
-// Sincronización en la nube (Supabase Auth user_metadata) de invitaciones aceptadas,
-// membresías de anfitriones y proyectos colaborados entre múltiples computadoras/dispositivos.
+// Sincronización integral en la nube (Supabase Auth user_metadata) para garantizar
+// persistencia total de proyectos, anfitriones, invitaciones y membresías
+// al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
 import {
@@ -11,15 +12,21 @@ import {
   getStoredPlanInvitations,
   saveStoredPlanInvitations,
   getProjectsList,
-  saveProjectsList
+  saveProjectsList,
+  getUserPlanId
 } from '../modules/portal/projectService.js';
 import { getSettingsKey, getStorageKey } from '../config/constants.js';
 
+let syncDebounceTimer = null;
+
 /**
- * Sincroniza hacia Supabase Cloud (en user_metadata) el estado completo de:
- * 1. Invitaciones aceptadas de este usuario
- * 2. Invitaciones al plan de anfitriones aceptadas
- * 3. Proyectos en los que participa como colaborador o propietario
+ * Sincroniza hacia la nube de Supabase (user_metadata) todo el ecosistema de trabajo:
+ * 1. Proyectos propios creados por el usuario
+ * 2. Proyectos donde participa como colaborador invitado
+ * 3. Invitaciones al plan de anfitriones (aceptadas y pendientes)
+ * 4. Invitaciones emitidas hacia colaboradores
+ * 5. Invitaciones formales a proyectos
+ * 6. Suscripción activa del usuario
  */
 export async function syncUserCollaborationToCloud(user = null) {
   const sb = getSupabaseClient();
@@ -31,195 +38,204 @@ export async function syncUserCollaborationToCloud(user = null) {
 
   try {
     const allInvs = typeof getStoredInvitations === 'function' ? getStoredInvitations() : [];
-    const myAcceptedInvs = allInvs.filter(i => 
-      (i.email || '').toLowerCase().trim() === myEmail && i.status === 'accepted'
-    );
-
     const allPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
+    const allProjects = typeof getProjectsList === 'function' ? getProjectsList() : [];
+
+    // 1. Proyectos propios creados por el usuario (o bajo su propiedad)
+    const myOwnedProjects = allProjects.filter(p => {
+      const oEmail = (p.ownerEmail || '').toLowerCase().trim();
+      return oEmail === myEmail;
+    }).map(mapProjectForCloudSync);
+
+    // 2. Proyectos en los que participa como colaborador de un anfitrión
+    const myCollaboratedProjects = allProjects.filter(p => {
+      const oEmail = (p.ownerEmail || '').toLowerCase().trim();
+      if (oEmail === myEmail) return false;
+      return Array.isArray(p.members) && p.members.some(m => 
+        (m.email || '').toLowerCase().trim() === myEmail && m.status === 'active'
+      );
+    }).map(mapProjectForCloudSync);
+
+    // 3. Invitaciones al plan de anfitriones recibidas/aceptadas
     const myPlanInvs = allPlanInvs.filter(pi => 
       (pi.email || '').toLowerCase().trim() === myEmail
     );
 
-    const allProjects = typeof getProjectsList === 'function' ? getProjectsList() : [];
-    const myProjects = allProjects.filter(p => {
-      const isOwner = (p.ownerEmail || '').toLowerCase().trim() === myEmail;
-      const isCollab = Array.isArray(p.members) && p.members.some(m => 
-        (m.email || '').toLowerCase().trim() === myEmail && m.status === 'active'
-      );
-      return isCollab || isOwner;
-    }).map(p => {
-      let localSettings = null;
-      let localTree = null;
+    // 4. Invitaciones formales de proyectos recibidas/aceptadas
+    const myAcceptedInvs = allInvs.filter(i => 
+      (i.email || '').toLowerCase().trim() === myEmail
+    );
+
+    // 5. Invitaciones emitidas por este usuario hacia otros (como anfitrión)
+    const mySentPlanInvs = allPlanInvs.filter(pi => 
+      (pi.ownerEmail || '').toLowerCase().trim() === myEmail
+    );
+    const mySentProjectInvs = allInvs.filter(i => 
+      (i.ownerEmail || '').toLowerCase().trim() === myEmail
+    );
+
+    // 6. Suscripción activa del usuario
+    let currentSub = currentUser.subscription;
+    if (!currentSub && typeof localStorage !== 'undefined') {
       try {
-        const rawSet = localStorage.getItem(getSettingsKey(p.id));
-        if (rawSet) localSettings = JSON.parse(rawSet);
-        const rawTree = localStorage.getItem(getStorageKey(p.id));
-        if (rawTree) {
-          const parsedTree = JSON.parse(rawTree);
-          if (Array.isArray(parsedTree) && parsedTree.length <= 150) {
-            localTree = parsedTree;
-          }
-        }
+        const rawSub = localStorage.getItem(`adm_const_subscription_${myEmail}`);
+        if (rawSub) currentSub = JSON.parse(rawSub);
       } catch (_) {}
+    }
+    if (!currentSub) {
+      currentSub = { planId: getUserPlanId(currentUser) || 'free', billingCycle: 'monthly' };
+    }
 
-      return {
-        id: p.id,
-        projectName: p.projectName,
-        companyName: p.companyName || '',
-        companyLogo: p.companyLogo || '',
-        projectLocation: p.projectLocation || '',
-        tipoObra: p.tipoObra || 'Edificación',
-        currency: p.currency || 'MXN',
-        currencySymbol: p.currencySymbol || '$',
-        factorSobrecosto: p.factorSobrecosto || 1.0,
-        totalPresupuesto: p.totalPresupuesto || 0,
-        conceptCount: p.conceptCount || 0,
-        partidasCount: p.partidasCount || 0,
-        ownerEmail: p.ownerEmail,
-        ownerName: p.ownerName || p.companyName || 'Anfitrión',
-        ownerPlanId: p.ownerPlanId || 'free',
-        members: p.members || [],
-        createdAt: p.createdAt || new Date().toISOString(),
-        settings: localSettings,
-        treeData: localTree
-      };
-    });
-
-    // Guardar también invitaciones emitidas por este usuario hacia otros (si es anfitrión)
-    const mySentPlanInvs = allPlanInvs.filter(pi => (pi.ownerEmail || '').toLowerCase().trim() === myEmail);
-    const mySentProjectInvs = allInvs.filter(i => (i.ownerEmail || '').toLowerCase().trim() === myEmail);
-
-    const collaborationPayload = {
-      acceptedInvitations: myAcceptedInvs,
+    const cloudPayload = {
+      version: 2,
+      subscription: currentSub,
+      ownedProjects: myOwnedProjects,
+      collaboratedProjects: myCollaboratedProjects,
       planInvitations: myPlanInvs,
-      collaboratedProjects: myProjects,
+      acceptedInvitations: myAcceptedInvs,
       sentPlanInvitations: mySentPlanInvs,
       sentProjectInvitations: mySentProjectInvs,
       updatedAt: new Date().toISOString()
     };
 
-    // Actualizar metadatos en Supabase Auth
+    // Actualizar metadatos en Supabase Auth (persistencia nativa en auth.users)
     const { data, error } = await sb.auth.updateUser({
       data: {
-        cubikar_collaboration_v1: collaborationPayload
+        cubikar_cloud_state_v2: cloudPayload
       }
     });
 
     if (error) {
-      console.warn('[CollaborationCloud] Error guardando colaboración en Supabase:', error.message);
+      console.warn('[CloudSync] Aviso al guardar estado en Supabase:', error.message);
       return false;
     }
 
-    // Mantener sincronizado el usuario en memoria local
+    // Actualizar usuario en memoria local
     if (currentUser) {
       if (!currentUser.user_metadata) currentUser.user_metadata = {};
-      currentUser.user_metadata.cubikar_collaboration_v1 = collaborationPayload;
+      currentUser.user_metadata.cubikar_cloud_state_v2 = cloudPayload;
       saveCurrentUser(currentUser);
     }
 
-    console.info('[CollaborationCloud] Colaboraciones sincronizadas con la nube exitosamente.');
+    console.info(`[CloudSync] Estado respaldado en la nube con éxito (${myOwnedProjects.length} propias, ${myCollaboratedProjects.length} colaboradas, ${myPlanInvs.length} anfitriones).`);
     return true;
   } catch (err) {
-    console.warn('[CollaborationCloud] Excepción al sincronizar colaboraciones en la nube:', err);
+    console.warn('[CloudSync] Excepción al respaldar en la nube:', err);
     return false;
   }
 }
 
 /**
- * Restaura en localStorage el estado de colaboraciones recuperado de user_metadata
+ * Mapea y comprime los datos de un proyecto para almacenamiento en la nube
+ */
+function mapProjectForCloudSync(p) {
+  let localSettings = null;
+  let localTree = null;
+  try {
+    const rawSet = localStorage.getItem(getSettingsKey(p.id));
+    if (rawSet) localSettings = JSON.parse(rawSet);
+    const rawTree = localStorage.getItem(getStorageKey(p.id));
+    if (rawTree) {
+      const parsedTree = JSON.parse(rawTree);
+      // Incluir catálogo si no supera 200 conceptos para mantener tamaño ágil
+      if (Array.isArray(parsedTree) && parsedTree.length <= 200) {
+        localTree = parsedTree;
+      }
+    }
+  } catch (_) {}
+
+  return {
+    id: p.id,
+    projectName: p.projectName,
+    companyName: p.companyName || '',
+    companyLogo: p.companyLogo || '',
+    projectLocation: p.projectLocation || '',
+    tipoObra: p.tipoObra || 'Edificación',
+    currency: p.currency || 'MXN',
+    currencySymbol: p.currencySymbol || '$',
+    factorSobrecosto: p.factorSobrecosto || 1.0,
+    totalPresupuesto: p.totalPresupuesto || 0,
+    conceptCount: p.conceptCount || 0,
+    partidasCount: p.partidasCount || 0,
+    ownerEmail: p.ownerEmail,
+    ownerName: p.ownerName || p.companyName || 'Anfitrión',
+    ownerPlanId: p.ownerPlanId || 'free',
+    members: Array.isArray(p.members) ? p.members : [],
+    createdAt: p.createdAt || new Date().toISOString(),
+    settings: localSettings,
+    treeData: localTree
+  };
+}
+
+/**
+ * Restaura en localStorage el estado completo recuperado de Supabase Auth user_metadata
  */
 export function restoreUserCollaborationFromCloud(user = null) {
   const currentUser = user || getCurrentUser();
   if (!currentUser || !currentUser.email) return false;
   const myEmail = (currentUser.email || '').toLowerCase().trim();
 
-  // Buscar el payload en user_metadata
-  const collabData = currentUser.user_metadata?.cubikar_collaboration_v1;
-  if (!collabData || typeof collabData !== 'object') return false;
+  // Buscar payload v2 o v1 en user_metadata
+  const state = currentUser.user_metadata?.cubikar_cloud_state_v2 || currentUser.user_metadata?.cubikar_collaboration_v1;
+  if (!state || typeof state !== 'object') return false;
 
   let hasChanges = false;
 
-  // 1. Restaurar invitaciones aceptadas
-  if (Array.isArray(collabData.acceptedInvitations) && collabData.acceptedInvitations.length > 0) {
-    const localInvs = typeof getStoredInvitations === 'function' ? getStoredInvitations() : [];
-    let invsChanged = false;
-    collabData.acceptedInvitations.forEach(cloudInv => {
-      const idx = localInvs.findIndex(li => 
-        li.id === cloudInv.id || 
-        (li.projectId === cloudInv.projectId && (li.email || '').toLowerCase().trim() === myEmail)
-      );
-      if (idx === -1) {
-        localInvs.unshift(cloudInv);
-        invsChanged = true;
-      } else if (localInvs[idx].status !== 'accepted') {
-        localInvs[idx].status = 'accepted';
-        localInvs[idx].acceptedAt = cloudInv.acceptedAt || new Date().toISOString();
-        invsChanged = true;
+  // 1. Restaurar suscripción en localStorage de esta computadora
+  if (state.subscription && state.subscription.planId) {
+    try {
+      localStorage.setItem(`adm_const_subscription_${myEmail}`, JSON.stringify(state.subscription));
+      if (!currentUser.subscription || currentUser.subscription.planId !== state.subscription.planId) {
+        currentUser.subscription = state.subscription;
+        saveCurrentUser(currentUser);
+        hasChanges = true;
       }
-    });
-    if (invsChanged && typeof saveStoredInvitations === 'function') {
-      saveStoredInvitations(localInvs);
-      hasChanges = true;
-    }
+    } catch (_) {}
   }
 
-  // 2. Restaurar invitaciones al plan del anfitrión
-  if (Array.isArray(collabData.planInvitations) && collabData.planInvitations.length > 0) {
-    const localPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
-    let planChanged = false;
-    collabData.planInvitations.forEach(cloudPlanInv => {
-      const idx = localPlanInvs.findIndex(lpi => 
-        lpi.id === cloudPlanInv.id || 
-        ((lpi.ownerEmail || '').toLowerCase().trim() === (cloudPlanInv.ownerEmail || '').toLowerCase().trim() && (lpi.email || '').toLowerCase().trim() === myEmail)
-      );
-      if (idx === -1) {
-        localPlanInvs.unshift(cloudPlanInv);
-        planChanged = true;
-      } else {
-        if (localPlanInvs[idx].status !== cloudPlanInv.status) {
-          localPlanInvs[idx].status = cloudPlanInv.status;
-          planChanged = true;
-        }
-        if (cloudPlanInv.role && localPlanInvs[idx].role !== cloudPlanInv.role) {
-          localPlanInvs[idx].role = cloudPlanInv.role;
-          planChanged = true;
-        }
-      }
-    });
-    if (planChanged && typeof saveStoredPlanInvitations === 'function') {
-      saveStoredPlanInvitations(localPlanInvs);
-      hasChanges = true;
-    }
+  // 2. Restaurar proyectos propios y colaborados en STORAGE_KEY_PROJECTS
+  const cloudProjectsToRestore = [];
+  if (Array.isArray(state.ownedProjects)) {
+    cloudProjectsToRestore.push(...state.ownedProjects);
+  }
+  if (Array.isArray(state.collaboratedProjects)) {
+    cloudProjectsToRestore.push(...state.collaboratedProjects);
   }
 
-  // 3. Restaurar proyectos colaborados
-  if (Array.isArray(collabData.collaboratedProjects) && collabData.collaboratedProjects.length > 0) {
+  if (cloudProjectsToRestore.length > 0) {
     const localProjects = typeof getProjectsList === 'function' ? getProjectsList() : [];
     let projChanged = false;
-    collabData.collaboratedProjects.forEach(cp => {
-      const idx = localProjects.findIndex(lp => lp.id === cp.id);
+
+    // Si el usuario tiene proyectos auténticos en la nube, remover las plantillas dummy iniciales
+    const hasRealCloudProjects = cloudProjectsToRestore.some(p => p.id !== 'proj-default-01' && p.id !== 'proj-default-02');
+    let filteredLocal = localProjects;
+    if (hasRealCloudProjects) {
+      filteredLocal = localProjects.filter(p => p.id !== 'proj-default-01' && p.id !== 'proj-default-02');
+      if (filteredLocal.length !== localProjects.length) {
+        projChanged = true;
+      }
+    }
+
+    cloudProjectsToRestore.forEach(cp => {
+      const idx = filteredLocal.findIndex(lp => lp.id === cp.id);
       if (idx === -1) {
-        localProjects.unshift(cp);
+        filteredLocal.unshift(cp);
         projChanged = true;
       } else {
-        // Asegurar que el usuario sea miembro activo
-        if (Array.isArray(cp.members)) {
-          const userMem = cp.members.find(m => (m.email || '').toLowerCase().trim() === myEmail);
-          if (userMem) {
-            if (!Array.isArray(localProjects[idx].members)) localProjects[idx].members = [];
-            const localMemIdx = localProjects[idx].members.findIndex(m => (m.email || '').toLowerCase().trim() === myEmail);
-            if (localMemIdx === -1) {
-              localProjects[idx].members.push(userMem);
-              projChanged = true;
-            } else if (localProjects[idx].members[localMemIdx].status !== 'active') {
-              localProjects[idx].members[localMemIdx].status = 'active';
-              projChanged = true;
-            }
-          }
+        // Actualizar miembros y datos si la nube tiene información más completa
+        if (Array.isArray(cp.members) && cp.members.length > 0) {
+          filteredLocal[idx].members = cp.members;
+          projChanged = true;
+        }
+        if (cp.ownerEmail && filteredLocal[idx].ownerEmail !== cp.ownerEmail) {
+          filteredLocal[idx].ownerEmail = cp.ownerEmail;
+          filteredLocal[idx].ownerName = cp.ownerName || filteredLocal[idx].ownerName;
+          filteredLocal[idx].ownerPlanId = cp.ownerPlanId || filteredLocal[idx].ownerPlanId;
+          projChanged = true;
         }
       }
 
-      // Restaurar árbol de catálogo y configuración si vinieron incluidos y no existen localmente
+      // Restaurar árbol de catálogo y configuración en localStorage si vinieron incluidos
       try {
         if (cp.settings && !localStorage.getItem(getSettingsKey(cp.id))) {
           localStorage.setItem(getSettingsKey(cp.id), JSON.stringify(cp.settings));
@@ -231,29 +247,78 @@ export function restoreUserCollaborationFromCloud(user = null) {
     });
 
     if (projChanged && typeof saveProjectsList === 'function') {
-      saveProjectsList(localProjects);
+      saveProjectsList(filteredLocal);
       hasChanges = true;
     }
   }
 
-  // 4. Restaurar invitaciones emitidas por este usuario (si es anfitrión)
-  if (Array.isArray(collabData.sentPlanInvitations) && collabData.sentPlanInvitations.length > 0) {
+  // 3. Restaurar invitaciones al plan (tanto recibidas como emitidas)
+  const cloudPlanInvs = [];
+  if (Array.isArray(state.planInvitations)) cloudPlanInvs.push(...state.planInvitations);
+  if (Array.isArray(state.sentPlanInvitations)) cloudPlanInvs.push(...state.sentPlanInvitations);
+
+  if (cloudPlanInvs.length > 0) {
     const localPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
-    let sentChanged = false;
-    collabData.sentPlanInvitations.forEach(spi => {
-      if (!localPlanInvs.some(lpi => lpi.id === spi.id)) {
-        localPlanInvs.unshift(spi);
-        sentChanged = true;
+    let planChanged = false;
+
+    cloudPlanInvs.forEach(cpi => {
+      const idx = localPlanInvs.findIndex(lpi => 
+        lpi.id === cpi.id || 
+        ((lpi.ownerEmail || '').toLowerCase().trim() === (cpi.ownerEmail || '').toLowerCase().trim() && (lpi.email || '').toLowerCase().trim() === (cpi.email || '').toLowerCase().trim())
+      );
+      if (idx === -1) {
+        localPlanInvs.unshift(cpi);
+        planChanged = true;
+      } else {
+        if (localPlanInvs[idx].status !== cpi.status) {
+          localPlanInvs[idx].status = cpi.status;
+          planChanged = true;
+        }
+        if (cpi.role && localPlanInvs[idx].role !== cpi.role) {
+          localPlanInvs[idx].role = cpi.role;
+          planChanged = true;
+        }
       }
     });
-    if (sentChanged && typeof saveStoredPlanInvitations === 'function') {
+
+    if (planChanged && typeof saveStoredPlanInvitations === 'function') {
       saveStoredPlanInvitations(localPlanInvs);
       hasChanges = true;
     }
   }
 
+  // 4. Restaurar invitaciones formales de proyectos
+  const cloudProjectInvs = [];
+  if (Array.isArray(state.acceptedInvitations)) cloudProjectInvs.push(...state.acceptedInvitations);
+  if (Array.isArray(state.sentProjectInvitations)) cloudProjectInvs.push(...state.sentProjectInvitations);
+
+  if (cloudProjectInvs.length > 0) {
+    const localInvs = typeof getStoredInvitations === 'function' ? getStoredInvitations() : [];
+    let invsChanged = false;
+
+    cloudProjectInvs.forEach(ci => {
+      const idx = localInvs.findIndex(li => 
+        li.id === ci.id || 
+        (li.projectId === ci.projectId && (li.email || '').toLowerCase().trim() === (ci.email || '').toLowerCase().trim())
+      );
+      if (idx === -1) {
+        localInvs.unshift(ci);
+        invsChanged = true;
+      } else if (localInvs[idx].status !== ci.status) {
+        localInvs[idx].status = ci.status;
+        localInvs[idx].acceptedAt = ci.acceptedAt || localInvs[idx].acceptedAt;
+        invsChanged = true;
+      }
+    });
+
+    if (invsChanged && typeof saveStoredInvitations === 'function') {
+      saveStoredInvitations(localInvs);
+      hasChanges = true;
+    }
+  }
+
   if (hasChanges) {
-    console.info('[CollaborationCloud] Colaboraciones restauradas desde la nube en este dispositivo.');
+    console.info('[CloudSync] Estado restaurado desde la nube en este navegador con éxito.');
   }
   return hasChanges;
 }
@@ -261,35 +326,57 @@ export function restoreUserCollaborationFromCloud(user = null) {
 /**
  * Sincronización automática de arranque:
  * 1. Restaura lo que haya en la nube a localStorage.
- * 2. Si localStorage tiene más datos o son más recientes, los sube a la nube.
+ * 2. Si localStorage contiene datos nuevos o más completos, los respalda a la nube.
  */
 export async function autoSyncCollaborationOnStartup(user = null) {
   const currentUser = user || getCurrentUser();
   if (!currentUser || !currentUser.email) return;
 
   // Paso 1: Restaurar de la nube si existen datos en user_metadata
-  restoreUserCollaborationFromCloud(currentUser);
+  const didRestore = restoreUserCollaborationFromCloud(currentUser);
 
-  // Paso 2: Si hay invitaciones aceptadas o colaboraciones locales, asegurar respaldo en la nube
+  // Paso 2: Verificar si localStorage local contiene obras o invitaciones no respaldadas aún
   const myEmail = (currentUser.email || '').toLowerCase().trim();
-  const allInvs = typeof getStoredInvitations === 'function' ? getStoredInvitations() : [];
-  const myAcceptedInvs = allInvs.filter(i => (i.email || '').toLowerCase().trim() === myEmail && i.status === 'accepted');
+  const allProjects = typeof getProjectsList === 'function' ? getProjectsList() : [];
+  const localOwned = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail);
+  const localCollab = allProjects.filter(p => {
+    const oEmail = (p.ownerEmail || '').toLowerCase().trim();
+    return oEmail !== myEmail && Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === myEmail && m.status === 'active');
+  });
 
   const allPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
   const myPlanInvs = allPlanInvs.filter(pi => (pi.email || '').toLowerCase().trim() === myEmail);
 
-  const cloudCollab = currentUser.user_metadata?.cubikar_collaboration_v1;
-  const cloudAcceptedCount = Array.isArray(cloudCollab?.acceptedInvitations) ? cloudCollab.acceptedInvitations.length : 0;
-  const cloudPlanCount = Array.isArray(cloudCollab?.planInvitations) ? cloudCollab.planInvitations.length : 0;
+  const cloudState = currentUser.user_metadata?.cubikar_cloud_state_v2;
+  const cloudOwnedCount = Array.isArray(cloudState?.ownedProjects) ? cloudState.ownedProjects.length : 0;
+  const cloudCollabCount = Array.isArray(cloudState?.collaboratedProjects) ? cloudState.collaboratedProjects.length : 0;
+  const cloudPlanCount = Array.isArray(cloudState?.planInvitations) ? cloudState.planInvitations.length : 0;
 
-  if ((myAcceptedInvs.length > cloudAcceptedCount) || (myPlanInvs.length > cloudPlanCount) || !cloudCollab) {
+  // Si local tiene items y la nube no los tiene, subirlos
+  if (
+    !cloudState ||
+    localOwned.length > cloudOwnedCount ||
+    localCollab.length > cloudCollabCount ||
+    myPlanInvs.length > cloudPlanCount
+  ) {
     await syncUserCollaborationToCloud(currentUser);
   }
+}
+
+/**
+ * Disparador con debounce para evitar saturar peticiones ante múltiples guardados rápidos
+ */
+export function triggerDebouncedCloudStateSync(user = null) {
+  if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = setTimeout(() => {
+    syncDebounceTimer = null;
+    syncUserCollaborationToCloud(user);
+  }, 400);
 }
 
 if (typeof window !== 'undefined') {
   window.syncUserCollaborationToCloud = syncUserCollaborationToCloud;
   window.restoreUserCollaborationFromCloud = restoreUserCollaborationFromCloud;
   window.autoSyncCollaborationOnStartup = autoSyncCollaborationOnStartup;
+  window.triggerDebouncedCloudStateSync = triggerDebouncedCloudStateSync;
 }
-
