@@ -1,4 +1,4 @@
-﻿import {
+import {
   renderCalendarioObra,
   setCalendarioViewMode,
   setCalendarioTimeScale,
@@ -235,6 +235,7 @@ import {
   closeSettingsModal,
   switchSettingsTab,
   updateCalculatedFactorPreview,
+  updateFasarPreview,
   saveSettings,
   onCurrencySelectChange,
   updateCurrencyPreview,
@@ -683,6 +684,7 @@ Object.assign(window, {
   closeSettingsModal,
   switchSettingsTab,
   updateCalculatedFactorPreview,
+  updateFasarPreview,
   saveSettings,
   onCurrencySelectChange,
   updateCurrencyPreview,

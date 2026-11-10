@@ -3,14 +3,23 @@ import { formatMoney, round2, round5 } from './formatters.js';
 
 export { round2, round5 };
 
-// Cálculo del Factor de Sobrecosto (FSR/Indirectos/Financiamiento/Utilidad)
+// Cálculo del Factor de Sobrecosto (FSR/Indirectos/Financiamiento/Utilidad/Seguros y Fianzas)
 export function getFactorSobrecosto() {
   if (!state.settings.applySobrecosto) return 1.0;
   const fInd = 1 + ((parseFloat(state.settings.pctIndirectos) || 0) / 100);
   const fFin = 1 + ((parseFloat(state.settings.pctFinanciamiento) || 0) / 100);
   const fUtil = 1 + ((parseFloat(state.settings.pctUtilidad) || 0) / 100);
   const fCarg = 1 + ((parseFloat(state.settings.pctAdicionales) || 0) / 100);
-  return fInd * fFin * fUtil * fCarg;
+  const fSeg = 1 + ((parseFloat(state.settings.pctSegurosFianzas) || 0) / 100);
+  return fInd * fFin * fUtil * fCarg * fSeg;
+}
+
+// Factor multiplicador de Salario Real (FASAR / IMSS-INFONAVIT) sobre mano de obra
+export function getFasarFactor() {
+  const p = parseFloat(state.settings?.pctFasar);
+  if (isNaN(p) || p <= 0) return 1.70;
+  if (p < 5.0) return p; // Por si fue capturado como multiplicador directo (ej. 1.70)
+  return 1 + (p / 100);
 }
 
 // Actualizar indicador visual de Sobrecosto en cabecera

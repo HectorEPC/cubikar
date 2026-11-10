@@ -952,7 +952,9 @@ export function createNewProject(params) {
     pctIndirectos: params.pctIndirectos ?? 12.00,
     pctFinanciamiento: params.pctFinanciamiento ?? 1.50,
     pctUtilidad: params.pctUtilidad ?? 10.00,
-    pctAdicionales: params.pctAdicionales ?? 0.50
+    pctAdicionales: params.pctAdicionales ?? 0.50,
+    pctSegurosFianzas: params.pctSegurosFianzas ?? 1.00,
+    pctFasar: params.pctFasar ?? 70.00
   });
 
   const projTree = params.template === 'demo' ? JSON.parse(JSON.stringify(defaultTreeData)) : [];
@@ -966,7 +968,7 @@ export function createNewProject(params) {
   }
 
   const f = projSettings.applySobrecosto ?
-    (1 + projSettings.pctIndirectos/100) * (1 + projSettings.pctFinanciamiento/100) * (1 + projSettings.pctUtilidad/100) * (1 + projSettings.pctAdicionales/100) : 1.0;
+    (1 + projSettings.pctIndirectos/100) * (1 + projSettings.pctFinanciamiento/100) * (1 + projSettings.pctUtilidad/100) * (1 + projSettings.pctAdicionales/100) * (1 + (projSettings.pctSegurosFianzas || 0)/100) : 1.0;
 
   const currentUser = getCurrentUser();
   const targetOwnerEmail = (params.ownerEmail || (currentUser && currentUser.email) || 'admin.general@constructora.com').toLowerCase().trim();
@@ -1264,7 +1266,8 @@ export function syncActiveProjectSummary(projectId, treeData, settings) {
     (1 + ((parseFloat(settings.pctIndirectos) || 0) / 100)) *
     (1 + ((parseFloat(settings.pctFinanciamiento) || 0) / 100)) *
     (1 + ((parseFloat(settings.pctUtilidad) || 0) / 100)) *
-    (1 + ((parseFloat(settings.pctAdicionales) || 0) / 100)) : 1.0;
+    (1 + ((parseFloat(settings.pctAdicionales) || 0) / 100)) *
+    (1 + ((parseFloat(settings.pctSegurosFianzas) || 0) / 100)) : 1.0;
 
   list[idx].companyName = settings.companyName || list[idx].companyName;
   list[idx].companyLogo = settings.companyLogo !== undefined ? settings.companyLogo : list[idx].companyLogo;

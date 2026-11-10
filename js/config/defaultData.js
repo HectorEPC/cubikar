@@ -106,6 +106,8 @@ export const defaultSettings = {
   pctFinanciamiento: 1.50,
   pctUtilidad: 10.00,
   pctAdicionales: 0.50,
+  pctSegurosFianzas: 1.00,
+  pctFasar: 70.00,
   currency: 'MXN',
   currencySymbol: '$',
   showCurrencyCode: false,

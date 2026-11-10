@@ -112,6 +112,9 @@ export async function queryGeminiSingleConcept(node, apiKeyInput, onStatus) {
   const pathArr = getNodeHierarchyPath(state.treeData, node.id) || [];
   const fullPath = pathArr.join('  >  ');
 
+  const fasarVal = state.settings?.pctFasar !== undefined ? Number(state.settings.pctFasar) : 70.0;
+  const fasarFactor = (fasarVal > 0 && fasarVal < 5.0) ? fasarVal : (1 + (fasarVal / 100));
+
   const promptText = `Eres un ingeniero civil especialista senior en Análisis de Precios Unitarios (APU) y costos de construcción en México.
 Utiliza Google Search Grounding para investigar precios comerciales y rendimientos vigentes en el mercado de la construcción en México (en Pesos Mexicanos MXN).
 
@@ -133,7 +136,7 @@ Ejemplos de congruencia matemática:
 
 Instrucciones prioritarias con Google Search:
 1. Realiza búsquedas en Google de los precios actuales de mercado en México para los materiales comerciales que componen este concepto (puestos en obra).
-2. Busca los salarios de cuadrillas (oficiales + peones) con Factor de Salario Real y sus rendimientos por cada 1 ${node.unidad || 'pza'} según tabuladores CMIC / Neodata / Opus.
+2. Busca los salarios de cuadrillas (oficiales + peones) aplicando el Factor de Salario Real (FASAR) configurado en el sistema (+${fasarVal.toFixed(1)}% / Factor ${fasarFactor.toFixed(2)}) para inflar el salario nominal y cubrir IMSS, INFONAVIT, SAR, riesgos y prestaciones según tabuladores CMIC / Neodata / Opus.
 3. Determina el equipo, maquinaria y herramienta requerida.
 4. Clasifica los insumos en los rubros: "Material", "Mano de Obra", "Herramienta", "Equipo", "Maquinaria" o "Subcontrato".
 5. Al final de tu análisis, devuelve OBLIGATORIAMENTE un bloque de código JSON con esta estructura exacta:

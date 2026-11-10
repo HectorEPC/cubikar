@@ -1,4 +1,4 @@
-﻿// js/modules/portal/portalController.js
+// js/modules/portal/portalController.js
 // Controlador integral para la pantalla de inicio, perfil, proyectos y navegación multi-obra
 
 import {
@@ -2560,8 +2560,9 @@ export function updateWizardFactorPreview() {
   const fin = parseFloat(document.getElementById('wiz-financiamiento')?.value || 0);
   const uti = parseFloat(document.getElementById('wiz-utilidad')?.value || 0);
   const adi = parseFloat(document.getElementById('wiz-adicionales')?.value || 0);
+  const seg = parseFloat(document.getElementById('wiz-seguros-fianzas')?.value || 0);
 
-  const f = apply ? (1 + ind/100) * (1 + fin/100) * (1 + uti/100) * (1 + adi/100) : 1.0;
+  const f = apply ? (1 + ind/100) * (1 + fin/100) * (1 + uti/100) * (1 + adi/100) * (1 + seg/100) : 1.0;
   const pct = ((f - 1) * 100).toFixed(2);
   const previewEl = document.getElementById('wiz-factor-preview');
   if (previewEl) previewEl.innerText = `${f.toFixed(4)} (+${pct}%)`;
@@ -2591,10 +2592,14 @@ export function finalizeCreateProject() {
   const currency = document.getElementById('wiz-currency-select').value;
   const symbol = document.getElementById('wiz-currency-symbol').value.trim();
   const apply = document.getElementById('wiz-apply-sobrecosto').checked;
-  const ind = parseFloat(document.getElementById('wiz-indirectos').value) || 0;
-  const fin = parseFloat(document.getElementById('wiz-financiamiento').value) || 0;
-  const uti = parseFloat(document.getElementById('wiz-utilidad').value) || 0;
-  const adi = parseFloat(document.getElementById('wiz-adicionales').value) || 0;
+  const ind = parseFloat(document.getElementById('wiz-indirectos')?.value) || 0;
+  const fin = parseFloat(document.getElementById('wiz-financiamiento')?.value) || 0;
+  const uti = parseFloat(document.getElementById('wiz-utilidad')?.value) || 0;
+  const adi = parseFloat(document.getElementById('wiz-adicionales')?.value) || 0;
+  const segVal = parseFloat(document.getElementById('wiz-seguros-fianzas')?.value);
+  const seg = isNaN(segVal) ? 1.00 : segVal;
+  const fasarVal = parseFloat(document.getElementById('wiz-fasar')?.value);
+  const fasar = isNaN(fasarVal) ? 70.00 : fasarVal;
   const tplEl = document.querySelector('input[name="wiz-template"]:checked');
   const tpl = tplEl ? tplEl.value : 'demo';
 
@@ -2623,6 +2628,8 @@ export function finalizeCreateProject() {
     pctFinanciamiento: fin,
     pctUtilidad: uti,
     pctAdicionales: adi,
+    pctSegurosFianzas: seg,
+    pctFasar: fasar,
     template: tpl
   };
 

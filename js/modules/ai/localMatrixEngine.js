@@ -1060,11 +1060,12 @@ function lookup(index, c) {
   return findSupply(index, { tipo: c.tipo, tipos: c.tipos, all: c.all, any: c.any, none: c.none, unit: c.unit, range: c.range });
 }
 
-export function resolveComponents(components, index) {
+export function resolveComponents(components, index, fasarFactor = 1.70) {
   const out = [];
   const unresolved = [];
   const catalogs = new Set();
   let estCounter = 0;
+  const fasarRatio = (fasarFactor > 0 ? fasarFactor : 1.70) / 1.70;
 
   const push = (c, found) => {
     const qty = r5(c.qty);
@@ -1084,7 +1085,8 @@ export function resolveComponents(components, index) {
     }
     estCounter++;
     const t = c.tipo === 'Mano de Obra' ? (TRADES[c.trade] || TRADES.albanil) : null;
-    const fb = t ? t.fb : c.fb;
+    const baseFb = t ? t.fb : c.fb;
+    const fb = (t && baseFb > 0) ? r2(baseFb * fasarRatio) : baseFb;
     const name = t ? t.label : c.name;
     unresolved.push(name);
     out.push({
@@ -1218,7 +1220,7 @@ export function generateLocalMatrix(target, ctx) {
     };
   }
   const analysis = analyzeConcept(target.descripcion, target.unidad);
-  const res = resolveComponents(analysis.components, ctx.supplyIndex || { byTipo: {} });
+  const res = resolveComponents(analysis.components, ctx.supplyIndex || { byTipo: {} }, ctx.fasarFactor);
   return {
     mode: 'scratch', insumos: res.insumos, family: analysis.family, familyLabel: analysis.familyLabel,
     specs: analysis.specs, unresolved: res.unresolved, catalogs: res.catalogs

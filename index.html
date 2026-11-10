@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -1605,9 +1605,6 @@
         <button onclick="switchSettingsTab('sobrecosto')" id="modal-tab-sobrecosto" class="py-2 px-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
           <i class="fa-solid fa-percent"></i> % Sobrecosto y Moneda
         </button>
-        <button onclick="switchSettingsTab('ia')" id="modal-tab-ia" class="py-2 px-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
-          <i class="fa-solid fa-wand-magic-sparkles"></i> IA Gemini
-        </button>
         <button onclick="switchSettingsTab('datos')" id="modal-tab-datos" class="py-2 px-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
           <i class="fa-solid fa-database"></i> Gestión de Datos
         </button>
@@ -1778,35 +1775,24 @@
               <label class="block font-semibold text-slate-700 mb-1">% Cargos Adicionales / Inspección</label>
               <input type="number" id="cfg-adicionales" step="0.01" value="0.50" oninput="updateCalculatedFactorPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono">
             </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1" title="Cubre la prima de pólizas de anticipo, cumplimiento, vicios ocultos y seguro todo riesgo contratista">% Seguros y Fianzas de Obra</label>
+              <input type="number" id="cfg-seguros-fianzas" step="0.01" value="1.00" min="0" max="100" oninput="updateCalculatedFactorPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono">
+              <span class="text-[10px] text-slate-500 block mt-0.5 leading-tight">Anticipo, cumplimiento, vicios ocultos y RC (sug: 0.80% - 1.20%).</span>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1" title="Indica a la aplicación y a la IA cómo inflar el salario nominal de las cuadrillas de mano de obra para cubrir el IMSS, SAR, INFONAVIT y prestaciones">% Factor Salario Real (FASAR / IMSS)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="cfg-fasar" step="0.01" value="70.00" min="0" oninput="updateFasarPreview(); updateCalculatedFactorPreview()" class="w-full border border-slate-300 rounded p-1.5 text-xs font-mono">
+                <span id="cfg-fasar-badge" class="shrink-0 bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-1 rounded text-[10px] font-mono font-bold" title="Factor multiplicador aplicado a cuadrillas nominales">1.70x</span>
+              </div>
+              <span class="text-[10px] text-slate-500 block mt-0.5 leading-tight">Infla salario nominal en app e IA (sug: 70% o factor 1.70).</span>
+            </div>
           </div>
 
           <div class="p-3 bg-slate-100 rounded-lg border border-slate-200 flex justify-between items-center font-mono">
             <span class="text-slate-600 font-sans font-medium">Factor Sobrecosto Resultante:</span>
-            <span class="font-bold text-sm text-blue-700" id="cfg-factor-preview">1.2584 (+25.84%)</span>
-          </div>
-        </div>
-
-        <!-- Tab 3: Configuración Gemini IA -->
-        <div id="modal-view-ia" class="space-y-3 hidden">
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Google Gemini API Key</label>
-            <div class="flex gap-1.5">
-              <input type="password" id="cfg-api-key" placeholder="AIzaSy..." class="flex-1 border border-slate-300 rounded p-1.5 text-xs font-mono">
-              <button onclick="toggleApiKeyVisibility()" class="bg-slate-200 hover:bg-slate-300 px-2.5 py-1 rounded text-slate-700">
-                <i id="eye-icon" class="fa-solid fa-eye text-xs"></i>
-              </button>
-            </div>
-            <p class="text-[11px] text-slate-500 mt-1">
-              Permite a la aplicación activar Google Search Grounding para cotizar materiales y mano de obra vigentes en México.
-            </p>
-          </div>
-
-          <div class="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 text-[11px] space-y-1">
-            <div class="font-bold flex items-center gap-1.5">
-              <i class="fa-brands fa-google"></i> ¿Cómo obtener tu API Key gratuita?
-            </div>
-            <p>1. Ingresa a <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 underline font-semibold">Google AI Studio</a>.</p>
-            <p>2. Crea tu API Key gratuita y pégala aquí. Quedará guardada en tu navegador.</p>
+            <span class="font-bold text-sm text-blue-700" id="cfg-factor-preview">1.2693 (+26.93%)</span>
           </div>
         </div>
 
@@ -2896,10 +2882,10 @@
                 <input type="checkbox" id="wiz-apply-sobrecosto" checked onchange="updateWizardFactorPreview()" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
                 <span>Aplicar Factor de Sobrecosto a Matrices APU</span>
               </label>
-              <span class="text-[11px] text-blue-700 font-mono font-bold" id="wiz-factor-preview">1.2584 (+25.84%)</span>
+              <span class="text-[11px] text-blue-700 font-mono font-bold" id="wiz-factor-preview">1.2693 (+26.93%)</span>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
               <div>
                 <label class="block text-[11px] font-semibold text-slate-600 mb-1">% Indirectos</label>
                 <input type="number" id="wiz-indirectos" value="12.00" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
@@ -2915,6 +2901,14 @@
               <div>
                 <label class="block text-[11px] font-semibold text-slate-600 mb-1">% Cargos Adic.</label>
                 <input type="number" id="wiz-adicionales" value="0.50" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1" title="Cubre pólizas de anticipo, vicios ocultos y RC">% Seguros y Fianzas</label>
+                <input type="number" id="wiz-seguros-fianzas" value="1.00" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1" title="Factor de Salario Real para inflar cuadrillas de mano de obra">% FASAR (Mano de Obra)</label>
+                <input type="number" id="wiz-fasar" value="70.00" step="0.01" oninput="updateWizardFactorPreview()" class="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-mono">
               </div>
             </div>
           </div>

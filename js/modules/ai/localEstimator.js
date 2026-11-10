@@ -82,11 +82,15 @@ export async function buildLocalGenerationContext(selectedCatalogIds = 'all') {
   // Índice analítico de insumos (Materiales, Mano de Obra, Maquinaria, Herramienta) para PASO 2
   const supplyIndex = buildSupplyIndex(allItems);
 
+  const fasarVal = state.settings?.pctFasar !== undefined ? Number(state.settings.pctFasar) : 70.0;
+  const fasarFactor = (fasarVal > 0 && fasarVal < 5.0) ? fasarVal : (1 + (fasarVal / 100));
+
   return {
     referenceConcepts,
     supplyIndex,
     allItemsCount: allItems.length,
-    catalogsCount: loadedItems.length
+    catalogsCount: loadedItems.length,
+    fasarFactor
   };
 }
 

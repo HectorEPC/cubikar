@@ -145,6 +145,10 @@ export function openSettingsModal(tab = 'informacion') {
   if (utiEl) utiEl.value = Number(state.settings.pctUtilidad || 0).toFixed(2);
   const adiEl = document.getElementById('cfg-adicionales');
   if (adiEl) adiEl.value = Number(state.settings.pctAdicionales || 0).toFixed(2);
+  const segEl = document.getElementById('cfg-seguros-fianzas');
+  if (segEl) segEl.value = Number(state.settings.pctSegurosFianzas ?? 1.00).toFixed(2);
+  const fasarEl = document.getElementById('cfg-fasar');
+  if (fasarEl) fasarEl.value = Number(state.settings.pctFasar ?? 70.00).toFixed(2);
   const keyEl = document.getElementById('cfg-api-key');
   if (keyEl) keyEl.value = state.settings.apiKey || '';
 
@@ -173,6 +177,7 @@ export function openSettingsModal(tab = 'informacion') {
 
   updateCurrencyPreview();
   updateCalculatedFactorPreview();
+  updateFasarPreview();
   renderBrandingUI();
   switchSettingsTab(targetTab);
 }
@@ -214,10 +219,10 @@ export function closeSettingsModal() {
 
 export function switchSettingsTab(tab) {
   let activeTab = tab;
-  if (!activeTab || activeTab === 'general' || activeTab === 'empresa') {
+  if (!activeTab || activeTab === 'general' || activeTab === 'empresa' || activeTab === 'ia') {
     activeTab = 'informacion';
   }
-  const tabs = ['informacion', 'sobrecosto', 'ia', 'datos'];
+  const tabs = ['informacion', 'sobrecosto', 'datos'];
   tabs.forEach(t => {
     const view = document.getElementById(`modal-view-${t}`);
     const btn = document.getElementById(`modal-tab-${t}`);
@@ -237,16 +242,32 @@ export function updateCalculatedFactorPreview() {
   const fin = parseFloat(document.getElementById('cfg-financiamiento')?.value) || 0;
   const uti = parseFloat(document.getElementById('cfg-utilidad')?.value) || 0;
   const adi = parseFloat(document.getElementById('cfg-adicionales')?.value) || 0;
+  const seg = parseFloat(document.getElementById('cfg-seguros-fianzas')?.value) || 0;
 
   const fInd = 1 + (ind / 100);
   const fFin = 1 + (fin / 100);
   const fUtil = 1 + (uti / 100);
   const fCarg = 1 + (adi / 100);
-  const factor = apply ? (fInd * fFin * fUtil * fCarg) : 1.0;
+  const fSeg = 1 + (seg / 100);
+  const factor = apply ? (fInd * fFin * fUtil * fCarg * fSeg) : 1.0;
   const pct = ((factor - 1) * 100).toFixed(2);
 
   const previewEl = document.getElementById('cfg-factor-preview');
   if (previewEl) previewEl.innerText = `${factor.toFixed(4)} (+${pct}%)`;
+}
+
+// Vista previa dinámica del FASAR
+export function updateFasarPreview() {
+  const el = document.getElementById('cfg-fasar');
+  const badge = document.getElementById('cfg-fasar-badge');
+  if (!el || !badge) return;
+  const val = parseFloat(el.value) || 0;
+  if (val > 0 && val < 5.0) {
+    badge.innerText = `${val.toFixed(2)}x`;
+  } else {
+    const factor = 1 + (val / 100);
+    badge.innerText = `${factor.toFixed(2)}x`;
+  }
 }
 
 export function saveSettings() {
@@ -255,7 +276,12 @@ export function saveSettings() {
   state.settings.pctFinanciamiento = parseFloat(parseFloat(document.getElementById('cfg-financiamiento')?.value || 0).toFixed(2));
   state.settings.pctUtilidad = parseFloat(parseFloat(document.getElementById('cfg-utilidad')?.value || 0).toFixed(2));
   state.settings.pctAdicionales = parseFloat(parseFloat(document.getElementById('cfg-adicionales')?.value || 0).toFixed(2));
-  state.settings.apiKey = (document.getElementById('cfg-api-key')?.value || '').trim();
+  state.settings.pctSegurosFianzas = parseFloat(parseFloat(document.getElementById('cfg-seguros-fianzas')?.value ?? 1.00).toFixed(2));
+  state.settings.pctFasar = parseFloat(parseFloat(document.getElementById('cfg-fasar')?.value ?? 70.00).toFixed(2));
+  const keyInput = document.getElementById('cfg-api-key');
+  if (keyInput) {
+    state.settings.apiKey = (keyInput.value || '').trim();
+  }
 
   // Guardar Moneda de Trabajo
   const newCurrency = (document.getElementById('cfg-currency-code')?.value || 'MXN').trim().toUpperCase();

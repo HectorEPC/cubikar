@@ -132,6 +132,8 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
       pct_financiamiento: Number(settings?.pctFinanciamiento ?? project.pctFinanciamiento) || 0,
       pct_utilidad: Number(settings?.pctUtilidad ?? project.pctUtilidad) || 0,
       pct_adicionales: Number(settings?.pctAdicionales ?? project.pctAdicionales) || 0,
+      pct_seguros_fianzas: Number(settings?.pctSegurosFianzas ?? project.pctSegurosFianzas ?? 1.0) || 0,
+      pct_fasar: Number(settings?.pctFasar ?? project.pctFasar ?? 70.0) || 0,
       anticipo_pct: Number(settings?.anticipoPct ?? 30.0),
       iva_pct: Number(settings?.ivaPct ?? 16.0),
       creado_por: user.id,
@@ -292,8 +294,9 @@ export async function fetchCloudProjects() {
       const fin = parseFloat(cp.pct_financiamiento) || 0;
       const uti = parseFloat(cp.pct_utilidad) || 0;
       const adi = parseFloat(cp.pct_adicionales) || 0;
+      const seg = parseFloat(cp.pct_seguros_fianzas ?? 1.0) || 0;
       const f = cp.aplica_sobrecosto
-        ? (1 + ind / 100) * (1 + fin / 100) * (1 + uti / 100) * (1 + adi / 100)
+        ? (1 + ind / 100) * (1 + fin / 100) * (1 + uti / 100) * (1 + adi / 100) * (1 + seg / 100)
         : 1.0;
 
       return {
@@ -310,6 +313,8 @@ export async function fetchCloudProjects() {
         pctFinanciamiento: fin,
         pctUtilidad: uti,
         pctAdicionales: adi,
+        pctSegurosFianzas: seg,
+        pctFasar: Number(cp.pct_fasar ?? 70.0),
         factorSobrecosto: f,
         createdAt: cp.created_at ? cp.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
         members: [
