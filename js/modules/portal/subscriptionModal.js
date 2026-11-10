@@ -12,6 +12,7 @@ import {
 } from './projectService.js';
 import { showToast } from '../../ui/notifications.js';
 import { isNightMode } from '../../ui/themeController.js';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js';
 
 export const STORAGE_KEY_SUBSCRIPTION = 'adm_const_subscription';
 
@@ -150,17 +151,20 @@ export function getPlanById(planId) {
 export function getCurrentSubscription() {
   try {
     const user = getCurrentUser();
-    if (user?.email && typeof localStorage !== 'undefined') {
-      const cleanEmail = user.email.toLowerCase().trim();
+    const cleanEmail = (user?.email || '').toLowerCase().trim();
+
+    if (cleanEmail && typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
       if (raw) {
         const parsed = JSON.parse(raw);
-        const validPlan = getPlanById(parsed?.planId);
-        return {
-          planId: validPlan.id,
-          billingCycle: parsed?.billingCycle === 'annual' ? 'annual' : 'monthly',
-          updatedAt: parsed?.updatedAt || null
-        };
+        if (parsed?.planId) {
+          const validPlan = getPlanById(parsed.planId);
+          return {
+            planId: validPlan.id,
+            billingCycle: parsed?.billingCycle === 'annual' ? 'annual' : 'monthly',
+            updatedAt: parsed?.updatedAt || null
+          };
+        }
       }
     }
 
@@ -171,6 +175,15 @@ export function getCurrentSubscription() {
         billingCycle: user.subscription.billingCycle === 'annual' ? 'annual' : 'monthly',
         updatedAt: user.subscription.updatedAt || null
       };
+    }
+
+    // Administrador Maestro default: Plan Pro garantizado entre dispositivos
+    if (cleanEmail === 'hepc.90@gmail.com' || cleanEmail === 'admin.general@constructora.com') {
+      const proPlan = { planId: 'pro', billingCycle: 'monthly', updatedAt: new Date().toISOString() };
+      if (typeof localStorage !== 'undefined' && cleanEmail) {
+        try { localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(proPlan)); } catch (_) {}
+      }
+      return proPlan;
     }
   } catch (e) {
     // Fallback seguro a plan Gratuita
@@ -183,6 +196,40 @@ export function getCurrentSubscription() {
   };
 }
 
+export async function syncSubscriptionFromCloud(targetEmail = null) {
+  try {
+    const sb = getSupabaseClient();
+    if (!sb || !isSupabaseConfigured()) return null;
+
+    const user = getCurrentUser();
+    const email = (targetEmail || user?.email || '').toLowerCase().trim();
+    if (!email) return null;
+
+    const { data: { user: authUser } } = await sb.auth.getUser();
+    if (authUser && (authUser.email || '').toLowerCase().trim() === email) {
+      const cloudSub = authUser.user_metadata?.subscription;
+      if (cloudSub?.planId) {
+        const validPlan = getPlanById(cloudSub.planId);
+        const resolved = {
+          planId: validPlan.id,
+          billingCycle: cloudSub.billingCycle === 'annual' ? 'annual' : 'monthly',
+          updatedAt: cloudSub.updatedAt || new Date().toISOString()
+        };
+        localStorage.setItem(`adm_const_subscription_${email}`, JSON.stringify(resolved));
+        if (user && (user.email || '').toLowerCase().trim() === email) {
+          user.subscription = resolved;
+          saveCurrentUser(user);
+          updateSubscriptionBadgesUI();
+        }
+        return resolved;
+      }
+    }
+  } catch (e) {
+    console.warn('[Subscription] Error al sincronizar desde la nube:', e);
+  }
+  return null;
+}
+
 export function saveSubscription(planId, billingCycle = activeBillingCycle) {
   const validPlan = getPlanById(planId);
   const normalizedCycle = billingCycle === 'annual' ? 'annual' : 'monthly';
@@ -192,22 +239,47 @@ export function saveSubscription(planId, billingCycle = activeBillingCycle) {
     updatedAt: new Date().toISOString()
   };
 
+  const user = getCurrentUser();
+  const cleanEmail = (user?.email || '').toLowerCase().trim();
+
   try {
-    if (typeof localStorage !== 'undefined') {
+    if (typeof localStorage !== 'undefined' && cleanEmail) {
       // Guardar de forma estricta y permanente para el usuario específico que compró el plan
-      const user = getCurrentUser();
-      if (user?.email) {
-        localStorage.setItem(`adm_const_subscription_${user.email.toLowerCase().trim()}`, JSON.stringify(payload));
-      }
+      localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(payload));
     }
   } catch (e) {}
 
+  // Sincronizar en Supabase Auth en la nube para acceso entre múltiples computadoras y dispositivos
   try {
-    const user = getCurrentUser();
+    const sb = getSupabaseClient();
+    if (sb && isSupabaseConfigured() && cleanEmail) {
+      sb.auth.getUser().then(({ data: { user: authUser } }) => {
+        if (authUser && (authUser.email || '').toLowerCase().trim() === cleanEmail) {
+          sb.auth.updateUser({
+            data: { subscription: payload }
+          }).then(() => {
+            console.info('[Subscription] Suscripción sincronizada en la nube de Supabase Auth.');
+          }).catch(err => {
+            console.warn('[Subscription] Aviso al sincronizar en Supabase Auth:', err?.message || err);
+          });
+        }
+      }).catch(() => {});
+
+      if (user?.empresaId) {
+        sb.from('empresas').update({
+          plan: validPlan.id,
+          updated_at: new Date().toISOString()
+        }).eq('id', user.empresaId).then(() => {}).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn('[Subscription] Error en sync cloud:', err);
+  }
+
+  try {
     if (user) {
       user.subscription = payload;
       saveCurrentUser(user);
-      const cleanEmail = (user.email || '').toLowerCase().trim();
       if (cleanEmail) {
         try {
           const regUser = findRegisteredUserAccount(cleanEmail);
@@ -464,6 +536,16 @@ export function openSubscriptionModal() {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
   }
+
+  // Sincronizar en segundo plano con la nube de Supabase por si se actualizó en otra computadora
+  try {
+    syncSubscriptionFromCloud().then(cloudSub => {
+      if (cloudSub) {
+        renderSubscriptionCards();
+        updateSubscriptionBadgesUI();
+      }
+    }).catch(() => {});
+  } catch (_) {}
 }
 
 export function closeSubscriptionModal() {

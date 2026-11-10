@@ -750,11 +750,25 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
     try {
       const { user, perfil } = await signInWithPassword({ email, password });
       const displayName = perfil?.nombre_completo || user?.user_metadata?.full_name || email;
+
+      // Resolver suscripción persistida en la nube de Supabase (user_metadata o empresas)
+      let userSub = user?.user_metadata?.subscription || null;
+      if (!userSub && perfil?.empresas?.plan && perfil.empresas.plan !== 'free') {
+        userSub = { planId: perfil.empresas.plan, billingCycle: 'monthly', updatedAt: new Date().toISOString() };
+      }
+      if (!userSub && (email === 'hepc.90@gmail.com' || email === 'admin.general@constructora.com')) {
+        userSub = { planId: 'pro', billingCycle: 'monthly', updatedAt: new Date().toISOString() };
+      }
+      if (userSub) {
+        try { localStorage.setItem(`adm_const_subscription_${email}`, JSON.stringify(userSub)); } catch (_) {}
+      }
+
       const loggedUser = {
         id: user.id,
         empresaId: perfil?.empresa_id || null,
         name: displayName,
         email: email,
+        subscription: userSub || { planId: 'free', billingCycle: 'monthly', updatedAt: null },
         avatar: perfil?.avatar_url || (AVATARS_BY_SEX && AVATARS_BY_SEX[perfil?.sexo]) || (AVATARS_BY_SEX && AVATARS_BY_SEX['Masculino']) || 'assets/branding/cubikar_icon_transparent.png',
         sexo: perfil?.sexo || 'Masculino',
         role: 'Admin General',
@@ -971,6 +985,11 @@ export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
       const userSubRaw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
       if (userSubRaw) {
         user.subscription = JSON.parse(userSubRaw);
+      } else if (user.subscription && user.subscription.planId && user.subscription.planId !== 'free') {
+        localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(user.subscription));
+      } else if (cleanEmail === 'hepc.90@gmail.com' || cleanEmail === 'admin.general@constructora.com') {
+        user.subscription = { planId: 'pro', billingCycle: 'monthly', updatedAt: new Date().toISOString() };
+        localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(user.subscription));
       } else {
         user.subscription = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
         localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(user.subscription));

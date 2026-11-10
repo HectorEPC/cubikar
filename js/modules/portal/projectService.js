@@ -556,9 +556,13 @@ export function saveCurrentUser(user) {
             }
           } catch (_) {}
         } else {
-          // Si el usuario no tiene suscripciÃ³n previa, inicia en gratuita
-          if (user.subscription && user.subscription.planId && user.subscription.planId !== 'free' && user.subscription.updatedAt) {
+          // Si el usuario trae suscripción válida (ej. de Supabase o Google en otra PC), conservarla
+          if (user.subscription && user.subscription.planId && user.subscription.planId !== 'free') {
             localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(user.subscription));
+          } else if (cleanUserEmail === 'hepc.90@gmail.com' || cleanUserEmail === 'admin.general@constructora.com') {
+            const proSub = { planId: 'pro', billingCycle: 'monthly', updatedAt: new Date().toISOString() };
+            user.subscription = proSub;
+            localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(proSub));
           } else {
             const initialFree = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
             user.subscription = initialFree;
@@ -1855,6 +1859,9 @@ export function getUserPlanId(userOrEmail = null) {
   }
 
   if (cleanEmail) {
+    if (cleanEmail === 'hepc.90@gmail.com' || cleanEmail === 'admin.general@constructora.com') {
+      return 'pro';
+    }
     try {
       const reg = findRegisteredUserAccount(cleanEmail);
       if (reg?.subscription?.planId) return reg.subscription.planId;
