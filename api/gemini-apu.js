@@ -183,15 +183,18 @@ Instrucciones prioritarias con Google Search:
 }
 \`\`\``;
 
-  // 6. Modelos de respaldo con y sin Search Grounding (gemini-3.8-flash recomendado por Google)
+  // 6. Modelos de respaldo con y sin Search Grounding
   const attempts = [
-    { model: 'gemini-3.8-flash', tools: [{ googleSearch: {} }] },
-    { model: 'gemini-3.8-flash', tools: null },
+    { model: 'gemini-2.0-flash', tools: [{ googleSearch: {} }] },
+    { model: 'gemini-2.0-flash', tools: null },
+    { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] },
+    { model: 'gemini-1.5-flash', tools: null },
     { model: 'gemini-2.5-flash', tools: [{ googleSearch: {} }] },
-    { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] }
+    { model: 'gemini-3.8-flash', tools: [{ googleSearch: {} }] }
   ];
 
   let lastError = '';
+  const debugErrors = [];
 
   for (const att of attempts) {
     try {
@@ -215,7 +218,9 @@ Instrucciones prioritarias con Google Search:
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
-        lastError = errJson.error?.message || `HTTP ${response.status} ${response.statusText}`;
+        const msg = errJson.error?.message || `HTTP ${response.status} ${response.statusText}`;
+        debugErrors.push({ model: att.model, tools: !!att.tools, status: response.status, msg });
+        lastError = msg;
         continue;
       }
 
@@ -225,6 +230,7 @@ Instrucciones prioritarias con Google Search:
 
       if (!textContent) {
         lastError = 'La IA no devolvió texto en su respuesta.';
+        debugErrors.push({ model: att.model, msg: lastError });
         continue;
       }
 
@@ -276,6 +282,7 @@ Instrucciones prioritarias con Google Search:
 
   return res.status(502).json({
     success: false,
-    error: `No se pudo generar la matriz con Google IA: ${lastError}`
+    error: `No se pudo generar la matriz con Google IA: ${lastError}`,
+    debugErrors
   });
 }
