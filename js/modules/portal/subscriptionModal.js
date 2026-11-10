@@ -415,7 +415,7 @@ export function renderSubscriptionCards() {
             ${hasDiscount ? `
               <div class="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-500">
                 <i class="fa-solid fa-bolt text-[9px]"></i>
-                <span>Precio especial de lanzamiento • Congelado de por vida</span>
+                <span>Precio especial de lanzamiento</span>
               </div>
             ` : ''}
             <p class="text-[10px] mt-1 font-medium ${night ? 'text-slate-400' : 'text-slate-500'}">
