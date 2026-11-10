@@ -1438,6 +1438,15 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
   return newInvitation;
 }
 
+
+function triggerCloudCollabSync(user) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
+      window.syncUserCollaborationToCloud(user);
+    }
+  } catch (_) {}
+}
+
 // Aceptar invitación a un proyecto o al plan de un anfitrión
 export function acceptProjectInvitation(invitationId, currentUser = null) {
   const user = currentUser || getCurrentUser();
@@ -1516,6 +1525,7 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
           }
         } catch (e) {}
 
+        triggerCloudCollabSync(user);
         return { ok: true, projectId: projWithMember.id, projectName: projWithMember.projectName };
       }
     }
@@ -1576,6 +1586,7 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
       }
     } catch (e) {}
 
+    triggerCloudCollabSync(user);
     return { ok: true, projectId: targetProjectId, projectName: targetProjectName || 'Proyecto de Obra' };
   }
 
@@ -1649,6 +1660,7 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
       }
     } catch (e) {}
 
+    triggerCloudCollabSync(user);
     return { ok: true, projectId: finalProjId, projectName: finalProjName };
   }
 
@@ -1733,6 +1745,9 @@ export function rejectProjectInvitation(invitationId) {
     });
   }
 
+  if (rejected) {
+    triggerCloudCollabSync(user);
+  }
   return rejected;
 }
 

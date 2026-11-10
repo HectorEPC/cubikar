@@ -3,6 +3,7 @@
 
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
 import { getCurrentUser, saveCurrentUser, markSessionOpen, saveRegisteredUserAccount } from '../modules/portal/projectService.js';
+import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup } from './collaborationCloudService.js';
 
 /**
  * Registro con Correo Electrónico y Contraseña
@@ -162,14 +163,70 @@ export function syncLocalUserSession(user, perfil, force = false) {
 
   const cleanEmail = (user.email || '').toLowerCase().trim();
   let userSub = null;
-  const userSubRaw = typeof localStorage !== 'undefined' ? localStorage.getItem(`adm_const_subscription_${cleanEmail}`) : null;
-  if (userSubRaw) {
-    try {
-      userSub = JSON.parse(userSubRaw);
-    } catch (_) {}
+
+  // 1. Prioridad: Metadatos en la nube de Supabase Auth (guardados en la cuenta del usuario)
+  const metaSub = user.user_metadata?.subscription;
+  if (metaSub && typeof metaSub === 'object' && metaSub.planId) {
+    userSub = {
+      planId: metaSub.planId,
+      billingCycle: metaSub.billingCycle === 'annual' ? 'annual' : 'monthly',
+      updatedAt: metaSub.updatedAt || new Date().toISOString()
+    };
   }
+
+  // 2. Si la empresa remota en Supabase tiene plan 'plus' o 'pro'
+  if ((!userSub || userSub.planId === 'free') && perfil?.empresas?.plan && perfil.empresas.plan !== 'free') {
+    userSub = {
+      planId: perfil.empresas.plan,
+      billingCycle: 'monthly',
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  // 3. Si en localStorage local ya existía un plan registrado para este usuario
+  if ((!userSub || userSub.planId === 'free') && typeof localStorage !== 'undefined') {
+    const userSubRaw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
+    if (userSubRaw) {
+      try {
+        const parsed = JSON.parse(userSubRaw);
+        if (parsed?.planId && parsed.planId !== 'free') {
+          userSub = parsed;
+        }
+      } catch (_) {}
+    }
+  }
+
+  // 4. Si es la cuenta del Administrador Maestro oficial, garantizar Plan Pro
+  if ((!userSub || userSub.planId === 'free') && (cleanEmail === 'hepc.90@gmail.com' || cleanEmail === 'admin.general@constructora.com')) {
+    userSub = {
+      planId: 'pro',
+      billingCycle: 'monthly',
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  // 5. Fallback a Gratuito si es un usuario recién registrado sin suscripción
   if (!userSub) {
     userSub = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
+  }
+
+  // Guardar en el almacenamiento local de esta PC para que toda la interfaz respete el plan
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(userSub));
+    }
+  } catch (_) {}
+
+  // Si la suscripción es de pago y no estaba en Supabase Auth, sincronizarla a la nube
+  if (userSub && userSub.planId !== 'free' && (!metaSub || metaSub.planId !== userSub.planId)) {
+    try {
+      const sbClient = getSupabaseClient();
+      if (sbClient) {
+        sbClient.auth.updateUser({
+          data: { subscription: userSub }
+        }).catch(() => {});
+      }
+    } catch (_) {}
   }
 
   const localUser = {
@@ -187,6 +244,10 @@ export function syncLocalUserSession(user, perfil, force = false) {
   try {
     saveRegisteredUserAccount(localUser);
     markSessionOpen(localUser.email || localUser);
+    restoreUserCollaborationFromCloud(user);
+    setTimeout(() => {
+      autoSyncCollaborationOnStartup(user);
+    }, 100);
   } catch (e) {}
   return localUser;
 }
@@ -204,6 +265,9 @@ export function initAuthListener(onAuthChangeCallback) {
       const isExplicitLogin = (event === 'SIGNED_IN' || event === 'USER_UPDATED');
       const perfil = await fetchUserProfile(session.user.id);
       syncLocalUserSession(session.user, perfil, isExplicitLogin);
+      try {
+        autoSyncCollaborationOnStartup(session.user);
+      } catch (e) {}
       if (onAuthChangeCallback) onAuthChangeCallback(event, session, perfil);
     } else {
       if (onAuthChangeCallback) onAuthChangeCallback(event, null, null);

@@ -106,6 +106,14 @@ export function initPortal() {
   const projIdFromUrl = urlParams.get('project');
   const user = getCurrentUser();
 
+  if (user) {
+    try {
+      if (typeof window !== 'undefined' && typeof window.autoSyncCollaborationOnStartup === 'function') {
+        window.autoSyncCollaborationOnStartup(user);
+      }
+    } catch (_) {}
+  }
+
   // Detectar retorno de pago exitoso desde Stripe Checkout
   const pagoStatus = urlParams.get('pago');
   if (pagoStatus === 'exitoso') {
@@ -1276,6 +1284,11 @@ export function renderPortalDashboard() {
     return;
   }
   updatePortalHeaderUserArea(user);
+  try {
+    if (typeof window !== 'undefined' && typeof window.autoSyncCollaborationOnStartup === 'function') {
+      window.autoSyncCollaborationOnStartup(user);
+    }
+  } catch (_) {}
   try {
     if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.requestPeerSync === 'function') {
       window.CubikarRealtime.requestPeerSync();
@@ -2640,6 +2653,12 @@ export function finalizeCreateProject() {
   }
 
   const newProj = createNewProject(projPayload);
+
+  try {
+    if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
+      window.syncUserCollaborationToCloud(user);
+    }
+  } catch (_) {}
 
   // Sincronizar en segundo plano a Supabase PostgreSQL
   try {
