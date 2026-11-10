@@ -183,11 +183,12 @@ Instrucciones prioritarias con Google Search:
 }
 \`\`\``;
 
-  // 6. Modelos de respaldo con y sin Search Grounding
+  // 6. Modelos de respaldo con y sin Search Grounding (gemini-3.8-flash recomendado por Google)
   const attempts = [
+    { model: 'gemini-3.8-flash', tools: [{ googleSearch: {} }] },
+    { model: 'gemini-3.8-flash', tools: null },
     { model: 'gemini-2.5-flash', tools: [{ googleSearch: {} }] },
-    { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] },
-    { model: 'gemini-2.5-flash', tools: null }
+    { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] }
   ];
 
   let lastError = '';
