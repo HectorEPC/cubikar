@@ -594,7 +594,7 @@
               <i class="fa-solid fa-database text-amber-200 text-[9px]"></i>
               <span>Catálogo local</span>
             </button>
-            <button onclick="openAiGeneratorModal(true)" id="btn-ai-apu" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Buscar costos y llenar matriz con Google Search Grounding para el concepto seleccionado">
+            <button onclick="generarMatrizConceptoActivoGoogleIA()" id="btn-ai-apu" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Generar matriz en 1 clic con Google IA (Search Grounding en vivo)">
               <i class="fa-brands fa-google text-amber-300 text-[10px]"></i>
               <span>Google IA</span>
             </button>
@@ -1364,7 +1364,7 @@
           <button onclick="openLocalCatalogSelectorModal(true)" id="btn-modal-matriz-catalogo-local" class="bg-amber-600 hover:bg-amber-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95 cursor-pointer" title="Generar matriz APU usando catálogos locales para el concepto seleccionado">
             <i class="fa-solid fa-database text-xs text-amber-200"></i> Catálogo local
           </button>
-          <button onclick="openAiGeneratorModal(true)" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95 cursor-pointer" title="Buscar costos y llenar con Google Search Grounding para el concepto seleccionado">
+          <button onclick="generarMatrizConceptoActivoGoogleIA()" id="btn-ai-apu-max" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95 cursor-pointer" title="Generar matriz en 1 clic con Google IA (Search Grounding en vivo)">
             <i class="fa-brands fa-google text-amber-300 text-xs"></i> Google IA
           </button>
           <button onclick="openApuReferenceModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95" title="Buscar insumos en catálogos de referencia">

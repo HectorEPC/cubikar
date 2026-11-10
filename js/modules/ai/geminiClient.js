@@ -82,7 +82,143 @@ export async function testGeminiConnection() {
   }
 }
 
-// Generar matrices APU con Google IA para conceptos seleccionados con casilla
+/**
+ * Genera la matriz APU con Google IA en 1 SOLO CLIC para el concepto activo seleccionado.
+ * Sin abrir modales ni pedir claves al usuario: consulta el backend seguro en Vercel (/api/gemini-apu).
+ */
+export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null) {
+  const targetId = targetNodeId || state.activeSelectedId;
+  const node = targetId ? findNodeById(state.treeData, targetId) : null;
+
+  if (!node) {
+    showToast('Selecciona un concepto en el catálogo primero para generar su matriz con Google IA.', 'warning');
+    return false;
+  }
+
+  if (node.children && node.children.length > 0) {
+    showToast('Solo se puede generar matriz en conceptos individuales (hojas), no en partidas agrupadoras.', 'warning');
+    return false;
+  }
+
+  // Elementos de UI para feedback visual inmediato en 1 solo clic
+  const btnHeader = document.getElementById('btn-ai-apu');
+  const btnMax = document.getElementById('btn-ai-apu-max');
+  const originalHeaderHtml = btnHeader ? btnHeader.innerHTML : '';
+  const originalMaxHtml = btnMax ? btnMax.innerHTML : '';
+
+  const setLoadingState = (loading) => {
+    if (btnHeader) {
+      btnHeader.disabled = loading;
+      btnHeader.innerHTML = loading
+        ? '<i class="fa-solid fa-circle-notch fa-spin text-[10px] text-amber-300"></i> <span class="text-[8px]">Generando...</span>'
+        : originalHeaderHtml;
+    }
+    if (btnMax) {
+      btnMax.disabled = loading;
+      btnMax.innerHTML = loading
+        ? '<i class="fa-solid fa-circle-notch fa-spin text-xs text-amber-300"></i> Generando...'
+        : originalMaxHtml;
+    }
+  };
+
+  setLoadingState(true);
+  showToast(`Buscando cotizaciones y cuadrillas con Google IA para [${node.clave || ''}]...`, 'info');
+
+  const pathArr = getNodeHierarchyPath(state.treeData, node.id) || [];
+  const fullPath = pathArr.join('  >  ');
+  const fasarVal = state.settings?.pctFasar !== undefined ? Number(state.settings.pctFasar) : 70.0;
+  const fasarFactor = (fasarVal > 0 && fasarVal < 5.0) ? fasarVal : (1 + (fasarVal / 100));
+
+  try {
+    const payload = {
+      node: {
+        clave: node.clave || '',
+        descripcion: node.descripcion || '',
+        unidad: node.unidad || 'pza',
+        cantidad: node.cantidad || 1
+      },
+      fullPath,
+      fasarVal,
+      fasarFactor,
+      userApiKey: state.settings?.apiKey || ''
+    };
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (state.settings?.apiKey) {
+      headers['X-Gemini-Key'] = state.settings.apiKey;
+    }
+
+    const response = await fetch('/api/gemini-apu', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || `HTTP ${response.status}: Error al conectar con el servicio de IA`);
+    }
+
+    if (!Array.isArray(data.insumos) || data.insumos.length === 0) {
+      throw new Error('La IA no devolvió insumos utilizables para este concepto.');
+    }
+
+    // Guardar estado previo para Deshacer (Undo)
+    saveState();
+
+    // Integrar insumos y metadatos de Grounding
+    node.insumos = data.insumos;
+    node.googleSearchQueries = data.googleSearchQueries || [];
+    node.googleSources = data.googleSources || [];
+    node.aiTips = data.sugerencias || '';
+
+    // Recalcular costo directo y precio unitario con factor sobrecosto
+    const totalCD = round2(node.insumos.reduce((acc, ins) => acc + (round5(ins.cantidad || 0) * round2(ins.costoUnitario || 0)), 0));
+    const factorSobrecosto = getFactorSobrecosto();
+    const totalPU = round2(totalCD * factorSobrecosto);
+
+    node.costoDirecto = totalCD;
+    node.precioUnitario = totalPU;
+
+    persistLocalData();
+
+    // Actualizar vistas
+    renderAPUInsumos(node);
+    renderInsumosUnitarios(node);
+    renderTAB1();
+
+    showToast(`✅ ¡Matriz APU generada automáticamente con Google IA para [${node.clave || ''}]!`, 'success');
+    return true;
+  } catch (err) {
+    console.error('Error generando matriz con Google IA:', err);
+
+    // Fallback: Si el usuario tiene guardada una API Key local en el navegador, intentar llamada directa cliente
+    if (state.settings?.apiKey) {
+      try {
+        showToast('Reintentando consulta con API Key local...', 'info');
+        const fallbackRes = await queryGeminiSingleConcept(node, state.settings.apiKey);
+        if (fallbackRes.success) {
+          persistLocalData();
+          renderAPUInsumos(node);
+          renderInsumosUnitarios(node);
+          renderTAB1();
+          showToast(`✅ Matriz generada con Google Search Grounding`, 'success');
+          return true;
+        }
+      } catch (fbErr) {
+        console.warn('Fallback local no completado:', fbErr);
+      }
+    }
+
+    showToast(`Error al generar matriz con Google IA: ${err.message}`, 'error');
+    return false;
+  } finally {
+    setLoadingState(false);
+  }
+}
+
+// Generar matrices APU con Google IA para conceptos seleccionados con casilla (sin modal)
 export async function generarMatrizCasillasGoogleIA() {
   let selected = getSelectedLeafConcepts ? getSelectedLeafConcepts() : [];
   if (selected.length === 0 && state.activeSelectedId) {
@@ -100,7 +236,31 @@ export async function generarMatrizCasillasGoogleIA() {
     return;
   }
 
-  openAiGeneratorModal(false);
+  const btnToolbar = document.getElementById('btn-toolbar-google-ia');
+  const originalToolbarHtml = btnToolbar ? btnToolbar.innerHTML : '';
+  if (btnToolbar) {
+    btnToolbar.disabled = true;
+    btnToolbar.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-[10px] text-amber-200"></i> Generando...';
+  }
+
+  saveState();
+  let successCount = 0;
+
+  for (let i = 0; i < selected.length; i++) {
+    const concept = selected[i];
+    showToast(`Generando matriz (${i + 1}/${selected.length}) con Google IA: [${concept.clave || ''}]...`, 'info');
+    const ok = await generarMatrizConceptoActivoGoogleIA(concept.id);
+    if (ok) successCount++;
+  }
+
+  if (btnToolbar) {
+    btnToolbar.disabled = false;
+    btnToolbar.innerHTML = originalToolbarHtml;
+  }
+
+  if (successCount > 0) {
+    showToast(`✅ ${successCount} de ${selected.length} matrices generadas exitosamente con Google IA.`, 'success');
+  }
 }
 
 /**

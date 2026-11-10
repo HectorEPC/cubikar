@@ -157,7 +157,12 @@ import {
   selectInsumoBaseRow
 } from './modules/insumosGenerales/insumosView.js';
 
-import { testGeminiConnection, executeAiGeneration, generarMatrizCasillasGoogleIA } from './modules/ai/geminiClient.js';
+import {
+  testGeminiConnection,
+  executeAiGeneration,
+  generarMatrizCasillasGoogleIA,
+  generarMatrizConceptoActivoGoogleIA
+} from './modules/ai/geminiClient.js';
 import {
   executeLocalGeneration,
   openLocalCatalogSelectorModal,
@@ -677,6 +682,7 @@ Object.assign(window, {
   confirmAndExecuteLocalGeneration,
   generarMatrizCasillasLocal,
   generarMatrizCasillasGoogleIA,
+  generarMatrizConceptoActivoGoogleIA,
   getSelectedLeafConcepts,
 
   // Settings & Modals
