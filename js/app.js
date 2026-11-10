@@ -455,7 +455,8 @@ import {
   selectSubscriptionPlan,
   renderSubscriptionCards,
   updateSubscriptionBadgesUI,
-  getCurrentSubscription
+  getCurrentSubscription,
+  syncSubscriptionFromCloud
 } from './modules/portal/subscriptionModal.js';
 
 import {
@@ -508,6 +509,7 @@ Object.assign(window, {
   selectSubscriptionPlan,
   getCurrentSubscription,
   updateSubscriptionBadgesUI,
+  syncSubscriptionFromCloud,
   
   // Estimaciones de Obra
   renderEstimacionesView,
@@ -1063,7 +1065,19 @@ window.addEventListener('storage', (e) => {
 initThemeMode();
 try {
   initAuthListener((event, session, perfil) => {
-    if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+    if (session?.user) {
+      // Sincronizar membresía activa de Supabase Auth en segundo plano
+      try {
+        syncSubscriptionFromCloud(session.user.email).then(cloudSub => {
+          if (cloudSub) {
+            updateSubscriptionBadgesUI();
+            if (typeof refreshProjectsGridUI === 'function') {
+              refreshProjectsGridUI();
+            }
+          }
+        }).catch(() => {});
+      } catch (_) {}
+
       const workspaceContainer = document.getElementById('workspace-container');
       const isWorkspaceVisible = workspaceContainer && !workspaceContainer.classList.contains('hidden') && workspaceContainer.style.display !== 'none';
       if (!isWorkspaceVisible) {

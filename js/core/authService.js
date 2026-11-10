@@ -245,6 +245,12 @@ export function syncLocalUserSession(user, perfil, force = false) {
     saveRegisteredUserAccount(localUser);
     markSessionOpen(localUser.email || localUser);
     restoreUserCollaborationFromCloud(user);
+    if (typeof window !== 'undefined' && typeof window.updateSubscriptionBadgesUI === 'function') {
+      window.updateSubscriptionBadgesUI();
+    }
+    if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+      window.refreshProjectsGridUI();
+    }
     setTimeout(() => {
       autoSyncCollaborationOnStartup(user);
     }, 100);

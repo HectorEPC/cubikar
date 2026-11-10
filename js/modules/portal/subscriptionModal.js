@@ -220,6 +220,9 @@ export async function syncSubscriptionFromCloud(targetEmail = null) {
           user.subscription = resolved;
           saveCurrentUser(user);
           updateSubscriptionBadgesUI();
+          if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+            try { window.refreshProjectsGridUI(); } catch (_) {}
+          }
         }
         return resolved;
       }
@@ -327,6 +330,13 @@ export function updateSubscriptionBadgesUI() {
   if (headerActiveBadge) {
     headerActiveBadge.textContent = `Plan actual: ${plan.name}`;
   }
+
+  // Refrescar inmediatamente el indicador de membresía del portal (#mode-status-badge) y botón de nuevo proyecto
+  try {
+    if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+      window.refreshProjectsGridUI();
+    }
+  } catch (_) {}
 }
 
 function updateBillingCycleToggleUI() {
@@ -543,6 +553,9 @@ export function openSubscriptionModal() {
       if (cloudSub) {
         renderSubscriptionCards();
         updateSubscriptionBadgesUI();
+        if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+          try { window.refreshProjectsGridUI(); } catch (_) {}
+        }
       }
     }).catch(() => {});
   } catch (_) {}
@@ -555,6 +568,12 @@ export function closeSubscriptionModal() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
   }
+  try {
+    updateSubscriptionBadgesUI();
+    if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+      window.refreshProjectsGridUI();
+    }
+  } catch (_) {}
 }
 
 export function setSubscriptionBillingCycle(cycle) {
@@ -599,4 +618,13 @@ export function selectSubscriptionPlan(planId) {
     }
   } catch (_) {}
     showToast(`\u{2728} Suscripci\u{00F3}n actualizada al plan ${plan.name}`);
+}
+
+// Exponer funciones globales para sincronización unificada entre módulos
+if (typeof window !== 'undefined') {
+  window.getCurrentSubscription = getCurrentSubscription;
+  window.syncSubscriptionFromCloud = syncSubscriptionFromCloud;
+  window.updateSubscriptionBadgesUI = updateSubscriptionBadgesUI;
+  window.openSubscriptionModal = openSubscriptionModal;
+  window.closeSubscriptionModal = closeSubscriptionModal;
 }

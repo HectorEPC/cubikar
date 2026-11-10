@@ -63,7 +63,7 @@ import { persistLocalData, state, initStore } from '../../state/store.js';
 import { renderBrandingUI } from '../../ui/brandingController.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
 import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription } from './subscriptionModal.js';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js';
 import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js';
 import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js';
 import {
@@ -1193,7 +1193,9 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
   const allProjects = allProjectsList || getProjectsForUser(u);
   const inviters = invitersList || getWorkspaceInviters(u, allProjects);
 
-  const userPlanId = getUserPlanId(u);
+  // Obtener suscripción oficial priorizando el plan activo en modal/nube
+  const sub = (typeof getCurrentSubscription === 'function') ? getCurrentSubscription() : null;
+  const userPlanId = sub?.planId || getUserPlanId(u);
   const userPlanLimits = getPlanLimits(userPlanId);
   const ownedProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === uEmail);
   const ownedCount = ownedProjects.length;
@@ -1349,8 +1351,21 @@ export function renderPortalDashboard() {
   const userEmail = (user.email || '').toLowerCase().trim();
   const ownedCount = projects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === userEmail).length;
   const invitersList = getWorkspaceInviters(user, projects);
-  const userPlanId = getUserPlanId(user);
+  const sub = (typeof getCurrentSubscription === 'function') ? getCurrentSubscription() : null;
+  const userPlanId = sub?.planId || getUserPlanId(user);
   const userPlanLimits = getPlanLimits(userPlanId);
+
+  // Sincronizar membresía activa de Supabase Auth en segundo plano
+  try {
+    if (typeof syncSubscriptionFromCloud === 'function' && userEmail) {
+      syncSubscriptionFromCloud(userEmail).then(cloudSub => {
+        if (cloudSub) {
+          updateSubscriptionBadgesUI();
+          refreshProjectsGridUI();
+        }
+      }).catch(() => {});
+    }
+  } catch (_) {}
 
   main.innerHTML = `
     <!-- Header Section with KPIs -->
@@ -1874,7 +1889,8 @@ export function refreshProjectsGridUI() {
   const uEmail = (user?.email || '').toLowerCase().trim();
   const ownedProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === uEmail);
   const ownedCount = ownedProjects.length;
-  const userPlanId = getUserPlanId(user);
+  const sub = (typeof getCurrentSubscription === 'function') ? getCurrentSubscription() : null;
+  const userPlanId = sub?.planId || getUserPlanId(user);
   const userPlanLimits = getPlanLimits(userPlanId);
 
   // Sincronizar el selector de Modo / Espacio de Trabajo
@@ -4313,4 +4329,11 @@ export function simulateUserView(emailOrRole) {
     const tabNames = (mem.allowedTabs || []).map(t => TAB_METADATA[t]?.name).join(', ') || 'Ninguna pestaña';
     showToast(`🎭 Cambiado a vista de: ${mem.name} (Pestañas accesibles: ${tabNames})`, 'info');
   }
+}
+
+// Exponer utilidades del Portal a window para reactividad entre modales
+if (typeof window !== 'undefined') {
+  window.refreshProjectsGridUI = refreshProjectsGridUI;
+  window.renderModeStatusBadgeHTML = renderModeStatusBadgeHTML;
+  window.renderHeaderCreateButtonHTML = renderHeaderCreateButtonHTML;
 }

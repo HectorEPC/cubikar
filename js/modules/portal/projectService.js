@@ -544,11 +544,21 @@ export function saveCurrentUser(user) {
       // Sincronizar siempre con la suscripciÃ³n aislada del usuario
       if (cleanUserEmail && typeof localStorage !== 'undefined') {
         const subRaw = localStorage.getItem(`adm_const_subscription_${cleanUserEmail}`);
+        const PLAN_RANKS = { pro: 3, plus: 2, free: 1 };
         if (subRaw) {
           try {
             const parsedSub = JSON.parse(subRaw);
             if (parsedSub?.planId) {
-              if (user.subscription && user.subscription.updatedAt && parsedSub.updatedAt && new Date(user.subscription.updatedAt) > new Date(parsedSub.updatedAt)) {
+              const currentRank = PLAN_RANKS[user.subscription?.planId] || 1;
+              const parsedRank = PLAN_RANKS[parsedSub.planId] || 1;
+
+              if (currentRank > parsedRank) {
+                // El usuario en memoria posee un plan superior (ej. Plus o Pro recién sincronizado)
+                localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(user.subscription));
+              } else if (parsedRank > currentRank) {
+                // El almacenamiento local posee un plan superior
+                user.subscription = parsedSub;
+              } else if (user.subscription && user.subscription.updatedAt && parsedSub.updatedAt && new Date(user.subscription.updatedAt) > new Date(parsedSub.updatedAt)) {
                 localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(user.subscription));
               } else {
                 user.subscription = parsedSub;
@@ -564,9 +574,20 @@ export function saveCurrentUser(user) {
             user.subscription = proSub;
             localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(proSub));
           } else {
-            const initialFree = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
-            user.subscription = initialFree;
-            localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(initialFree));
+            // Verificar si hay suscripción global previa antes de asignar free
+            let existingGlobal = null;
+            try {
+              const gRaw = localStorage.getItem('adm_const_subscription');
+              if (gRaw) existingGlobal = JSON.parse(gRaw);
+            } catch (_) {}
+            if (existingGlobal?.planId && existingGlobal.planId !== 'free') {
+              user.subscription = existingGlobal;
+              localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(existingGlobal));
+            } else {
+              const initialFree = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
+              user.subscription = initialFree;
+              localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(initialFree));
+            }
           }
         }
       }
@@ -1842,6 +1863,18 @@ export function getUserPlanId(userOrEmail = null) {
     cleanEmail = (u?.email || '').toLowerCase().trim();
   }
 
+  // 1. Sincronizar directamente con getCurrentSubscription si está disponible para el usuario actual
+  const activeUser = getCurrentUser();
+  const activeEmail = (activeUser?.email || '').toLowerCase().trim();
+  if ((!cleanEmail || cleanEmail === activeEmail) && typeof window !== 'undefined' && typeof window.getCurrentSubscription === 'function') {
+    try {
+      const winSub = window.getCurrentSubscription();
+      if (winSub?.planId && winSub.planId !== 'free') {
+        return winSub.planId;
+      }
+    } catch (_) {}
+  }
+
   if (cleanEmail && typeof localStorage !== 'undefined') {
     try {
       const raw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
@@ -1860,6 +1893,20 @@ export function getUserPlanId(userOrEmail = null) {
 
   if (u && typeof u === 'object' && u?.subscription?.planId) {
     return u.subscription.planId;
+  }
+  if (activeUser?.subscription?.planId) {
+    return activeUser.subscription.planId;
+  }
+
+  // Clave global por compatibilidad heredada
+  if ((!cleanEmail || cleanEmail === activeEmail) && typeof localStorage !== 'undefined') {
+    try {
+      const globalRaw = localStorage.getItem('adm_const_subscription');
+      if (globalRaw) {
+        const parsedG = JSON.parse(globalRaw);
+        if (parsedG?.planId && parsedG.planId !== 'free') return parsedG.planId;
+      }
+    } catch (_) {}
   }
 
   if (cleanEmail) {
@@ -1988,7 +2035,16 @@ export function canUserCreateProject(user = null, targetScope = null) {
     return { allowed: true, planId: 'pro', maxProjects: Infinity, currentProjects: 0, isHostContext: false };
   }
 
-  const planId = getUserPlanId(u);
+  // Obtener plan del usuario, priorizando la membresía activa en memoria/modal
+  let planId = getUserPlanId(u);
+  if (typeof window !== 'undefined' && typeof window.getCurrentSubscription === 'function') {
+    try {
+      const activeSub = window.getCurrentSubscription();
+      if (activeSub?.planId && (!uEmail || uEmail === (getCurrentUser()?.email || '').toLowerCase().trim())) {
+        planId = activeSub.planId;
+      }
+    } catch (_) {}
+  }
   const limits = getPlanLimits(planId);
 
   // Contar los proyectos propios creados por este usuario
