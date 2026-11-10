@@ -80,6 +80,9 @@ export const SUBSCRIPTION_PLANS = [
     tagline: 'Para arquitectos, analistas de costos y constructoras en crecimiento.',
     monthlyPrice: 350,
     annualPrice: 280,
+    originalMonthlyPrice: 799,
+    originalAnnualPrice: 639,
+    discountBadge: '56% OFF',
     currency: 'MXN',
     periodLabel: '/ mes',
     icon: 'fa-solid fa-bolt',
@@ -110,6 +113,9 @@ export const SUBSCRIPTION_PLANS = [
     tagline: 'Potencia total sin límites para empresas constructoras y licitaciones.',
     monthlyPrice: 950,
     annualPrice: 760,
+    originalMonthlyPrice: 1799,
+    originalAnnualPrice: 1439,
+    discountBadge: '47% OFF',
     currency: 'MXN',
     periodLabel: '/ mes',
     icon: 'fa-solid fa-crown',
@@ -292,6 +298,8 @@ export function renderSubscriptionCards() {
   grid.innerHTML = SUBSCRIPTION_PLANS.map(plan => {
     const isCurrent = currentSub.planId === plan.id;
     const price = activeBillingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice;
+    const origPrice = activeBillingCycle === 'annual' ? plan.originalAnnualPrice : plan.originalMonthlyPrice;
+    const hasDiscount = Boolean(origPrice && origPrice > price);
     const annualTotal = plan.annualPrice * 12;
 
     // Estilos adaptativos según nivel de suscripción y modo visual (Día / Nocturno)
@@ -364,6 +372,15 @@ export function renderSubscriptionCards() {
                 </span>
               </div>
             </div>
+            ${hasDiscount ? `
+              <span class="text-[9.5px] font-black px-2 py-0.5 rounded-md ${
+                plan.id === 'pro'
+                  ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                  : 'bg-rose-500/15 text-rose-500 border border-rose-500/30'
+              } flex items-center gap-1 shadow-2xs shrink-0">
+                <i class="fa-solid fa-fire text-[9px]"></i> ${plan.discountBadge}
+              </span>
+            ` : ''}
           </div>
 
           <!-- Descripción corta -->
@@ -373,14 +390,34 @@ export function renderSubscriptionCards() {
 
           <!-- Bloque de Precio -->
           <div class="p-3.5 rounded-xl mb-4 border ${night ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200/80'}">
+            ${hasDiscount ? `
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <span class="text-xs font-semibold line-through text-slate-400">
+                  $${origPrice.toLocaleString('es-MX')} MXN
+                </span>
+                <span class="text-[9.5px] font-black px-1.5 py-0.5 rounded-sm bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                  Ahorras $${(origPrice - price).toLocaleString('es-MX')}${plan.periodLabel}
+                </span>
+              </div>
+            ` : ''}
             <div class="flex items-baseline gap-1">
-              <span class="text-2xl sm:text-3xl font-extrabold font-mono tracking-tight ${night ? 'text-white' : 'text-slate-900'}">
+              <span class="text-2xl sm:text-3xl font-extrabold font-mono tracking-tight ${
+                plan.id === 'pro'
+                  ? (night ? 'text-amber-400' : 'text-amber-600')
+                  : (plan.id === 'plus' ? (night ? 'text-blue-400' : 'text-blue-600') : (night ? 'text-white' : 'text-slate-900'))
+              }">
                 $${price.toLocaleString('es-MX')}
               </span>
               <span class="text-xs font-bold ${night ? 'text-slate-400' : 'text-slate-500'}">
                 ${plan.id === 'free' ? '' : plan.currency} ${plan.periodLabel}
               </span>
             </div>
+            ${hasDiscount ? `
+              <div class="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-500">
+                <i class="fa-solid fa-bolt text-[9px]"></i>
+                <span>Precio especial de lanzamiento • Congelado de por vida</span>
+              </div>
+            ` : ''}
             <p class="text-[10px] mt-1 font-medium ${night ? 'text-slate-400' : 'text-slate-500'}">
               ${billingSubtext}
             </p>
