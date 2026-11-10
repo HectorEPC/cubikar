@@ -84,9 +84,24 @@ export default async function handler(req, res) {
   }
 
   // 3. Obtener API Key de Gemini segura
-  // Prioridad 1: Variable de entorno privada de Vercel (GEMINI_API_KEY)
-  // Prioridad 2: Clave pasada en encabezado/cuerpo si el usuario tuviera una personalizada
-  const apiKey = (process.env.GEMINI_API_KEY || req.headers['x-gemini-key'] || req.body?.userApiKey || '').trim();
+  // Busca GEMINI_API_KEY o cualquier variante configurada en las variables de entorno de Vercel
+  let envKey = process.env.GEMINI_API_KEY ||
+               process.env['Gemini API Key'] ||
+               process.env['GEMINI API KEY'] ||
+               process.env.GEMINI_KEY ||
+               process.env.GOOGLE_API_KEY ||
+               process.env.GOOGLE_GEMINI_API_KEY;
+
+  if (!envKey) {
+    for (const [k, v] of Object.entries(process.env)) {
+      if (typeof v === 'string' && (v.startsWith('AIzaSy') || k.toLowerCase().includes('gemini'))) {
+        envKey = v;
+        break;
+      }
+    }
+  }
+
+  const apiKey = (envKey || req.headers['x-gemini-key'] || req.body?.userApiKey || '').trim();
 
   if (!apiKey) {
     return res.status(500).json({
