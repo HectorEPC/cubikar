@@ -27,6 +27,27 @@ export const PLAN_STORAGE_MB = {
 export function getWorkspacePlanInfo(ownerEmail) {
   const normEmail = (ownerEmail || '').toLowerCase().trim();
   try {
+    if (typeof localStorage !== 'undefined') {
+      const rawUser = localStorage.getItem(STORAGE_KEY_USER);
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        const uEmail = (u?.email || '').toLowerCase().trim();
+        if (uEmail && (!normEmail || uEmail === normEmail)) {
+          if (typeof window !== 'undefined' && typeof window.getCurrentSubscription === 'function') {
+            try {
+              const liveSub = window.getCurrentSubscription();
+              if (liveSub?.planId && PLAN_STORAGE_MB[liveSub.planId]) {
+                return PLAN_STORAGE_MB[liveSub.planId];
+              }
+            } catch (_) {}
+          }
+          if (u.subscription?.planId && PLAN_STORAGE_MB[u.subscription.planId]) {
+            return PLAN_STORAGE_MB[u.subscription.planId];
+          }
+        }
+      }
+    }
+
     if (normEmail && typeof localStorage !== 'undefined') {
       const rawUserSub = localStorage.getItem(`adm_const_subscription_${normEmail}`);
       if (rawUserSub) {
@@ -54,20 +75,11 @@ export function getWorkspacePlanInfo(ownerEmail) {
     }
 
     if (typeof localStorage !== 'undefined') {
-      const rawUser = localStorage.getItem(STORAGE_KEY_USER);
-      if (rawUser) {
-        const u = JSON.parse(rawUser);
-        if (u?.email && u.email.toLowerCase().trim() === normEmail) {
-          if (u.subscription?.planId && PLAN_STORAGE_MB[u.subscription.planId]) {
-            return PLAN_STORAGE_MB[u.subscription.planId];
-          }
-          const rawGlobalSub = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
-          if (rawGlobalSub) {
-            const parsed = JSON.parse(rawGlobalSub);
-            if (parsed?.planId && PLAN_STORAGE_MB[parsed.planId]) {
-              return PLAN_STORAGE_MB[parsed.planId];
-            }
-          }
+      const rawGlobalSub = localStorage.getItem(STORAGE_KEY_SUBSCRIPTION);
+      if (rawGlobalSub) {
+        const parsed = JSON.parse(rawGlobalSub);
+        if (!normEmail && parsed?.planId && PLAN_STORAGE_MB[parsed.planId]) {
+          return PLAN_STORAGE_MB[parsed.planId];
         }
       }
     }

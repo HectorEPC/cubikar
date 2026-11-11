@@ -3,7 +3,7 @@
 
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
 import { getCurrentUser, saveCurrentUser, markSessionOpen, saveRegisteredUserAccount } from '../modules/portal/projectService.js';
-import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup } from './collaborationCloudService.js';
+import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js';
 
 /**
  * Registro con Correo Electrónico y Contraseña
@@ -237,8 +237,9 @@ export function syncLocalUserSession(user, perfil, force = false) {
     avatar: rawAvatar || fallbackAvatar,
     role: perfil?.rol || 'admin',
     empresaId: perfil?.empresa_id || null,
-    plan: perfil?.empresas?.plan || 'free',
-    estadoSuscripcion: perfil?.empresas?.estado_suscripcion || 'trialing'
+    plan: userSub?.planId || perfil?.empresas?.plan || 'free',
+    estadoSuscripcion: perfil?.empresas?.estado_suscripcion || 'trialing',
+    user_metadata: user.user_metadata ? { ...user.user_metadata } : {}
   };
   saveCurrentUser(localUser);
   try {
@@ -271,12 +272,15 @@ export function initAuthListener(onAuthChangeCallback) {
   sb.auth.onAuthStateChange(async (event, session) => {
     console.info(`[Supabase Auth] Evento: ${event}`);
     if (session?.user) {
-      const isExplicitLogin = (event === 'SIGNED_IN' || event === 'USER_UPDATED');
+      const isInternalSync = (event === 'USER_UPDATED' && isRecentInternalCloudAuthUpdate());
+      const isExplicitLogin = (event === 'SIGNED_IN' || (event === 'USER_UPDATED' && !isInternalSync));
       const perfil = await fetchUserProfile(session.user.id);
       syncLocalUserSession(session.user, perfil, isExplicitLogin);
-      try {
-        autoSyncCollaborationOnStartup(session.user);
-      } catch (e) {}
+      if (!isInternalSync) {
+        try {
+          autoSyncCollaborationOnStartup(session.user);
+        } catch (e) {}
+      }
       if (onAuthChangeCallback) onAuthChangeCallback(event, session, perfil);
     } else {
       if (onAuthChangeCallback) onAuthChangeCallback(event, null, null);

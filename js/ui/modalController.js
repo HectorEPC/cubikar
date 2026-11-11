@@ -462,6 +462,11 @@ export function clearAllData() {
 export let activePresupuestoSubTab = 'cat';
 
 export function switchPresupuestoSubTab(subTab) {
+  if ((subTab === 'cat' || subTab === 'insumos') && typeof canCurrentUserAccessTab === 'function' && !canCurrentUserAccessTab(subTab)) {
+    const label = subTab === 'cat' ? 'Catálogo Base y APU' : 'Insumos Generales';
+    showToast(`🔒 No tienes permiso asignado para acceder a "${label}".`, 'warning');
+    return;
+  }
   activePresupuestoSubTab = subTab;
   const viewCat = document.getElementById('view-cat');
   const viewInsumos = document.getElementById('view-insumos');
@@ -496,19 +501,25 @@ export function switchTab(tab) {
   } else if (tab === 'insumos') {
     targetTab = 'presupuesto';
     targetSubTab = 'insumos';
+  } else if (tab === 'presupuesto' && typeof canCurrentUserAccessTab === 'function') {
+    // Si un colaborador invitado solo tiene permiso en Insumos (y no en Catálogo), abrir directo en Insumos
+    if (!canCurrentUserAccessTab('cat') && canCurrentUserAccessTab('insumos')) {
+      targetSubTab = 'insumos';
+    }
   }
 
-  if (typeof canCurrentUserAccessTab === 'function' && !canCurrentUserAccessTab(targetTab)) {
+  const accessCheckKey = targetSubTab || targetTab;
+  if (typeof canCurrentUserAccessTab === 'function' && !canCurrentUserAccessTab(accessCheckKey)) {
     const tabNames = {
       presupuesto: 'Presupuesto',
-      cat: 'Presupuesto',
-      insumos: 'Presupuesto',
+      cat: 'Catálogo Base y APU',
+      insumos: 'Insumos Generales',
       calendario: 'Calendario de Obra',
       estimaciones: 'Estimaciones de Obra',
       compras: 'Compras y Pagos',
       bitacora: 'Bitácora de Obra'
     };
-    showToast(`🔒 No tienes permiso asignado para acceder a la pestaña "${tabNames[targetTab] || targetTab}". Esta pestaña está restringida solo a los miembros autorizados por el administrador.`, 'warning');
+    showToast(`🔒 No tienes permiso asignado para acceder a la pestaña "${tabNames[accessCheckKey] || accessCheckKey}". Esta pestaña está restringida solo a los miembros autorizados por el administrador.`, 'warning');
     return;
   }
 
@@ -548,7 +559,11 @@ export function switchTab(tab) {
     if (targetSubTab) {
       switchPresupuestoSubTab(targetSubTab);
     } else {
-      switchPresupuestoSubTab(activePresupuestoSubTab || 'cat');
+      const preferred = activePresupuestoSubTab || 'cat';
+      const fallbackSub = (typeof canCurrentUserAccessTab === 'function' && !canCurrentUserAccessTab(preferred))
+        ? (canCurrentUserAccessTab('cat') ? 'cat' : 'insumos')
+        : preferred;
+      switchPresupuestoSubTab(fallbackSub);
     }
   } else if (tab === 'calendario') {
     if (viewCalendario) viewCalendario.classList.remove('hidden');

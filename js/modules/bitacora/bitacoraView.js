@@ -6,7 +6,12 @@
 import { state } from '../../state/store.js';
 import { showToast } from '../../ui/notifications.js';
 import { guardTabUnlocked, isTabLocked, toggleTabLock } from '../../ui/tabLockController.js';
-import { getCurrentUser } from '../portal/projectService.js';
+import { getCurrentUser, resolveWorkspacePlanContext } from '../portal/projectService.js';
+
+function isLegalBitacoraAllowed() {
+  const planId = resolveWorkspacePlanContext()?.planId || 'free';
+  return planId === 'plus' || planId === 'pro';
+}
 import { renderTabAssignedAvatars } from '../portal/portalController.js';
 import { formatDate } from '../calendario/calendarioModel.js';
 import { mountStorageMeter } from '../../services/storageQuotaService.js';
@@ -322,9 +327,10 @@ export function renderBitacoraView() {
               <span>Nueva Nota</span>
             </button>
 
-            <button type="button" onclick="downloadFullBitacoraBookAction()" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-98 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer" title="Compilar todas las notas asentadas en un libro oficial PDF">
+            <button type="button" onclick="downloadFullBitacoraBookAction()" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-98 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer" title="${isLegalBitacoraAllowed() ? 'Compilar todas las notas asentadas en un libro oficial PDF' : 'Disponible desde Plan Plus'}">
               <i class="fa-solid fa-book-open text-amber-400"></i>
               <span>Descargar Libro Completo de Bitácora (PDF Compilado)</span>
+              ${!isLegalBitacoraAllowed() ? '<i class="fa-solid fa-lock text-[10px] text-amber-400 ml-0.5"></i>' : ''}
             </button>
 
             ${summary.pendingCloudSyncCount > 0 ? `
@@ -629,9 +635,10 @@ function renderTimelineNoteCard(note) {
                 <i class="fa-solid fa-pen"></i>
                 <span>Editar Borrador</span>
               </button>
-              <button type="button" onclick="openSignBitacoraNoteModal('${note.id}')" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-extrabold shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+              <button type="button" onclick="openSignBitacoraNoteModal('${note.id}')" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-extrabold shadow-xs transition flex items-center gap-1.5 cursor-pointer" title="${isLegalBitacoraAllowed() ? 'Asentar e inmutabilizar nota con firma digital y folio legal' : 'Disponible desde Plan Plus'}">
                 <i class="fa-solid fa-signature"></i>
                 <span>Asentar y Firmar Nota</span>
+                ${!isLegalBitacoraAllowed() ? '<i class="fa-solid fa-lock text-[9px] text-amber-200"></i>' : ''}
               </button>
               <button type="button" onclick="deleteBitacoraDraftAction('${note.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer" title="Eliminar borrador">
                 <i class="fa-solid fa-trash-can"></i>
@@ -1169,6 +1176,11 @@ export function createFeDeErratasAction(sourceNoteId) {
 
 export function openSignBitacoraNoteModal(noteId) {
   if (!guardTabUnlocked('bitacora')) return;
+  if (!isLegalBitacoraAllowed()) {
+    showToast('🔒 La Firma Digital Legal e Inmutabilidad LOPSRM/BESOP está disponible desde el Plan Plus. Tu Plan Gratuita te permite registrar notas básicas de bitácora.', 'warning');
+    if (typeof window !== 'undefined') window.openSubscriptionModal?.();
+    return;
+  }
   const note = getBitacoraNoteById(noteId);
   if (!note) return;
   if (note.estado === 'sealed') {
@@ -1391,6 +1403,11 @@ export function clearBitacoraSignatureCanvas() {
 }
 
 export async function confirmAndSealBitacoraNoteAction() {
+  if (!isLegalBitacoraAllowed()) {
+    showToast('🔒 La Firma Digital Legal está disponible desde el Plan Plus.', 'warning');
+    if (typeof window !== 'undefined') window.openSubscriptionModal?.();
+    return;
+  }
   const note = getBitacoraNoteById(signingNoteId);
   if (!note || note.estado === 'sealed') return;
 
@@ -1525,6 +1542,11 @@ export async function openBitacoraPdfAction(noteId) {
 }
 
 export async function downloadFullBitacoraBookAction() {
+  if (!isLegalBitacoraAllowed()) {
+    showToast('🔒 La compilación del Libro Completo de Bitácora PDF foliado está disponible desde el Plan Plus.', 'warning');
+    if (typeof window !== 'undefined') window.openSubscriptionModal?.();
+    return;
+  }
   const notes = getBitacoraNotes();
   const sealedCount = notes.filter(n => n.estado === 'sealed').length;
   if (sealedCount === 0) {

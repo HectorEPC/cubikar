@@ -6,6 +6,7 @@ import { renderInsumosUnitarios } from '../apu/apuView.js';
 import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js';
 import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js';
 import { getProjectById, validateConceptAdditionLimit, countTreeConcepts } from '../portal/projectService.js';
+export { countTreeConcepts };
 import { getFactorSobrecosto, round2 } from '../../core/calculations.js';
 import { guardTabUnlocked } from '../../ui/tabLockController.js';
 

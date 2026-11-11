@@ -6,7 +6,7 @@ import { saveState } from '../../state/history.js';
 import { showToast } from '../../ui/notifications.js';
 import { getActiveProjectId, getStorageKey, getSettingsKey } from '../../config/constants.js';
 import { getProjectsList, getProjectById, getCurrentUser, getProjectsForUser } from '../portal/projectService.js';
-import { recalculateClaves } from './treeService.js';
+import { recalculateClaves, guardConceptLimit, countTreeConcepts } from './treeService.js';
 import { renderTAB1, selectRow } from './catalogView.js';
 import { getFactorSobrecosto, round2 } from '../../core/calculations.js';
 import { formatMoney, getCurrencySymbol } from '../../core/formatters.js';
@@ -377,13 +377,14 @@ export function quickCopyPasteSingleConcept(nodeId) {
   const found = flattened.find(i => i.node.id === nodeId);
   if (!found) return;
 
+  const clonedNode = JSON.parse(JSON.stringify(found.node));
+  renewNodeDeep(clonedNode);
+  if (!guardConceptLimit(Math.max(1, countTreeConcepts([clonedNode])))) return;
+
   saveState();
 
   const sourceProj = getProjectById(activeSourceProjectId);
   const sourceName = sourceProj ? sourceProj.projectName : 'Otro Proyecto';
-
-  const clonedNode = JSON.parse(JSON.stringify(found.node));
-  renewNodeDeep(clonedNode);
 
   // Ubicar destino
   let parentList = null;
@@ -425,6 +426,9 @@ export function importSelectedConceptsToCurrentProject() {
   const toImport = flattened.filter(i => selectedConceptIds.has(i.node.id));
 
   if (toImport.length === 0) return;
+
+  const incomingCount = countTreeConcepts(toImport.map(i => i.node)) || toImport.length;
+  if (!guardConceptLimit(incomingCount)) return;
 
   saveState();
 

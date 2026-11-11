@@ -87,7 +87,7 @@ export function resolveHostStorageContext(projectIdOverride = '') {
     'local@cubikar.app'
   ).trim().toLowerCase();
 
-  const rawPlanId = project?.ownerPlanId || getUserPlanId(ownerEmail) || getUserPlanId(user);
+  const rawPlanId = getUserPlanId(ownerEmail) || project?.ownerPlanId || getUserPlanId(user);
   const planId = normalizePlanId(rawPlanId);
   const spec = getPlanStorageSpec(planId);
 
@@ -163,7 +163,7 @@ export async function getHostStorageSummary({ projectId = '', forceRefresh = fal
     withTimeout(fetchLocalCatalogUsageBytes(ctx.ownerEmail), 1500, 0)
   ]);
 
-  const effectivePlanId = remote?.planId || ctx.planId;
+  const effectivePlanId = (ctx.planId && ctx.planId !== 'free') ? ctx.planId : (remote?.planId || ctx.planId);
   const spec = getPlanStorageSpec(effectivePlanId);
 
   const projectFilesBytes = (remote?.projectFilesBytes || 0) + (localMedia?.pendingBytes || 0);

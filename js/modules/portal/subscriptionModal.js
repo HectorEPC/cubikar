@@ -325,7 +325,8 @@ export function saveSubscription(planId, billingCycle = activeBillingCycle) {
   return payload;
 }
 
-export function updateSubscriptionBadgesUI() {
+export function updateSubscriptionBadgesUI(options = {}) {
+  const { refreshGrid = true } = options || {};
   if (typeof document === 'undefined') return;
   const sub = getCurrentSubscription();
   const plan = getPlanById(sub.planId);
@@ -353,11 +354,13 @@ export function updateSubscriptionBadgesUI() {
   }
 
   // Refrescar inmediatamente el indicador de membresía del portal (#mode-status-badge) y botón de nuevo proyecto
-  try {
-    if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
-      window.refreshProjectsGridUI();
-    }
-  } catch (_) {}
+  if (refreshGrid) {
+    try {
+      if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+        window.refreshProjectsGridUI();
+      }
+    } catch (_) {}
+  }
 }
 
 function updateBillingCycleToggleUI() {

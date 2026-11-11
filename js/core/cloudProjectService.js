@@ -317,7 +317,7 @@ export async function fetchCloudProjects() {
               email: user.email,
               avatar: user.avatar || '',
               role: 'editar',
-              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras']
+              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
             }
           ];
 
@@ -329,7 +329,7 @@ export async function fetchCloudProjects() {
         companyName: existingProj?.companyName || user.name || 'Mi Constructora',
         ownerEmail: existingProj?.ownerEmail || (cp.creado_por === user.id ? user.email : user.email),
         ownerName: existingProj?.ownerName || user.name || 'Anfitrión',
-        ownerPlanId: existingProj?.ownerPlanId || user.plan || 'free',
+        ownerPlanId: user.subscription?.planId || user.plan || existingProj?.ownerPlanId || 'free',
         projectLocation: cp.ubicacion || '',
         currency: cp.moneda || 'MXN',
         currencySymbol: cp.simbolo_moneda || '$',

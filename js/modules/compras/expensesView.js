@@ -37,6 +37,12 @@ import {
   printExpensesActiveReport
 } from './expensesExporter.js';
 import { renderTabAssignedAvatars } from '../portal/portalController.js';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js';
+
+function isAdvancedExpensesAllowed() {
+  const planId = resolveWorkspacePlanContext()?.planId || 'free';
+  return planId === 'plus' || planId === 'pro';
+}
 
 let activeExpensesSubTab = 'tablero'; // 'tablero' | 'bitacora' | 'comparativa'
 let expensesSearchTerm = '';
@@ -67,6 +73,11 @@ export function renderExpensesView() {
   const container = document.getElementById('view-compras');
   if (!container) return;
 
+  const advExpensesAllowed = isAdvancedExpensesAllowed();
+  if (!advExpensesAllowed && activeExpensesSubTab !== 'bitacora') {
+    activeExpensesSubTab = 'bitacora';
+  }
+
   const kpis = getExpensesKpiMetrics();
 
   container.innerHTML = `
@@ -76,17 +87,19 @@ export function renderExpensesView() {
       <div class="px-4 py-2.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
         <!-- Pestañas Internas Enmarcadas de Compras y Pagos -->
         <div class="inline-flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border-2 border-slate-300/90 shadow-xs">
-          <button onclick="switchExpensesSubTab('tablero')" id="subtab-btn-tablero" class="${getSubTabButtonClass('tablero')}">
+          <button onclick="switchExpensesSubTab('tablero')" id="subtab-btn-tablero" class="${getSubTabButtonClass('tablero')}${!advExpensesAllowed ? ' opacity-75' : ''}" title="${advExpensesAllowed ? 'Dashboard Financiero ERP' : 'Disponible desde Plan Plus'}">
             <i class="fa-solid fa-chart-pie text-xs ${activeExpensesSubTab === 'tablero' ? 'text-blue-600' : 'text-slate-500'}"></i>
             <span>Tablero Resumen (Dashboard)</span>
+            ${!advExpensesAllowed ? '<i class="fa-solid fa-lock text-[10px] text-amber-500"></i>' : ''}
           </button>
           <button onclick="switchExpensesSubTab('bitacora')" id="subtab-btn-bitacora" class="${getSubTabButtonClass('bitacora')}">
             <i class="fa-solid fa-receipt text-xs ${activeExpensesSubTab === 'bitacora' ? 'text-blue-600' : 'text-slate-500'}"></i>
-            <span>Bitácora de Egresos & Órdenes</span>
+            <span>${advExpensesAllowed ? 'Bitácora de Egresos & Órdenes' : 'Control de Gastos Básicos'}</span>
           </button>
-          <button onclick="switchExpensesSubTab('comparativa')" id="subtab-btn-comparativa" class="${getSubTabButtonClass('comparativa')}">
+          <button onclick="switchExpensesSubTab('comparativa')" id="subtab-btn-comparativa" class="${getSubTabButtonClass('comparativa')}${!advExpensesAllowed ? ' opacity-75' : ''}" title="${advExpensesAllowed ? 'Comparativa Presupuesto Base vs. Real' : 'Disponible desde Plan Plus'}">
             <i class="fa-solid fa-scale-balanced text-xs ${activeExpensesSubTab === 'comparativa' ? 'text-blue-600' : 'text-slate-500'}"></i>
             <span>Presupuesto Base vs. Real</span>
+            ${!advExpensesAllowed ? '<i class="fa-solid fa-lock text-[10px] text-amber-500"></i>' : ''}
           </button>
         </div>
 
@@ -187,6 +200,10 @@ export function printExpensesActiveReportAction() {
  * Agrupar todo en Compras y Pagos (Colapsar todas las categorías de comparativa)
  */
 export function agruparComprasAction() {
+  if (!isAdvancedExpensesAllowed()) {
+    switchExpensesSubTab('comparativa');
+    return;
+  }
   if (activeExpensesSubTab !== 'comparativa') {
     switchExpensesSubTab('comparativa');
   }
@@ -198,6 +215,10 @@ export function agruparComprasAction() {
  * Desagrupar todo en Compras y Pagos (Expandir todas las categorías de comparativa)
  */
 export function desagruparComprasAction() {
+  if (!isAdvancedExpensesAllowed()) {
+    switchExpensesSubTab('comparativa');
+    return;
+  }
   if (activeExpensesSubTab !== 'comparativa') {
     switchExpensesSubTab('comparativa');
   }
@@ -209,7 +230,16 @@ export function desagruparComprasAction() {
  * Cambiar entre sub-pestañas internas
  */
 export function switchExpensesSubTab(subTab) {
-  activeExpensesSubTab = subTab;
+  const validTabs = ['tablero', 'bitacora', 'comparativa'];
+  const normalizedTab = validTabs.includes(subTab)
+    ? subTab
+    : (isAdvancedExpensesAllowed() ? 'tablero' : 'bitacora');
+  if ((normalizedTab === 'tablero' || normalizedTab === 'comparativa') && !isAdvancedExpensesAllowed()) {
+    showToast('🔒 El Dashboard Financiero ERP y la Comparativa Presupuesto vs. Real están disponibles desde el Plan Plus. Tu Plan Gratuita incluye Control de Gastos básicos.', 'warning');
+    if (typeof window !== 'undefined') window.openSubscriptionModal?.();
+    return;
+  }
+  activeExpensesSubTab = normalizedTab;
   const container = document.getElementById('expenses-subview-container');
   if (container) {
     const kpis = getExpensesKpiMetrics();
@@ -241,7 +271,7 @@ function renderActiveExpensesSubView(subTab, kpis) {
   } else if (subTab === 'comparativa') {
     return renderComparativaInsumosView();
   }
-  return '';
+  return isAdvancedExpensesAllowed() ? renderTableroDashboardView(kpis) : renderBitacoraEgresosView();
 }
 
 /**

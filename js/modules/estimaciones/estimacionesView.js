@@ -267,7 +267,7 @@ function renderEstimacionesTfootContentHTML(kpis, currencySymbol) {
               <td colspan="3" class="py-2.5 px-2 text-right font-mono bg-white border-l-2 border-slate-200 text-rose-700 whitespace-nowrap">
                 <div class="leading-tight">
                   <span class="text-[9.5px] font-bold uppercase block text-rose-600" title="Amortización de Anticipo:">Amortización en Esta Estimación:</span>
-                  <span class="text-[11px] font-black">-${formatCurrency(kpis.anticipo.amortizacionEsta, currencySymbol)}</span>
+                  <span class="text-[11px] font-black">${kpis.anticipo.amortizacionEsta > 0 ? '-' : ''}${formatCurrency(kpis.anticipo.amortizacionEsta, currencySymbol)}</span>
                 </div>
               </td>
               
@@ -478,7 +478,7 @@ export function renderEstimacionesView() {
                        step="any" 
                        value="${kpis.anticipo.pct}" 
                        onchange="onEstimacionesAnticipoInput(this.value)" 
-                       class="w-10 text-center font-mono font-bold text-xs text-amber-800 bg-slate-50 border border-slate-200 hover:border-amber-400 focus:bg-white focus:border-amber-500 rounded px-1 py-0.5 outline-none cursor-text transition disabled:opacity-60 disabled:cursor-not-allowed">
+                       class="w-14 text-center font-mono font-bold text-xs text-amber-800 bg-slate-50 border border-slate-200 hover:border-amber-400 focus:bg-white focus:border-amber-500 rounded px-1 py-0.5 outline-none cursor-text transition disabled:opacity-60 disabled:cursor-not-allowed">
                 <span class="font-bold text-slate-600">%</span>
                 <span class="text-[10px] text-slate-500 font-mono font-bold ml-0.5">
                   (${formatCurrency(kpis.anticipo.totalContratado, currencySymbol)})
@@ -499,7 +499,7 @@ export function renderEstimacionesView() {
                        step="any" 
                        value="${kpis.iva.pct}" 
                        onchange="onEstimacionesIvaInput(this.value)" 
-                       class="w-10 text-center font-mono font-bold text-xs text-blue-800 bg-slate-50 border border-slate-200 hover:border-blue-400 focus:bg-white focus:border-blue-500 rounded px-1 py-0.5 outline-none cursor-text transition disabled:opacity-60 disabled:cursor-not-allowed"
+                       class="w-14 text-center font-mono font-bold text-xs text-blue-800 bg-slate-50 border border-slate-200 hover:border-blue-400 focus:bg-white focus:border-blue-500 rounded px-1 py-0.5 outline-none cursor-text transition disabled:opacity-60 disabled:cursor-not-allowed"
                        title="Porcentaje de IVA aplicable a la estimación">
                 <span class="font-bold text-slate-600">%</span>
                 <span class="text-[10px] text-slate-500 font-mono font-bold ml-0.5" title="IVA del presupuesto base: ${formatCurrency(kpis.iva.totalContratado, currencySymbol)}">

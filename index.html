@@ -7,6 +7,7 @@
   <title>cubikar — Control de Obra & Precios Unitarios (APU)</title>
   <link rel="icon" type="image/png" href="assets/branding/cubikar_icon_transparent.png?v=4">
   <link rel="shortcut icon" href="favicon.ico?v=4">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="js/vendor/xlsx.full.min.js"></script>
@@ -49,7 +50,7 @@
         <!-- Navigation & Action Links -->
         <div class="flex items-center space-x-3">
           <!-- Quick Notifications (Menciones del Chat de Obra en todos los proyectos) -->
-          <div class="relative flex items-center" id="portal-notifications-wrapper">
+          <div class="hidden relative flex items-center" id="portal-notifications-wrapper">
             <button type="button" id="btn-portal-notifications" onclick="toggleMentionNotificationsPopover(event)"
                     class="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition cursor-pointer group"
                     title="Notificaciones de menciones (@Usuario) en el Chat de Obra">

@@ -674,10 +674,17 @@ export function getProjectsList() {
         if (p.projectLocation) p.projectLocation = cleanMojibake(p.projectLocation);
         if (p.tipoObra) p.tipoObra = cleanMojibake(p.tipoObra);
         if (Array.isArray(p.members)) {
+          const pOwnerEmail = (p.ownerEmail || '').toLowerCase().trim();
+          const fullTabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
           p.members.forEach(m => {
-            if (!Array.isArray(m.allowedTabs)) {
+            const mEmail = (m.email || '').toLowerCase().trim();
+            if (pOwnerEmail && mEmail === pOwnerEmail) {
+              // Garantizar que el dueño de la obra siempre conserve las 6 pestañas completas
+              m.role = 'editar';
+              m.allowedTabs = [...fullTabs];
+            } else if (!Array.isArray(m.allowedTabs)) {
               if (m.role === 'editar') {
-                m.allowedTabs = ['cat', 'insumos', 'calendario', 'estimaciones'];
+                m.allowedTabs = [...fullTabs];
               } else if (m.email && m.email.includes('mariana')) {
                 m.allowedTabs = ['insumos', 'estimaciones'];
               } else if (m.email && m.email.includes('roberto')) {
@@ -697,7 +704,7 @@ export function getProjectsList() {
               email: (currentUser && currentUser.email) || 'admin@constructora.com',
               avatar: (currentUser && currentUser.avatar) || AVATARS_BY_SEX['Masculino'],
               role: 'editar',
-              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones']
+              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
             },
             {
               id: 'mem-colab-01',
@@ -1048,7 +1055,7 @@ export function createNewProject(params) {
             email: cEmail,
             avatar: collab.avatar || AVATARS_BY_SEX['Masculino'],
             role: collab.role || 'editar',
-            allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones'],
+            allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
             status: collab.status || 'active'
           });
         }
@@ -1076,7 +1083,7 @@ export function createNewProject(params) {
             email: cEmail,
             avatar: collab.avatar || AVATARS_BY_SEX['Masculino'],
             role: collab.role || 'editar',
-            allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones'],
+            allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
             status: collab.status || 'active'
           });
         }
@@ -1120,6 +1127,19 @@ export function createNewProject(params) {
 export function duplicateProject(projectId) {
   const orig = getProjectById(projectId);
   if (!orig) return null;
+
+  const u = getCurrentUser();
+  const uEmail = (u?.email || '').toLowerCase().trim();
+  const origOwner = (orig.ownerEmail || '').toLowerCase().trim();
+  const targetScope = (origOwner && uEmail && origOwner !== uEmail) ? `owner:${origOwner}` : null;
+  const createCheck = canUserCreateProject(u, targetScope);
+  if (!createCheck.allowed) {
+    if (typeof window !== 'undefined') {
+      window.showToast?.(`🔒 ${createCheck.reason}`, 'warning');
+      window.openSubscriptionModal?.();
+    }
+    return null;
+  }
 
   let origSettings = defaultSettings;
   let origTree = [];
@@ -1190,7 +1210,7 @@ export function addProjectMember(projectId, memberData) {
     email: memberData.email.trim(),
     avatar: memberData.avatar || AVATARS_BY_SEX['Masculino'],
     role: memberData.role || 'editar', // 'editar', 'escribir', 'leer'
-    allowedTabs: Array.isArray(memberData.allowedTabs) ? memberData.allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones']
+    allowedTabs: Array.isArray(memberData.allowedTabs) ? memberData.allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
   };
 
   if (existingIdx >= 0) {
@@ -1263,7 +1283,7 @@ export function setTabAssignedMembers(projectId, tabId, memberIds) {
   const idSet = new Set(memberIds);
   proj.members.forEach(m => {
     if (!Array.isArray(m.allowedTabs)) {
-      m.allowedTabs = ['cat', 'insumos', 'calendario', 'estimaciones'];
+      m.allowedTabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
     }
     if (idSet.has(m.id)) {
       if (!m.allowedTabs.includes(tabId)) {
@@ -1455,7 +1475,7 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
     email: emailClean,
     name: (name || emailClean.split('@')[0]).trim(),
     role: role || 'editar',
-    allowedTabs: Array.isArray(allowedTabs) ? allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones'],
+    allowedTabs: Array.isArray(allowedTabs) ? allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
     invitedBy: invitedBy ? {
       name: invitedBy.name || 'Administrador',
       email: invitedBy.email || ''
@@ -1621,7 +1641,7 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
           email: targetInv.email || userEmail,
           avatar: user?.avatar || AVATARS_BY_SEX['Masculino'],
           role: targetInv.role || 'editar',
-          allowedTabs: targetInv.allowedTabs || ['cat', 'insumos', 'calendario', 'estimaciones'],
+          allowedTabs: targetInv.allowedTabs || ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
           status: 'active'
         });
       }
@@ -1684,7 +1704,7 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
           email: userEmail,
           avatar: user?.avatar || AVATARS_BY_SEX['Masculino'],
           role: targetPlanInv.role || 'editar',
-          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones'],
+          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
           status: 'active'
         });
       }
@@ -2498,7 +2518,7 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
           email: cleanEmail,
           avatar: newInv.avatar,
           role: newInv.role,
-          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones'],
+          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
           status: 'pending'
         });
         modifiedProjects = true;
@@ -2527,7 +2547,7 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
           email: cleanEmail,
           name: newInv.name,
           role: newInv.role,
-          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones'],
+          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
           status: 'pending',
           createdAt: new Date().toISOString()
         };

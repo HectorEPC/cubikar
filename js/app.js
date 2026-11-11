@@ -65,7 +65,8 @@ import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalR
 import { hydrateProjectModulesFromCloud } from './core/cloudModulesSyncService.js';
 import { syncPendingMediaUploads } from './services/s3StorageService.js';
 import { initAuthListener } from './core/authService.js';
-import './core/collaborationCloudService.js';
+import { isRecentInternalCloudAuthUpdate } from './core/collaborationCloudService.js';
+import { getCurrentUser } from './modules/portal/projectService.js';
 
 import {
   renderExpensesView,
@@ -1171,32 +1172,45 @@ initThemeMode();
 try {
   initAuthListener((event, session, perfil) => {
     if (session?.user) {
+      const isInternalSync = (event === 'USER_UPDATED' && isRecentInternalCloudAuthUpdate());
+      const prevPlanId = getCurrentSubscription()?.planId || null;
       // Sincronizar membresía activa de Supabase Auth en segundo plano
       try {
         syncSubscriptionFromCloud(session.user.email).then(cloudSub => {
           if (cloudSub) {
-            updateSubscriptionBadgesUI();
-            if (typeof refreshProjectsGridUI === 'function') {
+            const didPlanChange = cloudSub.planId && cloudSub.planId !== prevPlanId;
+            updateSubscriptionBadgesUI({ refreshGrid: false });
+            if (didPlanChange && typeof refreshProjectsGridUI === 'function') {
               refreshProjectsGridUI();
             }
           }
         }).catch(() => {});
       } catch (_) {}
 
+      const currentUser = getCurrentUser();
       const workspaceContainer = document.getElementById('workspace-container');
       const isWorkspaceVisible = workspaceContainer && !workspaceContainer.classList.contains('hidden') && workspaceContainer.style.display !== 'none';
       if (!isWorkspaceVisible) {
-        showPortalView('dashboard');
+        const portalGridExists = !!document.getElementById('portal-projects-grid');
+        const currentMenuEmail = document.getElementById('portal-user-menu-wrapper')?.dataset?.userEmail || '';
+        const incomingEmail = (session.user.email || '').toLowerCase().trim();
+        if (portalGridExists && currentMenuEmail === incomingEmail && (isInternalSync || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION')) {
+          updatePortalHeaderUserArea(currentUser || session.user);
+        } else {
+          showPortalView('dashboard');
+        }
       } else {
-        try { updateWorkspaceHeaderUser(perfil || session.user); } catch (_) {}
+        try { updateWorkspaceHeaderUser(currentUser || session.user); } catch (_) {}
       }
       try { renderSidebarNotificationsUI(); } catch (_) {}
-      try { initGlobalRealtimeSync(); requestPeerSync(); } catch (_) {}
-      try {
-        if (typeof window !== 'undefined' && typeof window.autoSyncCollaborationOnStartup === 'function') {
-          window.autoSyncCollaborationOnStartup(session.user);
-        }
-      } catch (_) {}
+      if (!isInternalSync) {
+        try { initGlobalRealtimeSync(); requestPeerSync(); } catch (_) {}
+        try {
+          if (typeof window !== 'undefined' && typeof window.autoSyncCollaborationOnStartup === 'function') {
+            window.autoSyncCollaborationOnStartup(session.user);
+          }
+        } catch (_) {}
+      }
 
       if (typeof window !== 'undefined' && window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery'))) {
         window.history.replaceState(null, document.title, window.location.pathname + window.location.search);

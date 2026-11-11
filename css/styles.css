@@ -806,3 +806,44 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
 #universal-import-modal {
   z-index: 100000 !important;
 }
+
+/* Estabilidad visual antes de Tailwind CDN y durante la carga de FontAwesome */
+.hidden {
+  display: none;
+}
+
+i.fa-solid,
+i.fa-regular,
+i.fa-brands {
+  display: inline-block;
+  min-width: 1em;
+  text-align: center;
+}
+
+@keyframes cubikarFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cubikarZoomIn95 {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-in.fade-in {
+  animation: cubikarFadeIn 120ms ease-out both;
+}
+
+.animate-in.fade-in.zoom-in-95 {
+  animation: cubikarZoomIn95 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}

@@ -161,7 +161,7 @@ export default async function handler(req, res) {
           const uJson = await uRes.json();
           verifiedUserId = uJson?.id || null;
           verifiedUserEmail = String(uJson?.email || '').toLowerCase().trim();
-          const metaPlan = uJson?.user_metadata?.subscription?.planId;
+          const metaPlan = uJson?.user_metadata?.subscription?.planId || uJson?.user_metadata?.cubikar_cloud_state_v2?.subscription?.planId;
           verifiedPlanId = normalizePlan(metaPlan || (serviceRoleKey ? 'free' : (body.planId || 'free')));
         }
       } catch (_) {}
@@ -186,8 +186,11 @@ export default async function handler(req, res) {
         );
         if (perfRes.ok) {
           const perfRows = await perfRes.json();
-          const dbPlan = perfRows?.[0]?.empresas?.plan;
-          if (dbPlan) verifiedPlanId = normalizePlan(dbPlan);
+          const dbPlan = perfRows?.[0]?.empresas?.plan ? normalizePlan(perfRows[0].empresas.plan) : '';
+          // No degradar a 'free' si user_metadata ya registra una suscripción pagada (plus/pro) aún no sincronizada en empresas.plan
+          if (dbPlan && (dbPlan !== 'free' || verifiedPlanId === 'free')) {
+            verifiedPlanId = dbPlan;
+          }
         }
 
         const reqOwnerEmail = String(body.ownerEmail || '').toLowerCase().trim();
@@ -208,9 +211,20 @@ export default async function handler(req, res) {
             const ownerRows = ownerPerfRes.ok ? await ownerPerfRes.json() : [];
             if (ownerRows?.[0]?.id) {
               quotaUserId = ownerRows[0].id;
-              if (ownerRows[0]?.empresas?.plan) {
-                verifiedPlanId = normalizePlan(ownerRows[0].empresas.plan);
+              let ownerPlan = ownerRows[0]?.empresas?.plan ? normalizePlan(ownerRows[0].empresas.plan) : 'free';
+              if (ownerPlan === 'free') {
+                try {
+                  const admRes = await fetch(`${sbUrl}/auth/v1/admin/users/${encodeURIComponent(ownerRows[0].id)}`, {
+                    headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` }
+                  });
+                  if (admRes.ok) {
+                    const admUser = await admRes.json();
+                    const ownerMetaPlan = admUser?.user_metadata?.subscription?.planId || admUser?.user_metadata?.cubikar_cloud_state_v2?.subscription?.planId;
+                    if (ownerMetaPlan) ownerPlan = normalizePlan(ownerMetaPlan);
+                  }
+                } catch (_) {}
               }
+              verifiedPlanId = ownerPlan;
             }
           }
         }

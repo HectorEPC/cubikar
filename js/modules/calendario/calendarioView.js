@@ -1,5 +1,6 @@
 import { printCalendarioObraFormat } from '../io/printService.js';
 import { renderTabAssignedAvatars } from '../portal/portalController.js';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js';
 // js/modules/calendario/calendarioView.js
 // Renderizador y controlador de la pestaña CALENDARIO DE OBRA
 // Diseño ejecutivo de alta fidelidad, interactivo y sincronizado 100% con Catálogo Base
@@ -175,7 +176,9 @@ export function renderCalendarioObra() {
   const partidasList = scheduleData.items.filter(it => it.level === 1 && it.isParent);
   const allConcepts = scheduleData.items.filter(it => it.tipo === 'concepto');
   const criticalConceptsCount = allConcepts.filter(it => it.isCritical).length;
-  const showCpm = cfg.showCriticalPath !== false;
+  const advCalAllowed = isAdvancedCalendarioAllowed();
+  const effectiveViewMode = advCalAllowed ? cfg.viewMode : 'gantt';
+  const showCpm = advCalAllowed && (cfg.showCriticalPath !== false);
   const canUndo = hasScheduleUndoSnapshot();
   const canRedo = hasScheduleRedoSnapshot();
   const pendingPredConcept = pendingLinkPredecessorId
@@ -195,13 +198,13 @@ export function renderCalendarioObra() {
         <div class="flex items-center gap-1.5 shrink-0 flex-nowrap">
           <!-- 1, 2, 3. Selector de Modo de Vista: Diagrama Gantt, Programa Financiero, Curva "S" y Flujo -->
           <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-300 shadow-2xs shrink-0">
-            <button type="button" onclick="setCalendarioViewMode('gantt')" class="px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${cfg.viewMode === 'gantt' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}">
+            <button type="button" onclick="setCalendarioViewMode('gantt')" class="px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${effectiveViewMode === 'gantt' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}">
               <i class="fa-solid fa-chart-gantt ${cfg.viewMode === 'gantt' ? 'text-white' : 'text-blue-600'}"></i> <span>Diagrama Gantt</span>
             </button>
-            <button type="button" onclick="setCalendarioViewMode('financiero')" class="px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${cfg.viewMode === 'financiero' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}">
+            <button type="button" onclick="setCalendarioViewMode('financiero')" class="px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${effectiveViewMode === 'financiero' ? 'bg-blue-600 text-white shadow-xs' : (!advCalAllowed ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100')}" title="${advCalAllowed ? 'Programa Financiero de Obra' : 'Disponible desde Plan Plus'}">
               <i class="fa-solid fa-table-columns ${cfg.viewMode === 'financiero' ? 'text-white' : 'text-blue-600'}"></i> <span>Programa Financiero</span>
             </button>
-            <button type="button" onclick="setCalendarioViewMode('curva_s')" class="px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${cfg.viewMode === 'curva_s' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}">
+            <button type="button" onclick="setCalendarioViewMode('curva_s')" class="px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${effectiveViewMode === 'curva_s' ? 'bg-blue-600 text-white shadow-xs' : (!advCalAllowed ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100')}" title="${advCalAllowed ? 'Curva S de Inversión Acumulada' : 'Disponible desde Plan Plus'}">
               <i class="fa-solid fa-chart-line ${cfg.viewMode === 'curva_s' ? 'text-white' : 'text-blue-600'}"></i> <span>Curva "S" y Flujo</span>
             </button>
           </div>
@@ -388,7 +391,7 @@ export function renderCalendarioObra() {
 
       <!-- 3. ÁREA DE VISUALIZACIÓN DINÁMICA (Diagrama Gantt / Financiero / Curva S) -->
       <div class="bg-white overflow-hidden flex-1 flex flex-col relative min-h-[380px]" id="calendario-main-content">
-        ${renderActiveCalendarioView(cfg.viewMode, visibleItems, periods, scheduleData, currencySymbol, minDate, maxDate)}
+        ${renderActiveCalendarioView(isAdvancedCalendarioAllowed() ? cfg.viewMode : 'gantt', visibleItems, periods, scheduleData, currencySymbol, minDate, maxDate)}
       </div>
 
     </div>
@@ -433,7 +436,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
   const cfg = getScheduleSettings();
   const isJustifyConcepts = Boolean(cfg.justifyConcepts);
   const savedPanelWidth = cfg.panelWidth || parseInt(localStorage.getItem('calendario_gantt_split_w'), 10) || 510;
-  const showCpm = true;
+  const showCpm = isAdvancedCalendarioAllowed() && (cfg.showCriticalPath !== false);
   const allItemsSource = currentScheduleData?.items || items;
   const allConceptItems = allItemsSource.filter(it => it.tipo === 'concepto');
   const conceptById = new Map();
@@ -577,7 +580,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                             title="${item.expanded ? 'Agrupar partida (colapsar)' : 'Desagrupar partida (expandir)'}">
                       <i class="fa-solid fa-chevron-${item.expanded ? 'down' : 'right'} text-[10px]"></i>
                     </button>
-                    <span class="w-12 text-blue-700 font-mono text-[11px] font-bold shrink-0 truncate">${item.clave || 'PART'}</span>
+                    <span class="w-12 mr-1.5 text-blue-700 font-mono text-[11px] font-bold shrink-0 truncate">${item.clave || 'PART'}</span>
                     <span class="${isJustifyConcepts ? 'whitespace-normal break-words text-justify leading-snug' : 'truncate'} font-sans ${isLevel1 ? 'uppercase text-xs tracking-wide font-extrabold text-slate-900' : 'text-xs font-bold text-slate-800'}">${item.descripcion}</span>
                     ${isLevel1 ? `<span class="ml-1.5 shrink-0">${renderPartidaNivel1ChatButton(item.id, item.clave, item.descripcion)}</span>` : ''}
                     ${!item.expanded ? `<span class="ml-1.5 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[9px] font-mono border border-blue-200 shrink-0 font-normal">Agrupado (${item.descendantConceptCount})</span>` : ''}
@@ -634,7 +637,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                 <div data-gantt-left-row="${item.id}" onclick="selectCalendarioRow('${item.id}', event)" onfocusin="selectCalendarioRow('${item.id}', event)" class="${isJustifyConcepts ? 'min-h-[40px]' : 'h-10'} py-1.5 px-2 ${item.rowBgColor ? '' : (isCrit ? 'bg-rose-50/35 hover:bg-rose-50/65' : 'bg-white hover:bg-slate-50')} ${isSelectedRow ? 'selected-row' : ''} flex items-center justify-between group cursor-pointer transition select-none" style="padding-left: ${indentPx}px; ${isJustifyConcepts ? `min-height: ${rowH}px;` : ''} ${item.rowBgColor ? `background-color: ${item.rowBgColor};` : ''}">
                   <div class="flex items-center min-w-0 flex-1 mr-1.5">
                     <span class="w-2 h-2 rounded-full mr-1.5 shrink-0 border" style="background-color: ${dotHex}44; border-color: ${dotHex};"></span>
-                    <span class="w-13 font-mono ${isCrit ? 'text-rose-700 font-bold' : 'text-blue-700 font-semibold'} truncate text-[11px] shrink-0" title="${item.clave}">${item.clave}</span>
+                    <span class="w-14 mr-1.5 font-mono ${isCrit ? 'text-rose-700 font-bold' : 'text-blue-700 font-semibold'} truncate text-[11px] shrink-0" title="${item.clave}">${item.clave}</span>
                     <div class="min-w-0 flex-1 font-sans">
                       <span class="block ${isJustifyConcepts ? 'whitespace-normal break-words text-justify leading-snug' : 'truncate'} text-slate-800 text-xs font-medium" title="${item.descripcion}">${item.descripcion}</span>
                       <span class="text-[10px] text-slate-500 font-mono truncate block">${formatNumber(item.cantidad, 2)} ${item.unidad} • ${formatCurrency(item.importe, currencySymbol)}</span>
@@ -1589,7 +1592,17 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
 // CONTROLADORES DE EVENTOS DE USUARIO
 // ==========================================
 
+function isAdvancedCalendarioAllowed() {
+  const planId = resolveWorkspacePlanContext()?.planId || 'free';
+  return planId === 'plus' || planId === 'pro';
+}
+
 export function setCalendarioViewMode(mode) {
+  if ((mode === 'financiero' || mode === 'curva_s') && !isAdvancedCalendarioAllowed()) {
+    showToast('🔒 El Programa Financiero y la Curva "S" están disponibles desde el Plan Plus. Tu Plan Gratuita incluye el Diagrama de Gantt básico.', 'warning');
+    if (typeof window !== 'undefined') window.openSubscriptionModal?.();
+    return;
+  }
   saveScheduleSettings({ viewMode: mode });
   renderCalendarioObra();
 }
@@ -3317,6 +3330,11 @@ export function saveCalendarioJornadaModal() {
 // ============================================================
 
 export function toggleCalendarioCriticalPath() {
+  if (!isAdvancedCalendarioAllowed()) {
+    showToast('🔒 El análisis de Ruta Crítica (CPM) está disponible desde el Plan Plus. Tu Plan Gratuita incluye el Diagrama de Gantt básico.', 'warning');
+    if (typeof window !== 'undefined') window.openSubscriptionModal?.();
+    return;
+  }
   const cfg = getScheduleSettings();
   const nextVal = !(cfg.showCriticalPath !== false);
   saveScheduleSettings({ showCriticalPath: nextVal });

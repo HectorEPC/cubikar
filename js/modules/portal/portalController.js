@@ -71,7 +71,8 @@ import {
   signInWithPassword,
   signInWithGoogle,
   signOut,
-  resetPasswordForEmail
+  resetPasswordForEmail,
+  fetchUserProfile
 } from '../../core/authService.js';
 import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js';
 import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js';
@@ -272,9 +273,10 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
         </button>
 
         <!-- Separador -->
-        <div class="relative flex items-center justify-center my-4">
-          <div class="border-t border-slate-200 w-full"></div>
-          <span class="bg-white px-3 text-[10px] text-slate-400 font-medium uppercase tracking-wider relative">o utiliza tu cuenta de correo</span>
+        <div class="flex items-center gap-3 my-4">
+          <div class="h-px flex-1 bg-slate-200"></div>
+          <span class="text-[10px] text-slate-400 font-medium uppercase tracking-wider shrink-0">o utiliza tu cuenta de correo</span>
+          <div class="h-px flex-1 bg-slate-200"></div>
         </div>
       </div>
 
@@ -694,7 +696,7 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
 
       if (isUserAdmin(email) && !returnProjectId) {
         showAdminDualLoginModal(
-          loggedUser,
+          localAccount,
           () => proceedSb(),
           () => {
             proceedSb();
@@ -2820,8 +2822,10 @@ export function openProfileModal() {
   if (e) e.value = u.email;
   if (s) s.value = u.sexo || 'Masculino';
   if (d) d.value = u.dob || '1992-06-15';
-  if (a) a.src = u.avatar;
-  updateSubscriptionBadgesUI();
+  const fallbackAvatar = (AVATARS_BY_SEX && (AVATARS_BY_SEX[u.sexo] || AVATARS_BY_SEX['Masculino'])) || 'assets/branding/cubikar_icon_transparent.png?v=4';
+  const safeAvatar = (typeof u.avatar === 'string' && u.avatar.trim() && u.avatar !== 'undefined' && u.avatar !== 'null') ? u.avatar : fallbackAvatar;
+  if (a) a.src = safeAvatar;
+  updateSubscriptionBadgesUI({ refreshGrid: false });
 
   const modal = document.getElementById('modal-perfil-usuario');
   if (modal) {
@@ -3044,17 +3048,41 @@ export function updatePortalHeaderUserArea(user) {
   if (!container) return;
 
   const initials = (user.name || 'Hepc 90').split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'H9';
+  const normalizedEmail = (user.email || '').toLowerCase().trim();
+  const safeAvatar = (typeof user.avatar === 'string' && user.avatar.trim() && user.avatar !== 'undefined' && user.avatar !== 'null') ? user.avatar : '';
+  const existingWrapper = document.getElementById('portal-user-menu-wrapper');
+  const existingDropdown = document.getElementById('portal-user-dropdown');
+  const wasDropdownOpen = !!(existingDropdown && !existingDropdown.classList.contains('hidden'));
+  const sameUserRendered = !!(
+    existingWrapper &&
+    existingDropdown &&
+    (existingWrapper.dataset.userEmail || '') === normalizedEmail &&
+    (existingWrapper.dataset.userAvatar || '') === safeAvatar
+  );
+
+  if (sameUserRendered) {
+    const pillName = existingWrapper.querySelector('[data-portal-user-name]');
+    const pillRole = existingWrapper.querySelector('[data-portal-user-role]');
+    const dropName = existingWrapper.querySelector('[data-portal-dropdown-name]');
+    const dropEmail = existingWrapper.querySelector('[data-portal-dropdown-email]');
+    if (pillName) pillName.textContent = user.name || 'Hepc 90';
+    if (pillRole) pillRole.textContent = user.roleLabel || 'Admin General';
+    if (dropName) dropName.textContent = user.name || 'Hepc 90';
+    if (dropEmail) dropEmail.textContent = user.email || 'admin@obra.com';
+    updateSubscriptionBadgesUI({ refreshGrid: false });
+    return;
+  }
 
   container.innerHTML = `
     <!-- User Profile Pill (Compact, Unificado) -->
-    <div class="relative" id="portal-user-menu-wrapper">
+    <div class="relative" id="portal-user-menu-wrapper" data-user-email="${normalizedEmail}" data-user-avatar="${safeAvatar.replace(/"/g, '&quot;')}">
       <div onclick="togglePortalUserDropdown(event)" class="flex items-center gap-3 pl-2 py-1 pr-3 bg-slate-900 border border-slate-800 rounded-full hover:border-slate-700 transition cursor-pointer group select-none" title="Opciones de perfil de usuario">
         <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 text-slate-950 font-bold text-xs flex items-center justify-center ring-2 ring-amber-400/30 overflow-hidden shrink-0">
-          ${user.avatar ? `<img src="${user.avatar}" class="w-full h-full object-cover" alt="Perfil">` : initials}
+          ${safeAvatar ? `<img src="${safeAvatar}" class="w-full h-full object-cover" alt="Perfil">` : initials}
         </div>
         <div class="text-left hidden sm:block">
-          <div class="text-xs font-semibold text-slate-200 leading-tight max-w-[130px] truncate">${user.name || 'Hepc 90'}</div>
-          <div class="text-[11px] text-slate-400 leading-tight max-w-[130px] truncate">${user.roleLabel || 'Admin General'}</div>
+          <div data-portal-user-name class="text-xs font-semibold text-slate-200 leading-tight max-w-[130px] truncate">${user.name || 'Hepc 90'}</div>
+          <div data-portal-user-role class="text-[11px] text-slate-400 leading-tight max-w-[130px] truncate">${user.roleLabel || 'Admin General'}</div>
         </div>
         <svg class="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -3062,14 +3090,14 @@ export function updatePortalHeaderUserArea(user) {
       </div>
 
       <!-- Dropdown Desplegable del Perfil en el Navbar -->
-      <div id="portal-user-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-2 z-50 text-slate-200 animate-in fade-in zoom-in-95 duration-100">
+      <div id="portal-user-dropdown" class="${wasDropdownOpen ? '' : 'hidden '}absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-2 z-50 text-slate-200 animate-in fade-in zoom-in-95 duration-100">
         <div class="px-3.5 py-2.5 border-b border-slate-800 flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-full overflow-hidden border border-amber-400/60 bg-slate-800 shrink-0">
-            ${user.avatar ? `<img src="${user.avatar}" class="w-full h-full object-cover" alt="Avatar">` : `<div class="w-full h-full bg-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center">${initials}</div>`}
+            ${safeAvatar ? `<img src="${safeAvatar}" class="w-full h-full object-cover" alt="Avatar">` : `<div class="w-full h-full bg-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center">${initials}</div>`}
           </div>
           <div class="min-w-0 flex-1">
-            <span class="font-bold text-xs text-white block truncate">${user.name || 'Hepc 90'}</span>
-            <span class="text-[10px] text-slate-400 font-mono block truncate">${user.email || 'admin@obra.com'}</span>
+            <span data-portal-dropdown-name class="font-bold text-xs text-white block truncate">${user.name || 'Hepc 90'}</span>
+            <span data-portal-dropdown-email class="text-[10px] text-slate-400 font-mono block truncate">${user.email || 'admin@obra.com'}</span>
           </div>
         </div>
 
@@ -3078,7 +3106,7 @@ export function updatePortalHeaderUserArea(user) {
             <button type="button" onclick="closePortalUserDropdown(); openCubikarAdminModal()" 
                     class="w-full text-left px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold border border-amber-500/35 flex items-center gap-2 transition cursor-pointer">
               <i class="fa-solid fa-shield-halved text-amber-400 text-xs"></i>
-              <span>Panel de AdministraciÃ³n</span>
+              <span>Panel de Administración</span>
             </button>
           ` : ''}
           <button type="button" onclick="closePortalUserDropdown(); openProfileModal()" 
@@ -3114,13 +3142,13 @@ export function updatePortalHeaderUserArea(user) {
       </div>
     </div>
   `;
-  updateSubscriptionBadgesUI();
+  updateSubscriptionBadgesUI({ refreshGrid: false });
 }
 
 export function toggleUserDropdown(e) {
   if (e) e.stopPropagation();
   const dropdown = document.getElementById('workspace-user-dropdown');
-  updateSubscriptionBadgesUI();
+  updateSubscriptionBadgesUI({ refreshGrid: false });
   if (dropdown) {
     dropdown.classList.toggle('hidden');
   }
@@ -3128,7 +3156,7 @@ export function toggleUserDropdown(e) {
 
 export function closeUserDropdown() {
   const dropdown = document.getElementById('workspace-user-dropdown');
-  updateSubscriptionBadgesUI();
+  updateSubscriptionBadgesUI({ refreshGrid: false });
   if (dropdown && !dropdown.classList.contains('hidden')) {
     dropdown.classList.add('hidden');
   }
@@ -3137,7 +3165,7 @@ export function closeUserDropdown() {
 export function togglePortalUserDropdown(e) {
   if (e) e.stopPropagation();
   const dropdown = document.getElementById('portal-user-dropdown');
-  updateSubscriptionBadgesUI();
+  updateSubscriptionBadgesUI({ refreshGrid: false });
   if (dropdown) {
     dropdown.classList.toggle('hidden');
   }
@@ -3145,7 +3173,7 @@ export function togglePortalUserDropdown(e) {
 
 export function closePortalUserDropdown() {
   const dropdown = document.getElementById('portal-user-dropdown');
-  updateSubscriptionBadgesUI();
+  updateSubscriptionBadgesUI({ refreshGrid: false });
   if (dropdown && !dropdown.classList.contains('hidden')) {
     dropdown.classList.add('hidden');
   }
@@ -3190,9 +3218,9 @@ export function updateWorkspaceHeaderUser(user) {
   if (initialsEl) initialsEl.innerText = initials;
   if (dropInitialsEl) dropInitialsEl.innerText = initials;
   if (btnEl) btnEl.title = `${u.name} (${u.roleLabel || u.role || 'Admin General'}) - Clic para ver opciones`;
-  updateSubscriptionBadgesUI();
+  updateSubscriptionBadgesUI({ refreshGrid: false });
 
-  const hasPhoto = u.avatar && (u.avatar.startsWith('http') || u.avatar.startsWith('data:image/png') || u.avatar.startsWith('data:image/jpeg') || u.avatar.startsWith('data:image/webp'));
+  const hasPhoto = u.avatar && u.avatar !== 'undefined' && u.avatar !== 'null' && (u.avatar.startsWith('http') || u.avatar.startsWith('data:image/png') || u.avatar.startsWith('data:image/jpeg') || u.avatar.startsWith('data:image/webp'));
 
   if (avatarEl) {
     if (hasPhoto) {
@@ -3835,7 +3863,7 @@ export function toggleMemberTabPermission(memberId, tabKey) {
   const mem = members.find(m => m.id === memberId);
   if (!mem) return;
 
-  const currentTabs = Array.isArray(mem.allowedTabs) ? [...mem.allowedTabs] : ['cat', 'insumos', 'calendario', 'estimaciones'];
+  const currentTabs = Array.isArray(mem.allowedTabs) ? [...mem.allowedTabs] : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
   const hasTab = currentTabs.includes(tabKey);
   const newTabs = hasTab ? currentTabs.filter(t => t !== tabKey) : [...currentTabs, tabKey];
 
@@ -3988,7 +4016,7 @@ export function renderInviteModalMembersList() {
     simulateSelect.innerHTML = `
       <option value="admin" ${currentEmail === 'admin.general@constructora.com' ? 'selected' : ''}>👑 Tú (Administrador - Todas)</option>
       ${members.map(m => {
-        const tabList = (m.allowedTabs || ['cat','insumos','calendario','estimaciones']).map(t => TAB_METADATA[t]?.name).filter(Boolean).join(', ');
+        const tabList = (m.allowedTabs || ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']).map(t => TAB_METADATA[t]?.name).filter(Boolean).join(', ');
         return `<option value="${m.email}" ${currentEmail === m.email ? 'selected' : ''}>${m.name} (${tabList || 'Sin acceso'})</option>`;
       }).join('')}
     `;
@@ -4020,7 +4048,7 @@ export function renderInviteModalMembersList() {
   ];
 
   container.innerHTML = members.map(m => {
-    const tabs = Array.isArray(m.allowedTabs) ? m.allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones'];
+    const tabs = Array.isArray(m.allowedTabs) ? m.allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
     return `
       <div class="flex flex-col gap-2 p-3 bg-white hover:bg-slate-50/90 rounded-2xl border border-slate-200 shadow-2xs transition">
         <!-- Fila Superior: Perfil + Rol + Eliminar -->
@@ -4145,17 +4173,26 @@ export function canCurrentUserAccessTab(tabId) {
   const user = getCurrentUser();
 
   if (!user || !user.email) return true;
-  if (user.role === 'Admin General' || user.email === 'admin.general@constructora.com') return true;
+  const uEmail = user.email.toLowerCase().trim();
+  if (user.role === 'Admin General' || uEmail === 'admin.general@constructora.com') return true;
 
   const pId = getActiveOrFallbackProjectId();
   const proj = getProjectById(pId);
-  if (!proj || !Array.isArray(proj.members) || proj.members.length === 0) return true;
+  if (!proj) return true;
 
-  const mem = proj.members.find(m => m.email && m.email.toLowerCase() === user.email.toLowerCase());
+  // El propietario del proyecto SIEMPRE tiene acceso completo a todas las pestañas de su obra
+  if (proj.ownerEmail && proj.ownerEmail.toLowerCase().trim() === uEmail) return true;
+
+  if (!Array.isArray(proj.members) || proj.members.length === 0) return true;
+
+  const mem = proj.members.find(m => m.email && m.email.toLowerCase().trim() === uEmail);
   if (!mem) return true;
-  if (mem.role === 'editar' && (!mem.allowedTabs || mem.allowedTabs.length === 0)) return true;
+  if (mem.role === 'editar' && (!Array.isArray(mem.allowedTabs) || mem.allowedTabs.length === 0)) return true;
 
   if (Array.isArray(mem.allowedTabs)) {
+    if (tabId === 'presupuesto') {
+      return mem.allowedTabs.includes('presupuesto') || mem.allowedTabs.includes('cat') || mem.allowedTabs.includes('insumos');
+    }
     return mem.allowedTabs.includes(tabId);
   }
   return true;
@@ -4163,17 +4200,29 @@ export function canCurrentUserAccessTab(tabId) {
 
 // Actualizar iconos de candado y estado visual de las pestañas en el encabezado
 export function updateNavigationTabsAccess() {
-  const tabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
+  const tabDomMap = {
+    presupuesto: 'tab-btn-presupuesto',
+    cat: 'subtab-btn-cat',
+    insumos: 'subtab-btn-insumos',
+    calendario: 'tab-btn-calendario',
+    estimaciones: 'tab-btn-estimaciones',
+    compras: 'tab-btn-compras',
+    bitacora: 'tab-btn-bitacora'
+  };
+  const tabs = ['presupuesto', 'cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
   tabs.forEach(tabId => {
-    const btn = document.getElementById(`tab-btn-${tabId}`);
+    const btn = document.getElementById(tabDomMap[tabId] || `tab-btn-${tabId}`);
     if (!btn) return;
 
     const allowed = canCurrentUserAccessTab(tabId);
     let lockIcon = btn.querySelector('.tab-lock-indicator');
 
     if (!allowed) {
+      if (btn.dataset.origTitle === undefined) {
+        btn.dataset.origTitle = btn.title || '';
+      }
       btn.classList.add('opacity-50');
-      btn.title = `Pestaña restringida: No estás asignado a esta pestaña`;
+      btn.title = 'Pestaña restringida: No estás asignado a esta pestaña';
       if (!lockIcon) {
         const iconSpan = document.createElement('i');
         iconSpan.className = 'fa-solid fa-lock text-[10px] text-amber-400 ml-1 tab-lock-indicator';
@@ -4181,6 +4230,10 @@ export function updateNavigationTabsAccess() {
       }
     } else {
       btn.classList.remove('opacity-50');
+      if (btn.dataset.origTitle !== undefined) {
+        btn.title = btn.dataset.origTitle;
+        delete btn.dataset.origTitle;
+      }
       if (lockIcon) lockIcon.remove();
     }
   });

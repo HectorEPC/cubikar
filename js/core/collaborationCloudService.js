@@ -18,6 +18,23 @@ import {
 import { getSettingsKey, getStorageKey } from '../config/constants.js';
 
 let syncDebounceTimer = null;
+let isCloudSyncInFlight = false;
+let lastCloudSyncSignature = '';
+let lastInternalCloudUpdateAt = 0;
+
+function computeCloudStateSignature(cloudState) {
+  if (!cloudState || typeof cloudState !== 'object') return '';
+  try {
+    const { updatedAt: _ignored, ...rest } = cloudState;
+    return JSON.stringify(rest);
+  } catch (_) {
+    return '';
+  }
+}
+
+export function isRecentInternalCloudAuthUpdate(windowMs = 6000) {
+  return lastInternalCloudUpdateAt > 0 && (Date.now() - lastInternalCloudUpdateAt) < windowMs;
+}
 
 /**
  * Sincroniza hacia la nube de Supabase (user_metadata) todo el ecosistema de trabajo:
@@ -30,13 +47,20 @@ let syncDebounceTimer = null;
  */
 export async function syncUserCollaborationToCloud(user = null) {
   const sb = getSupabaseClient();
-  if (!sb || !isSupabaseConfigured()) return false;
+  if (!sb || !isSupabaseConfigured() || isCloudSyncInFlight) return false;
 
   const currentUser = user || getCurrentUser();
   if (!currentUser || !currentUser.email) return false;
   const myEmail = (currentUser.email || '').toLowerCase().trim();
 
+  isCloudSyncInFlight = true;
   try {
+    const { data: sessionData, error: sessionErr } = await sb.auth.getSession();
+    const sessionUser = sessionData?.session?.user;
+    if (sessionErr || !sessionUser) {
+      return false;
+    }
+
     const allInvs = typeof getStoredInvitations === 'function' ? getStoredInvitations() : [];
     const allPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
     const allProjects = typeof getProjectsList === 'function' ? getProjectsList() : [];
@@ -98,6 +122,23 @@ export async function syncUserCollaborationToCloud(user = null) {
       updatedAt: new Date().toISOString()
     };
 
+    const nextSignature = computeCloudStateSignature(cloudPayload);
+    const remoteState = sessionUser?.user_metadata?.cubikar_cloud_state_v2 || currentUser?.user_metadata?.cubikar_cloud_state_v2;
+    const remoteSignature = computeCloudStateSignature(remoteState);
+
+    if (nextSignature && (nextSignature === lastCloudSyncSignature || nextSignature === remoteSignature)) {
+      lastCloudSyncSignature = nextSignature;
+      if (currentUser && remoteState) {
+        if (!currentUser.user_metadata) currentUser.user_metadata = {};
+        if (!currentUser.user_metadata.cubikar_cloud_state_v2) {
+          currentUser.user_metadata.cubikar_cloud_state_v2 = remoteState;
+          saveCurrentUser(currentUser);
+        }
+      }
+      return true;
+    }
+
+    lastInternalCloudUpdateAt = Date.now();
     // Actualizar metadatos en Supabase Auth (persistencia nativa en auth.users)
     const { data, error } = await sb.auth.updateUser({
       data: {
@@ -109,6 +150,8 @@ export async function syncUserCollaborationToCloud(user = null) {
       console.warn('[CloudSync] Aviso al guardar estado en Supabase:', error.message);
       return false;
     }
+
+    lastCloudSyncSignature = nextSignature;
 
     // Actualizar usuario en memoria local
     if (currentUser) {
@@ -122,6 +165,8 @@ export async function syncUserCollaborationToCloud(user = null) {
   } catch (err) {
     console.warn('[CloudSync] Excepción al respaldar en la nube:', err);
     return false;
+  } finally {
+    isCloudSyncInFlight = false;
   }
 }
 
@@ -329,6 +374,7 @@ export function restoreUserCollaborationFromCloud(user = null) {
  * 2. Si localStorage contiene datos nuevos o más completos, los respalda a la nube.
  */
 export async function autoSyncCollaborationOnStartup(user = null) {
+  if (isCloudSyncInFlight || isRecentInternalCloudAuthUpdate(3000)) return;
   const currentUser = user || getCurrentUser();
   if (!currentUser || !currentUser.email) return;
 
