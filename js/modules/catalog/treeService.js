@@ -5,9 +5,27 @@ import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js';
 import { renderInsumosUnitarios } from '../apu/apuView.js';
 import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js';
 import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js';
-import { getProjectById } from '../portal/projectService.js';
+import { getProjectById, validateConceptAdditionLimit, countTreeConcepts } from '../portal/projectService.js';
 import { getFactorSobrecosto, round2 } from '../../core/calculations.js';
 import { guardTabUnlocked } from '../../ui/tabLockController.js';
+
+/**
+ * Guardia centralizado de límite de conceptos por suscripción (100 Gratuita, 1500 Plus, 3500 Pro).
+ */
+export function guardConceptLimit(additionalConcepts = 1, options = {}) {
+  const check = validateConceptAdditionLimit(getActiveProjectId(), additionalConcepts, {
+    ...options,
+    liveTreeData: Array.isArray(options?.liveTreeData) ? options.liveTreeData : state.treeData
+  });
+  if (!check.allowed) {
+    showToast(`🔒 ${check.reason}`, 'warning');
+    if (typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') {
+      window.openSubscriptionModal();
+    }
+    return false;
+  }
+  return true;
+}
 
 // Buscar un nodo por su ID recursivamente
 export function findNodeById(nodes, id) {
@@ -80,6 +98,7 @@ export function recalculateClaves(nodes, parentClave = '') {
 // Agregar partida raíz principal
 export function addRootRow() {
   if (!guardTabUnlocked('cat')) return;
+  if (!guardConceptLimit(1)) return;
   saveState();
   const newId = '_' + Math.random().toString(36).substr(2, 9);
   state.treeData.push({
@@ -112,6 +131,9 @@ export function addChildRow(parentId, e) {
     showToast('Restricción: Esta fila ya cuenta con una matriz de insumos. Elimina sus insumos primero si deseas convertirla en partida con sub-filas.', 'warning');
     return;
   }
+
+  const conceptDelta = (!parent.children || parent.children.length === 0) ? 0 : 1;
+  if (!guardConceptLimit(conceptDelta)) return;
 
   saveState();
   if (!parent.children) parent.children = [];
@@ -149,9 +171,11 @@ export function addChildRow(parentId, e) {
 export function duplicarNode(id, e) {
   if (e) e.stopPropagation();
   if (!guardTabUnlocked('cat')) return;
-  saveState();
   const nodeToDuplicate = findNodeById(state.treeData, id);
   if (!nodeToDuplicate) return;
+  const cloneConcepts = Math.max(1, countTreeConcepts([nodeToDuplicate]));
+  if (!guardConceptLimit(cloneConcepts)) return;
+  saveState();
 
   function cloneNode(node) {
     return {
@@ -289,6 +313,9 @@ export function pegarNode(targetId, e) {
     showToast('No hay ningún concepto copiado en el portapapeles. Copia un concepto primero.', 'warning');
     return;
   }
+
+  const pasteConcepts = Math.max(1, countTreeConcepts([clip.node]));
+  if (!guardConceptLimit(pasteConcepts)) return;
 
   saveState();
 

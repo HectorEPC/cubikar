@@ -1,4 +1,4 @@
-﻿// js/modules/chat/projectChat.js
+// js/modules/chat/projectChat.js
 // Ventana de Chat independiente por Proyecto (plegable y desplegable abajo a la derecha)
 // conectada con Partidas de Nivel 1 (icono de alta visibilidad fa-comments),
 // Usuarios Asignados (@), Estimaciones (#), Reportes (!) y Notificaciones de Menciones en la barra lateral izquierda.
@@ -16,15 +16,18 @@ import {
   rejectProjectInvitation
 } from '../portal/projectService.js';
 import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js';
+import { getExpensesRecords } from '../compras/expensesModel.js';
 import { showToast } from '../../ui/notifications.js';
 import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js';
 import { openSubscriptionModal } from '../portal/subscriptionModal.js';
+import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js';
 
 let isChatDockExpanded = false; // Inicia como pequeño círculo flotante abajo a la derecha
 let isChatMaximized = false; // Permite maximizar o restaurar el tamaño de la ventana del chat
+let activeChatSection = 'tecnico'; // 'tecnico' (Catálogo, Insumos, Calendario) | 'financiero' (Estimaciones, Compras y Pagos)
 let activeChatFilter = 'all'; // 'all' | 'mentions' | 'estimaciones' | 'reportes'
 let activePartidaFilterId = null; // ID de Partida Nivel 1 cuando se filtra con el botón de comentarios
-let activeTagPickerKind = null; // 'user' | 'partida' | 'estimacion' | 'reporte' | null
+let activeTagPickerKind = null; // 'user' | 'partida' | 'estimacion' | 'compra' | 'reporte' | null
 let selectedAuthorHandle = null;
 let selectedNotificationsHandle = 'all'; // 'all' (todos los usuarios etiquetados) o @Usuario específico
 let isNotificationsPopoverOpen = false;
@@ -34,6 +37,7 @@ let pendingComposerTags = {
   partidaId: null,
   mentions: [],
   estimaciones: [],
+  compras: [],
   reportes: []
 };
 
@@ -73,6 +77,7 @@ export function loadProjectChatMessages(projectId = null) {
 export function saveProjectChatMessages(messages, projectId = null) {
   try {
     localStorage.setItem(getChatStorageKey(projectId), JSON.stringify(messages || []));
+    scheduleChatCloudSync(projectId);
   } catch (e) {}
 }
 
@@ -189,6 +194,16 @@ function getLevel1Partidas() {
   }));
 }
 
+// Clasificar sección del mensaje ('tecnico' vs 'financiero')
+export function getMessageSection(msg) {
+  if (msg && msg.section) return msg.section;
+  // Compatibilidad retrospectiva con mensajes guardados anteriormente
+  if (msg && ((Array.isArray(msg.estimaciones) && msg.estimaciones.length > 0) || (Array.isArray(msg.compras) && msg.compras.length > 0))) {
+    return 'financiero';
+  }
+  return 'tecnico';
+}
+
 // Obtener las Estimaciones reales del proyecto activo
 function getProjectEstimacionesTags() {
   try {
@@ -205,13 +220,35 @@ function getProjectEstimacionesTags() {
   return [{ id: 'est_1', numero: 1, label: '#Estimación No. 1', locked: false }];
 }
 
-// Reportes disponibles para etiquetar
-function getProjectReportesTags() {
+// Obtener compras/pagos recientes para etiquetar en el canal financiero
+function getProjectComprasTags() {
+  try {
+    const records = getExpensesRecords() || [];
+    if (Array.isArray(records) && records.length > 0) {
+      return records.slice(0, 15).map(r => ({
+        id: r.id,
+        label: `$${r.id.toUpperCase()}: ${(r.concept || r.description || 'Gasto/Compra').slice(0, 24)}`,
+        status: r.paymentStatus === 'paid' ? 'Pagado' : 'Pendiente'
+      }));
+    }
+  } catch (e) {}
   return [
-    { id: 'cat', label: '!Catálogo Base / APU' },
-    { id: 'insumos', label: '!Explosión de Insumos' },
-    { id: 'calendario', label: '!Calendario / Ruta Crítica' },
-    { id: 'estimaciones', label: '!Reporte de Estimaciones' }
+    { id: 'compra_gral', label: '$Compras y Egresos de Obra', status: 'General' }
+  ];
+}
+
+// Reportes disponibles para etiquetar según sección
+function getProjectReportesTags(section = 'tecnico') {
+  if (section === 'financiero') {
+    return [
+      { id: 'estimaciones', label: '!Reporte de Estimaciones y Cobros' },
+      { id: 'compras', label: '!Reporte de Egresos, Compras y Pagos' }
+    ];
+  }
+  return [
+    { id: 'cat', label: '!Catálogo Base / Matrices APU' },
+    { id: 'insumos', label: '!Explosión General de Insumos' },
+    { id: 'calendario', label: '!Calendario de Obra / Gantt' }
   ];
 }
 
@@ -927,10 +964,13 @@ export function toggleProjectChatMaximize(event = null) {
   }, 40);
 }
 
-export function printProjectChatReport(event = null) {
+export function printProjectChatReport(sectionFilter = null, event = null) {
   if (event && typeof event.stopPropagation === 'function') {
     event.stopPropagation();
   }
+
+  // Si no se especificó sección, usar la sección activa del chat dock o 'todos'
+  const targetSection = sectionFilter || activeChatSection || 'tecnico';
 
   const companyName = state.settings?.companyName || 'Constructora / Empresa';
   const companySubtitle = state.settings?.companySubtitle || 'Bitácora y Seguimiento de Obra';
@@ -942,7 +982,10 @@ export function printProjectChatReport(event = null) {
   const partidas = getLevel1Partidas();
   const allMessages = loadProjectChatMessages();
 
+  // Filtrar según la sección seleccionada
   const filteredMessages = allMessages.filter(m => {
+    const sec = getMessageSection(m);
+    if (targetSection !== 'todos' && sec !== targetSection) return false;
     if (activePartidaFilterId && String(m.partidaId) !== String(activePartidaFilterId)) return false;
     if (activeChatFilter === 'mentions') return Array.isArray(m.mentions) && m.mentions.includes(selectedAuthorHandle);
     if (activeChatFilter === 'estimaciones') return Array.isArray(m.estimaciones) && m.estimaciones.length > 0;
@@ -954,15 +997,25 @@ export function printProjectChatReport(event = null) {
     ? partidas.find(p => String(p.id) === String(activePartidaFilterId))
     : null;
 
-  let filterLabel = 'Todos los comentarios del proyecto';
+  let sectionTitle = 'BITÁCORA GENERAL DE OBRA';
+  let sectionSubtitle = 'Catálogo, Insumos, Calendario, Estimaciones, Compras y Pagos';
+  if (targetSection === 'tecnico') {
+    sectionTitle = 'BITÁCORA TÉCNICA Y PLANEACIÓN DE OBRA';
+    sectionSubtitle = 'Catálogo Base • Explosión de Insumos • Calendario y Cronograma Gantt';
+  } else if (targetSection === 'financiero') {
+    sectionTitle = 'BITÁCORA FINANCIERA Y ADMINISTRATIVA';
+    sectionSubtitle = 'Control de Estimaciones • Órdenes de Compra • Flujo de Egresos y Pagos';
+  }
+
+  let filterLabel = targetSection === 'todos' ? 'Bitácora Integral Completa' : (targetSection === 'tecnico' ? 'Sección Técnica de Obra' : 'Sección Financiera y Pagos');
   if (activePartidaObj) {
-    filterLabel = `Partida Nivel 1: /${activePartidaObj.clave} ${activePartidaObj.descripcion}`;
+    filterLabel += ` • Partida Nivel 1: /${activePartidaObj.clave} ${activePartidaObj.descripcion}`;
   } else if (activeChatFilter === 'mentions') {
-    filterLabel = `Menciones de ${selectedAuthorHandle || 'usuario'}`;
+    filterLabel += ` • Menciones de ${selectedAuthorHandle || 'usuario'}`;
   } else if (activeChatFilter === 'estimaciones') {
-    filterLabel = 'Comentarios etiquetados con #Estimaciones';
+    filterLabel += ' • Comentarios etiquetados con #Estimaciones';
   } else if (activeChatFilter === 'reportes') {
-    filterLabel = 'Comentarios etiquetados con !Reportes';
+    filterLabel += ' • Comentarios etiquetados con !Reportes';
   }
 
   const fechaImpresion = new Date().toLocaleDateString('es-MX', {
@@ -973,14 +1026,70 @@ export function printProjectChatReport(event = null) {
     minute: '2-digit'
   });
 
+  // Resumen de participantes e interacciones
+  const participantStats = new Map();
+  filteredMessages.forEach(m => {
+    const handle = m.authorHandle || m.authorName || 'Usuario';
+    if (!participantStats.has(handle)) {
+      participantStats.set(handle, {
+        name: m.authorName || handle,
+        handle: handle,
+        role: m.authorRole || 'Asignado',
+        initials: m.authorInitials || 'US',
+        count: 0,
+        firstTime: m.time,
+        lastTime: m.time
+      });
+    }
+    const stat = participantStats.get(handle);
+    stat.count++;
+    stat.lastTime = m.time;
+  });
+
+  const participantsList = Array.from(participantStats.values());
+
+  const participantsTableHtml = participantsList.length === 0
+    ? `<div style="font-size:8pt; color:#64748b; font-style:italic;">No se registran intervenciones activas de usuarios en este periodo.</div>`
+    : `
+      <table style="margin-bottom:14px;">
+        <thead>
+          <tr>
+            <th style="width:30px; text-align:center;">#</th>
+            <th style="width:160px;">Usuario / Autor</th>
+            <th style="width:120px;">Rol Oficial</th>
+            <th style="width:90px; text-align:center;">Notas Registradas</th>
+            <th>Rango de Intervención</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${participantsList.map((p, idx) => `
+            <tr>
+              <td style="text-align:center; font-weight:700; color:#475569;">${idx + 1}</td>
+              <td><strong>${p.name}</strong> <span style="font-size:7.5pt; color:#2563eb;">(${p.handle})</span></td>
+              <td><span style="font-size:7.5pt; padding:1px 6px; border-radius:4px; background:#e2e8f0; font-weight:700; color:#334155;">${p.role}</span></td>
+              <td style="text-align:center; font-weight:800; color:#0f172a;">${p.count}</td>
+              <td style="font-family:monospace; font-size:7.5pt; color:#475569;">${p.firstTime || '-'} &rarr; ${p.lastTime || '-'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
   const rowsHtml = filteredMessages.length === 0
-    ? `<tr><td colspan="5" style="text-align:center; padding:18px; color:#64748b;">No hay comentarios registrados en este filtro para imprimir.</td></tr>`
+    ? `<tr><td colspan="5" style="text-align:center; padding:18px; color:#64748b;">No hay asientos ni comentarios registrados en esta sección para imprimir.</td></tr>`
     : filteredMessages.map((m, idx) => {
+        const sec = getMessageSection(m);
         const pObj = m.partidaId ? partidas.find(p => String(p.id) === String(m.partidaId)) : null;
         const tags = [];
+        if (sec === 'tecnico') {
+          tags.push(`<span class="tag tag-sec-tec">🏗️ Técnica</span>`);
+        } else {
+          tags.push(`<span class="tag tag-sec-fin">💼 Financiera</span>`);
+        }
         if (pObj) tags.push(`<span class="tag tag-partida">/${pObj.clave} ${pObj.descripcion}</span>`);
         (m.mentions || []).forEach(u => tags.push(`<span class="tag tag-user">${u}</span>`));
         (m.estimaciones || []).forEach(e => tags.push(`<span class="tag tag-est">${e}</span>`));
+        (m.compras || []).forEach(c => tags.push(`<span class="tag tag-compra">${c}</span>`));
         (m.reportes || []).forEach(r => tags.push(`<span class="tag tag-rep">${r}</span>`));
 
         return `
@@ -991,8 +1100,8 @@ export function printProjectChatReport(event = null) {
               <div style="font-weight:700; color:#0f172a;">${m.authorHandle || m.authorName || 'Usuario'}</div>
               <div style="font-size:7.5pt; color:#64748b;">${m.authorName || ''} (${m.authorRole || 'Asignado'})</div>
             </td>
-            <td>${tags.length > 0 ? tags.join(' ') : '<span style="color:#94a3b8; font-size:7.5pt;">General</span>'}</td>
-            <td style="color:#0f172a; line-height:1.4;">${String(m.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+            <td>${tags.join(' ')}</td>
+            <td style="color:#0f172a; line-height:1.45;">${String(m.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
           </tr>
         `;
       }).join('');
@@ -1001,23 +1110,28 @@ export function printProjectChatReport(event = null) {
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Reporte de Chat y Seguimiento de Obra - ${projectName}</title>
+  <title>${sectionTitle} - ${projectName}</title>
   <style>
-    @page { size: letter portrait; margin: 12mm; }
+    @page { size: letter portrait; margin: 10mm; }
     * { box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
-    body { margin: 0; padding: 18px; color: #0f172a; background: #f8fafc; font-size: 9pt; }
+    body { margin: 0; padding: 18px; color: #0f172a; background: #f8fafc; font-size: 8.5pt; }
     .toolbar {
       display: flex; justify-content: space-between; align-items: center;
       background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 8px; margin-bottom: 16px;
     }
+    .toolbar-left { display: flex; align-items: center; gap: 10px; }
+    .toolbar-buttons { display: flex; align-items: center; gap: 6px; }
     .toolbar button {
-      border: none; border-radius: 6px; padding: 7px 14px; font-weight: 700; font-size: 9pt; cursor: pointer;
+      border: none; border-radius: 6px; padding: 6px 12px; font-weight: 700; font-size: 8.5pt; cursor: pointer; transition: 0.15s;
     }
     .btn-print { background: #2563eb; color: #fff; }
-    .btn-close { background: #334155; color: #e2e8f0; margin-left: 6px; }
+    .btn-print:hover { background: #1d4ed8; }
+    .btn-filter { background: #334155; color: #e2e8f0; }
+    .btn-filter.active { background: #0284c7; color: #fff; ring: 2px ring #38bdf8; }
+    .btn-close { background: #475569; color: #f1f5f9; }
     .sheet {
-      background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px;
-      max-width: 960px; margin: 0 auto;
+      background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px;
+      max-width: 960px; margin: 0 auto; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     }
     .header {
       display: flex; justify-content: space-between; align-items: center;
@@ -1027,41 +1141,51 @@ export function printProjectChatReport(event = null) {
     .brand img { max-height: 48px; max-width: 90px; object-fit: contain; }
     .meta-grid {
       display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-      background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 14px; font-size: 8.5pt;
+      background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; font-size: 8.5pt;
     }
-    table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    .section-title {
+      font-size: 9pt; font-weight: 800; color: #1e3a8a; text-transform: uppercase;
+      letter-spacing: 0.5px; border-left: 3px solid #2563eb; padding-left: 6px; margin: 14px 0 6px 0;
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 8pt; }
     th {
       background: #0f172a; color: #fff; text-transform: uppercase; font-size: 7.5pt;
-      letter-spacing: 0.4px; padding: 7px 8px; border: 1px solid #0f172a; text-align: left;
+      letter-spacing: 0.3px; padding: 6px 8px; border: 1px solid #0f172a; text-align: left;
     }
-    td { padding: 7px 8px; border: 1px solid #cbd5e1; vertical-align: top; font-size: 8.5pt; }
+    td { padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: top; font-size: 8pt; }
     tr:nth-child(even) td { background: #f8fafc; }
     .tag {
-      display: inline-block; padding: 1px 5px; border-radius: 4px; font-size: 7.5pt; font-weight: 700; margin: 1px 2px 1px 0;
+      display: inline-block; padding: 1px 5px; border-radius: 4px; font-size: 7pt; font-weight: 700; margin: 1px 2px 1px 0;
     }
+    .tag-sec-tec { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+    .tag-sec-fin { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
     .tag-partida { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
     .tag-user { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
     .tag-est { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    .tag-compra { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
     .tag-rep { background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
     .signatures {
-      display: flex; justify-content: space-around; margin-top: 40px; padding-top: 20px; page-break-inside: avoid;
+      display: flex; justify-content: space-around; margin-top: 44px; padding-top: 20px; page-break-inside: avoid;
     }
-    .sig-box { width: 38%; border-top: 1px solid #334155; text-align: center; padding-top: 6px; font-size: 8pt; color: #334155; }
+    .sig-box { width: 30%; border-top: 1.5px solid #334155; text-align: center; padding-top: 6px; font-size: 7.5pt; color: #334155; }
     @media print {
       body { background: #fff; padding: 0; }
       .toolbar { display: none !important; }
-      .sheet { border: none; padding: 0; max-width: 100%; }
+      .sheet { border: none; padding: 0; max-width: 100%; box-shadow: none; }
     }
   </style>
 </head>
 <body>
   <div class="toolbar">
-    <div>
-      <strong>BITÁCORA DE CHAT Y SEGUIMIENTO DE OBRA</strong>
-      <span style="margin-left:10px; font-size:8pt; color:#94a3b8;">${filteredMessages.length} comentario(s) en el reporte</span>
+    <div class="toolbar-left">
+      <strong>${sectionTitle}</strong>
+      <span style="font-size:8pt; color:#94a3b8;">(${filteredMessages.length} asiento(s) de bitácora)</span>
     </div>
-    <div>
-      <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+    <div class="toolbar-buttons">
+      <button class="btn-filter ${targetSection === 'tecnico' ? 'active' : ''}" onclick="window.location.search='?section=tecnico';">🏗️ Técnica</button>
+      <button class="btn-filter ${targetSection === 'financiero' ? 'active' : ''}" onclick="window.location.search='?section=financiero';">💼 Financiera</button>
+      <button class="btn-filter ${targetSection === 'todos' ? 'active' : ''}" onclick="window.location.search='?section=todos';">📑 Todas</button>
+      <button class="btn-print" onclick="window.print()">🖨️ Imprimir / PDF</button>
       <button class="btn-close" onclick="window.close()">✕ Cerrar</button>
     </div>
   </div>
@@ -1071,13 +1195,14 @@ export function printProjectChatReport(event = null) {
       <div class="brand">
         ${logoSrc ? `<img src="${logoSrc}" alt="Logo">` : ''}
         <div>
-          <div style="font-size:13pt; font-weight:800; color:#0f172a;">${companyName}</div>
-          <div style="font-size:8.5pt; color:#475569;">${companySubtitle}</div>
+          <div style="font-size:12.5pt; font-weight:800; color:#0f172a;">${companyName}</div>
+          <div style="font-size:8pt; color:#475569;">${companySubtitle}</div>
         </div>
       </div>
       <div style="text-align:right;">
-        <div style="font-size:10pt; font-weight:800; color:#1e3a8a;">BITÁCORA / CHAT DE OBRA</div>
-        <div style="font-size:8pt; color:#64748b;">Impreso: ${fechaImpresion}</div>
+        <div style="font-size:10pt; font-weight:800; color:#1e3a8a;">${sectionTitle}</div>
+        <div style="font-size:7.5pt; color:#64748b;">${sectionSubtitle}</div>
+        <div style="font-size:7.5pt; color:#64748b; margin-top:2px;">Fecha de emisión: ${fechaImpresion}</div>
       </div>
     </div>
 
@@ -1085,21 +1210,27 @@ export function printProjectChatReport(event = null) {
       <div>
         <div><strong>Proyecto:</strong> ${projectName}</div>
         <div><strong>Ubicación:</strong> ${projectLocation}</div>
+        <div><strong>Ámbito Documental:</strong> <span style="font-weight:700; color:#1e3a8a;">${targetSection === 'tecnico' ? 'Técnica de Obra (Catálogo, Insumos, Cronograma)' : (targetSection === 'financiero' ? 'Financiera (Estimaciones, Compras y Pagos)' : 'Consolidada Integral')}</span></div>
       </div>
       <div>
         <div><strong>Filtro aplicado:</strong> ${filterLabel}</div>
-        <div><strong>Usuarios asignados:</strong> ${users.map(u => u.handle).join(', ')}</div>
+        <div><strong>Participantes en el periodo:</strong> ${participantsList.length} involucrado(s)</div>
+        <div><strong>Total de asientos:</strong> ${filteredMessages.length} registro(s)</div>
       </div>
     </div>
 
+    <div class="section-title">1. Resumen de Participantes e Intervenciones Registradas</div>
+    ${participantsTableHtml}
+
+    <div class="section-title">2. Asientos Cronológicos de Bitácora y Mensajes de Seguimiento</div>
     <table>
       <thead>
         <tr>
-          <th style="width:36px; text-align:center;">#</th>
-          <th style="width:105px;">Fecha / Hora</th>
-          <th style="width:150px;">Autor</th>
-          <th style="width:180px;">Etiquetas / Referencias</th>
-          <th>Comentario de Seguimiento</th>
+          <th style="width:30px; text-align:center;">#</th>
+          <th style="width:100px;">Fecha / Hora</th>
+          <th style="width:145px;">Autor / Emisor</th>
+          <th style="width:185px;">Ámbito y Referencias</th>
+          <th>Asiento Oficial / Comentario de Seguimiento</th>
         </tr>
       </thead>
       <tbody>
@@ -1109,21 +1240,37 @@ export function printProjectChatReport(event = null) {
 
     <div class="signatures">
       <div class="sig-box">
-        <strong>RESPONSABLE DE OBRA / RESIDENTE</strong><br>
-        <span>Nombre y Firma de Conformidad</span>
+        <strong>RESIDENCIA DE OBRA</strong><br>
+        <span>Nombre, Firma y Cédula Profesional</span>
       </div>
       <div class="sig-box">
-        <strong>SUPERVISIÓN / ADMINISTRACIÓN</strong><br>
-        <span>Nombre y Firma de Revisión</span>
+        <strong>SUPERVISIÓN TÉCNICA</strong><br>
+        <span>Nombre y Firma de Aprobación</span>
+      </div>
+      <div class="sig-box">
+        <strong>ADMINISTRACIÓN Y FINANZAS</strong><br>
+        <span>Nombre y Firma de Validación</span>
       </div>
     </div>
   </div>
+
+  <script>
+    // Manejar selector de secciones en la ventana de impresión
+    (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const secParam = urlParams.get('section');
+      if (secParam && secParam !== '${targetSection}' && window.opener && typeof window.opener.printProjectChatReport === 'function') {
+        window.close();
+        window.opener.printProjectChatReport(secParam);
+      }
+    })();
+  </script>
 </body>
 </html>`;
 
-  const printWin = window.open('', '_blank', 'width=980,height=740,scrollbars=yes');
+  const printWin = window.open('', '_blank', 'width=1000,height=760,scrollbars=yes');
   if (!printWin) {
-    showToast('Permite las ventanas emergentes para imprimir el chat del proyecto.', 'warning');
+    showToast('Permite las ventanas emergentes para imprimir la bitácora del proyecto.', 'warning');
     return;
   }
   printWin.document.open();
@@ -1179,6 +1326,25 @@ export function toggleProjectChatTagPicker(kind) {
   renderProjectChatDock();
 }
 
+export function switchProjectChatSection(section) {
+  if (section !== 'tecnico' && section !== 'financiero') return;
+  activeChatSection = section;
+  activeChatFilter = 'all';
+  activeTagPickerKind = null;
+  renderProjectChatDock();
+}
+
+export function autoSwitchChatSectionFromTab(tab) {
+  if (tab === 'estimaciones' || tab === 'compras') {
+    activeChatSection = 'financiero';
+  } else if (tab === 'cat' || tab === 'insumos' || tab === 'calendario' || tab === 'bitacora') {
+    activeChatSection = 'tecnico';
+  }
+  if (isChatDockExpanded) {
+    renderProjectChatDock();
+  }
+}
+
 export function addProjectChatPendingTag(kind, val) {
   if (kind === 'user') {
     if (!pendingComposerTags.mentions.includes(val)) pendingComposerTags.mentions.push(val);
@@ -1186,6 +1352,9 @@ export function addProjectChatPendingTag(kind, val) {
     pendingComposerTags.partidaId = String(val);
   } else if (kind === 'estimacion') {
     if (!pendingComposerTags.estimaciones.includes(val)) pendingComposerTags.estimaciones.push(val);
+  } else if (kind === 'compra') {
+    if (!Array.isArray(pendingComposerTags.compras)) pendingComposerTags.compras = [];
+    if (!pendingComposerTags.compras.includes(val)) pendingComposerTags.compras.push(val);
   } else if (kind === 'reporte') {
     if (!pendingComposerTags.reportes.includes(val)) pendingComposerTags.reportes.push(val);
   }
@@ -1201,6 +1370,7 @@ export function removeProjectChatPendingTag(kind, val) {
   if (kind === 'partida') pendingComposerTags.partidaId = null;
   if (kind === 'user') pendingComposerTags.mentions = pendingComposerTags.mentions.filter(x => x !== val);
   if (kind === 'estimacion') pendingComposerTags.estimaciones = pendingComposerTags.estimaciones.filter(x => x !== val);
+  if (kind === 'compra') pendingComposerTags.compras = (pendingComposerTags.compras || []).filter(x => x !== val);
   if (kind === 'reporte') pendingComposerTags.reportes = pendingComposerTags.reportes.filter(x => x !== val);
   renderProjectChatDock();
 }
@@ -1234,6 +1404,7 @@ export function sendProjectChatMessage() {
   const messages = loadProjectChatMessages();
   messages.push({
     id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    section: activeChatSection || 'tecnico',
     authorName: authorObj.name,
     authorHandle: authorObj.handle,
     authorRole: authorObj.roleLabel,
@@ -1242,6 +1413,7 @@ export function sendProjectChatMessage() {
     partidaId: pendingComposerTags.partidaId || activePartidaFilterId || null,
     mentions: mergedMentions,
     estimaciones: [...pendingComposerTags.estimaciones],
+    compras: [...(pendingComposerTags.compras || [])],
     reportes: [...pendingComposerTags.reportes],
     readBy: [],
     text
@@ -1253,6 +1425,7 @@ export function sendProjectChatMessage() {
     partidaId: activePartidaFilterId || null,
     mentions: [],
     estimaciones: [],
+    compras: [],
     reportes: []
   };
   activeTagPickerKind = null;
@@ -1278,6 +1451,7 @@ export function jumpToProjectChatTag(kind, value) {
   if (kind === 'partida') {
     activePartidaFilterId = String(value);
     pendingComposerTags.partidaId = String(value);
+    activeChatSection = 'tecnico';
     renderProjectChatDock();
     triggerExternalChatRefresh();
     const pObj = getLevel1Partidas().find(p => p.id === String(value));
@@ -1285,6 +1459,7 @@ export function jumpToProjectChatTag(kind, value) {
       showToast(`Filtrando comentarios de Partida Nivel 1: ${pObj.clave} ${pObj.descripcion}`, 'info');
     }
   } else if (kind === 'estimacion') {
+    activeChatSection = 'financiero';
     const ests = getProjectEstimacionesTags();
     const found = ests.find(e => e.label === value || e.id === value);
     if (found) {
@@ -1294,10 +1469,16 @@ export function jumpToProjectChatTag(kind, value) {
       window.switchTab('estimaciones');
     }
     showToast(`Abriendo ${value} en la pestaña Estimaciones`, 'info');
+  } else if (kind === 'compra') {
+    activeChatSection = 'financiero';
+    if (typeof window.switchTab === 'function') {
+      window.switchTab('compras');
+    }
+    showToast(`Navegando a la pestaña Compras y Pagos para ${value}`, 'info');
   } else if (kind === 'reporte') {
-    const reps = getProjectReportesTags();
+    const reps = getProjectReportesTags(activeChatSection);
     const found = reps.find(r => r.label === value || r.id === value);
-    const targetTab = found ? found.id : 'cat';
+    const targetTab = found ? found.id : (activeChatSection === 'financiero' ? 'estimaciones' : 'cat');
     if (typeof window.switchTab === 'function') {
       window.switchTab(targetTab);
     }
@@ -1320,6 +1501,9 @@ export function renderProjectChatDock() {
         isChatDockExpanded = true;
         activeChatFilter = 'all';
         activePartidaFilterId = null;
+        if (pending.section) {
+          activeChatSection = pending.section;
+        }
         if (pending.partidaId) {
           pendingComposerTags.partidaId = String(pending.partidaId);
         }
@@ -1351,8 +1535,13 @@ export function renderProjectChatDock() {
   const users = getAssignedProjectUsers();
   const partidas = getLevel1Partidas();
   const estimaciones = getProjectEstimacionesTags();
-  const reportes = getProjectReportesTags();
+  const compras = getProjectComprasTags();
+  const reportes = getProjectReportesTags(activeChatSection);
   const allMessages = loadProjectChatMessages();
+
+  // Conteo de mensajes por sección
+  const countTecnico = allMessages.filter(m => getMessageSection(m) === 'tecnico').length;
+  const countFinanciero = allMessages.filter(m => getMessageSection(m) === 'financiero').length;
 
   // Actualizar el botón del Chat en la barra vertical izquierda (debajo de la campana de notificaciones)
   const sidebarChatBtn = document.getElementById('btn-sidebar-project-chat');
@@ -1360,7 +1549,7 @@ export function renderProjectChatDock() {
   const sidebarChatBadge = document.getElementById('sidebar-chat-badge');
 
   if (sidebarChatBtn) {
-    sidebarChatBtn.title = `${isChatDockExpanded ? 'Cerrar' : 'Abrir'} Chat del Proyecto: ${projectName} (${allMessages.length} comentarios)`;
+    sidebarChatBtn.title = `${isChatDockExpanded ? 'Cerrar' : 'Abrir'} Chat y Bitácora de Obra: ${projectName} (${allMessages.length} notas)`;
     sidebarChatBtn.className = isChatDockExpanded
       ? 'w-11 h-11 rounded-xl flex items-center justify-center bg-blue-600/25 text-blue-300 border border-blue-500/60 shadow-md transition active:scale-95 cursor-pointer relative group'
       : 'w-11 h-11 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition active:scale-95 cursor-pointer relative group';
@@ -1380,7 +1569,7 @@ export function renderProjectChatDock() {
     }
   }
 
-  // Si está plegado (cerrado), se abre desde el botón de la barra vertical izquierda (debajo de la campana) o desde Partida Nivel 1
+  // Si está plegado (cerrado), se abre desde el botón de la barra vertical izquierda o desde Partida Nivel 1
   if (!isChatDockExpanded) {
     dockEl.className = 'hidden';
     dockEl.innerHTML = '';
@@ -1390,8 +1579,8 @@ export function renderProjectChatDock() {
   // Siempre al frente de toda la información en todas las pestañas (z-index: 9990)
   dockEl.style.zIndex = '9990';
   dockEl.className = isChatMaximized
-    ? 'no-print fixed bottom-0 right-5 z-50 w-[760px] max-w-[calc(100vw-1.5rem)] shadow-2xl rounded-t-2xl border border-b-0 border-slate-300 bg-white overflow-hidden transition-all duration-200 font-sans'
-    : 'no-print fixed bottom-0 right-5 z-50 w-[360px] sm:w-[400px] max-w-[calc(100vw-1.5rem)] shadow-2xl rounded-t-xl border border-b-0 border-slate-300 bg-white overflow-hidden transition-all duration-200 font-sans';
+    ? 'no-print fixed bottom-0 right-5 z-50 w-[780px] max-w-[calc(100vw-1.5rem)] shadow-2xl rounded-t-2xl border border-b-0 border-slate-300 bg-white overflow-hidden transition-all duration-200 font-sans'
+    : 'no-print fixed bottom-0 right-5 z-50 w-[380px] sm:w-[420px] max-w-[calc(100vw-1.5rem)] shadow-2xl rounded-t-xl border border-b-0 border-slate-300 bg-white overflow-hidden transition-all duration-200 font-sans';
 
   const currentUser = getCurrentUser() || getLastKnownUser();
   if (!selectedAuthorHandle || !users.some(u => u.handle === selectedAuthorHandle)) {
@@ -1399,11 +1588,13 @@ export function renderProjectChatDock() {
     selectedAuthorHandle = matched ? matched.handle : '@Admin';
   }
 
-  // Filtrar mensajes según filtro activo y Partida Nivel 1
-  const filteredMessages = allMessages.filter(m => {
+  // Filtrar mensajes según sección activa ('tecnico' vs 'financiero'), filtros rápidos y Partida Nivel 1
+  const sectionMessages = allMessages.filter(m => getMessageSection(m) === activeChatSection);
+
+  const filteredMessages = sectionMessages.filter(m => {
     if (activePartidaFilterId && String(m.partidaId) !== String(activePartidaFilterId)) return false;
     if (activeChatFilter === 'mentions') return extractMentionsFromMessage(m).length > 0;
-    if (activeChatFilter === 'estimaciones') return Array.isArray(m.estimaciones) && m.estimaciones.length > 0;
+    if (activeChatFilter === 'estimaciones') return (Array.isArray(m.estimaciones) && m.estimaciones.length > 0) || (Array.isArray(m.compras) && m.compras.length > 0);
     if (activeChatFilter === 'reportes') return Array.isArray(m.reportes) && m.reportes.length > 0;
     return true;
   });
@@ -1420,11 +1611,11 @@ export function renderProjectChatDock() {
     </span>
   `).join('');
 
-  // Menú flotante para insertar etiquetas (@Usuario, /Nivel 1, #Estimación, !Reporte)
+  // Menú flotante para insertar etiquetas contextuales según la sección activa
   let tagPickerHtml = '';
   if (activeTagPickerKind === 'user') {
     tagPickerHtml = `
-      <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll">
+      <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
         ${users.map(u => `
           <button type="button" onclick="addProjectChatPendingTag('user', '${u.handle.replace(/'/g, "\\'")}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer">
@@ -1435,7 +1626,7 @@ export function renderProjectChatDock() {
     `;
   } else if (activeTagPickerKind === 'partida') {
     tagPickerHtml = `
-      <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll">
+      <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
         ${partidas.length > 0 ? partidas.map(p => `
           <button type="button" onclick="addProjectChatPendingTag('partida', '${p.id}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 cursor-pointer truncate max-w-full">
@@ -1446,7 +1637,7 @@ export function renderProjectChatDock() {
     `;
   } else if (activeTagPickerKind === 'estimacion') {
     tagPickerHtml = `
-      <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll">
+      <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
         ${estimaciones.map(e => `
           <button type="button" onclick="addProjectChatPendingTag('estimacion', '${e.label}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 cursor-pointer">
@@ -1455,9 +1646,20 @@ export function renderProjectChatDock() {
         `).join('')}
       </div>
     `;
+  } else if (activeTagPickerKind === 'compra') {
+    tagPickerHtml = `
+      <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
+        ${compras.map(c => `
+          <button type="button" onclick="addProjectChatPendingTag('compra', '${c.label.replace(/'/g, "\\'")}')"
+                  class="px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100 cursor-pointer">
+            ${c.label} <span class="text-[9.5px] opacity-75">(${c.status})</span>
+          </button>
+        `).join('')}
+      </div>
+    `;
   } else if (activeTagPickerKind === 'reporte') {
     tagPickerHtml = `
-      <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1">
+      <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 shadow-inner">
         ${reportes.map(r => `
           <button type="button" onclick="addProjectChatPendingTag('reporte', '${r.label}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
@@ -1497,6 +1699,14 @@ export function renderProjectChatDock() {
       </span>
     `);
   });
+  (pendingComposerTags.compras || []).forEach(c => {
+    activeTagChips.push(`
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-teal-100 text-teal-800 border border-teal-300">
+        ${c.slice(0, 22)}
+        <button type="button" onclick="removeProjectChatPendingTag('compra', '${c.replace(/'/g, "\\'")}')" class="hover:text-teal-950 cursor-pointer">✕</button>
+      </span>
+    `);
+  });
   pendingComposerTags.reportes.forEach(r => {
     activeTagChips.push(`
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
@@ -1514,11 +1724,11 @@ export function renderProjectChatDock() {
         <span class="w-6 h-6 rounded-lg bg-amber-400 text-slate-950 inline-flex items-center justify-center shadow-xs shrink-0">
           <i class="fa-solid fa-comments text-xs"></i>
         </span>
-        <span class="text-xs font-bold truncate" title="Chat del Proyecto: ${projectName}">
-          Chat • ${projectName}
+        <span class="text-xs font-bold truncate" title="Chat y Bitácora: ${projectName}">
+          Bitácora • ${projectName}
         </span>
         <span class="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400 text-slate-950 leading-none shrink-0"
-              title="Total de comentarios en este filtro">
+              title="Notas en esta sección">
           ${filteredMessages.length}
         </span>
       </div>
@@ -1527,8 +1737,8 @@ export function renderProjectChatDock() {
         <div class="hidden sm:flex items-center -space-x-1 mr-1">${miniAvatarsHtml}</div>
         <button type="button"
                 id="btn-project-chat-print"
-                onclick="event.stopPropagation(); printProjectChatReport(event);"
-                title="Imprimir conversación del chat"
+                onclick="event.stopPropagation(); printProjectChatReport('${activeChatSection}', event);"
+                title="Imprimir reporte de bitácora (${activeChatSection === 'tecnico' ? 'Técnica' : 'Financiera'})"
                 class="w-6 h-6 rounded bg-white/15 hover:bg-white/25 text-white inline-flex items-center justify-center cursor-pointer transition">
           <i class="fa-solid fa-print text-[11px]"></i>
         </button>
@@ -1550,17 +1760,44 @@ export function renderProjectChatDock() {
       </div>
     </div>
 
+    <!-- PESTAÑAS PRINCIPALES DEL CHAT: SECCIÓN 1 (TÉCNICA) vs SECCIÓN 2 (FINANCIERA) -->
+    <div class="bg-slate-900 px-2 pt-1.5 pb-1 flex items-center justify-between border-b border-slate-700/80 gap-1.5 select-none">
+      <div class="flex items-center gap-1 flex-1">
+        <button type="button" onclick="switchProjectChatSection('tecnico')"
+                title="Catálogo Base • Insumos Base • Calendario de Obra"
+                class="flex-1 py-1 px-2 rounded-md text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${activeChatSection === 'tecnico' ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'}">
+          <i class="fa-solid fa-helmet-safety text-[10px]"></i>
+          <span class="truncate">1. Técnica / Obra</span>
+          <span class="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold ${activeChatSection === 'tecnico' ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-300'}">${countTecnico}</span>
+        </button>
+        <button type="button" onclick="switchProjectChatSection('financiero')"
+                title="Estimaciones • Compras y Pagos • Flujo Financiero"
+                class="flex-1 py-1 px-2 rounded-md text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${activeChatSection === 'financiero' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'}">
+          <i class="fa-solid fa-coins text-[10px]"></i>
+          <span class="truncate">2. Financiera / Pagos</span>
+          <span class="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold ${activeChatSection === 'financiero' ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-300'}">${countFinanciero}</span>
+        </button>
+      </div>
+      <button type="button" onclick="printProjectChatReport('todos', event)"
+              title="Imprimir bitácora integral completa (Ambas secciones)"
+              class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold flex items-center gap-1 shrink-0 border border-slate-700 cursor-pointer transition">
+        <i class="fa-solid fa-book text-[9px] text-amber-400"></i>
+        <span>Libro</span>
+      </button>
+    </div>
+
     <!-- CUERPO DESPLEGABLE DEL CHAT DEL PROYECTO -->
     <div id="project-chat-body" class="flex flex-col bg-white">
       
       <!-- Sub-encabezado: Usuario Asignado + Filtros rápidos -->
       <div class="p-2.5 bg-slate-50 border-b border-slate-200 space-y-2">
         <div class="flex items-center justify-between gap-2">
-          <span class="text-[10.5px] text-slate-500 font-semibold flex items-center gap-1">
-            <i class="fa-solid fa-user-shield text-blue-600 text-[10px]"></i> Usuarios Asignados
+          <span class="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
+            <span class="inline-block w-2 h-2 rounded-full ${activeChatSection === 'tecnico' ? 'bg-blue-600' : 'bg-emerald-600'}"></span>
+            ${activeChatSection === 'tecnico' ? 'Catálogo • Insumos • Calendario' : 'Estimaciones • Compras • Pagos'}
           </span>
           <div class="flex items-center gap-1 bg-white border border-slate-300 rounded px-1.5 py-0.5">
-            <span class="text-[10px] text-slate-500">Comentar como:</span>
+            <span class="text-[10px] text-slate-500">Asiento por:</span>
             <select onchange="onProjectChatAuthorChange(this.value)"
                     class="bg-transparent text-[11px] font-bold text-slate-800 outline-none cursor-pointer">
               ${users.map(u => `
@@ -1574,20 +1811,23 @@ export function renderProjectChatDock() {
         <div class="flex flex-wrap items-center gap-1">
           <button type="button" onclick="setProjectChatFilter('all')"
                   class="px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition ${activeChatFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'}">
-            Todos
+            Todos (${filteredMessages.length})
           </button>
           <button type="button" onclick="setProjectChatFilter('mentions')"
                   class="px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition ${activeChatFilter === 'mentions' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'}">
             @ Menciones
           </button>
-          <button type="button" onclick="setProjectChatFilter('estimaciones')"
-                  class="px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition ${activeChatFilter === 'estimaciones' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'}">
-            # Estimaciones
-          </button>
-          <button type="button" onclick="setProjectChatFilter('reportes')"
-                  class="px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition ${activeChatFilter === 'reportes' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'}">
-            ! Reportes
-          </button>
+          ${activeChatSection === 'tecnico' ? `
+            <button type="button" onclick="setProjectChatFilter('reportes')"
+                    class="px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition ${activeChatFilter === 'reportes' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'}">
+              ! Plan de Obra
+            </button>
+          ` : `
+            <button type="button" onclick="setProjectChatFilter('estimaciones')"
+                    class="px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition ${activeChatFilter === 'estimaciones' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'}">
+              # Estimaciones / Pagos
+            </button>
+          `}
           ${activePartidaObj ? `
             <button type="button" onclick="clearProjectChatPartidaFilter()"
                     title="Quitar filtro de Partida Nivel 1"
@@ -1602,22 +1842,25 @@ export function renderProjectChatDock() {
       <div id="project-chat-messages-list" class="p-2.5 space-y-2 ${isChatMaximized ? 'h-[58vh]' : 'h-[230px]'} overflow-y-auto custom-scroll bg-white">
         ${filteredMessages.length === 0 ? `
           <div class="h-full flex flex-col items-center justify-center text-center p-4 text-slate-400 text-xs border border-dashed border-slate-200 rounded-lg">
-            <span class="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-1.5">
-              <i class="fa-solid fa-comments text-sm"></i>
+            <span class="w-9 h-9 rounded-full ${activeChatSection === 'tecnico' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'} flex items-center justify-center mb-1.5">
+              <i class="fa-solid ${activeChatSection === 'tecnico' ? 'fa-helmet-safety' : 'fa-coins'} text-sm"></i>
             </span>
-            <p class="font-semibold text-slate-600">Sin comentarios en esta vista</p>
+            <p class="font-semibold text-slate-600">Sin asientos en la sección ${activeChatSection === 'tecnico' ? 'Técnica de Obra' : 'Financiera'}</p>
             <p class="text-[11px] text-slate-400 mt-0.5">
-              Etiqueta a un <strong>@Usuario</strong>, una <strong>/Partida Nivel 1</strong>, una <strong>#Estimación</strong> o un <strong>!Reporte</strong>.
+              ${activeChatSection === 'tecnico'
+                ? 'Registra acuerdos sobre <strong>Catálogo Base</strong>, <strong>Insumos</strong> o <strong>Calendario</strong>.'
+                : 'Registra autorizaciones de <strong>Estimaciones</strong>, <strong>Compras</strong> o <strong>Pagos</strong>.'}
             </p>
           </div>
         ` : filteredMessages.map(m => {
           const pObj = m.partidaId ? partidas.find(p => String(p.id) === String(m.partidaId)) : null;
           const isHighlighted = highlightedMessageId && m.id === highlightedMessageId;
+          const msgSec = getMessageSection(m);
           return `
             <div id="chat-msg-item-${m.id}" class="p-2.5 rounded-lg border ${isHighlighted ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-300' : 'border-slate-200 bg-slate-50/70'} space-y-1.5 group transition">
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-1.5 min-w-0">
-                  <span class="w-5 h-5 rounded-full bg-blue-700 text-white text-[9px] font-bold inline-flex items-center justify-center shrink-0">
+                  <span class="w-5 h-5 rounded-full ${msgSec === 'tecnico' ? 'bg-blue-700' : 'bg-emerald-700'} text-white text-[9px] font-bold inline-flex items-center justify-center shrink-0">
                     ${m.authorInitials || 'US'}
                   </span>
                   <span class="text-[11px] font-bold text-slate-800 truncate">${m.authorHandle || m.authorName}</span>
@@ -1634,7 +1877,7 @@ export function renderProjectChatDock() {
               </div>
 
               <!-- Etiquetas clicables -->
-              ${(pObj || (m.mentions && m.mentions.length) || (m.estimaciones && m.estimaciones.length) || (m.reportes && m.reportes.length)) ? `
+              ${(pObj || (m.mentions && m.mentions.length) || (m.estimaciones && m.estimaciones.length) || (m.compras && m.compras.length) || (m.reportes && m.reportes.length)) ? `
                 <div class="flex flex-wrap items-center gap-1">
                   ${pObj ? `
                     <button type="button" onclick="jumpToProjectChatTag('partida', '${pObj.id}')"
@@ -1653,6 +1896,12 @@ export function renderProjectChatDock() {
                       ${est} ↗
                     </button>
                   `).join('')}
+                  ${(m.compras || []).map(comp => `
+                    <button type="button" onclick="jumpToProjectChatTag('compra', '${comp.replace(/'/g, "\\'")}')"
+                            class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300 hover:bg-teal-200 cursor-pointer">
+                      ${comp.slice(0, 24)} ↗
+                    </button>
+                  `).join('')}
                   ${(m.reportes || []).map(rep => `
                     <button type="button" onclick="jumpToProjectChatTag('reporte', '${rep}')"
                             class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-200 cursor-pointer">
@@ -1668,25 +1917,36 @@ export function renderProjectChatDock() {
         }).join('')}
       </div>
 
-      <!-- Barra inferior para etiquetar y enviar comentario -->
+      <!-- Barra inferior para etiquetar y enviar comentario según la sección -->
       <div class="p-2.5 bg-slate-50 border-t border-slate-200 space-y-1.5">
         <div class="flex flex-wrap items-center gap-1">
           <button type="button" onclick="toggleProjectChatTagPicker('user')"
                   class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer">
             @ Usuario
           </button>
-          <button type="button" onclick="toggleProjectChatTagPicker('partida')"
-                  class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 cursor-pointer">
-            / Nivel 1
-          </button>
-          <button type="button" onclick="toggleProjectChatTagPicker('estimacion')"
-                  class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 cursor-pointer">
-            # Estimación
-          </button>
-          <button type="button" onclick="toggleProjectChatTagPicker('reporte')"
-                  class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
-            ! Reporte
-          </button>
+          ${activeChatSection === 'tecnico' ? `
+            <button type="button" onclick="toggleProjectChatTagPicker('partida')"
+                    class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 cursor-pointer">
+              / Nivel 1
+            </button>
+            <button type="button" onclick="toggleProjectChatTagPicker('reporte')"
+                    class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
+              ! Plan Obra
+            </button>
+          ` : `
+            <button type="button" onclick="toggleProjectChatTagPicker('estimacion')"
+                    class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 cursor-pointer">
+              # Estimación
+            </button>
+            <button type="button" onclick="toggleProjectChatTagPicker('compra')"
+                    class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100 cursor-pointer">
+              $ Compra/Pago
+            </button>
+            <button type="button" onclick="toggleProjectChatTagPicker('reporte')"
+                    class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
+              ! Finanzas
+            </button>
+          `}
         </div>
 
         ${tagPickerHtml}
@@ -1701,13 +1961,13 @@ export function renderProjectChatDock() {
           <input id="project-chat-input"
                  type="text"
                  value="${draftText.replace(/"/g, '&quot;')}"
-                 placeholder="Escribe un seguimiento de obra..."
+                 placeholder="${activeChatSection === 'tecnico' ? 'Asiento técnico (Catálogo, Insumos, Cronograma)...' : 'Asiento financiero (Estimaciones, Compras, Pagos)...'}"
                  onkeydown="if(event.key==='Enter'){ event.preventDefault(); sendProjectChatMessage(); }"
                  class="flex-1 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500">
           <button type="button"
                   onclick="sendProjectChatMessage()"
-                  class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white cursor-pointer transition shrink-0 shadow-xs">
-            Enviar
+                  class="px-3 py-1.5 rounded-lg text-xs font-bold ${activeChatSection === 'tecnico' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white cursor-pointer transition shrink-0 shadow-xs">
+            Asentar
           </button>
         </div>
       </div>

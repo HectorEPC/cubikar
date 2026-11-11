@@ -5,6 +5,7 @@
 import { state, persistLocalData } from '../../state/store.js';
 import { getActiveProjectId, getStorageKey } from '../../config/constants.js';
 import { getHierarchyColor } from '../../core/colors.js';
+import { scheduleCronogramaCloudSync } from '../../core/cloudModulesSyncService.js';
 
 // Colores modernos por partida para las barras del cronograma Gantt
 export const PARTIDA_COLORS = [
@@ -120,6 +121,7 @@ export function saveScheduleSettings(cfg) {
     const current = getScheduleSettings();
     const updated = Object.assign({}, current, cfg);
     localStorage.setItem(key, JSON.stringify(updated));
+    scheduleCronogramaCloudSync();
     return updated;
   } catch (e) {
     return cfg;
@@ -191,6 +193,7 @@ export function saveWorkdaysSettings(cfg) {
       lluvias: Array.isArray(cfg?.lluvias) ? cfg.lluvias : []
     };
     localStorage.setItem(key, JSON.stringify(dataToSave));
+    scheduleCronogramaCloudSync();
     return dataToSave;
   } catch (e) {
     return cfg;

@@ -101,33 +101,241 @@ export default async function handler(req, res) {
     }
   }
 
-  const apiKey = (envKey || req.headers['x-gemini-key'] || req.body?.userApiKey || '').trim();
+  // 3. Priorizar API Key explícita del usuario (si ingresa su propia key, no consume cuota de la plataforma)
+  const body = req.body || {};
+  const userProvidedKey = String(req.headers['x-gemini-key'] || body.userApiKey || '').trim();
+  const usingOwnApiKey = Boolean(userProvidedKey);
+  const apiKey = userProvidedKey || envKey;
 
   if (!apiKey) {
     return res.status(500).json({
       success: false,
-      error: 'Servicio de IA no configurado: falta agregar la variable GEMINI_API_KEY en las variables de entorno de Vercel.'
+      error: 'Servicio de IA no configurado: falta GEMINI_API_KEY en el servidor o una API Key propia.'
     });
   }
 
-  // 4. Validación y Sanitización del Input
-  const body = req.body || {};
-  const node = body.node || {};
-  const descripcion = String(node.descripcion || body.descripcion || '').trim().slice(0, 500);
-  const unidad = String(node.unidad || body.unidad || 'pza').trim().slice(0, 20);
-  const clave = String(node.clave || body.clave || '').trim().slice(0, 50);
-  const cantidad = Number(node.cantidad || body.cantidad || 1) || 1;
-  const fullPath = String(body.fullPath || '').trim().slice(0, 300);
-  const fasarVal = Number(body.fasarVal ?? 70.0);
-  const fasarFactor = Number(body.fasarFactor ?? 1.70);
+  // Modo explícito: useWebSearch DEBE venir estrictamente en true para activar Google Search Grounding ($0.70 MXN/req)
+  const useWebSearch = Boolean(body.useWebSearch === true || body.enableWebSearch === true);
+  const mode = String(body.mode || 'apu').toLowerCase().trim();
 
-  if (!descripcion) {
-    return res.status(400).json({ success: false, error: 'Se requiere la descripción del concepto.' });
+  // Guard servidor contra Supabase JWT + plan real en BD + tabla mensual de cuotas cuando usa key de plataforma
+  const sbUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const sbAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  const sbReadKey = serviceRoleKey || sbAnonKey;
+  let quotaSnapshot = null;
+  let quotaUserId = null;
+  let resolvedQuotaPlanId = 'free';
+
+  const normalizePlan = (raw) => {
+    const k = String(raw || 'free').toLowerCase().trim();
+    if (k === 'enterprise') return 'pro';
+    return (k === 'plus' || k === 'pro') ? k : 'free';
+  };
+  const buildQuotaSnapshot = (quotaOut, fallbackPlan) => {
+    if (!quotaOut || typeof quotaOut !== 'object') return null;
+    const p = normalizePlan(quotaOut.plan_id || fallbackPlan);
+    return {
+      planId: p,
+      monthKey: quotaOut.month_key || '',
+      standardUsed: Number(quotaOut.standard_used) || 0,
+      standardLimit: Number(quotaOut.standard_limit) || (p === 'pro' ? 3500 : (p === 'plus' ? 1500 : 10)),
+      searchUsed: Number(quotaOut.search_used) || 0,
+      searchLimit: Number(quotaOut.search_limit) ?? (p === 'pro' ? 200 : (p === 'plus' ? 70 : 0))
+    };
+  };
+
+  if (!usingOwnApiKey) {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    let verifiedPlanId = (sbUrl && serviceRoleKey) ? 'free' : normalizePlan(body.planId || 'free');
+    let verifiedUserId = null;
+    let verifiedUserEmail = '';
+
+    if (token && sbUrl && sbReadKey) {
+      try {
+        const uRes = await fetch(`${sbUrl}/auth/v1/user`, {
+          headers: { apikey: sbReadKey, Authorization: `Bearer ${token}` }
+        });
+        if (uRes.ok) {
+          const uJson = await uRes.json();
+          verifiedUserId = uJson?.id || null;
+          verifiedUserEmail = String(uJson?.email || '').toLowerCase().trim();
+          const metaPlan = uJson?.user_metadata?.subscription?.planId;
+          verifiedPlanId = normalizePlan(metaPlan || (serviceRoleKey ? 'free' : (body.planId || 'free')));
+        }
+      } catch (_) {}
+    }
+
+    if (sbUrl && serviceRoleKey && !verifiedUserId) {
+      return res.status(401).json({
+        success: false,
+        errorCode: 'AUTH_REQUIRED_FOR_PLATFORM_AI',
+        error: 'Inicia sesión en tu cuenta o ingresa tu propia Gemini API Key para usar el servicio de IA.'
+      });
+    }
+
+    quotaUserId = verifiedUserId;
+
+    // Resolver plan autoritativo desde PostgreSQL (empresas.plan) y validar si colabora en cuenta de anfitrión
+    if (verifiedUserId && sbUrl && serviceRoleKey) {
+      try {
+        const perfRes = await fetch(
+          `${sbUrl}/rest/v1/perfiles?id=eq.${encodeURIComponent(verifiedUserId)}&select=id,email,empresa_id,empresas(id,plan,estado_suscripcion)&limit=1`,
+          { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } }
+        );
+        if (perfRes.ok) {
+          const perfRows = await perfRes.json();
+          const dbPlan = perfRows?.[0]?.empresas?.plan;
+          if (dbPlan) verifiedPlanId = normalizePlan(dbPlan);
+        }
+
+        const reqOwnerEmail = String(body.ownerEmail || '').toLowerCase().trim();
+        const reqProjectId = String(body.projectId || '').trim();
+        if (reqOwnerEmail && verifiedUserEmail && reqOwnerEmail !== verifiedUserEmail) {
+          const invQuery = reqProjectId
+            ? `owner_email=ilike.${encodeURIComponent(reqOwnerEmail)}&invitee_email=ilike.${encodeURIComponent(verifiedUserEmail)}&proyecto_id=eq.${encodeURIComponent(reqProjectId)}&estado=in.(accepted,active)&select=owner_email,proyecto_id&limit=1`
+            : `owner_email=ilike.${encodeURIComponent(reqOwnerEmail)}&invitee_email=ilike.${encodeURIComponent(verifiedUserEmail)}&estado=in.(accepted,active)&select=owner_email&limit=1`;
+          const invRes = await fetch(`${sbUrl}/rest/v1/invitaciones?${invQuery}`, {
+            headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` }
+          });
+          const invRows = invRes.ok ? await invRes.json() : [];
+          if (Array.isArray(invRows) && invRows.length > 0) {
+            const ownerPerfRes = await fetch(
+              `${sbUrl}/rest/v1/perfiles?email=ilike.${encodeURIComponent(reqOwnerEmail)}&select=id,email,empresas(plan)&limit=1`,
+              { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } }
+            );
+            const ownerRows = ownerPerfRes.ok ? await ownerPerfRes.json() : [];
+            if (ownerRows?.[0]?.id) {
+              quotaUserId = ownerRows[0].id;
+              if (ownerRows[0]?.empresas?.plan) {
+                verifiedPlanId = normalizePlan(ownerRows[0].empresas.plan);
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    resolvedQuotaPlanId = verifiedPlanId;
+
+    if (useWebSearch && verifiedPlanId === 'free') {
+      return res.status(403).json({
+        success: false,
+        errorCode: 'SEARCH_GROUNDING_FORBIDDEN',
+        error: 'El Cotizador Web en Vivo (Google Search Grounding) no está incluido en Plan Gratuita (0/mes). Actualiza a Plus (70/mes), Pro (200/mes) o ingresa tu propia Gemini API Key.'
+      });
+    }
+
+    if (quotaUserId && sbUrl && serviceRoleKey) {
+      const preStdDelta = useWebSearch ? 0 : 1;
+      const preSearchDelta = useWebSearch ? 1 : 0;
+      try {
+        const rpcRes = await fetch(`${sbUrl}/rest/v1/rpc/check_and_increment_ai_quota`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`
+          },
+          body: JSON.stringify({
+            p_user_id: quotaUserId,
+            p_plan_id: verifiedPlanId,
+            p_std_delta: preStdDelta,
+            p_search_delta: preSearchDelta
+          })
+        });
+        if (rpcRes.ok) {
+          const quotaOut = await rpcRes.json();
+          const snap = buildQuotaSnapshot(quotaOut, verifiedPlanId);
+          if (snap) quotaSnapshot = snap;
+          if (quotaOut && quotaOut.allowed === false) {
+            return res.status(429).json({
+              success: false,
+              errorCode: useWebSearch ? 'SEARCH_GROUNDING_QUOTA_EXCEEDED' : 'AI_STANDARD_QUOTA_EXCEEDED',
+              error: quotaOut.reason || 'Has alcanzado tu cuota mensual de IA para este plan.',
+              quotaSnapshot
+            });
+          }
+        }
+      } catch (_) {}
+    }
   }
 
-  // 5. Construir Prompt Especializado para Mercado Mexicano con Grounding
-  const promptText = `Eres un ingeniero civil especialista senior en Análisis de Precios Unitarios (APU) y costos de construcción en México.
-Utiliza Google Search Grounding para investigar precios comerciales y rendimientos vigentes en el mercado de la construcción en México (en Pesos Mexicanos MXN).
+  // 4. Validación y construcción de prompt según modo y useWebSearch
+  let promptText = '';
+  const parsePriceNumber = (v) => {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+    const cleaned = String(v || '').replace(/[^0-9.-]/g, '');
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  if (mode === 'insumo') {
+    const insumo = body.insumo || body;
+    const desc = String(insumo.descripcion || '').trim().slice(0, 400);
+    const unidad = String(insumo.unidad || 'pza').trim().slice(0, 30);
+    const tipo = String(insumo.tipo || 'Material').trim().slice(0, 50);
+    const costoActual = Number(insumo.costoActual ?? insumo.precioUnitario ?? 0) || 0;
+    if (!desc) return res.status(400).json({ success: false, error: 'Se requiere la descripción del insumo.' });
+
+    promptText = `Eres un experto ingeniero de costos de construcción en México (CMIC / Neodata / Opus).
+${useWebSearch ? 'Utiliza Google Search para investigar precios comerciales VIGENTES de mercado en México (MXN).' : 'Estima con base en tus conocimientos y tabuladores de precios promedio en México (MXN) sin realizar búsquedas externas.'}
+Calcula el costo unitario actualizado (sin IVA, puesto en obra o salario nominal/integrado según rubro) en MXN:
+- Tipo de Insumo: ${tipo}
+- Descripción: "${desc}"
+- Unidad: "${unidad}"
+- Costo actual de referencia en catálogo: $${costoActual.toFixed(2)} MXN
+
+Responde OBLIGATORIAMENTE con un bloque JSON limpio:
+\`\`\`json
+{
+  "costoUnitario": 0.00,
+  "moneda": "MXN",
+  "fuente": "Descripción breve de referencia comercial",
+  "observaciones": "Nota corta técnica de rendimiento o vigencia"
+}
+\`\`\``;
+  } else if (mode === 'insumos_batch') {
+    const batchCap = useWebSearch ? 10 : 35;
+    const insumosList = Array.isArray(body.insumos) ? body.insumos.slice(0, batchCap) : [];
+    if (insumosList.length === 0) return res.status(400).json({ success: false, error: 'Se requiere una lista de insumos.' });
+    const listText = insumosList.map((ins, i) => `${i + 1}. [${ins.tipo || 'Material'}] "${String(ins.descripcion || '').slice(0, 200)}" (Unidad: ${ins.unidad || 'pza'}, Actual: $${Number(ins.costoUnitario || 0).toFixed(2)})`).join('\n');
+
+    promptText = `Eres un ingeniero de costos de construcción en México (CMIC / Neodata / Opus).
+${useWebSearch ? 'Investiga en Google Search los precios comerciales actuales en México (MXN sin IVA) para esta lista de insumos:' : 'Estima los precios comerciales promedio vigentes en México (MXN sin IVA) usando tabuladores técnicos para esta lista de insumos:'}
+
+${listText}
+
+Devuelve OBLIGATORIAMENTE un arreglo JSON exacto manteniendo el orden:
+\`\`\`json
+{
+  "items": [
+    { "indice": 1, "descripcion": "...", "costoUnitario": 0.00, "fuente": "Referencia México" }
+  ]
+}
+\`\`\``;
+  } else if (mode === 'calendario') {
+    promptText = String(body.promptText || '').trim().slice(0, 12000);
+    if (!promptText) return res.status(400).json({ success: false, error: 'Se requiere el prompt de calendario.' });
+  } else {
+    const node = body.node || {};
+    const descripcion = String(node.descripcion || body.descripcion || '').trim().slice(0, 500);
+    const unidad = String(node.unidad || body.unidad || 'pza').trim().slice(0, 20);
+    const clave = String(node.clave || body.clave || '').trim().slice(0, 50);
+    const cantidad = Number(node.cantidad || body.cantidad || 1) || 1;
+    const fullPath = String(body.fullPath || '').trim().slice(0, 300);
+    const fasarVal = Number(body.fasarVal ?? 70.0);
+    const fasarFactor = Number(body.fasarFactor ?? 1.70);
+
+    if (!descripcion) {
+      return res.status(400).json({ success: false, error: 'Se requiere la descripción del concepto.' });
+    }
+
+    promptText = `Eres un ingeniero civil especialista senior en Análisis de Precios Unitarios (APU) y costos de construcción en México.
+${useWebSearch
+  ? 'Utiliza Google Search Grounding para investigar precios comerciales y rendimientos vigentes en el mercado de la construcción en México (en Pesos Mexicanos MXN).'
+  : 'Calcula la matriz de precios unitarios utilizando tabuladores estándar mexicanos (CMIC / Neodata / Opus) en Pesos Mexicanos (MXN).'}
 
 Datos de la fila seleccionada en TAB1-CAT-BASE:
 - Ubicación / Partida en presupuesto: "${fullPath || 'GENERAL'}"
@@ -139,59 +347,41 @@ Datos de la fila seleccionada en TAB1-CAT-BASE:
 REGLA FUNDAMENTAL DE PRECIOS UNITARIOS (APU):
 La propiedad 'cantidad' de CADA insumo (Material, Mano de Obra, Equipo/Herramienta, Subcontrato) DEBE SER ESTRICTAMENTE el consumo o rendimiento unitario necesario para elaborar EXACTAMENTE UNA UNIDAD (1 ${unidad}) del concepto.
 ¡NO debes multiplicar por la cantidad total de obra del presupuesto (${cantidad})! Únicamente el consumo por 1 ${unidad}.
-Ejemplos de congruencia matemática:
-- Si el concepto es en m2 y lleva concreto (m3) con espesor 10 cm: cantidad = 1.0 * 0.10 * 1.05 desperdicio = 0.105 m3.
-- Si lleva malla electrosoldada en m2: cantidad = 1.10 m2 (considerando 10% traslapes).
-- Si es Mano de Obra en 'jor': cantidad = 1 / RendimientoDiario (ej. 1 / 12.5 m2/jor = 0.0800 jor).
-- Si es Herramienta menor (%): cantidad = 0.03 (3%).
 
-Instrucciones prioritarias con Google Search:
-1. Realiza búsquedas en Google de los precios actuales de mercado en México para los materiales comerciales que componen este concepto (puestos en obra).
-2. Busca los salarios de cuadrillas (oficiales + peones) aplicando el Factor de Salario Real (FASAR) configurado en el sistema (+${fasarVal.toFixed(1)}% / Factor ${fasarFactor.toFixed(2)}) para inflar el salario nominal y cubrir IMSS, INFONAVIT, SAR, riesgos y prestaciones según tabuladores CMIC / Neodata / Opus.
-3. Determina el equipo, maquinaria y herramienta requerida.
-4. Clasifica los insumos en los rubros: "Material", "Mano de Obra", "Herramienta", "Equipo", "Maquinaria" o "Subcontrato".
-5. Al final de tu análisis, devuelve OBLIGATORIAMENTE un bloque de código JSON con esta estructura exacta:
+Instrucciones de análisis:
+1. ${useWebSearch ? 'Consulta precios comerciales vigentes en México puestos en obra.' : 'Asigna precios unitarios comerciales promedio vigentes en México puestos en obra (sin IVA).'}
+2. Calcula los salarios reales de cuadrillas aplicando el FASAR configurado (+${fasarVal.toFixed(1)}% / Factor ${fasarFactor.toFixed(2)}).
+3. Clasifica los insumos en: "Material", "Mano de Obra", "Herramienta", "Equipo", "Maquinaria" o "Subcontrato".
+4. Devuelve OBLIGATORIAMENTE un bloque de código JSON con esta estructura exacta:
 \`\`\`json
 {
-  "sugerencias": "Recomendación técnica sobre ejecución, curado, pruebas o normativas mexicanas para este concepto...",
+  "sugerencias": "Recomendación técnica sobre ejecución, curado, pruebas o normativas mexicanas...",
   "insumos": [
     {
       "clave": "MAT-01",
       "tipo": "Material",
-      "descripcion": "Descripción comercial detallada del material con especificación",
+      "descripcion": "Descripción comercial detallada del material",
       "unidad": "m3/kg/pza/etc",
-      "cantidad": 0.00,
-      "costoUnitario": 0.00
-    },
-    {
-      "clave": "MO-01",
-      "tipo": "Mano de Obra",
-      "descripcion": "Cuadrilla de mano de obra (Oficial + Peón) con rendimiento",
-      "unidad": "jor/m2/etc",
-      "cantidad": 0.00,
-      "costoUnitario": 0.00
-    },
-    {
-      "clave": "EQ-01",
-      "tipo": "Equipo",
-      "descripcion": "Equipo o herramienta menor (% de MO)",
-      "unidad": "hr/%",
       "cantidad": 0.00,
       "costoUnitario": 0.00
     }
   ]
 }
 \`\`\``;
+  }
 
-  // 6. Modelos de respaldo con y sin Search Grounding
-  const attempts = [
-    { model: 'gemini-2.0-flash', tools: [{ googleSearch: {} }] },
-    { model: 'gemini-2.0-flash', tools: null },
-    { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] },
-    { model: 'gemini-1.5-flash', tools: null },
-    { model: 'gemini-2.5-flash', tools: [{ googleSearch: {} }] },
-    { model: 'gemini-3.8-flash', tools: [{ googleSearch: {} }] }
-  ];
+  // 6. Modelos estrictamente separados según useWebSearch (default: false SIN googleSearch)
+  const attempts = useWebSearch
+    ? [
+        { model: 'gemini-2.5-flash', tools: [{ googleSearch: {} }] },
+        { model: 'gemini-2.0-flash', tools: [{ googleSearch: {} }] },
+        { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] }
+      ]
+    : [
+        { model: 'gemini-2.5-flash', tools: null },
+        { model: 'gemini-2.0-flash', tools: null },
+        { model: 'gemini-1.5-flash', tools: null }
+      ];
 
   let lastError = '';
   const debugErrors = [];
@@ -234,16 +424,106 @@ Instrucciones prioritarias con Google Search:
         continue;
       }
 
-      const parsed = extractJsonFromText(textContent);
-      if (parsed && Array.isArray(parsed.insumos) && parsed.insumos.length > 0) {
-        const groundingMeta = candidate.groundingMetadata;
-        const searchQueries = groundingMeta?.webSearchQueries || [];
-        const sources = (groundingMeta?.groundingChunks || []).map(chunk => ({
-          title: chunk.web?.title || 'Fuente web',
-          uri: chunk.web?.uri || '#'
-        })).filter(s => s.uri !== '#');
+      const groundingMeta = candidate.groundingMetadata;
+      const searchQueries = groundingMeta?.webSearchQueries || [];
+      const sources = (groundingMeta?.groundingChunks || []).map(chunk => ({
+        title: chunk.web?.title || 'Fuente web',
+        uri: chunk.web?.uri || '#'
+      })).filter(s => s.uri !== '#');
 
-        // Formatear insumos limpiamente
+      const usageRaw = data.usageMetadata || {};
+      const usageMetadata = {
+        promptTokenCount: Number(usageRaw.promptTokenCount) || 0,
+        candidatesTokenCount: Number(usageRaw.candidatesTokenCount) || 0,
+        thoughtsTokenCount: Number(usageRaw.thoughtsTokenCount) || 0,
+        totalTokenCount: Number(usageRaw.totalTokenCount) || 0
+      };
+      const usedWebSearch = Boolean(att.tools);
+      const groundingQueriesCount = usedWebSearch ? Math.max(1, searchQueries.length || 0) : 0;
+
+      const parsed = extractJsonFromText(textContent);
+
+      // Reconciliar consultas web adicionales si Gemini ejecutó > 1 webSearchQueries en el mismo prompt
+      if (!usingOwnApiKey && usedWebSearch && groundingQueriesCount > 1 && quotaUserId && sbUrl && serviceRoleKey) {
+        try {
+          const extraRes = await fetch(`${sbUrl}/rest/v1/rpc/check_and_increment_ai_quota`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: serviceRoleKey,
+              Authorization: `Bearer ${serviceRoleKey}`
+            },
+            body: JSON.stringify({
+              p_user_id: quotaUserId,
+              p_plan_id: resolvedQuotaPlanId,
+              p_std_delta: 0,
+              p_search_delta: groundingQueriesCount - 1
+            })
+          });
+          if (extraRes.ok) {
+            const extraOut = await extraRes.json();
+            const extraSnap = buildQuotaSnapshot(extraOut, resolvedQuotaPlanId);
+            if (extraSnap) quotaSnapshot = extraSnap;
+          }
+        } catch (_) {}
+      }
+
+      if (mode === 'calendario') {
+        return res.status(200).json({
+          success: true,
+          parsed: parsed || null,
+          textContent,
+          usageMetadata,
+          usedWebSearch,
+          usedOwnApiKey: usingOwnApiKey,
+          groundingQueriesCount,
+          quotaSnapshot,
+          modelUsed: att.model
+        });
+      }
+
+      if (mode === 'insumo') {
+        const pCost = parsePriceNumber(parsed?.costoUnitario);
+        if (parsed && pCost > 0) {
+          return res.status(200).json({
+            success: true,
+            costoUnitario: Math.round(pCost * 100) / 100,
+            moneda: parsed.moneda || 'MXN',
+            fuente: parsed.fuente || (usedWebSearch ? 'Google Search Grounding' : 'Tabulador Gemini Flash'),
+            observaciones: parsed.observaciones || '',
+            googleSearchQueries: searchQueries,
+            googleSources: sources,
+            usageMetadata,
+            usedWebSearch,
+            usedOwnApiKey: usingOwnApiKey,
+            groundingQueriesCount,
+            quotaSnapshot,
+            modelUsed: att.model
+          });
+        }
+      }
+
+      if (mode === 'insumos_batch') {
+        if (parsed && Array.isArray(parsed.items)) {
+          return res.status(200).json({
+            success: true,
+            items: parsed.items.map(it => ({
+              ...it,
+              costoUnitario: Math.round(parsePriceNumber(it.costoUnitario) * 100) / 100
+            })),
+            googleSearchQueries: searchQueries,
+            googleSources: sources,
+            usageMetadata,
+            usedWebSearch,
+            usedOwnApiKey: usingOwnApiKey,
+            groundingQueriesCount,
+            quotaSnapshot,
+            modelUsed: att.model
+          });
+        }
+      }
+
+      if (parsed && Array.isArray(parsed.insumos) && parsed.insumos.length > 0) {
         const cleanInsumos = parsed.insumos.map((item, idx) => {
           let cleanTipo = 'Material';
           const t = (item.tipo || '').toLowerCase();
@@ -272,6 +552,11 @@ Instrucciones prioritarias con Google Search:
           sugerencias: parsed.sugerencias || '',
           googleSearchQueries: searchQueries,
           googleSources: sources,
+          usageMetadata,
+          usedWebSearch,
+          usedOwnApiKey: usingOwnApiKey,
+          groundingQueriesCount,
+          quotaSnapshot,
           modelUsed: att.model
         });
       }
@@ -282,7 +567,7 @@ Instrucciones prioritarias con Google Search:
 
   return res.status(502).json({
     success: false,
-    error: `No se pudo generar la matriz con Google IA: ${lastError}`,
+    error: `No se pudo generar con Google IA: ${lastError}`,
     debugErrors
   });
 }

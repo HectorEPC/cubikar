@@ -1,4 +1,4 @@
-﻿// js/modules/reference/referenceDb.js
+// js/modules/reference/referenceDb.js
 // Gestor de base de datos local IndexedDB para Catálogos Maestros de Referencia
 
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
@@ -14,12 +14,13 @@ const DB_VERSION = 1;
 let dbInstance = null;
 
 // ========================================================
-// RESTRICCIONES DE ALMACENAMIENTO POR PLAN (EN MEGABYTES)
+// RESTRICCIONES DE ALMACENAMIENTO RESERVADO PARA CATÁLOGO MAESTRO (EN MB)
+// Dentro de la cuota unificada global del plan: 200 MB / 2 GB / 5 GB.
 // ========================================================
 export const PLAN_STORAGE_MB = {
-  free: { planId: 'free', name: 'Gratuita', storageMb: 6 },
-  plus: { planId: 'plus', name: 'Plus', storageMb: 50 },
-  pro: { planId: 'pro', name: 'Pro', storageMb: 200 }
+  free: { planId: 'free', name: 'Gratuita', storageMb: 6, totalQuotaMb: 200 },
+  plus: { planId: 'plus', name: 'Plus', storageMb: 50, totalQuotaMb: 2048 },
+  pro: { planId: 'pro', name: 'Pro', storageMb: 200, totalQuotaMb: 5120 }
 };
 
 // Obtener plan de suscripción para un propietario específico
@@ -260,6 +261,10 @@ export async function saveReferenceCatalog(catalogMeta, itemsList, targetOwnerEm
     });
 
     tx.oncomplete = () => {
+      backupMasterCatalogToCloud(catalogRecord, itemsList).catch(() => {});
+      import('../../services/storageQuotaService.js')
+        .then((m) => m.notifyStorageUsageChanged({ modulo: 'catalogos_maestros' }))
+        .catch(() => {});
       resolve(catalogRecord);
     };
 
@@ -292,9 +297,21 @@ export async function listReferenceCatalogs(ownerEmail = null) {
   });
 }
 
-// Eliminar un catálogo y todos sus items asociados
+// Eliminar un catálogo y todos sus items asociados (local IndexedDB + AWS S3 + Supabase)
 export async function deleteReferenceCatalog(catalogId) {
   const db = await openReferenceDb();
+
+  const existingRecord = await new Promise((resolve) => {
+    try {
+      const readTx = db.transaction('catalogs', 'readonly');
+      const req = readTx.objectStore('catalogs').get(catalogId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction(['catalogs', 'items'], 'readwrite');
     const catStore = tx.objectStore('catalogs');
@@ -313,9 +330,189 @@ export async function deleteReferenceCatalog(catalogId) {
       }
     };
 
-    tx.oncomplete = () => resolve(true);
+    tx.oncomplete = () => {
+      deleteMasterCatalogFromCloud(catalogId, existingRecord).catch(() => {});
+      import('../../services/storageQuotaService.js')
+        .then((m) => m.notifyStorageUsageChanged({ modulo: 'catalogos_maestros', deleted: true }))
+        .catch(() => {});
+      resolve(true);
+    };
     tx.onerror = (e) => reject(e.target.error);
   });
+}
+
+async function updateCatalogCloudMetadata(catalogId, patch) {
+  try {
+    const db = await openReferenceDb();
+    const tx = db.transaction('catalogs', 'readwrite');
+    const store = tx.objectStore('catalogs');
+    const req = store.get(catalogId);
+    req.onsuccess = () => {
+      if (req.result) {
+        store.put({ ...req.result, ...patch });
+      }
+    };
+  } catch {
+    // No bloquear por actualización de metadata
+  }
+}
+
+async function backupMasterCatalogToCloud(catalogRecord, itemsList) {
+  try {
+    const [{ isSupabaseConfigured, getSupabaseClient }, { resolveUserEmpresaId }, { uploadManagedFile }] = await Promise.all([
+      import('../../core/supabaseClient.js'),
+      import('../../core/cloudProjectService.js'),
+      import('../../services/s3StorageService.js')
+    ]);
+
+    const payloadJson = JSON.stringify({ meta: catalogRecord, items: itemsList });
+    const file = new File([payloadJson], `${catalogRecord.id}.json`, { type: 'application/json' });
+
+    const uploadRes = await uploadManagedFile({
+      file,
+      modulo: 'catalogos_maestros',
+      categoria: 'master_catalog',
+      proyectoId: '',
+      entidadId: catalogRecord.id,
+      showFeedback: false,
+      metadata: {
+        name: catalogRecord.name,
+        category: catalogRecord.category,
+        itemsCount: catalogRecord.itemsCount
+      }
+    });
+
+    if (uploadRes?.ok) {
+      await updateCatalogCloudMetadata(catalogRecord.id, {
+        mediaId: uploadRes.mediaId || '',
+        s3Key: uploadRes.s3Key || '',
+        archivoId: uploadRes.archivoId || ''
+      });
+    }
+
+    if (!isSupabaseConfigured()) return;
+    const sb = await getSupabaseClient();
+    if (!sb) return;
+    const { data: userRes } = await sb.auth.getUser();
+    const user = userRes?.user;
+    if (!user) return;
+    const empresaId = await resolveUserEmpresaId(sb, user);
+
+    await sb.from('catalogos_maestros').upsert({
+      id: catalogRecord.id,
+      empresa_id: empresaId || null,
+      owner_email: catalogRecord.ownerEmail,
+      nombre: catalogRecord.name,
+      version: '1.0',
+      total_conceptos: catalogRecord.itemsCount,
+      tamano_bytes: catalogRecord.sizeBytes,
+      s3_key: uploadRes?.s3Key || '',
+      archivo_id: uploadRes?.archivoId || null,
+      resumen_json: {
+        category: catalogRecord.category,
+        type: catalogRecord.type,
+        sourceFileName: catalogRecord.sourceFileName,
+        mediaId: uploadRes?.mediaId || ''
+      }
+    }, { onConflict: 'id' });
+  } catch (err) {
+    console.warn('[referenceDb] Respaldo en nube de catálogo maestro omitido/pendiente:', err?.message || err);
+  }
+}
+
+async function deleteMasterCatalogFromCloud(catalogId, existingRecord) {
+  try {
+    const [{ isSupabaseConfigured, getSupabaseClient }, { deleteManagedFile }] = await Promise.all([
+      import('../../core/supabaseClient.js'),
+      import('../../services/s3StorageService.js')
+    ]);
+
+    if (existingRecord?.mediaId || existingRecord?.s3Key) {
+      await deleteManagedFile({
+        mediaId: existingRecord.mediaId || '',
+        s3Key: existingRecord.s3Key || '',
+        archivoId: existingRecord.archivoId || ''
+      });
+    }
+
+    if (!isSupabaseConfigured()) return;
+    const sb = await getSupabaseClient();
+    if (!sb) return;
+    await sb.from('catalogos_maestros')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', catalogId);
+  } catch (err) {
+    console.warn('[referenceDb] Error limpiando catálogo en nube:', err?.message || err);
+  }
+}
+
+/**
+ * Descarga desde AWS S3 / Supabase los catálogos maestros guardados por el anfitrión
+ * que todavía no existan en este navegador (IndexedDB).
+ */
+export async function syncMasterCatalogsFromCloud(ownerEmail = null) {
+  try {
+    const [{ isSupabaseConfigured, getSupabaseClient }, { resolveManagedFileUrl }] = await Promise.all([
+      import('../../core/supabaseClient.js'),
+      import('../../services/s3StorageService.js')
+    ]);
+
+    if (!isSupabaseConfigured()) return { restored: 0 };
+    const sb = await getSupabaseClient();
+    if (!sb) return { restored: 0 };
+    const { data: sessionRes } = await sb.auth.getSession();
+    if (!sessionRes?.session) return { restored: 0 };
+
+    const targetOwner = (ownerEmail || getActiveWorkspaceOwnerEmail()).toLowerCase().trim();
+    const { data: cloudCats, error } = await sb
+      .from('catalogos_maestros')
+      .select('*')
+      .ilike('owner_email', targetOwner)
+      .is('deleted_at', null);
+
+    if (error || !Array.isArray(cloudCats) || cloudCats.length === 0) {
+      return { restored: 0 };
+    }
+
+    const localCats = await listReferenceCatalogs(targetOwner);
+    const localIds = new Set(localCats.map((c) => c.id));
+    let restored = 0;
+
+    for (const remoteCat of cloudCats) {
+      if (localIds.has(remoteCat.id) || !remoteCat.s3_key) continue;
+      const downloadUrl = await resolveManagedFileUrl({ s3Key: remoteCat.s3_key });
+      if (!downloadUrl) continue;
+      const resp = await fetch(downloadUrl);
+      if (!resp.ok) continue;
+      const parsed = await resp.json().catch(() => null);
+      if (!parsed || !Array.isArray(parsed.items)) continue;
+
+      const db = await openReferenceDb();
+      await new Promise((resolve) => {
+        const tx = db.transaction(['catalogs', 'items'], 'readwrite');
+        tx.objectStore('catalogs').put({
+          ...(parsed.meta || {}),
+          id: remoteCat.id,
+          name: remoteCat.nombre,
+          ownerEmail: targetOwner,
+          s3Key: remoteCat.s3_key,
+          archivoId: remoteCat.archivo_id || ''
+        });
+        const itemStore = tx.objectStore('items');
+        for (const item of parsed.items) {
+          itemStore.put({ ...item, catalogId: remoteCat.id, ownerEmail: targetOwner });
+        }
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+      restored += 1;
+    }
+
+    return { restored };
+  } catch (err) {
+    console.warn('[referenceDb] Sync desde nube fallido:', err?.message || err);
+    return { restored: 0 };
+  }
 }
 
 // Buscar en la base de datos de referencia con filtros y texto (estrictamente filtrado por titular)

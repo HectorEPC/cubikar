@@ -378,17 +378,524 @@ DROP POLICY IF EXISTS "Acceso a invitaciones" ON public.invitaciones;
 CREATE POLICY "Acceso a invitaciones" ON public.invitaciones FOR ALL USING (true) WITH CHECK (true);
 
 -- ==============================================================================
--- 11. PUBLICACIÓN EN TIEMPO REAL (Supabase Realtime)
+-- 11. FUNCIÓN AUXILIAR DE ACCESO MULTI-TENANT Y COLABORADORES INVITADOS
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION public.tiene_acceso_registro(
+    p_empresa_id UUID,
+    p_owner_email TEXT,
+    p_proyecto_id TEXT
+) RETURNS BOOLEAN AS $$
+DECLARE
+    v_email TEXT := LOWER(COALESCE(auth.jwt()->>'email', ''));
+BEGIN
+    IF auth.uid() IS NULL THEN
+        RETURN false;
+    END IF;
+
+    IF p_empresa_id IS NOT NULL AND p_empresa_id = public.obtener_mi_empresa_id() THEN
+        RETURN true;
+    END IF;
+
+    IF v_email <> '' AND LOWER(COALESCE(p_owner_email, '')) = v_email THEN
+        RETURN true;
+    END IF;
+
+    IF COALESCE(p_proyecto_id, '') <> '' THEN
+        IF EXISTS (
+            SELECT 1 FROM public.proyectos p
+            WHERE p.id::text = p_proyecto_id
+              AND p.empresa_id = public.obtener_mi_empresa_id()
+        ) THEN
+            RETURN true;
+        END IF;
+
+        IF v_email <> '' AND EXISTS (
+            SELECT 1 FROM public.invitaciones i
+            WHERE i.proyecto_id::text = p_proyecto_id
+              AND LOWER(i.invitee_email) = v_email
+              AND i.estado IN ('pending', 'accepted', 'active')
+        ) THEN
+            RETURN true;
+        END IF;
+    END IF;
+
+    RETURN false;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- ==============================================================================
+-- 12. EXTENSIONES DE ESQUEMA PARA ESTIMACIONES Y CRONOGRAMA
+-- ==============================================================================
+ALTER TABLE IF EXISTS public.estimaciones
+    ADD COLUMN IF NOT EXISTS fotos JSONB DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS locked BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS resumen JSONB DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS detalles_json JSONB DEFAULT '{}'::jsonb;
+
+ALTER TABLE IF EXISTS public.cronograma_actividades
+    ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}'::jsonb;
+
+CREATE TABLE IF NOT EXISTS public.cronograma_config (
+    proyecto_id TEXT PRIMARY KEY,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    config_json JSONB DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+DROP TRIGGER IF EXISTS update_cronograma_config_modtime ON public.cronograma_config;
+CREATE TRIGGER update_cronograma_config_modtime
+    BEFORE UPDATE ON public.cronograma_config
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.cronograma_config ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso cronograma config" ON public.cronograma_config;
+CREATE POLICY "Acceso cronograma config"
+    ON public.cronograma_config FOR ALL
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+-- ==============================================================================
+-- 13. ÍNDICE CENTRAL DE ARCHIVOS EN AWS S3 Y CONTROL DE CUOTAS (archivos_almacen)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.archivos_almacen (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    proyecto_id TEXT DEFAULT '',
+    owner_email VARCHAR(255) NOT NULL,
+    uploaded_by_email VARCHAR(255) DEFAULT '',
+    modulo VARCHAR(60) NOT NULL CHECK (modulo IN (
+        'bitacora', 'compras', 'estimaciones', 'reportes',
+        'catalogos_maestros', 'avatares', 'branding', 'otros'
+    )),
+    categoria VARCHAR(40) NOT NULL DEFAULT 'project_files' CHECK (categoria IN (
+        'project_files', 'master_catalog', 'branding'
+    )),
+    entidad_id TEXT DEFAULT '',
+    nombre_original TEXT NOT NULL,
+    mime_type VARCHAR(150) NOT NULL DEFAULT 'application/octet-stream',
+    extension VARCHAR(20) DEFAULT '',
+    s3_bucket VARCHAR(120) DEFAULT '',
+    s3_key TEXT NOT NULL UNIQUE,
+    tamano_original_bytes BIGINT NOT NULL DEFAULT 0,
+    tamano_bytes BIGINT NOT NULL DEFAULT 0,
+    sha256 VARCHAR(64) DEFAULT '',
+    metadata JSONB DEFAULT '{}'::jsonb,
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_archivos_owner_active ON public.archivos_almacen(LOWER(owner_email), categoria) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_archivos_proyecto ON public.archivos_almacen(proyecto_id, modulo) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_archivos_empresa ON public.archivos_almacen(empresa_id) WHERE deleted_at IS NULL;
+
+DROP TRIGGER IF EXISTS update_archivos_almacen_modtime ON public.archivos_almacen;
+CREATE TRIGGER update_archivos_almacen_modtime
+    BEFORE UPDATE ON public.archivos_almacen
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.archivos_almacen ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso archivos almacen empresa o colaborador" ON public.archivos_almacen;
+CREATE POLICY "Acceso archivos almacen empresa o colaborador"
+    ON public.archivos_almacen FOR ALL
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+-- RPC para calcular consumo real del anfitrión en servidor (proyectos + catálogos maestro)
+CREATE OR REPLACE FUNCTION public.obtener_consumo_almacen_anfitrion(p_owner_email TEXT)
+RETURNS TABLE (
+    owner_email TEXT,
+    plan_id TEXT,
+    project_files_bytes BIGINT,
+    master_catalog_bytes BIGINT,
+    total_bytes BIGINT,
+    files_count BIGINT
+) AS $$
+DECLARE
+    v_owner TEXT := LOWER(TRIM(COALESCE(p_owner_email, '')));
+    v_plan TEXT := 'free';
+BEGIN
+    IF auth.uid() IS NULL THEN
+        RAISE EXCEPTION 'Autenticación requerida';
+    END IF;
+
+    IF v_owner = '' THEN
+        v_owner := LOWER(COALESCE(auth.jwt()->>'email', ''));
+    END IF;
+
+    SELECT COALESCE(e.plan, 'free')
+      INTO v_plan
+      FROM public.perfiles pf
+      LEFT JOIN public.empresas e ON e.id = pf.empresa_id
+     WHERE LOWER(pf.email) = v_owner
+     ORDER BY (CASE WHEN pf.rol = 'owner' THEN 0 ELSE 1 END), pf.updated_at DESC
+     LIMIT 1;
+
+    RETURN QUERY
+    SELECT
+        v_owner,
+        COALESCE(v_plan, 'free'),
+        COALESCE(SUM(CASE WHEN a.categoria <> 'master_catalog' THEN a.tamano_bytes ELSE 0 END), 0)::BIGINT,
+        COALESCE(SUM(CASE WHEN a.categoria = 'master_catalog' THEN a.tamano_bytes ELSE 0 END), 0)::BIGINT,
+        COALESCE(SUM(a.tamano_bytes), 0)::BIGINT,
+        COUNT(*)::BIGINT
+    FROM public.archivos_almacen a
+    WHERE LOWER(a.owner_email) = v_owner
+      AND a.deleted_at IS NULL;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- ==============================================================================
+-- 14. MÓDULO DE BITÁCORA DE OBRA (Configuración + Notas/Asientos)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.bitacora_config (
+    proyecto_id TEXT PRIMARY KEY,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    titulo_obra TEXT DEFAULT '',
+    contrato_num VARCHAR(100) DEFAULT '',
+    contratista TEXT DEFAULT '',
+    supervision TEXT DEFAULT '',
+    residente_nombre VARCHAR(255) DEFAULT '',
+    supervisor_nombre VARCHAR(255) DEFAULT '',
+    folio_actual INTEGER DEFAULT 1,
+    config_json JSONB DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.bitacora_notas (
+    id VARCHAR(120) PRIMARY KEY,
+    proyecto_id TEXT NOT NULL,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    folio INTEGER NOT NULL DEFAULT 1,
+    fecha DATE,
+    tipo VARCHAR(60) DEFAULT 'seguimiento',
+    clasificacion VARCHAR(60) DEFAULT 'general',
+    titulo TEXT NOT NULL DEFAULT '',
+    contenido TEXT DEFAULT '',
+    autor_nombre VARCHAR(255) DEFAULT '',
+    autor_email VARCHAR(255) DEFAULT '',
+    estado VARCHAR(40) DEFAULT 'borrador',
+    fotos JSONB DEFAULT '[]'::jsonb,
+    pdf_s3_key TEXT DEFAULT '',
+    pdf_archivo_id UUID REFERENCES public.archivos_almacen(id) ON DELETE SET NULL,
+    sello_json JSONB DEFAULT '{}'::jsonb,
+    payload_json JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bitacora_notas_proyecto ON public.bitacora_notas(proyecto_id, folio);
+
+DROP TRIGGER IF EXISTS update_bitacora_config_modtime ON public.bitacora_config;
+CREATE TRIGGER update_bitacora_config_modtime
+    BEFORE UPDATE ON public.bitacora_config
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_bitacora_notas_modtime ON public.bitacora_notas;
+CREATE TRIGGER update_bitacora_notas_modtime
+    BEFORE UPDATE ON public.bitacora_notas
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.bitacora_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bitacora_notas ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Acceso bitacora config" ON public.bitacora_config;
+CREATE POLICY "Acceso bitacora config"
+    ON public.bitacora_config FOR ALL
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+DROP POLICY IF EXISTS "Acceso bitacora notas" ON public.bitacora_notas;
+CREATE POLICY "Acceso bitacora notas"
+    ON public.bitacora_notas FOR ALL
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+-- ==============================================================================
+-- 15. MÓDULO DE COMPRAS, GASTOS Y PROVEEDORES
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.proveedores (
+    id VARCHAR(120) PRIMARY KEY,
+    proyecto_id TEXT NOT NULL,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    nombre VARCHAR(255) NOT NULL,
+    rfc VARCHAR(30) DEFAULT '',
+    categoria VARCHAR(100) DEFAULT '',
+    telefono VARCHAR(50) DEFAULT '',
+    email VARCHAR(255) DEFAULT '',
+    notas TEXT DEFAULT '',
+    payload_json JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.compras_gastos (
+    id VARCHAR(120) PRIMARY KEY,
+    proyecto_id TEXT NOT NULL,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    proveedor_id VARCHAR(120) DEFAULT '',
+    concepto_id TEXT DEFAULT '',
+    fecha DATE,
+    tipo VARCHAR(60) DEFAULT 'compra',
+    categoria VARCHAR(100) DEFAULT 'Material',
+    descripcion TEXT NOT NULL DEFAULT '',
+    folio_factura VARCHAR(120) DEFAULT '',
+    subtotal NUMERIC(14, 2) DEFAULT 0.00,
+    iva NUMERIC(14, 2) DEFAULT 0.00,
+    total NUMERIC(14, 2) DEFAULT 0.00,
+    metodo_pago VARCHAR(60) DEFAULT '',
+    estado VARCHAR(40) DEFAULT 'pagado',
+    evidencia_s3_key TEXT DEFAULT '',
+    evidencia_archivo_id UUID REFERENCES public.archivos_almacen(id) ON DELETE SET NULL,
+    evidencia_json JSONB DEFAULT '{}'::jsonb,
+    payload_json JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_proveedores_proyecto ON public.proveedores(proyecto_id);
+CREATE INDEX IF NOT EXISTS idx_compras_gastos_proyecto ON public.compras_gastos(proyecto_id, fecha);
+
+DROP TRIGGER IF EXISTS update_proveedores_modtime ON public.proveedores;
+CREATE TRIGGER update_proveedores_modtime
+    BEFORE UPDATE ON public.proveedores
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_compras_gastos_modtime ON public.compras_gastos;
+CREATE TRIGGER update_compras_gastos_modtime
+    BEFORE UPDATE ON public.compras_gastos
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.proveedores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.compras_gastos ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Acceso proveedores" ON public.proveedores;
+CREATE POLICY "Acceso proveedores"
+    ON public.proveedores FOR ALL
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+DROP POLICY IF EXISTS "Acceso compras gastos" ON public.compras_gastos;
+CREATE POLICY "Acceso compras gastos"
+    ON public.compras_gastos FOR ALL
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+-- ==============================================================================
+-- 16. MÓDULO DE CHAT INTERNO DE OBRA Y CATÁLOGOS MAESTROS EN NUBE
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.chat_mensajes (
+    id VARCHAR(120) PRIMARY KEY,
+    proyecto_id TEXT NOT NULL,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    autor_nombre VARCHAR(255) NOT NULL DEFAULT '',
+    autor_email VARCHAR(255) NOT NULL DEFAULT '',
+    autor_avatar_url TEXT DEFAULT '',
+    mensaje TEXT NOT NULL DEFAULT '',
+    adjuntos JSONB DEFAULT '[]'::jsonb,
+    payload_json JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_mensajes_proyecto ON public.chat_mensajes(proyecto_id, created_at);
+
+DROP TRIGGER IF EXISTS update_chat_mensajes_modtime ON public.chat_mensajes;
+CREATE TRIGGER update_chat_mensajes_modtime
+    BEFORE UPDATE ON public.chat_mensajes
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.chat_mensajes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso chat proyecto" ON public.chat_mensajes;
+CREATE POLICY "Acceso chat proyecto"
+    ON public.chat_mensajes FOR ALL
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+CREATE TABLE IF NOT EXISTS public.catalogos_maestros (
+    id VARCHAR(120) PRIMARY KEY,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL,
+    nombre VARCHAR(255) NOT NULL,
+    version VARCHAR(50) DEFAULT '1.0',
+    total_conceptos INTEGER DEFAULT 0,
+    tamano_bytes BIGINT NOT NULL DEFAULT 0,
+    s3_key TEXT DEFAULT '',
+    archivo_id UUID REFERENCES public.archivos_almacen(id) ON DELETE SET NULL,
+    resumen_json JSONB DEFAULT '{}'::jsonb,
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_catalogos_maestros_owner ON public.catalogos_maestros(LOWER(owner_email)) WHERE deleted_at IS NULL;
+
+DROP TRIGGER IF EXISTS update_catalogos_maestros_modtime ON public.catalogos_maestros;
+CREATE TRIGGER update_catalogos_maestros_modtime
+    BEFORE UPDATE ON public.catalogos_maestros
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.catalogos_maestros ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso catalogos maestros" ON public.catalogos_maestros;
+CREATE POLICY "Acceso catalogos maestros"
+    ON public.catalogos_maestros FOR ALL
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, ''::text))
+    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, ''::text));
+
+-- ==============================================================================
+-- 17. PUBLICACIÓN EN TIEMPO REAL (Supabase Realtime)
 -- ==============================================================================
 DO $$
+DECLARE
+    v_table TEXT;
+    v_tables TEXT[] := ARRAY[
+        'proyectos',
+        'catalogo_conceptos',
+        'insumos_apu',
+        'estimaciones',
+        'estimacion_detalles',
+        'cronograma_actividades',
+        'cronograma_config',
+        'invitaciones',
+        'archivos_almacen',
+        'bitacora_config',
+        'bitacora_notas',
+        'proveedores',
+        'compras_gastos',
+        'chat_mensajes',
+        'catalogos_maestros'
+    ];
 BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.proyectos;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.catalogo_conceptos;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.insumos_apu;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.estimaciones;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.estimacion_detalles;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.cronograma_actividades;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.invitaciones;
-EXCEPTION
-    WHEN duplicate_object THEN NULL;
+    FOREACH v_table IN ARRAY v_tables LOOP
+        BEGIN
+            EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', v_table);
+        EXCEPTION
+            WHEN duplicate_object THEN NULL;
+            WHEN undefined_object THEN NULL;
+        END;
+    END LOOP;
 END $$;
+
+-- ==============================================================================
+-- 18. CUOTAS MENSUALES DE IA ESTÁNDAR Y GOOGLE SEARCH GROUNDING (POR CUENTA)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.consumo_mensual_ia (
+    user_id UUID NOT NULL,
+    month_key TEXT NOT NULL, -- Formato YYYY-MM (UTC)
+    plan_id TEXT NOT NULL DEFAULT 'free',
+    standard_calls INTEGER NOT NULL DEFAULT 0,
+    search_grounding_calls INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, month_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_consumo_mensual_ia_month ON public.consumo_mensual_ia(month_key);
+
+DROP TRIGGER IF EXISTS update_consumo_mensual_ia_modtime ON public.consumo_mensual_ia;
+CREATE TRIGGER update_consumo_mensual_ia_modtime
+    BEFORE UPDATE ON public.consumo_mensual_ia
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.consumo_mensual_ia ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Usuario lee su propio consumo IA" ON public.consumo_mensual_ia;
+CREATE POLICY "Usuario lee su propio consumo IA"
+    ON public.consumo_mensual_ia FOR SELECT
+    USING (auth.uid() = user_id);
+
+-- RPC atómico ejecutado por /api/gemini-apu para validar e incrementar cuota mensual
+CREATE OR REPLACE FUNCTION public.check_and_increment_ai_quota(
+    p_user_id UUID,
+    p_plan_id TEXT DEFAULT 'free',
+    p_std_delta INTEGER DEFAULT 0,
+    p_search_delta INTEGER DEFAULT 0
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_month TEXT := to_char(timezone('UTC', NOW()), 'YYYY-MM');
+    v_plan TEXT := LOWER(COALESCE(NULLIF(TRIM(p_plan_id), ''), 'free'));
+    v_max_std INTEGER;
+    v_max_search INTEGER;
+    v_cur_std INTEGER := 0;
+    v_cur_search INTEGER := 0;
+    v_next_std INTEGER;
+    v_next_search INTEGER;
+BEGIN
+    IF p_user_id IS NULL THEN
+        RETURN jsonb_build_object('allowed', false, 'reason', 'missing_user_id');
+    END IF;
+
+    IF v_plan NOT IN ('free', 'plus', 'pro') THEN
+        v_plan := 'free';
+    END IF;
+
+    v_max_std := CASE v_plan WHEN 'pro' THEN 3500 WHEN 'plus' THEN 1500 ELSE 10 END;
+    v_max_search := CASE v_plan WHEN 'pro' THEN 200 WHEN 'plus' THEN 70 ELSE 0 END;
+
+    INSERT INTO public.consumo_mensual_ia (user_id, month_key, plan_id, standard_calls, search_grounding_calls)
+    VALUES (p_user_id, v_month, v_plan, 0, 0)
+    ON CONFLICT (user_id, month_key) DO UPDATE SET plan_id = EXCLUDED.plan_id;
+
+    SELECT standard_calls, search_grounding_calls
+      INTO v_cur_std, v_cur_search
+      FROM public.consumo_mensual_ia
+     WHERE user_id = p_user_id AND month_key = v_month
+     FOR UPDATE;
+
+    v_next_std := v_cur_std + GREATEST(0, COALESCE(p_std_delta, 0));
+    v_next_search := v_cur_search + GREATEST(0, COALESCE(p_search_delta, 0));
+
+    IF COALESCE(p_search_delta, 0) > 0 AND v_next_search > v_max_search THEN
+        RETURN jsonb_build_object(
+            'allowed', false,
+            'reason', 'web_search_quota_exceeded',
+            'plan_id', v_plan,
+            'month_key', v_month,
+            'standard_used', v_cur_std,
+            'standard_limit', v_max_std,
+            'search_used', v_cur_search,
+            'search_limit', v_max_search
+        );
+    END IF;
+
+    IF COALESCE(p_std_delta, 0) > 0 AND v_next_std > v_max_std THEN
+        RETURN jsonb_build_object(
+            'allowed', false,
+            'reason', 'standard_ai_quota_exceeded',
+            'plan_id', v_plan,
+            'month_key', v_month,
+            'standard_used', v_cur_std,
+            'standard_limit', v_max_std,
+            'search_used', v_cur_search,
+            'search_limit', v_max_search
+        );
+    END IF;
+
+    UPDATE public.consumo_mensual_ia
+       SET plan_id = v_plan,
+           standard_calls = v_next_std,
+           search_grounding_calls = v_next_search,
+           updated_at = NOW()
+     WHERE user_id = p_user_id AND month_key = v_month;
+
+    RETURN jsonb_build_object(
+        'allowed', true,
+        'plan_id', v_plan,
+        'month_key', v_month,
+        'standard_used', v_next_std,
+        'standard_limit', v_max_std,
+        'search_used', v_next_search,
+        'search_limit', v_max_search
+    );
+END;
+$$;

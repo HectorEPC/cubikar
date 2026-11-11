@@ -3,6 +3,8 @@
 
 import { formatCurrency, formatNumber } from '../../core/formatters.js';
 import { showToast } from '../../ui/notifications.js';
+import { getActiveProjectId } from '../../config/constants.js';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js';
 
 export function exportScheduleToExcel(scheduleData, settings = {}) {
   if (typeof window.XLSX === 'undefined') {
@@ -161,6 +163,12 @@ export function exportScheduleToExcel(scheduleData, settings = {}) {
   const safeName = projectName.replace(/[^a-zA-Z0-9_-]/g, '_');
   const filename = `Programa_Obra_${safeName}.xlsx`;
   window.XLSX.writeFile(wb, filename);
+  archiveGeneratedWorkbookReport(window.XLSX, wb, filename, {
+    modulo: 'reportes',
+    entidadId: 'cronograma_excel',
+    proyectoId: getActiveProjectId(),
+    metadata: { tipo: 'programa_obra' }
+  });
 
   showToast(`Archivo Excel descargado: ${filename}`);
 }

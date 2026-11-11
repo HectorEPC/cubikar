@@ -62,8 +62,92 @@ import { showToast } from './ui/notifications.js';
 import { formatMoney, formatQty } from './core/formatters.js';
 import { getFactorSobrecosto, updateSobrecostoBadge, updateGrandTotal } from './core/calculations.js';
 import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalRealtimeSync, requestPeerSync } from './core/realtimeSync.js';
+import { hydrateProjectModulesFromCloud } from './core/cloudModulesSyncService.js';
+import { syncPendingMediaUploads } from './services/s3StorageService.js';
 import { initAuthListener } from './core/authService.js';
 import './core/collaborationCloudService.js';
+
+import {
+  renderExpensesView,
+  switchExpensesSubTab,
+  openNewExpenseModal,
+  closeNewExpenseModal,
+  saveExpenseModalForm,
+  calculateExpenseModalTotals,
+  onExpenseInsumoSelectChange,
+  onEvidenceFileInputChange,
+  removeTempEvidence,
+  toggleExpenseStatusAction,
+  deleteExpenseAction,
+  printExpensePurchaseOrder,
+  exportExpensesExcelAction,
+  openEvidenceAction,
+  onExpensesSearchChange,
+  onExpensesTypeFilterChange,
+  onExpensesStatusFilterChange,
+  clearExpensesFilters,
+  onComparativaSearchChange,
+  onComparativaTypeFilterChange,
+  onComparativaAlertFilterChange,
+  openSuppliersListModal,
+  closeSuppliersListModal,
+  openSupplierModal,
+  closeSupplierModal,
+  saveSupplierModalForm,
+  deleteSupplierAction,
+  populateInsumosDropdown,
+  filterInsumosDropdown,
+  clearInsumoSearch,
+  updateProjectQtyDisplay,
+  copyProjectQtyToInput,
+  printExpensesActiveReportAction,
+  agruparComprasAction,
+  desagruparComprasAction,
+  toggleComparativaCategoryCollapse,
+  toggleAllComparativaCategories
+} from './modules/compras/expensesView.js';
+import {
+  exportExpensesToExcel,
+  printSingleOrdenCompra,
+  printExpensesActiveReport
+} from './modules/compras/expensesExporter.js';
+import {
+  openExpenseEvidence
+} from './modules/compras/driveExpenseService.js';
+import {
+  renderBitacoraView,
+  openBitacoraConfigModal,
+  saveBitacoraConfigModalAction,
+  onBitacoraTodayWeatherChange,
+  openBitacoraNoteModal,
+  closeBitacoraModal,
+  insertBitacoraTemplate,
+  onBitacoraConceptSearch,
+  toggleBitacoraConceptLink,
+  onBitacoraPhotosSelected,
+  updateTempEvidenceCaption,
+  removeTempBitacoraEvidence,
+  saveBitacoraNoteFormAction,
+  deleteBitacoraDraftAction,
+  createFeDeErratasAction,
+  openSignBitacoraNoteModal,
+  clearBitacoraSignatureCanvas,
+  confirmAndSealBitacoraNoteAction,
+  downloadSingleNotePdfAction,
+  openBitacoraPdfAction,
+  downloadFullBitacoraBookAction,
+  syncPendingBitacoraCloudAction,
+  downloadBitacoraLightboxEvidenceAction,
+  onBitacoraSearchChange,
+  onBitacoraTypeFilterChange,
+  onBitacoraStatusFilterChange,
+  onBitacoraDateFromChange,
+  onBitacoraDateToChange,
+  toggleBitacoraSortOrder,
+  clearBitacoraFilters,
+  scrollToBitacoraNote,
+  openBitacoraPhotoLightbox
+} from './modules/bitacora/bitacoraView.js';
 
 import {
   findNodeById,
@@ -155,6 +239,7 @@ import {
   actualizarCostoIndividualConIA,
   actualizarCostosConIASeleccionados,
   actualizarTodosLosInsumosSeleccionadosConIA,
+  actualizarInsumosConBusquedaWeb,
   selectInsumoBaseRow
 } from './modules/insumosGenerales/insumosView.js';
 
@@ -162,7 +247,9 @@ import {
   testGeminiConnection,
   executeAiGeneration,
   generarMatrizCasillasGoogleIA,
-  generarMatrizConceptoActivoGoogleIA
+  generarMatrizConceptoActivoGoogleIA,
+  generarMatrizConBusquedaWebActiva,
+  generarMatrizCasillasConBusquedaWeb
 } from './modules/ai/geminiClient.js';
 import {
   executeLocalGeneration,
@@ -237,6 +324,8 @@ import {
   openAiGeneratorModal,
   closeAiGeneratorModal,
   toggleAiModalKeyVisibility,
+  refreshAiQuotaBadges,
+  updateAiModalRunButtonLabel,
   openSettingsModal,
   closeSettingsModal,
   switchSettingsTab,
@@ -248,7 +337,8 @@ import {
   toggleApiKeyVisibility,
   resetToDemoData,
   clearAllData,
-  switchTab
+  switchTab,
+  switchPresupuestoSubTab
 } from './ui/modalController.js';
 
 import {
@@ -304,6 +394,8 @@ import {
   sendProjectChatMessage,
   deleteProjectChatMessage,
   jumpToProjectChatTag,
+  switchProjectChatSection,
+  autoSwitchChatSectionFromTab,
   renderProjectChatDock,
   setProjectChatRefreshCallback,
   toggleMentionNotificationsPopover,
@@ -481,6 +573,7 @@ import {
   scrollEstimacionesTableStep,
   openEstimacionConceptPhotosModal,
   closeEstimacionConceptPhotosModal,
+  onEstimacionPhotoFileSelected,
   onEstimacionPhotoUrlPreviewInput,
   clearEstimacionConceptPhotoSlot,
   saveEstimacionConceptPhotosModal,
@@ -495,6 +588,7 @@ Object.assign(window, {
   
   // Tabs & Views
   switchTab,
+  switchPresupuestoSubTab,
   toggleThemeMode,
   applyThemeMode,
   isNightMode,
@@ -669,12 +763,15 @@ Object.assign(window, {
   actualizarCostoIndividualConIA,
   actualizarCostosConIASeleccionados,
   actualizarTodosLosInsumosSeleccionadosConIA,
+  actualizarInsumosConBusquedaWeb,
   selectInsumoBaseRow,
 
   // AI & Estimator
   openAiGeneratorModal,
   closeAiGeneratorModal,
   toggleAiModalKeyVisibility,
+  refreshAiQuotaBadges,
+  updateAiModalRunButtonLabel,
   testGeminiConnection,
   executeAiGeneration,
   executeLocalGeneration,
@@ -686,6 +783,8 @@ Object.assign(window, {
   generarMatrizCasillasLocal,
   generarMatrizCasillasGoogleIA,
   generarMatrizConceptoActivoGoogleIA,
+  generarMatrizConBusquedaWebActiva,
+  generarMatrizCasillasConBusquedaWeb,
   getSelectedLeafConcepts,
 
   // Settings & Modals
@@ -1011,6 +1110,8 @@ setTabLockRenderCallback((tabKey) => {
     renderCalendarioObra();
   } else if (tabKey === 'estimaciones') {
     renderEstimacionesView();
+  } else if (tabKey === 'bitacora') {
+    renderBitacoraView();
   }
 });
 
@@ -1047,6 +1148,10 @@ setThemeRenderCallback(() => {
   const viewEstimaciones = document.getElementById('view-estimaciones');
   if (viewEstimaciones && !viewEstimaciones.classList.contains('hidden')) {
     renderEstimacionesView();
+  }
+  const viewBitacora = document.getElementById('view-bitacora');
+  if (viewBitacora && !viewBitacora.classList.contains('hidden')) {
+    renderBitacoraView();
   }
   const subModal = document.getElementById('modal-suscripcion-usuario');
   if (subModal && !subModal.classList.contains('hidden')) {
@@ -1117,6 +1222,18 @@ if (isWorkspaceActive) {
     } catch (e) {
       console.warn('[Realtime] Aviso al conectar canal de obra:', e);
     }
+    hydrateProjectModulesFromCloud(activePId).catch(() => {});
+    syncPendingMediaUploads(activePId).catch(() => {});
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => {
+      syncPendingMediaUploads().then((res) => {
+        if (res?.synced > 0) {
+          showToast(`☁️ Reconexión detectada: ${res.synced} archivo(s) sincronizado(s) a AWS S3.`, 'success');
+        }
+      }).catch(() => {});
+    });
   }
 
   // Inicializar canal WebSocket global para invitaciones y proyectos en tiempo real
@@ -1159,6 +1276,9 @@ window.removeProjectChatPendingTag = removeProjectChatPendingTag;
 window.sendProjectChatMessage = sendProjectChatMessage;
 window.deleteProjectChatMessage = deleteProjectChatMessage;
 window.jumpToProjectChatTag = jumpToProjectChatTag;
+window.switchProjectChatSection = switchProjectChatSection;
+window.autoSwitchChatSectionFromTab = autoSwitchChatSectionFromTab;
+window.onGlobalActiveTabChange = autoSwitchChatSectionFromTab;
 window.renderProjectChatDock = renderProjectChatDock;
 window.toggleMentionNotificationsPopover = toggleMentionNotificationsPopover;
 window.closeMentionNotificationsPopover = closeMentionNotificationsPopover;
@@ -1168,9 +1288,113 @@ window.openMentionNotification = openMentionNotification;
 window.renderSidebarNotificationsUI = renderSidebarNotificationsUI;
 window.openEstimacionConceptPhotosModal = openEstimacionConceptPhotosModal;
 window.closeEstimacionConceptPhotosModal = closeEstimacionConceptPhotosModal;
+window.onEstimacionPhotoFileSelected = onEstimacionPhotoFileSelected;
 window.onEstimacionPhotoUrlPreviewInput = onEstimacionPhotoUrlPreviewInput;
 window.clearEstimacionConceptPhotoSlot = clearEstimacionConceptPhotoSlot;
 window.saveEstimacionConceptPhotosModal = saveEstimacionConceptPhotosModal;
+
+window.renderExpensesView = renderExpensesView;
+window.switchExpensesSubTab = switchExpensesSubTab;
+window.openNewExpenseModal = openNewExpenseModal;
+window.closeNewExpenseModal = closeNewExpenseModal;
+window.saveExpenseModalForm = saveExpenseModalForm;
+window.calculateExpenseModalTotals = calculateExpenseModalTotals;
+window.onExpenseInsumoSelectChange = onExpenseInsumoSelectChange;
+window.onEvidenceFileInputChange = onEvidenceFileInputChange;
+window.removeTempEvidence = removeTempEvidence;
+window.toggleExpenseStatusAction = toggleExpenseStatusAction;
+window.deleteExpenseAction = deleteExpenseAction;
+window.printExpensePurchaseOrder = printExpensePurchaseOrder;
+window.exportExpensesExcelAction = exportExpensesExcelAction;
+window.openEvidenceAction = openEvidenceAction;
+window.onExpensesSearchChange = onExpensesSearchChange;
+window.onExpensesTypeFilterChange = onExpensesTypeFilterChange;
+window.onExpensesStatusFilterChange = onExpensesStatusFilterChange;
+window.clearExpensesFilters = clearExpensesFilters;
+window.onComparativaSearchChange = onComparativaSearchChange;
+window.onComparativaTypeFilterChange = onComparativaTypeFilterChange;
+window.onComparativaAlertFilterChange = onComparativaAlertFilterChange;
+window.openSuppliersListModal = openSuppliersListModal;
+window.closeSuppliersListModal = closeSuppliersListModal;
+window.openSupplierModal = openSupplierModal;
+window.closeSupplierModal = closeSupplierModal;
+window.saveSupplierModalForm = saveSupplierModalForm;
+window.deleteSupplierAction = deleteSupplierAction;
+window.populateInsumosDropdown = populateInsumosDropdown;
+window.filterInsumosDropdown = filterInsumosDropdown;
+window.clearInsumoSearch = clearInsumoSearch;
+window.updateProjectQtyDisplay = updateProjectQtyDisplay;
+window.copyProjectQtyToInput = copyProjectQtyToInput;
+window.printExpensesActiveReportAction = printExpensesActiveReportAction;
+window.printExpensesActiveReport = printExpensesActiveReport;
+window.agruparComprasAction = agruparComprasAction;
+window.desagruparComprasAction = desagruparComprasAction;
+window.toggleComparativaCategoryCollapse = toggleComparativaCategoryCollapse;
+window.toggleAllComparativaCategories = toggleAllComparativaCategories;
+
+// Alias de conveniencia e interoperabilidad para compras, pagos y destajos
+window.switchComprasSubTab = function(sub) {
+  if (sub === 'pagos' || sub === 'ordenes') {
+    switchExpensesSubTab('bitacora');
+  } else if (sub === 'destajos') {
+    switchExpensesSubTab('bitacora');
+    onExpensesTypeFilterChange('labor');
+  } else if (sub === 'comparativa') {
+    switchExpensesSubTab('comparativa');
+  } else {
+    switchExpensesSubTab('tablero');
+  }
+};
+window.openNewOrdenCompraModal = function(editId = null) {
+  openNewExpenseModal(editId);
+  const typeEl = document.getElementById('expense-form-type');
+  if (typeEl && !editId) typeEl.value = 'material';
+};
+window.openNewPagoModal = function(editId = null) {
+  openNewExpenseModal(editId);
+  const statusEl = document.getElementById('expense-form-status');
+  if (statusEl && !editId) statusEl.value = 'paid';
+};
+window.openNewDestajoModal = function(editId = null) {
+  openNewExpenseModal(editId);
+  const typeEl = document.getElementById('expense-form-type');
+  if (typeEl && !editId) typeEl.value = 'labor';
+};
+window.printOrdenCompraSingle = printExpensePurchaseOrder;
+
+// Bitácora de Obra Digital y Legal
+window.renderBitacoraView = renderBitacoraView;
+window.openBitacoraConfigModal = openBitacoraConfigModal;
+window.saveBitacoraConfigModalAction = saveBitacoraConfigModalAction;
+window.onBitacoraTodayWeatherChange = onBitacoraTodayWeatherChange;
+window.openBitacoraNoteModal = openBitacoraNoteModal;
+window.closeBitacoraModal = closeBitacoraModal;
+window.insertBitacoraTemplate = insertBitacoraTemplate;
+window.onBitacoraConceptSearch = onBitacoraConceptSearch;
+window.toggleBitacoraConceptLink = toggleBitacoraConceptLink;
+window.onBitacoraPhotosSelected = onBitacoraPhotosSelected;
+window.updateTempEvidenceCaption = updateTempEvidenceCaption;
+window.removeTempBitacoraEvidence = removeTempBitacoraEvidence;
+window.saveBitacoraNoteFormAction = saveBitacoraNoteFormAction;
+window.deleteBitacoraDraftAction = deleteBitacoraDraftAction;
+window.createFeDeErratasAction = createFeDeErratasAction;
+window.openSignBitacoraNoteModal = openSignBitacoraNoteModal;
+window.clearBitacoraSignatureCanvas = clearBitacoraSignatureCanvas;
+window.confirmAndSealBitacoraNoteAction = confirmAndSealBitacoraNoteAction;
+window.downloadSingleNotePdfAction = downloadSingleNotePdfAction;
+window.openBitacoraPdfAction = openBitacoraPdfAction;
+window.downloadFullBitacoraBookAction = downloadFullBitacoraBookAction;
+window.syncPendingBitacoraCloudAction = syncPendingBitacoraCloudAction;
+window.downloadBitacoraLightboxEvidenceAction = downloadBitacoraLightboxEvidenceAction;
+window.onBitacoraSearchChange = onBitacoraSearchChange;
+window.onBitacoraTypeFilterChange = onBitacoraTypeFilterChange;
+window.onBitacoraStatusFilterChange = onBitacoraStatusFilterChange;
+window.onBitacoraDateFromChange = onBitacoraDateFromChange;
+window.onBitacoraDateToChange = onBitacoraDateToChange;
+window.toggleBitacoraSortOrder = toggleBitacoraSortOrder;
+window.clearBitacoraFilters = clearBitacoraFilters;
+window.scrollToBitacoraNote = scrollToBitacoraNote;
+window.openBitacoraPhotoLightbox = openBitacoraPhotoLightbox;
 
 setProjectChatRefreshCallback(() => {
   renderTAB1();
@@ -1181,5 +1405,13 @@ setProjectChatRefreshCallback(() => {
   const viewEstimaciones = document.getElementById('view-estimaciones');
   if (viewEstimaciones && !viewEstimaciones.classList.contains('hidden')) {
     renderEstimacionesView();
+  }
+  const viewBitacora = document.getElementById('view-bitacora');
+  if (viewBitacora && !viewBitacora.classList.contains('hidden')) {
+    renderBitacoraView();
+  }
+  const viewCompras = document.getElementById('view-compras');
+  if (viewCompras && !viewCompras.classList.contains('hidden')) {
+    renderExpensesView();
   }
 });

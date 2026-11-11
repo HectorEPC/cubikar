@@ -7,6 +7,17 @@ import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js';
 import { closeAiGeneratorModal, openAiGeneratorModal, aiModalTargetMode, aiModalSingleNodeId } from '../../ui/modalController.js';
 import { round2, getFactorSobrecosto } from '../../core/calculations.js';
 import { round5 } from '../../core/formatters.js';
+import { getSupabaseClient } from '../../core/supabaseClient.js';
+import {
+  tryResolveConceptLocally,
+  setCachedSupplyPrices,
+  enrichInsumosWithLocalAndCachePrices,
+  checkStandardAiQuota,
+  checkWebSearchGroundingQuota,
+  recordAiQuotaConsumption,
+  applyServerQuotaSnapshot,
+  resolveActiveAiExecutionContext
+} from './aiQuotaAndCacheService.js';
 
 // Extractor robusto de JSON para respuestas de Gemini
 export function extractJsonFromAiResponse(text) {
@@ -44,9 +55,9 @@ export async function testGeminiConnection() {
     return;
   }
 
-  showToast('Probando Google Search Grounding con Gemini 3.8 Flash...', 'info');
+  showToast('Probando conexión estándar con Gemini Flash (sin costo Web Search)...', 'info');
 
-  const testModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+  const testModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   let testSuccess = false;
   let testErr = '';
 
@@ -56,15 +67,14 @@ export async function testGeminiConnection() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Prueba de conexión con Google Search. ¿Cuál es el precio del cemento en México?' }] }],
-          tools: [{ googleSearch: {} }]
+          contents: [{ parts: [{ text: 'Responde únicamente con: CONEXION_EXITOSA' }] }]
         })
       });
 
       if (response.ok) {
         testSuccess = true;
         if (errorBox) errorBox.classList.add('hidden');
-        showToast(`✅ Conexión verificada con ${m} y Google Search Grounding`, 'success');
+        showToast(`✅ Conexión verificada con ${m}`, 'success');
         break;
       } else {
         const errData = await response.json().catch(() => ({}));
@@ -83,15 +93,61 @@ export async function testGeminiConnection() {
 }
 
 /**
- * Genera la matriz APU con Google IA en 1 SOLO CLIC para el concepto activo seleccionado.
- * Sin abrir modales ni pedir claves al usuario: consulta el backend seguro en Vercel (/api/gemini-apu).
+ * Helper compartido para aplicar insumos generados (local, caché, estándar o Search Grounding) sobre un nodo.
  */
-export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null) {
+function applyGeneratedMatrixToNode(node, rawInsumos, meta = {}) {
+  const normalized = (Array.isArray(rawInsumos) ? rawInsumos : []).map((item, idx) => {
+    let cleanTipo = 'Material';
+    const t = String(item.tipo || '').toLowerCase();
+    if (t.includes('mano') || t.includes('obra') || t === 'mo') cleanTipo = 'Mano de Obra';
+    else if (t.includes('herr')) cleanTipo = 'Herramienta';
+    else if (t.includes('maq')) cleanTipo = 'Maquinaria';
+    else if (t.includes('equipo') || t === 'eq') cleanTipo = 'Equipo';
+    else if (t.includes('subcontrat') || t === 'sub') cleanTipo = 'Subcontrato';
+
+    return {
+      clave: item.clave || `${cleanTipo.substring(0, 3).toUpperCase()}-0${idx + 1}`,
+      tipo: cleanTipo,
+      descripcion: item.descripcion || 'Insumo de obra',
+      unidad: item.unidad || 'pza',
+      cantidad: round5(parseFloat(item.cantidad) || 0),
+      costoUnitario: round2(parseFloat(item.costoUnitario ?? item.precioUnitario) || 0)
+    };
+  });
+
+  const hydrated = enrichInsumosWithLocalAndCachePrices(normalized, state.treeData);
+  node.insumos = hydrated.insumos.map(it => ({
+    clave: it.clave,
+    tipo: it.tipo,
+    descripcion: it.descripcion,
+    unidad: it.unidad,
+    cantidad: round5(parseFloat(it.cantidad) || 0),
+    costoUnitario: round2(parseFloat(it.costoUnitario ?? it.precioUnitario) || 0)
+  }));
+
+  node.googleSearchQueries = meta.googleSearchQueries || [];
+  node.googleSources = meta.googleSources || [];
+  node.aiTips = meta.aiTips || '';
+
+  const totalCD = round2(node.insumos.reduce((acc, ins) => acc + (round5(ins.cantidad || 0) * round2(ins.costoUnitario || 0)), 0));
+  const factorSobrecosto = getFactorSobrecosto();
+  node.costoDirecto = totalCD;
+  node.precioUnitario = round2(totalCD * factorSobrecosto);
+}
+
+/**
+ * Genera la matriz APU para el concepto activo usando cascada inteligente:
+ *  - Modo Estándar (useWebSearch = false, defecto): 1º Motor Local + Caché ($0) -> 2º Gemini Flash SIN googleSearch.
+ *  - Modo Cotizador Web en Vivo (useWebSearch = true, acción explícita): consulta Gemini con Google Search Grounding
+ *    validando la cuota mensual global (0 Gratuita / 70 Plus / 200 Pro o API Key propia) y guarda precios en caché.
+ */
+export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, options = {}) {
   const targetId = targetNodeId || state.activeSelectedId;
   const node = targetId ? findNodeById(state.treeData, targetId) : null;
+  const useWebSearch = Boolean(options?.useWebSearch === true);
 
   if (!node) {
-    showToast('Selecciona un concepto en el catálogo primero para generar su matriz con Google IA.', 'warning');
+    showToast('Selecciona un concepto en el catálogo primero para generar su matriz APU.', 'warning');
     return false;
   }
 
@@ -100,9 +156,46 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null) {
     return false;
   }
 
-  // Elementos de UI para feedback visual inmediato en 1 solo clic
-  const btnHeader = document.getElementById('btn-ai-apu');
-  const btnMax = document.getElementById('btn-ai-apu-max');
+  // PASO 1 DE CASCADA ($0 costo): Motor Local + Caché de insumos cuando NO se pidió búsqueda web en vivo explícita
+  if (!useWebSearch) {
+    const localRes = await tryResolveConceptLocally(node, options?.localCtx || null);
+    if (localRes && localRes.matched && localRes.insumos.length > 0) {
+      saveState();
+      applyGeneratedMatrixToNode(node, localRes.insumos, {
+        googleSearchQueries: [],
+        googleSources: [],
+        aiTips: `⚡ Matriz resuelta automáticamente por Motor Local + Caché de Insumos ($0 consumo de IA, similitud ${Math.round((localRes.score || 0) * 100)}%).`
+      });
+      persistLocalData();
+      renderAPUInsumos(node);
+      renderInsumosUnitarios(node);
+      renderTAB1();
+      if (!options?.silentLocalToast) {
+        showToast(`⚡ Matriz resuelta localmente con Motor Local + Caché para [${node.clave || ''}] ($0 costo IA).`, 'success');
+      }
+      if (typeof window !== 'undefined' && typeof window.refreshAiQuotaBadges === 'function') {
+        window.refreshAiQuotaBadges();
+      }
+      return true;
+    }
+  }
+
+  // PASO 2: Validar cuota mensual de IA Estándar (10/1500/3500) o Google Search Grounding (0/70/200)
+  const quotaCheck = useWebSearch
+    ? checkWebSearchGroundingQuota(1)
+    : checkStandardAiQuota(1);
+
+  if (!quotaCheck.allowed) {
+    if (options && typeof options === 'object') options._quotaStopped = true;
+    showToast(`🔒 ${quotaCheck.reason}`, 'warning');
+    if (!options?.silentQuotaModal && typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') {
+      window.openSubscriptionModal();
+    }
+    return false;
+  }
+
+  const btnHeader = document.getElementById(useWebSearch ? 'btn-ai-apu-web' : 'btn-ai-apu');
+  const btnMax = document.getElementById(useWebSearch ? 'btn-ai-apu-max-web' : 'btn-ai-apu-max');
   const originalHeaderHtml = btnHeader ? btnHeader.innerHTML : '';
   const originalMaxHtml = btnMax ? btnMax.innerHTML : '';
 
@@ -110,27 +203,38 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null) {
     if (btnHeader) {
       btnHeader.disabled = loading;
       btnHeader.innerHTML = loading
-        ? '<i class="fa-solid fa-circle-notch fa-spin text-[10px] text-amber-300"></i> <span class="text-[8px]">Generando...</span>'
+        ? `<i class="fa-solid fa-circle-notch fa-spin text-[10px] text-amber-300"></i> <span class="text-[8px]">${useWebSearch ? 'Buscando Web...' : 'Generando...'}</span>`
         : originalHeaderHtml;
     }
     if (btnMax) {
       btnMax.disabled = loading;
       btnMax.innerHTML = loading
-        ? '<i class="fa-solid fa-circle-notch fa-spin text-xs text-amber-300"></i> Generando...'
+        ? `<i class="fa-solid fa-circle-notch fa-spin text-xs text-amber-300"></i> ${useWebSearch ? 'Buscando Web...' : 'Generando...'}`
         : originalMaxHtml;
     }
   };
 
   setLoadingState(true);
-  showToast(`Buscando cotizaciones y cuadrillas con Google IA para [${node.clave || ''}]...`, 'info');
+  showToast(
+    useWebSearch
+      ? `🌐 Cotizando precios en Web en Vivo (Google Search) para [${node.clave || ''}]...`
+      : `🤖 Generando matriz con Gemini Flash Estándar (sin Web Search) para [${node.clave || ''}]...`,
+    'info'
+  );
 
   const pathArr = getNodeHierarchyPath(state.treeData, node.id) || [];
   const fullPath = pathArr.join('  >  ');
   const fasarVal = state.settings?.pctFasar !== undefined ? Number(state.settings.pctFasar) : 70.0;
   const fasarFactor = (fasarVal > 0 && fasarVal < 5.0) ? fasarVal : (1 + (fasarVal / 100));
+  const ownApiKey = quotaCheck.ctx?.ownApiKey || state.settings?.apiKey || '';
 
   try {
     const payload = {
+      mode: 'apu',
+      useWebSearch,
+      planId: quotaCheck.ctx?.planId || 'free',
+      projectId: quotaCheck.ctx?.projectId || '',
+      ownerEmail: quotaCheck.ctx?.ownerEmail || '',
       node: {
         clave: node.clave || '',
         descripcion: node.descripcion || '',
@@ -140,13 +244,21 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null) {
       fullPath,
       fasarVal,
       fasarFactor,
-      userApiKey: state.settings?.apiKey || ''
+      userApiKey: ownApiKey
     };
 
     const headers = { 'Content-Type': 'application/json' };
-    if (state.settings?.apiKey) {
-      headers['X-Gemini-Key'] = state.settings.apiKey;
+    if (ownApiKey) {
+      headers['X-Gemini-Key'] = ownApiKey;
     }
+    try {
+      const sb = getSupabaseClient();
+      if (sb) {
+        const { data: sessionData } = await sb.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+    } catch (_) {}
 
     const response = await fetch('/api/gemini-apu', {
       method: 'POST',
@@ -156,7 +268,14 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null) {
 
     const data = await response.json();
 
+    if (data?.quotaSnapshot) {
+      applyServerQuotaSnapshot(quotaCheck.ctx?.ownerEmail, data.quotaSnapshot);
+    }
+
     if (!response.ok || !data.success) {
+      if (response.status === 401 || response.status === 403 || response.status === 429) {
+        if (options && typeof options === 'object') options._quotaStopped = true;
+      }
       throw new Error(data.error || `HTTP ${response.status}: Error al conectar con el servicio de IA`);
     }
 
@@ -164,46 +283,60 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null) {
       throw new Error('La IA no devolvió insumos utilizables para este concepto.');
     }
 
-    // Guardar estado previo para Deshacer (Undo)
     saveState();
 
-    // Integrar insumos y metadatos de Grounding
-    node.insumos = data.insumos;
-    node.googleSearchQueries = data.googleSearchQueries || [];
-    node.googleSources = data.googleSources || [];
-    node.aiTips = data.sugerencias || '';
+    // Guardar precios obtenidos en caché local para evitar consultas repetidas futuras
+    setCachedSupplyPrices(data.insumos, {
+      usedWebSearch: Boolean(data.usedWebSearch || useWebSearch),
+      fuente: Boolean(data.usedWebSearch || useWebSearch) ? 'Google Search Grounding' : 'Gemini Flash Estándar'
+    });
 
-    // Recalcular costo directo y precio unitario con factor sobrecosto
-    const totalCD = round2(node.insumos.reduce((acc, ins) => acc + (round5(ins.cantidad || 0) * round2(ins.costoUnitario || 0)), 0));
-    const factorSobrecosto = getFactorSobrecosto();
-    const totalPU = round2(totalCD * factorSobrecosto);
+    applyGeneratedMatrixToNode(node, data.insumos, {
+      googleSearchQueries: data.googleSearchQueries || [],
+      googleSources: data.googleSources || [],
+      aiTips: data.sugerencias || ''
+    });
 
-    node.costoDirecto = totalCD;
-    node.precioUnitario = totalPU;
+    recordAiQuotaConsumption({
+      ownerEmail: quotaCheck.ctx?.ownerEmail,
+      usageMetadata: data.usageMetadata,
+      standardConcepts: (data.usedWebSearch || useWebSearch) ? 0 : 1,
+      searchGroundingCalls: (data.usedWebSearch || useWebSearch) ? Math.max(1, Number(data.groundingQueriesCount) || 1) : 0,
+      usedOwnApiKey: Boolean(data.usedOwnApiKey || quotaCheck.usingOwnApiKey),
+      quotaSnapshot: data.quotaSnapshot || null
+    });
 
     persistLocalData();
-
-    // Actualizar vistas
     renderAPUInsumos(node);
     renderInsumosUnitarios(node);
     renderTAB1();
+    if (typeof window !== 'undefined' && typeof window.refreshAiQuotaBadges === 'function') {
+      window.refreshAiQuotaBadges();
+    }
 
-    showToast(`✅ ¡Matriz APU generada automáticamente con Google IA para [${node.clave || ''}]!`, 'success');
+    showToast(
+      useWebSearch
+        ? `🌐 Matriz cotizada con Precios Web en Vivo para [${node.clave || ''}] (precios guardados en caché)`
+        : `✅ Matriz generada con IA Estándar para [${node.clave || ''}]`,
+      'success'
+    );
     return true;
   } catch (err) {
     console.error('Error generando matriz con Google IA:', err);
 
-    // Fallback: Si el usuario tiene guardada una API Key local en el navegador, intentar llamada directa cliente
-    if (state.settings?.apiKey) {
+    if (ownApiKey && !(options && options._quotaStopped)) {
       try {
-        showToast('Reintentando consulta con API Key local...', 'info');
-        const fallbackRes = await queryGeminiSingleConcept(node, state.settings.apiKey);
+        showToast('Reintentando consulta directa con API Key local...', 'info');
+        const fallbackRes = await queryGeminiSingleConcept(node, ownApiKey, null, { useWebSearch });
         if (fallbackRes.success) {
           persistLocalData();
           renderAPUInsumos(node);
           renderInsumosUnitarios(node);
           renderTAB1();
-          showToast(`✅ Matriz generada con Google Search Grounding`, 'success');
+          if (typeof window !== 'undefined' && typeof window.refreshAiQuotaBadges === 'function') {
+            window.refreshAiQuotaBadges();
+          }
+          showToast(useWebSearch ? '🌐 Matriz cotizada con Google Search Grounding' : '✅ Matriz generada con Gemini Flash', 'success');
           return true;
         }
       } catch (fbErr) {
@@ -211,15 +344,25 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null) {
       }
     }
 
-    showToast(`Error al generar matriz con Google IA: ${err.message}`, 'error');
+    showToast(`Error al generar matriz: ${err.message}`, 'error');
     return false;
   } finally {
     setLoadingState(false);
   }
 }
 
-// Generar matrices APU con Google IA para conceptos seleccionados con casilla (sin modal)
-export async function generarMatrizCasillasGoogleIA() {
+// Acciones explícitas de Precios Web en Vivo (Google Search Grounding)
+export async function generarMatrizConBusquedaWebActiva(targetNodeId = null) {
+  return generarMatrizConceptoActivoGoogleIA(targetNodeId, { useWebSearch: true });
+}
+
+export async function generarMatrizCasillasConBusquedaWeb() {
+  return generarMatrizCasillasGoogleIA({ useWebSearch: true });
+}
+
+// Generar matrices APU con IA para conceptos seleccionados (Estándar por defecto; Cascada Local -> Gemini sin Web Search)
+export async function generarMatrizCasillasGoogleIA(options = {}) {
+  const useWebSearch = Boolean(options?.useWebSearch === true);
   let selected = getSelectedLeafConcepts ? getSelectedLeafConcepts() : [];
   if (selected.length === 0 && state.activeSelectedId) {
     const active = findNodeById(state.treeData, state.activeSelectedId);
@@ -232,25 +375,31 @@ export async function generarMatrizCasillasGoogleIA() {
   }
 
   if (selected.length === 0) {
-    showToast('Selecciona con la casilla (checkbox) los conceptos cuya matriz deseas generar con Google IA.', 'warning');
+    showToast('Selecciona con la casilla (checkbox) los conceptos cuya matriz deseas generar.', 'warning');
     return;
   }
 
-  const btnToolbar = document.getElementById('btn-toolbar-google-ia');
+  const btnToolbar = document.getElementById(useWebSearch ? 'btn-toolbar-web-search-ia' : 'btn-toolbar-google-ia');
   const originalToolbarHtml = btnToolbar ? btnToolbar.innerHTML : '';
   if (btnToolbar) {
     btnToolbar.disabled = true;
-    btnToolbar.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-[10px] text-amber-200"></i> Generando...';
+    btnToolbar.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-[10px] text-amber-200"></i> ${useWebSearch ? 'Buscando Web...' : 'Generando...'}`;
   }
 
   saveState();
   let successCount = 0;
+  let quotaStopped = false;
 
   for (let i = 0; i < selected.length; i++) {
     const concept = selected[i];
-    showToast(`Generando matriz (${i + 1}/${selected.length}) con Google IA: [${concept.clave || ''}]...`, 'info');
-    const ok = await generarMatrizConceptoActivoGoogleIA(concept.id);
-    if (ok) successCount++;
+    const callOpts = { useWebSearch, silentQuotaModal: true, silentLocalToast: selected.length > 1 };
+    const ok = await generarMatrizConceptoActivoGoogleIA(concept.id, callOpts);
+    if (ok) {
+      successCount++;
+    } else if (callOpts._quotaStopped) {
+      quotaStopped = true;
+      break;
+    }
   }
 
   if (btnToolbar) {
@@ -258,16 +407,26 @@ export async function generarMatrizCasillasGoogleIA() {
     btnToolbar.innerHTML = originalToolbarHtml;
   }
 
+  if (quotaStopped && typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') {
+    window.openSubscriptionModal();
+  }
+
   if (successCount > 0) {
-    showToast(`✅ ${successCount} de ${selected.length} matrices generadas exitosamente con Google IA.`, 'success');
+    showToast(
+      useWebSearch
+        ? `🌐 ${successCount} de ${selected.length} matrices cotizadas con Precios Web en Vivo.`
+        : `✅ ${successCount} de ${selected.length} matrices procesadas (Motor Local + Caché + IA Estándar).`,
+      'success'
+    );
   }
 }
 
 /**
- * Consulta a Gemini con Google Search Grounding para estructurar la matriz de un concepto individual.
+ * Consulta directa a Gemini (usando API Key propia). Respeta useWebSearch (default: false).
  */
-export async function queryGeminiSingleConcept(node, apiKeyInput, onStatus) {
+export async function queryGeminiSingleConcept(node, apiKeyInput, onStatus, options = {}) {
   if (!node) return { success: false, error: 'Nodo no válido' };
+  const useWebSearch = Boolean(options?.useWebSearch === true);
 
   const pathArr = getNodeHierarchyPath(state.treeData, node.id) || [];
   const fullPath = pathArr.join('  >  ');
@@ -276,7 +435,9 @@ export async function queryGeminiSingleConcept(node, apiKeyInput, onStatus) {
   const fasarFactor = (fasarVal > 0 && fasarVal < 5.0) ? fasarVal : (1 + (fasarVal / 100));
 
   const promptText = `Eres un ingeniero civil especialista senior en Análisis de Precios Unitarios (APU) y costos de construcción en México.
-Utiliza Google Search Grounding para investigar precios comerciales y rendimientos vigentes en el mercado de la construcción en México (en Pesos Mexicanos MXN).
+${useWebSearch
+  ? 'Utiliza Google Search Grounding para investigar precios comerciales y rendimientos vigentes en el mercado de la construcción en México (en Pesos Mexicanos MXN).'
+  : 'Calcula la matriz usando tabuladores técnicos estándar mexicanos (CMIC / Neodata / Opus) en Pesos Mexicanos MXN sin búsqueda web externa.'}
 
 Datos de la fila seleccionada en TAB1-CAT-BASE:
 - Ubicación / Partida en presupuesto: "${fullPath}"
@@ -288,43 +449,21 @@ Datos de la fila seleccionada en TAB1-CAT-BASE:
 REGLA FUNDAMENTAL DE PRECIOS UNITARIOS (APU):
 La propiedad 'cantidad' de CADA insumo (Material, Mano de Obra, Equipo/Herramienta, Subcontrato) DEBE SER ESTRICTAMENTE el consumo o rendimiento unitario necesario para elaborar EXACTAMENTE UNA UNIDAD (1 ${node.unidad || 'pza'}) del concepto.
 ¡NO debes multiplicar por la cantidad total de obra del presupuesto (${node.cantidad || 1})! Únicamente el consumo por 1 ${node.unidad || 'pza'}.
-Ejemplos de congruencia matemática:
-- Si el concepto es en m2 y lleva concreto (m3) con espesor 10 cm: cantidad = 1.0 * 0.10 * 1.05 desperdicio = 0.105 m3.
-- Si lleva malla electrosoldada en m2: cantidad = 1.10 m2 (considerando 10% traslapes).
-- Si es Mano de Obra en 'jor': cantidad = 1 / RendimientoDiario (ej. 1 / 12.5 m2/jor = 0.0800 jor).
-- Si es Herramienta menor (%): cantidad = 0.03 (3%).
 
-Instrucciones prioritarias con Google Search:
-1. Realiza búsquedas en Google de los precios actuales de mercado en México para los materiales comerciales que componen este concepto (puestos en obra).
-2. Busca los salarios de cuadrillas (oficiales + peones) aplicando el Factor de Salario Real (FASAR) configurado en el sistema (+${fasarVal.toFixed(1)}% / Factor ${fasarFactor.toFixed(2)}) para inflar el salario nominal y cubrir IMSS, INFONAVIT, SAR, riesgos y prestaciones según tabuladores CMIC / Neodata / Opus.
-3. Determina el equipo, maquinaria y herramienta requerida.
-4. Clasifica los insumos en los rubros: "Material", "Mano de Obra", "Herramienta", "Equipo", "Maquinaria" o "Subcontrato".
-5. Al final de tu análisis, devuelve OBLIGATORIAMENTE un bloque de código JSON con esta estructura exacta:
+Instrucciones:
+1. ${useWebSearch ? 'Realiza búsquedas en Google de los precios actuales de mercado en México para los materiales comerciales (puestos en obra).' : 'Asigna precios unitarios comerciales promedio vigentes en México puestos en obra (sin IVA).'}
+2. Aplica el Factor de Salario Real (FASAR) configurado (+${fasarVal.toFixed(1)}% / Factor ${fasarFactor.toFixed(2)}) a cuadrillas de mano de obra.
+3. Clasifica en: "Material", "Mano de Obra", "Herramienta", "Equipo", "Maquinaria" o "Subcontrato".
+4. Devuelve OBLIGATORIAMENTE un bloque JSON:
 \`\`\`json
 {
-  "sugerencias": "Recomendación técnica sobre ejecución, curado, pruebas o normativas mexicanas para este concepto...",
+  "sugerencias": "Recomendación técnica para este concepto...",
   "insumos": [
     {
       "clave": "MAT-01",
       "tipo": "Material",
-      "descripcion": "Descripción comercial detallada del material con especificación",
+      "descripcion": "Descripción comercial detallada del material",
       "unidad": "m3/kg/pza/etc",
-      "cantidad": 0.00,
-      "costoUnitario": 0.00
-    },
-    {
-      "clave": "MO-01",
-      "tipo": "Mano de Obra",
-      "descripcion": "Cuadrilla de mano de obra (Oficial + Peón) con rendimiento",
-      "unidad": "jor/m2/etc",
-      "cantidad": 0.00,
-      "costoUnitario": 0.00
-    },
-    {
-      "clave": "EQ-01",
-      "tipo": "Equipo",
-      "descripcion": "Equipo o herramienta menor (% de MO)",
-      "unidad": "hr/%",
       "cantidad": 0.00,
       "costoUnitario": 0.00
     }
@@ -332,22 +471,26 @@ Instrucciones prioritarias con Google Search:
 }
 \`\`\``;
 
-  const attempts = [
-    { model: 'gemini-3.8-flash', tools: [{ googleSearch: {} }] },
-    { model: 'gemini-2.5-flash', tools: [{ googleSearch: {} }] },
-    { model: 'gemini-3.8-flash', tools: null },
-    { model: 'gemini-1.5-flash', tools: [{ google_search: {} }] },
-    { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] }
-  ];
+  const attempts = useWebSearch
+    ? [
+        { model: 'gemini-2.5-flash', tools: [{ googleSearch: {} }] },
+        { model: 'gemini-2.0-flash', tools: [{ googleSearch: {} }] },
+        { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] }
+      ]
+    : [
+        { model: 'gemini-2.5-flash', tools: null },
+        { model: 'gemini-2.0-flash', tools: null },
+        { model: 'gemini-1.5-flash', tools: null }
+      ];
 
   let lastError = '';
 
   for (let att of attempts) {
     try {
       if (onStatus) {
-        onStatus(att.tools 
+        onStatus(att.tools
           ? `Buscando cotizaciones en Google Search Grounding con ${att.model}...`
-          : `Consultando modelo ${att.model}...`);
+          : `Consultando modelo estándar ${att.model}...`);
       }
 
       const reqPayload = {
@@ -392,36 +535,23 @@ Instrucciones prioritarias con Google Search:
           uri: chunk.web?.uri || '#'
         })).filter(s => s.uri !== '#');
 
-        node.googleSearchQueries = searchQueries;
-        node.googleSources = sources;
-        node.aiTips = parsed.sugerencias || '';
-
-        node.insumos = parsed.insumos.map((item, idx) => {
-          let cleanTipo = 'Material';
-          const t = (item.tipo || '').toLowerCase();
-          if (t.includes('mano') || t.includes('obra') || t === 'mo') cleanTipo = 'Mano de Obra';
-          else if (t.includes('herr')) cleanTipo = 'Herramienta';
-          else if (t.includes('maq')) cleanTipo = 'Maquinaria';
-          else if (t.includes('equipo') || t === 'eq') cleanTipo = 'Equipo';
-          else if (t.includes('subcontrat') || t === 'sub') cleanTipo = 'Subcontrato';
-
-          return {
-            clave: item.clave || `${cleanTipo.substring(0, 3).toUpperCase()}-0${idx + 1}`,
-            tipo: cleanTipo,
-            descripcion: item.descripcion || 'Insumo de obra',
-            unidad: item.unidad || 'pza',
-            cantidad: round5(parseFloat(item.cantidad) || 1),
-            costoUnitario: round2(parseFloat(item.costoUnitario) || 0)
-          };
+        setCachedSupplyPrices(parsed.insumos, {
+          usedWebSearch: Boolean(att.tools),
+          fuente: att.tools ? 'Google Search Grounding' : 'Gemini Flash Estándar'
         });
 
-        // Calcular costo directo y precio unitario con factor de sobrecosto
-        const totalCD = round2(node.insumos.reduce((acc, ins) => acc + (ins.cantidad * ins.costoUnitario), 0));
-        const factorSobrecosto = getFactorSobrecosto();
-        const totalPU = round2(totalCD * factorSobrecosto);
+        applyGeneratedMatrixToNode(node, parsed.insumos, {
+          googleSearchQueries: searchQueries,
+          googleSources: sources,
+          aiTips: parsed.sugerencias || ''
+        });
 
-        node.costoDirecto = totalCD;
-        node.precioUnitario = totalPU;
+        recordAiQuotaConsumption({
+          usageMetadata: data.usageMetadata,
+          standardConcepts: att.tools ? 0 : 1,
+          searchGroundingCalls: att.tools ? Math.max(1, searchQueries.length || 1) : 0,
+          usedOwnApiKey: true
+        });
 
         return { success: true };
       }
@@ -434,9 +564,10 @@ Instrucciones prioritarias con Google Search:
   return { success: false, error: lastError };
 }
 
-// Ejecución de Generación con IA y Google Search Grounding (Lote o Individual)
+// Ejecución desde Modal de IA: cascada Motor Local + Caché -> IA Estándar (sin búsqueda por defecto) o Web Search explícito
 export async function executeAiGeneration() {
   const apiKeyInput = (document.getElementById('ai-modal-api-key')?.value || '').trim();
+  const useWebSearch = Boolean(document.getElementById('ai-modal-use-web-search')?.checked === true);
   const errorBox = document.getElementById('ai-modal-error');
   const errorTitle = document.getElementById('ai-modal-error-title');
   const errorMsg = document.getElementById('ai-modal-error-msg');
@@ -444,19 +575,12 @@ export async function executeAiGeneration() {
   const loadingText = document.getElementById('ai-modal-loading-text');
   const btnRun = document.getElementById('btn-ai-modal-run');
 
-  if (!apiKeyInput) {
-    if (errorBox) errorBox.classList.remove('hidden');
-    if (errorTitle) errorTitle.innerText = 'Se requiere API Key';
-    if (errorMsg) errorMsg.innerText = 'Para realizar búsquedas en Google Search Grounding en tiempo real, ingresa tu API Key gratuita de Gemini.';
-    document.getElementById('ai-modal-api-key')?.focus();
-    return;
+  if (apiKeyInput) {
+    state.settings.apiKey = apiKeyInput;
+    persistSettings();
+    const cfgInput = document.getElementById('cfg-api-key');
+    if (cfgInput) cfgInput.value = apiKeyInput;
   }
-
-  // Guardar API Key para futuros usos
-  state.settings.apiKey = apiKeyInput;
-  persistSettings();
-  const cfgInput = document.getElementById('cfg-api-key');
-  if (cfgInput) cfgInput.value = apiKeyInput;
 
   let targets = [];
   if (aiModalTargetMode === 'single') {
@@ -488,30 +612,42 @@ export async function executeAiGeneration() {
 
   let successCount = 0;
   let lastError = '';
+  let quotaStopped = false;
 
   for (let i = 0; i < targets.length; i++) {
     const node = targets[i];
     const prefix = targets.length > 1 ? `(${i + 1}/${targets.length}) ` : '';
 
     if (loadingText) {
-      loadingText.innerText = `${prefix}Consultando Google Search para [${node.clave || ''}] ${node.descripcion.substring(0, 30)}...`;
+      loadingText.innerText = `${prefix}${useWebSearch ? 'Buscando Web en Vivo' : 'Procesando Cascada Local / IA'} para [${node.clave || ''}] ${node.descripcion.substring(0, 30)}...`;
     }
 
     try {
-      const res = await queryGeminiSingleConcept(node, apiKeyInput, (status) => {
-        if (loadingText) loadingText.innerText = `${prefix}${status}`;
-      });
-
-      if (res.success) {
+      const callOpts = {
+        useWebSearch,
+        silentQuotaModal: true,
+        silentLocalToast: targets.length > 1
+      };
+      const ok = await generarMatrizConceptoActivoGoogleIA(node.id, callOpts);
+      if (ok) {
         successCount++;
+      } else if (callOpts._quotaStopped) {
+        quotaStopped = true;
+        lastError = useWebSearch
+          ? 'Cuota mensual de Precios Web en Vivo agotada o no incluida en tu plan.'
+          : 'Cuota mensual de IA Estándar agotada para este plan.';
+        break;
       } else {
-        lastError = res.error || 'Fallo al procesar respuesta';
+        lastError = 'No se pudo procesar el concepto con IA.';
       }
     } catch (err) {
       lastError = err.message || 'Error de conexión';
       console.error(`Error en concepto ${node.clave}:`, err);
     }
   }
+
+  if (loadingBox) loadingBox.classList.add('hidden');
+  if (btnRun) btnRun.disabled = false;
 
   if (successCount > 0) {
     persistLocalData();
@@ -527,14 +663,18 @@ export async function executeAiGeneration() {
     renderTAB1();
 
     const msg = targets.length === 1
-      ? 'Matriz generada con Google Search Grounding'
-      : `✅ Matrices generadas con Google IA para ${successCount} de ${targets.length} conceptos`;
+      ? (useWebSearch ? '🌐 Matriz cotizada con Precios Web en Vivo' : '✅ Matriz generada con Cascada Local + IA Estándar')
+      : `✅ Matrices generadas para ${successCount} de ${targets.length} conceptos`;
     showToast(msg, 'success');
+    if (quotaStopped && typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') {
+      window.openSubscriptionModal();
+    }
   } else {
-    if (loadingBox) loadingBox.classList.add('hidden');
     if (errorBox) errorBox.classList.remove('hidden');
-    if (errorTitle) errorTitle.innerText = 'Error al consultar Google Search';
-    if (errorMsg) errorMsg.innerText = `${lastError}. Verifica tu API Key o prueba la conexión.`;
-    if (btnRun) btnRun.disabled = false;
+    if (errorTitle) errorTitle.innerText = quotaStopped ? 'Límite de Suscripción Alcanzado' : 'Error al generar con IA';
+    if (errorMsg) errorMsg.innerText = lastError;
+    if (quotaStopped && typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') {
+      window.openSubscriptionModal();
+    }
   }
 }

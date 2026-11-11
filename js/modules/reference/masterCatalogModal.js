@@ -5,14 +5,16 @@ import { state, persistLocalData } from '../../state/store.js';
 import { saveState } from '../../state/history.js';
 import { showToast } from '../../ui/notifications.js';
 import { formatMoney } from '../../core/formatters.js';
-import { findNodeById, recalculateClaves } from '../catalog/treeService.js';
+import { findNodeById, recalculateClaves, guardConceptLimit } from '../catalog/treeService.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
 import {
   listReferenceCatalogs,
   searchReferenceItems,
   deleteReferenceCatalog,
-  getReferenceDatabaseStats
+  getReferenceDatabaseStats,
+  syncMasterCatalogsFromCloud
 } from './referenceDb.js';
+import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js';
 import { openImportModal } from '../io/universalImporter.js';
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
 
@@ -30,6 +32,14 @@ export async function openMasterCatalogModal() {
   switchMasterCatalogTab('search');
   await refreshMasterCatalogList();
   triggerMasterCatalogSearch();
+
+  syncMasterCatalogsFromCloud().then(async (res) => {
+    if (res?.restored > 0) {
+      showToast(`${res.restored} catálogo(s) maestro(s) restaurado(s) desde la nube AWS S3.`, 'success');
+      await refreshMasterCatalogList();
+      triggerMasterCatalogSearch();
+    }
+  }).catch(() => {});
 }
 
 // Cerrar modal
@@ -81,32 +91,40 @@ export async function refreshMasterCatalogList() {
     }
 
     // Actualizar tabla de administración de catálogos
-    renderCatalogsManageList(stats.catalogs, stats);
+    await renderCatalogsManageList(stats.catalogs, stats);
   } catch (err) {
     console.error('Error cargando catálogos:', err);
   }
 }
 
 // Renderizar la lista de catálogos para administrar/eliminar
-function renderCatalogsManageList(catalogs, stats = null) {
+async function renderCatalogsManageList(catalogs, stats = null) {
   const container = document.getElementById('master-cat-manage-list');
   if (!container) return;
 
+  const storageSummary = await getHostStorageSummary().catch(() => null);
+  const meterHtml = storageSummary ? renderStorageMeterHtml(storageSummary, { compact: true }) : '';
+  const pct = stats?.usagePct || 0;
+  const barCls = pct >= 100 ? 'bg-rose-600' : (pct >= 90 ? 'bg-amber-500' : 'bg-blue-600');
+
   const storageHeader = stats ? `
-    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl mb-3 shadow-2xs">
-      <div class="flex flex-wrap justify-between items-center text-xs mb-1.5 font-semibold gap-1">
-        <span class="text-slate-700 flex items-center gap-1.5">
-          <i class="fa-solid fa-hard-drive text-blue-600"></i>
-          <span>Almacenamiento (Plan ${stats.planName || 'Gratuita'}):</span>
-        </span>
-        <span class="font-mono text-slate-900 font-bold">${stats.totalMb} MB de ${stats.maxStorageMb} MB disponibles (${stats.usagePct}%)</span>
-      </div>
-      <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-        <div class="${stats.usagePct > 85 ? 'bg-amber-500' : 'bg-blue-600'} h-full rounded-full transition-all duration-300" style="width: ${Math.min(100, stats.usagePct)}%"></div>
-      </div>
-      <div class="flex flex-wrap justify-between items-center text-[10px] text-slate-500 mt-1.5">
-        <span>Titular del Espacio: <strong class="text-slate-700">${stats.ownerName || 'Mi Cuenta'}</strong> (${stats.ownerEmail || ''})</span>
-        <span>${catalogs.length} catálogo${catalogs.length === 1 ? '' : 's'} activo${catalogs.length === 1 ? '' : 's'}</span>
+    <div class="space-y-2.5 mb-3">
+      ${meterHtml}
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl shadow-2xs">
+        <div class="flex flex-wrap justify-between items-center text-xs mb-1.5 font-semibold gap-1">
+          <span class="text-slate-700 flex items-center gap-1.5">
+            <i class="fa-solid fa-hard-drive text-blue-600"></i>
+            <span>Apartado Catálogo Maestro (Plan ${stats.planName || 'Gratuita'}):</span>
+          </span>
+          <span class="font-mono text-slate-900 font-bold">${stats.totalMb} MB de ${stats.maxStorageMb} MB reservados (${pct}%)</span>
+        </div>
+        <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+          <div class="${barCls} h-full rounded-full transition-all duration-300" style="width: ${Math.min(100, pct)}%"></div>
+        </div>
+        <div class="flex flex-wrap justify-between items-center text-[10px] text-slate-500 mt-1.5">
+          <span>Titular del Espacio: <strong class="text-slate-700">${stats.ownerName || 'Mi Cuenta'}</strong> (${stats.ownerEmail || ''})</span>
+          <span>${catalogs.length} catálogo${catalogs.length === 1 ? '' : 's'} activo${catalogs.length === 1 ? '' : 's'} · Respaldo S3 automático</span>
+        </div>
       </div>
     </div>
   ` : '';
@@ -305,6 +323,8 @@ function renderSearchResultsTable(items) {
 export function insertConceptIntoBudget(resultIndex) {
   const item = currentSearchResults[resultIndex];
   if (!item) return;
+
+  if (!guardConceptLimit(1)) return;
 
   saveState();
 

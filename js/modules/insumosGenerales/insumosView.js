@@ -49,7 +49,9 @@ export function renderInsumosGenerales() {
   const categories = [
     { tipo: 'Material', bodyId: 'body-insumos-materiales', sumId: 'cat-sum-materiales' },
     { tipo: 'Mano de Obra', bodyId: 'body-insumos-mo', sumId: 'cat-sum-mo' },
+    { tipo: 'Herramienta', bodyId: 'body-insumos-herramienta', sumId: 'cat-sum-herramienta' },
     { tipo: 'Equipo', bodyId: 'body-insumos-equipo', sumId: 'cat-sum-equipo' },
+    { tipo: 'Maquinaria', bodyId: 'body-insumos-maquinaria', sumId: 'cat-sum-maquinaria' },
     { tipo: 'Subcontrato', bodyId: 'body-insumos-subcontratos', sumId: 'cat-sum-subcontratos' }
   ];
 
@@ -151,8 +153,24 @@ export function renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId) {
 
 // Filtrar tabla de categoría por campo de búsqueda
 export function filterInsumosGeneralesTable(tipo) {
-  const sumId = tipo === 'Material' ? 'cat-sum-materiales' : (tipo === 'Mano de Obra' ? 'cat-sum-mo' : (tipo === 'Equipo' ? 'cat-sum-equipo' : 'cat-sum-subcontratos'));
-  const bodyId = tipo === 'Material' ? 'body-insumos-materiales' : (tipo === 'Mano de Obra' ? 'body-insumos-mo' : (tipo === 'Equipo' ? 'body-insumos-equipo' : 'body-insumos-subcontratos'));
+  const sumMap = {
+    'Material': 'cat-sum-materiales',
+    'Mano de Obra': 'cat-sum-mo',
+    'Herramienta': 'cat-sum-herramienta',
+    'Equipo': 'cat-sum-equipo',
+    'Maquinaria': 'cat-sum-maquinaria',
+    'Subcontrato': 'cat-sum-subcontratos'
+  };
+  const bodyMap = {
+    'Material': 'body-insumos-materiales',
+    'Mano de Obra': 'body-insumos-mo',
+    'Herramienta': 'body-insumos-herramienta',
+    'Equipo': 'body-insumos-equipo',
+    'Maquinaria': 'body-insumos-maquinaria',
+    'Subcontrato': 'body-insumos-subcontratos'
+  };
+  const sumId = sumMap[tipo] || 'cat-sum-materiales';
+  const bodyId = bodyMap[tipo] || 'body-insumos-materiales';
   renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId);
 }
 
@@ -288,7 +306,9 @@ export function openCombinarModal(tipo, selectedItems) {
     const colorClasses = {
       'Material': 'bg-blue-600 text-white',
       'Mano de Obra': 'bg-amber-600 text-white',
+      'Herramienta': 'bg-orange-600 text-white',
       'Equipo': 'bg-purple-600 text-white',
+      'Maquinaria': 'bg-rose-600 text-white',
       'Subcontrato': 'bg-emerald-600 text-white'
     };
     badgeTipo.className = `text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded shadow-xs ${colorClasses[tipo] || 'bg-blue-600 text-white'}`;
@@ -460,14 +480,18 @@ export function filterInsumosCategoryView(selectedCat) {
   const cats = [
     { id: 'Material', key: 'Material' },
     { id: 'Mano-de-Obra', key: 'Mano de Obra' },
+    { id: 'Herramienta', key: 'Herramienta' },
     { id: 'Equipo', key: 'Equipo' },
+    { id: 'Maquinaria', key: 'Maquinaria' },
     { id: 'Subcontrato', key: 'Subcontrato' }
   ];
   const btnMap = {
     'all': 'btn-view-cat-all',
     'Material': 'btn-view-cat-Material',
     'Mano de Obra': 'btn-view-cat-MO',
+    'Herramienta': 'btn-view-cat-Herr',
     'Equipo': 'btn-view-cat-Equipo',
+    'Maquinaria': 'btn-view-cat-Maq',
     'Subcontrato': 'btn-view-cat-Sub'
   };
 
@@ -508,7 +532,7 @@ export function toggleInsumoCard(catId) {
 
 // Agrupar todas las categorías de insumos (Colapsar tablas)
 export function agruparInsumosBase() {
-  const cats = ['Material', 'Mano-de-Obra', 'Equipo', 'Subcontrato'];
+  const cats = ['Material', 'Mano-de-Obra', 'Herramienta', 'Equipo', 'Maquinaria', 'Subcontrato'];
   cats.forEach(catId => {
     const body = document.getElementById(`card-body-${catId}`);
     const icon = document.getElementById(`card-chevron-${catId}`);
@@ -520,7 +544,7 @@ export function agruparInsumosBase() {
 
 // Desagrupar todas las categorías de insumos (Expandir tablas)
 export function desagruparInsumosBase() {
-  const cats = ['Material', 'Mano-de-Obra', 'Equipo', 'Subcontrato'];
+  const cats = ['Material', 'Mano-de-Obra', 'Herramienta', 'Equipo', 'Maquinaria', 'Subcontrato'];
   cats.forEach(catId => {
     const body = document.getElementById(`card-body-${catId}`);
     const icon = document.getElementById(`card-chevron-${catId}`);
@@ -538,8 +562,9 @@ export const expandAllInsumosCategories = desagruparInsumosBase;
 // =========================================================================
 
 // 1. Actualización independiente para un solo insumo
-export async function actualizarCostoIndividualConIA(tipo, key) {
+export async function actualizarCostoIndividualConIA(tipo, key, options = {}) {
   if (!guardTabUnlocked('insumos')) return;
+  const useWebSearch = Boolean(options?.useWebSearch === true);
   const itemGroup = globalConsolidatedMap[tipo] && globalConsolidatedMap[tipo][key];
   if (!itemGroup) {
     showToast('No se encontró el insumo seleccionado', 'warning');
@@ -554,15 +579,25 @@ export async function actualizarCostoIndividualConIA(tipo, key) {
   }
 
   const shortDesc = itemGroup.descripcion.length > 30 ? itemGroup.descripcion.slice(0, 30) + '...' : itemGroup.descripcion;
-  showToast(`🤖 Consultando IA para cotizar: "${shortDesc}"`, 'info');
+  showToast(
+    useWebSearch
+      ? `🌐 Cotizando en Web en Vivo (Google Search): "${shortDesc}"`
+      : `🤖 Cotizando con Caché / IA Estándar: "${shortDesc}"`,
+    'info'
+  );
 
   try {
-    const res = await estimarCostoInsumoConIA(itemGroup);
+    const res = await estimarCostoInsumoConIA(itemGroup, { useWebSearch });
+    if (res && res.blockedByQuota) {
+      showToast(`🔒 ${res.error}`, 'warning');
+      if (typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') window.openSubscriptionModal();
+      return;
+    }
     if (res && typeof res.precio === 'number' && res.precio > 0) {
       updateCostoUnitarioGeneral(tipo, key, res.precio);
       showToast(`✅ [${itemGroup.clave}] actualizado a $${res.precio.toFixed(2)} (${res.fuente})`, 'success');
     } else {
-      showToast('No se pudo determinar un costo válido para este insumo', 'warning');
+      showToast(res?.error || 'No se pudo determinar un costo válido para este insumo', 'warning');
     }
   } catch (err) {
     console.error('Error actualizando costo con IA:', err);
@@ -575,9 +610,69 @@ export async function actualizarCostoIndividualConIA(tipo, key) {
   }
 }
 
+/**
+ * Helper compartido para actualizar un lote de insumos con Caché -> IA Estándar o Google Search explícito.
+ */
+async function processBatchInsumosConIA(selectedItems, { label = 'seleccionados', useWebSearch = false } = {}) {
+  if (!Array.isArray(selectedItems) || selectedItems.length === 0) return;
+
+  showToast(
+    useWebSearch
+      ? `🌐 Cotizando ${selectedItems.length} insumos ${label} en Web en Vivo (Google Search)...`
+      : `🤖 Actualizando ${selectedItems.length} insumos ${label} con Caché e IA Estándar...`,
+    'info'
+  );
+
+  const apiKey = state.settings?.apiKey || '';
+  let batchResults = null;
+  if (selectedItems.length > 1) {
+    batchResults = await queryGeminiLoteInsumos(selectedItems, apiKey, { useWebSearch });
+    if (batchResults && batchResults.__quotaError) {
+      showToast(`🔒 ${batchResults.__quotaError}`, 'warning');
+      if (typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') window.openSubscriptionModal();
+      return;
+    }
+  }
+
+  saveState();
+  let count = 0;
+
+  for (const item of selectedItems) {
+    let nuevoPrecio = null;
+    if (batchResults && batchResults[item.key]) {
+      nuevoPrecio = batchResults[item.key].precio;
+    } else {
+      const res = await estimarCostoInsumoConIA(item, { useWebSearch });
+      if (res && res.blockedByQuota) {
+        showToast(`🔒 ${res.error}`, 'warning');
+        if (typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') window.openSubscriptionModal();
+        break;
+      }
+      nuevoPrecio = res?.precio ?? null;
+    }
+
+    if (nuevoPrecio !== null && nuevoPrecio > 0) {
+      const parsedCosto = round2(nuevoPrecio);
+      propagateInsumoCostToAllMatrices(item.key, parsedCosto, item);
+      count++;
+    }
+  }
+
+  persistLocalData();
+  renderInsumosGenerales();
+  syncCatalogAndActiveMatrixAfterInsumoChange();
+  if (count > 0) {
+    showToast(
+      `✅ ${count} insumo${count > 1 ? 's' : ''} ${label} actualizado${count > 1 ? 's' : ''} (${useWebSearch ? 'Precios Web en Vivo' : 'Caché / IA Estándar'}).`,
+      'success'
+    );
+  }
+}
+
 // 2. Actualización de insumos seleccionados con casilla dentro de una categoría específica
-export async function actualizarCostosConIASeleccionados(tipo) {
+export async function actualizarCostosConIASeleccionados(tipo, options = {}) {
   if (!guardTabUnlocked('insumos')) return;
+  const useWebSearch = Boolean(options?.useWebSearch === true);
   const checkboxes = document.querySelectorAll(`.row-checkbox-${tipo}:checked`);
   if (!checkboxes || checkboxes.length === 0) {
     showToast(`Selecciona al menos un insumo en ${tipo} con la casilla (Checkbox) para actualizar con IA`, 'warning');
@@ -593,46 +688,12 @@ export async function actualizarCostosConIASeleccionados(tipo) {
     }
   });
 
-  if (selectedItems.length === 0) return;
-
-  showToast(`🤖 Actualizando ${selectedItems.length} insumos de ${tipo} con IA...`, 'info');
-
-  const apiKey = state.settings?.apiKey || '';
-  let batchResults = null;
-  if (apiKey && selectedItems.length > 1) {
-    batchResults = await queryGeminiLoteInsumos(selectedItems, apiKey);
-  }
-
-  saveState();
-  let count = 0;
-
-  for (const item of selectedItems) {
-    let nuevoPrecio = null;
-    let fuente = '';
-    if (batchResults && batchResults[item.key]) {
-      nuevoPrecio = batchResults[item.key].precio;
-      fuente = batchResults[item.key].fuente;
-    } else {
-      const res = await estimarCostoInsumoConIA(item);
-      nuevoPrecio = res.precio;
-      fuente = res.fuente;
-    }
-
-    if (nuevoPrecio !== null && nuevoPrecio > 0) {
-      const parsedCosto = round2(nuevoPrecio);
-      propagateInsumoCostToAllMatrices(item.key, parsedCosto, item);
-      count++;
-    }
-  }
-
-  persistLocalData();
-  renderInsumosGenerales();
-  syncCatalogAndActiveMatrixAfterInsumoChange();
-  showToast(`✅ ${count} insumo${count > 1 ? 's' : ''} de ${tipo} actualizado${count > 1 ? 's' : ''} con IA exitosamente`, 'success');
+  await processBatchInsumosConIA(selectedItems, { label: `de ${tipo}`, useWebSearch });
 }
 
 // 3. Actualización de todos los insumos seleccionados con casilla en cualquier categoría
-export async function actualizarTodosLosInsumosSeleccionadosConIA() {
+export async function actualizarTodosLosInsumosSeleccionadosConIA(options = {}) {
+  const useWebSearch = Boolean(options?.useWebSearch === true);
   if (!guardTabUnlocked('insumos')) return;
   const checkboxes = document.querySelectorAll('input[class*="row-checkbox-"]:checked');
   if (!checkboxes || checkboxes.length === 0) {
@@ -650,42 +711,12 @@ export async function actualizarTodosLosInsumosSeleccionadosConIA() {
     }
   });
 
-  if (selectedItems.length === 0) return;
+  await processBatchInsumosConIA(selectedItems, { label: 'seleccionados', useWebSearch });
+}
 
-  showToast(`🤖 Actualizando ${selectedItems.length} insumos seleccionados con IA...`, 'info');
-
-  const apiKey = state.settings?.apiKey || '';
-  let batchResults = null;
-  if (apiKey && selectedItems.length > 1) {
-    batchResults = await queryGeminiLoteInsumos(selectedItems, apiKey);
-  }
-
-  saveState();
-  let count = 0;
-
-  for (const item of selectedItems) {
-    let nuevoPrecio = null;
-    let fuente = '';
-    if (batchResults && batchResults[item.key]) {
-      nuevoPrecio = batchResults[item.key].precio;
-      fuente = batchResults[item.key].fuente;
-    } else {
-      const res = await estimarCostoInsumoConIA(item);
-      nuevoPrecio = res.precio;
-      fuente = res.fuente;
-    }
-
-    if (nuevoPrecio !== null && nuevoPrecio > 0) {
-      const parsedCosto = round2(nuevoPrecio);
-      propagateInsumoCostToAllMatrices(item.key, parsedCosto, item);
-      count++;
-    }
-  }
-
-  persistLocalData();
-  renderInsumosGenerales();
-  syncCatalogAndActiveMatrixAfterInsumoChange();
-  showToast(`✅ ${count} insumo${count > 1 ? 's' : ''} actualizado${count > 1 ? 's' : ''} con IA exitosamente`, 'success');
+// 4. Acción explícita de Precios Web en Vivo (Google Search Grounding) para Insumos Seleccionados
+export async function actualizarInsumosConBusquedaWeb() {
+  return actualizarTodosLosInsumosSeleccionadosConIA({ useWebSearch: true });
 }
 
 // Cerrar modal de combinación con tecla Escape

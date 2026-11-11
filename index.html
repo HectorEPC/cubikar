@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="js/vendor/xlsx.full.min.js"></script>
   <script src="js/vendor/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     try {
@@ -331,19 +332,22 @@
             </button>
           </div>
 
-          <!-- Navigation Tabs: CATALOGO BASE & INSUMOS BASE -->
+          <!-- Navigation Tabs: PRESUPUESTO (Catálogo e Insumos) -->
           <nav class="flex bg-slate-800/90 p-1 rounded-xl border border-slate-700/80 shadow-inner shrink-0 gap-1">
-            <button id="tab-btn-cat" onclick="switchTab('cat')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white transition flex items-center gap-1.5 cursor-pointer shadow-xs">
-              <i class="fa-solid fa-list-check"></i> CATALOGO BASE
-            </button>
-            <button id="tab-btn-insumos" onclick="switchTab('insumos')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer">
-              <i class="fa-solid fa-boxes-stacked"></i> INSUMOS BASE
+            <button id="tab-btn-presupuesto" onclick="switchTab('presupuesto')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white transition flex items-center gap-1.5 cursor-pointer shadow-xs">
+              <i class="fa-solid fa-coins"></i> PRESUPUESTO
             </button>
             <button id="tab-btn-calendario" onclick="switchTab('calendario')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer">
               <i class="fa-solid fa-calendar-days"></i> CALENDARIO DE OBRA
             </button>
             <button id="tab-btn-estimaciones" onclick="switchTab('estimaciones')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer" title="Estimaciones de avance de obra basadas en Catálogo Base">
               <i class="fa-solid fa-file-invoice-dollar"></i> ESTIMACIONES
+            </button>
+            <button id="tab-btn-compras" onclick="switchTab('compras')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer" title="Control de Gastos, Compras y Dashboard Financiero ERP">
+              <i class="fa-solid fa-cart-shopping"></i> COMPRAS Y PAGOS
+            </button>
+            <button id="tab-btn-bitacora" onclick="switchTab('bitacora')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer" title="Bitácora de Obra Digital y Legal (LOPSRM / BESOP)">
+              <i class="fa-solid fa-book-bookmark"></i> BITÁCORA DE OBRA
             </button>
           </nav>
         </div>
@@ -355,23 +359,42 @@
     <!-- TAB1-CAT-BASE Table Section (3/4 de la pantalla) -->
     <div id="tb1-container" class="flex-1 bg-white rounded-lg shadow border border-slate-200 flex flex-col transition-all duration-300">
       
-      <!-- Encabezado Superior: Proyecto y Ubicación -->
+      <!-- Encabezado Superior: Proyecto, Ubicación y Pestañas -->
       <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex flex-col gap-1.5 shrink-0">
-        <!-- Renglón 1: Nombre del Proyecto Editable -->
-        <div class="flex items-center justify-between border-b border-slate-200/80 pb-1.5">
-          <div class="flex items-center gap-2 group flex-1 mr-4">
-            <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
-              <i class="fa-solid fa-folder-tree text-blue-600"></i> Proyecto:
-            </span>
-            <input type="text" id="header-project-name" value="Proyecto de Obra Base" 
-                   oninput="syncProjectName(this.value)"
-                   onchange="updateProjectName(this.value)"
-                   placeholder="Escribe el nombre del proyecto de obra..." 
-                   title="Haz clic para editar el nombre del proyecto" 
-                   class="font-bold text-xs sm:text-sm text-slate-800 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 max-w-2xl truncate">
-            <button type="button" onclick="document.getElementById('header-project-name').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar nombre del proyecto">
-              <i class="fa-solid fa-pen text-[10px]"></i>
-            </button>
+        <!-- Renglón 1: Proyecto y Ubicación lado a lado + Asignados a la derecha -->
+        <div class="flex items-center justify-between border-b border-slate-200/80 pb-1.5 flex-wrap gap-2">
+          <div class="flex items-center flex-wrap gap-4 flex-1 min-w-0">
+            <!-- Nombre de Proyecto -->
+            <div class="flex items-center gap-2 group min-w-[240px] max-w-md flex-1">
+              <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                <i class="fa-solid fa-folder-tree text-blue-600"></i> Proyecto:
+              </span>
+              <input type="text" id="header-project-name" value="Proyecto de Obra Base" 
+                     oninput="syncProjectName(this.value)"
+                     onchange="updateProjectName(this.value)"
+                     placeholder="Escribe el nombre del proyecto de obra..." 
+                     title="Haz clic para editar el nombre del proyecto" 
+                     class="font-bold text-xs sm:text-sm text-slate-800 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 truncate">
+              <button type="button" onclick="document.getElementById('header-project-name').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar nombre del proyecto">
+                <i class="fa-solid fa-pen text-[10px]"></i>
+              </button>
+            </div>
+
+            <!-- Ubicación al lado derecho del Proyecto -->
+            <div class="flex items-center gap-2 group min-w-[220px] max-w-md flex-1">
+              <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                <i class="fa-solid fa-location-dot text-rose-600"></i> Ubicación:
+              </span>
+              <input type="text" id="header-project-location" value="Ciudad de México, CDMX" 
+                     oninput="syncProjectLocation(this.value)"
+                     onchange="updateProjectLocation(this.value)"
+                     placeholder="Escribe la ubicación o dirección del proyecto..." 
+                     title="Haz clic para editar la ubicación del proyecto" 
+                     class="font-medium text-xs text-slate-700 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 truncate">
+              <button type="button" onclick="document.getElementById('header-project-location').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar ubicación del proyecto">
+                <i class="fa-solid fa-pen text-[10px]"></i>
+              </button>
+            </div>
           </div>
 
           <!-- Widget: Miembros Asignados a Catálogo Base -->
@@ -386,20 +409,19 @@
           </div>
         </div>
 
-        <!-- Renglón 2: Ubicación del Proyecto Editable -->
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 group flex-1 mr-4">
-            <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
-              <i class="fa-solid fa-location-dot text-rose-600"></i> Ubicación:
-            </span>
-            <input type="text" id="header-project-location" value="Ciudad de México, CDMX" 
-                   oninput="syncProjectLocation(this.value)"
-                   onchange="updateProjectLocation(this.value)"
-                   placeholder="Escribe la ubicación o dirección del proyecto..." 
-                   title="Haz clic para editar la ubicación del proyecto" 
-                   class="font-medium text-xs text-slate-700 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 max-w-2xl truncate">
-            <button type="button" onclick="document.getElementById('header-project-location').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar ubicación del proyecto">
-              <i class="fa-solid fa-pen text-[10px]"></i>
+        <!-- Renglón 2: Selector de Sub-pestañas alineado al lado izquierdo -->
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <!-- Selector de Modo Rápido dentro de PRESUPUESTO (LADO IZQUIERDO) -->
+          <div class="flex items-center bg-slate-200/90 p-1 rounded-lg border border-slate-300 shadow-2xs gap-1 shrink-0">
+            <button type="button" id="subtab-btn-cat" onclick="switchPresupuestoSubTab('cat')" 
+                    class="px-3 py-1 rounded-md text-xs font-bold bg-blue-600 text-white shadow-xs transition flex items-center gap-1.5 cursor-pointer" 
+                    title="Ver Catálogo y Presupuesto de Obra Base con Matriz APU">
+              <i class="fa-solid fa-list-check"></i> Catálogo Base (Presupuesto / APU)
+            </button>
+            <button type="button" id="subtab-btn-insumos" onclick="switchPresupuestoSubTab('insumos')" 
+                    class="px-3 py-1 rounded-md text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition flex items-center gap-1.5 cursor-pointer" 
+                    title="Ver Explosión de Insumos Base (6 Categorías)">
+              <i class="fa-solid fa-boxes-stacked"></i> Explosión de Insumos Base (6 Categorías)
             </button>
           </div>
         </div>
@@ -464,8 +486,11 @@
           <button type="button" onclick="generarMatrizCasillasLocal()" id="btn-toolbar-catalogo-local" class="bg-amber-600 hover:bg-amber-700 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Generar matrices APU con Catálogo Local de los conceptos seleccionados con casilla">
             <i class="fa-solid fa-database text-[10px] text-amber-200"></i> Catálogo local
           </button>
-          <button type="button" onclick="generarMatrizCasillasGoogleIA()" id="btn-toolbar-google-ia" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Generar matrices APU con Google IA de los conceptos seleccionados con casilla">
-            <i class="fa-brands fa-google text-[10px] text-amber-300"></i> Google IA
+          <button type="button" onclick="generarMatrizCasillasGoogleIA()" id="btn-toolbar-google-ia" class="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Generar matrices APU en modo Estándar (Motor Local + Caché + Gemini Flash sin Google Search)">
+            <i class="fa-solid fa-microchip text-[10px] text-sky-200"></i> IA Estándar
+          </button>
+          <button type="button" onclick="generarMatrizCasillasConBusquedaWeb()" id="btn-toolbar-web-search-ia" class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Cotizar matrices seleccionadas con precios de internet en vivo (Google Search Grounding - consume cuota Web Search)">
+            <i class="fa-solid fa-globe text-[10px] text-amber-200"></i> Cotizar Web en Vivo
           </button>
 
           <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
@@ -594,9 +619,13 @@
               <i class="fa-solid fa-database text-amber-200 text-[9px]"></i>
               <span>Catálogo local</span>
             </button>
-            <button onclick="generarMatrizConceptoActivoGoogleIA()" id="btn-ai-apu" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Generar matriz en 1 clic con Google IA (Search Grounding en vivo)">
-              <i class="fa-brands fa-google text-amber-300 text-[10px]"></i>
-              <span>Google IA</span>
+            <button onclick="generarMatrizConceptoActivoGoogleIA()" id="btn-ai-apu" class="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Generar matriz en 1 clic con IA Estándar (Motor Local + Caché + Gemini Flash sin Web Search)">
+              <i class="fa-solid fa-microchip text-sky-200 text-[10px]"></i>
+              <span>IA Estándar</span>
+            </button>
+            <button onclick="generarMatrizConBusquedaWebActiva()" id="btn-ai-apu-web" class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Cotizar precios en vivo desde internet con Google Search Grounding (consume cuota mensual Web Search)">
+              <i class="fa-solid fa-globe text-amber-200 text-[10px]"></i>
+              <span>Web Search</span>
             </button>
             <button onclick="openApuReferenceModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Buscar insumos en catálogos de referencia (BIMSA, Gobierno, etc.)">
               <i class="fa-solid fa-book-bookmark text-[9px]"></i> + Catálogo
@@ -832,23 +861,42 @@
   <div id="view-insumos" class="flex-1 flex flex-col overflow-hidden p-3 hidden">
     <div class="bg-white rounded-lg shadow border border-slate-200 flex flex-col h-full overflow-hidden">
       
-      <!-- Encabezado Superior: Proyecto y Ubicación (Insumos Generales) -->
+      <!-- Encabezado Superior: Proyecto, Ubicación y Pestañas (Insumos Generales) -->
       <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex flex-col gap-1.5 shrink-0">
-        <!-- Renglón 1: Nombre del Proyecto Editable -->
-        <div class="flex items-center justify-between border-b border-slate-200/80 pb-1.5">
-          <div class="flex items-center gap-2 group flex-1 mr-4">
-            <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
-              <i class="fa-solid fa-folder-tree text-blue-600"></i> Proyecto:
-            </span>
-            <input type="text" id="insumos-project-name" value="Proyecto de Obra Base" 
-                   oninput="syncProjectName(this.value)"
-                   onchange="updateProjectName(this.value)"
-                   placeholder="Escribe el nombre del proyecto de obra..." 
-                   title="Haz clic para editar el nombre del proyecto" 
-                   class="font-bold text-xs sm:text-sm text-slate-800 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 max-w-2xl truncate">
-            <button type="button" onclick="document.getElementById('insumos-project-name').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar nombre del proyecto">
-              <i class="fa-solid fa-pen text-[10px]"></i>
-            </button>
+        <!-- Renglón 1: Proyecto y Ubicación lado a lado + Asignados a la derecha -->
+        <div class="flex items-center justify-between border-b border-slate-200/80 pb-1.5 flex-wrap gap-2">
+          <div class="flex items-center flex-wrap gap-4 flex-1 min-w-0">
+            <!-- Nombre de Proyecto -->
+            <div class="flex items-center gap-2 group min-w-[240px] max-w-md flex-1">
+              <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                <i class="fa-solid fa-folder-tree text-blue-600"></i> Proyecto:
+              </span>
+              <input type="text" id="insumos-project-name" value="Proyecto de Obra Base" 
+                     oninput="syncProjectName(this.value)"
+                     onchange="updateProjectName(this.value)"
+                     placeholder="Escribe el nombre del proyecto de obra..." 
+                     title="Haz clic para editar el nombre del proyecto" 
+                     class="font-bold text-xs sm:text-sm text-slate-800 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 truncate">
+              <button type="button" onclick="document.getElementById('insumos-project-name').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar nombre del proyecto">
+                <i class="fa-solid fa-pen text-[10px]"></i>
+              </button>
+            </div>
+
+            <!-- Ubicación al lado derecho del Proyecto -->
+            <div class="flex items-center gap-2 group min-w-[220px] max-w-md flex-1">
+              <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                <i class="fa-solid fa-location-dot text-rose-600"></i> Ubicación:
+              </span>
+              <input type="text" id="insumos-project-location" value="Ciudad de México, CDMX" 
+                     oninput="syncProjectLocation(this.value)"
+                     onchange="updateProjectLocation(this.value)"
+                     placeholder="Escribe la ubicación o dirección del proyecto..." 
+                     title="Haz clic para editar la ubicación del proyecto" 
+                     class="font-medium text-xs text-slate-700 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 truncate">
+              <button type="button" onclick="document.getElementById('insumos-project-location').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar ubicación del proyecto">
+                <i class="fa-solid fa-pen text-[10px]"></i>
+              </button>
+            </div>
           </div>
 
           <!-- Widget: Miembros Asignados a Insumos Base -->
@@ -863,20 +911,19 @@
           </div>
         </div>
 
-        <!-- Renglón 2: Ubicación del Proyecto Editable -->
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 group flex-1 mr-4">
-            <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
-              <i class="fa-solid fa-location-dot text-rose-600"></i> Ubicación:
-            </span>
-            <input type="text" id="insumos-project-location" value="Ciudad de México, CDMX" 
-                   oninput="syncProjectLocation(this.value)"
-                   onchange="updateProjectLocation(this.value)"
-                   placeholder="Escribe la ubicación o dirección del proyecto..." 
-                   title="Haz clic para editar la ubicación del proyecto" 
-                   class="font-medium text-xs text-slate-700 bg-transparent border-b border-transparent hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-0.5 outline-none transition flex-1 max-w-2xl truncate">
-            <button type="button" onclick="document.getElementById('insumos-project-location').focus()" class="text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition text-xs" title="Editar ubicación del proyecto">
-              <i class="fa-solid fa-pen text-[10px]"></i>
+        <!-- Renglón 2: Selector de Sub-pestañas alineado al lado izquierdo -->
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <!-- Selector de Modo Rápido dentro de PRESUPUESTO (LADO IZQUIERDO) -->
+          <div class="flex items-center bg-slate-200/90 p-1 rounded-lg border border-slate-300 shadow-2xs gap-1 shrink-0">
+            <button type="button" onclick="switchPresupuestoSubTab('cat')" 
+                    class="px-3 py-1 rounded-md text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition flex items-center gap-1.5 cursor-pointer" 
+                    title="Ver Catálogo y Presupuesto de Obra Base con Matriz APU">
+              <i class="fa-solid fa-list-check"></i> Catálogo Base (Presupuesto / APU)
+            </button>
+            <button type="button" onclick="switchPresupuestoSubTab('insumos')" 
+                    class="px-3 py-1 rounded-md text-xs font-bold bg-blue-600 text-white shadow-xs transition flex items-center gap-1.5 cursor-pointer" 
+                    title="Ver Explosión de Insumos Base (6 Categorías)">
+              <i class="fa-solid fa-boxes-stacked"></i> Explosión de Insumos Base (6 Categorías)
             </button>
           </div>
         </div>
@@ -912,9 +959,12 @@
             <i class="fa-solid fa-print text-[10px]"></i> Imprimir Insumos
           </button>
 
-          <!-- Botón Actualizar Todos los Insumos Seleccionados con IA -->
-          <button onclick="actualizarTodosLosInsumosSeleccionadosConIA()" id="btn-ai-general-insumos" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Actualizar costos con IA de todos los insumos seleccionados con casilla en cualquier categoría">
-            <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i> Actualizar costos IA
+          <!-- Botón Actualizar Insumos Seleccionados con IA (Estándar vs Web Search) -->
+          <button onclick="actualizarTodosLosInsumosSeleccionadosConIA()" id="btn-ai-general-insumos" class="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Actualizar costos con IA Estándar (Caché local + Gemini Flash sin Google Search)">
+            <i class="fa-solid fa-microchip text-[10px] text-sky-200"></i> Actualizar IA Estándar
+          </button>
+          <button onclick="actualizarInsumosConBusquedaWeb()" id="btn-ai-general-insumos-web" class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Cotizar precios vigentes en internet con Google Search Grounding (consume cuota Web Search)">
+            <i class="fa-solid fa-globe text-[10px] text-amber-200"></i> Cotizar Web en Vivo
           </button>
         </div>
 
@@ -941,7 +991,9 @@
             <button onclick="filterInsumosCategoryView('all')" id="btn-view-cat-all" class="px-2.5 py-1 rounded bg-white text-slate-900 font-semibold shadow-sm transition">Todas</button>
             <button onclick="filterInsumosCategoryView('Material')" id="btn-view-cat-Material" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Materiales</button>
             <button onclick="filterInsumosCategoryView('Mano de Obra')" id="btn-view-cat-MO" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Mano de Obra</button>
-            <button onclick="filterInsumosCategoryView('Equipo')" id="btn-view-cat-Equipo" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Equipo/Herr</button>
+            <button onclick="filterInsumosCategoryView('Herramienta')" id="btn-view-cat-Herr" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Herramienta</button>
+            <button onclick="filterInsumosCategoryView('Equipo')" id="btn-view-cat-Equipo" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Equipo</button>
+            <button onclick="filterInsumosCategoryView('Maquinaria')" id="btn-view-cat-Maq" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Maquinaria</button>
             <button onclick="filterInsumosCategoryView('Subcontrato')" id="btn-view-cat-Sub" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">Subcontratos</button>
           </div>
 
@@ -1061,7 +1113,59 @@
           </div>
         </div>
 
-        <!-- Table Equipo / Herramienta -->
+        <!-- Table Herramienta -->
+        <div id="card-insumos-Herramienta" class="border border-orange-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
+          <div class="bg-orange-50 px-3 py-2 border-b border-orange-200 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+              <button onclick="toggleInsumoCard('Herramienta')" class="text-orange-700 hover:text-orange-900 p-1 rounded hover:bg-orange-100 transition" title="Contraer / Expandir tabla de Herramienta">
+                <i id="card-chevron-Herramienta" class="fa-solid fa-chevron-up text-xs"></i>
+              </button>
+              <span class="font-bold text-orange-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-wrench"></i> HERRAMIENTA
+              </span>
+              <span class="text-[10px] text-orange-600/70 italic hidden sm:inline flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Barra horizontal inferior
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                  <i class="fa-solid fa-search text-[10px]"></i>
+                </span>
+                <input type="text" id="search-Herramienta" oninput="filterInsumosGeneralesTable('Herramienta')" placeholder="Buscar descripción..." class="text-xs bg-white border border-orange-300 rounded pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-500 w-44 font-sans">
+              </div>
+              <button onclick="combinarInsumosSeleccionados('Herramienta')" class="bg-orange-600 hover:bg-orange-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition" title="Combina las líneas seleccionadas con Checkbox">
+                <i class="fa-solid fa-object-group text-[10px]"></i> Combinar
+              </button>
+              <button onclick="actualizarCostosConIASeleccionados('Herramienta')" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Actualizar costos con IA de los insumos seleccionados con casilla en Herramienta">
+                <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i> Actualizar costos IA
+              </button>
+              <span class="font-bold font-mono text-xs text-orange-900 ml-2" id="cat-sum-herramienta">$0.00</span>
+            </div>
+          </div>
+          <div id="card-body-Herramienta" class="overflow-x-auto w-full custom-scroll-x">
+            <table class="w-full text-left text-xs border-collapse font-mono min-w-[960px]">
+              <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2 w-10 min-w-[40px] text-center sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                    <input type="checkbox" id="check-all-Herramienta" onchange="toggleSelectAllInsumos('Herramienta', this.checked)" class="rounded text-orange-600 focus:ring-orange-500 cursor-pointer">
+                  </th>
+                  <th class="p-2 w-28 min-w-[100px]">Clave</th>
+                  <th class="p-2 min-w-[280px]">Descripción</th>
+                  <th class="p-2 w-28 min-w-[110px] text-right">Costo U.</th>
+                  <th class="p-2 w-16 min-w-[65px] text-center">Unidad</th>
+                  <th class="p-2 w-28 min-w-[105px] text-right">Cantidad</th>
+                  <th class="p-2 w-32 min-w-[120px] text-right">Importe Total</th>
+                </tr>
+              </thead>
+              <tbody id="body-insumos-herramienta" class="divide-y divide-slate-100">
+                <!-- Dynamic Herramienta -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Table Equipo -->
         <div id="card-insumos-Equipo" class="border border-purple-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
           <div class="bg-purple-50 px-3 py-2 border-b border-purple-200 flex flex-wrap justify-between items-center gap-2">
             <div class="flex items-center gap-2">
@@ -1069,7 +1173,7 @@
                 <i id="card-chevron-Equipo" class="fa-solid fa-chevron-up text-xs"></i>
               </button>
               <span class="font-bold text-purple-800 text-xs flex items-center gap-1.5">
-                <i class="fa-solid fa-screwdriver-wrench"></i> EQUIPO / HERR.
+                <i class="fa-solid fa-screwdriver-wrench"></i> EQUIPO
               </span>
               <span class="text-[10px] text-purple-600/70 italic hidden sm:inline flex items-center gap-1">
                 <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Barra horizontal inferior
@@ -1113,6 +1217,57 @@
           </div>
         </div>
 
+        <!-- Table Maquinaria -->
+        <div id="card-insumos-Maquinaria" class="border border-rose-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
+          <div class="bg-rose-50 px-3 py-2 border-b border-rose-200 flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+              <button onclick="toggleInsumoCard('Maquinaria')" class="text-rose-700 hover:text-rose-900 p-1 rounded hover:bg-rose-100 transition" title="Contraer / Expandir tabla de Maquinaria">
+                <i id="card-chevron-Maquinaria" class="fa-solid fa-chevron-up text-xs"></i>
+              </button>
+              <span class="font-bold text-rose-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-tractor"></i> MAQUINARIA
+              </span>
+              <span class="text-[10px] text-rose-600/70 italic hidden sm:inline flex items-center gap-1">
+                <i class="fa-solid fa-arrows-left-right text-[8px]"></i> Barra horizontal inferior
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400">
+                  <i class="fa-solid fa-search text-[10px]"></i>
+                </span>
+                <input type="text" id="search-Maquinaria" oninput="filterInsumosGeneralesTable('Maquinaria')" placeholder="Buscar descripción..." class="text-xs bg-white border border-rose-300 rounded pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-rose-500 w-44 font-sans">
+              </div>
+              <button onclick="combinarInsumosSeleccionados('Maquinaria')" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition" title="Combina las líneas seleccionadas con Checkbox">
+                <i class="fa-solid fa-object-group text-[10px]"></i> Combinar
+              </button>
+              <button onclick="actualizarCostosConIASeleccionados('Maquinaria')" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-sans font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Actualizar costos con IA de los insumos seleccionados con casilla en Maquinaria">
+                <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i> Actualizar costos IA
+              </button>
+              <span class="font-bold font-mono text-xs text-rose-900 ml-2" id="cat-sum-maquinaria">$0.00</span>
+            </div>
+          </div>
+          <div id="card-body-Maquinaria" class="overflow-x-auto w-full custom-scroll-x">
+            <table class="w-full text-left text-xs border-collapse font-mono min-w-[960px]">
+              <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-2 w-10 min-w-[40px] text-center sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                    <input type="checkbox" id="check-all-Maquinaria" onchange="toggleSelectAllInsumos('Maquinaria', this.checked)" class="rounded text-rose-600 focus:ring-rose-500 cursor-pointer">
+                  </th>
+                  <th class="p-2 w-28 min-w-[100px]">Clave</th>
+                  <th class="p-2 min-w-[280px]">Descripción</th>
+                  <th class="p-2 w-28 min-w-[110px] text-right">Costo U.</th>
+                  <th class="p-2 w-16 min-w-[65px] text-center">Unidad</th>
+                  <th class="p-2 w-28 min-w-[105px] text-right">Cantidad</th>
+                  <th class="p-2 w-32 min-w-[120px] text-right">Importe Total</th>
+                </tr>
+              </thead>
+              <tbody id="body-insumos-maquinaria" class="divide-y divide-slate-100">
+                <!-- Dynamic Maquinaria -->
+              </tbody>
+            </table>
+          </div>
+        </div>
         <!-- Table Subcontratos -->
         <div id="card-insumos-Subcontrato" class="border border-emerald-200 rounded-lg overflow-hidden bg-white shadow-sm transition-all duration-200">
           <div class="bg-emerald-50 px-3 py-2 border-b border-emerald-200 flex flex-wrap justify-between items-center gap-2">
@@ -1179,6 +1334,16 @@
   <div id="view-estimaciones" class="flex-1 flex flex-col overflow-hidden p-3 hidden">
     <!-- El contenido se renderiza dinámicamente mediante renderEstimacionesView() -->
   </div>
+
+  <!-- Pestaña 5: CONTROL DE COMPRAS, GASTOS Y ERP FINANCIERO -->
+  <div id="view-compras" class="flex-1 flex flex-col overflow-hidden p-3 hidden">
+    <!-- El contenido se renderiza dinámicamente mediante renderExpensesView() -->
+  </div>
+
+  <!-- Pestaña 6: BITÁCORA DE OBRA DIGITAL Y LEGAL -->
+  <div id="view-bitacora" class="flex-1 flex flex-col overflow-hidden p-3 hidden">
+    <!-- El contenido se renderiza dinámicamente mediante renderBitacoraView() -->
+  </div>
       </div> <!-- /#workspace-main-content -->
   </div> <!-- /#workspace-container -->
 
@@ -1232,13 +1397,36 @@
             </div>
           </div>
           <div class="flex gap-1.5">
-            <input type="password" id="ai-modal-api-key" placeholder="Pega tu API Key de Gemini aquí (AIzaSy...)" class="flex-1 border border-slate-300 rounded p-1.5 text-xs font-mono focus:border-blue-500 focus:outline-none">
+            <input type="password" id="ai-modal-api-key" oninput="refreshAiQuotaBadges()" placeholder="Opcional: API Key propia de Gemini (AIzaSy...) para modo ilimitado" class="flex-1 border border-slate-300 rounded p-1.5 text-xs font-mono focus:border-blue-500 focus:outline-none">
             <button onclick="toggleAiModalKeyVisibility()" class="bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2.5 py-1 rounded text-slate-600">
               <i id="ai-key-eye-icon" class="fa-solid fa-eye text-xs"></i>
             </button>
           </div>
+          <p class="text-[9.5px] text-slate-500 leading-tight">
+            Déjalo vacío para usar el límite mensual incluido en tu suscripción. Con tu propia API Key desbloqueas generación y Web Search ilimitados.
+          </p>
+
+          <!-- Estado de Cuotas de IA del Plan -->
+          <div id="ai-modal-quota-banner" class="p-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-600">
+            Cargando cuotas de IA...
+          </div>
+
+          <!-- Toggle explícito para Google Search Grounding -->
+          <label for="ai-modal-use-web-search" class="flex items-start gap-2 p-2.5 bg-amber-50/70 border border-amber-200 rounded-lg cursor-pointer hover:bg-amber-50 transition">
+            <input type="checkbox" id="ai-modal-use-web-search" onchange="updateAiModalRunButtonLabel()" class="mt-0.5 w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500 border-amber-400">
+            <div class="flex-1">
+              <span class="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
+                <i class="fa-solid fa-globe text-amber-600 text-[10px]"></i>
+                Activar Google Search Grounding en vivo (Cotizar precios actuales en internet)
+              </span>
+              <span id="ai-modal-web-search-hint" class="text-[10px] text-amber-700 block mt-0.5">
+                Cuota mensual Web Search: 0 en Gratuita · 70 en Plus · 200 en Pro.
+              </span>
+            </div>
+          </label>
+
           <p class="text-[10px] text-slate-500 leading-tight">
-            La IA activará <strong>Google Search Grounding</strong> para consultar cotizaciones en México (MXN) para <strong><span id="ai-modal-unid-hint">esta unidad</span></strong>, desglosando Materiales, Mano de Obra con cuadrillas y Equipo.
+            <strong>Modo por defecto (IA Estándar):</strong> 1º Motor Local + Caché ($0 costo) → 2º Gemini Flash sin Web Search para <strong><span id="ai-modal-unid-hint">esta unidad</span></strong>.
           </p>
         </div>
 
@@ -1269,8 +1457,8 @@
         <button onclick="closeAiGeneratorModal()" class="px-3 py-1.5 bg-white border border-slate-300 rounded text-slate-700 hover:bg-slate-100 font-medium text-xs">
           Cancelar
         </button>
-        <button onclick="executeAiGeneration()" id="btn-ai-modal-run" class="px-4 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded font-medium shadow-sm transition text-xs flex items-center gap-1.5 hover:scale-105 active:scale-95">
-          <i class="fa-brands fa-google text-[10px] text-amber-300"></i> Buscar en Google y Llenar Matriz
+        <button onclick="executeAiGeneration()" id="btn-ai-modal-run" class="px-4 py-1.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded font-medium shadow-sm transition text-xs flex items-center gap-1.5 hover:scale-105 active:scale-95">
+          <i class="fa-solid fa-microchip text-[10px] text-sky-200"></i> Generar Matriz (IA Estándar)
         </button>
       </div>
     </div>
@@ -1364,8 +1552,11 @@
           <button onclick="openLocalCatalogSelectorModal(true)" id="btn-modal-matriz-catalogo-local" class="bg-amber-600 hover:bg-amber-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95 cursor-pointer" title="Generar matriz APU usando catálogos locales para el concepto seleccionado">
             <i class="fa-solid fa-database text-xs text-amber-200"></i> Catálogo local
           </button>
-          <button onclick="generarMatrizConceptoActivoGoogleIA()" id="btn-ai-apu-max" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95 cursor-pointer" title="Generar matriz en 1 clic con Google IA (Search Grounding en vivo)">
-            <i class="fa-brands fa-google text-amber-300 text-xs"></i> Google IA
+          <button onclick="generarMatrizConceptoActivoGoogleIA()" id="btn-ai-apu-max" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95 cursor-pointer" title="Generar matriz en Cascada: 1° Motor Local + Caché ($0), 2° Gemini Flash Estándar (sin Google Search)">
+            <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-xs"></i> IA Estándar
+          </button>
+          <button onclick="generarMatrizConBusquedaWebActiva()" id="btn-ai-apu-max-web" class="bg-slate-900 hover:bg-slate-800 border border-amber-400/60 text-amber-200 text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95 cursor-pointer" title="Cotizar Precios Web en Vivo usando Google Search Grounding (cuota mensual del plan)">
+            <i class="fa-brands fa-google text-amber-300 text-xs"></i> Cotizar Web en Vivo
           </button>
           <button onclick="openApuReferenceModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95" title="Buscar insumos en catálogos de referencia">
             <i class="fa-solid fa-book-bookmark text-xs"></i> + Catálogo
@@ -3013,6 +3204,9 @@
           </div>
         </div>
 
+        <!-- Medidor Unificado de Espacio AWS S3 en Mi Perfil -->
+        <div id="profile-modal-storage-meter"></div>
+
         <!-- Acceso rápido a Suscripción desde Mi Perfil -->
         <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
@@ -3718,7 +3912,7 @@
                     <button type="button" onclick="setInviteTabCheckboxes(false)" class="text-slate-500 hover:text-rose-600 font-bold cursor-pointer">Ninguna</button>
                   </div>
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-2">
                   <label class="flex items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50/50 text-xs transition">
                     <input type="checkbox" name="invite-tab-access" value="cat" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
                     <span class="font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-list-check text-blue-600 text-[10px]"></i> Catálogo</span>
@@ -3734,6 +3928,14 @@
                   <label class="flex items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-emerald-50/50 text-xs transition">
                     <input type="checkbox" name="invite-tab-access" value="estimaciones" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
                     <span class="font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-file-invoice-dollar text-emerald-600 text-[10px]"></i> Estimaciones</span>
+                  </label>
+                  <label class="flex items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-indigo-50/50 text-xs transition">
+                    <input type="checkbox" name="invite-tab-access" value="compras" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+                    <span class="font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-cart-shopping text-indigo-600 text-[10px]"></i> Compras</span>
+                  </label>
+                  <label class="flex items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-teal-50/50 text-xs transition">
+                    <input type="checkbox" name="invite-tab-access" value="bitacora" class="rounded text-teal-600 focus:ring-teal-500 cursor-pointer">
+                    <span class="font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-book-bookmark text-teal-600 text-[10px]"></i> Bitácora</span>
                   </label>
                 </div>
               </div>
@@ -3862,7 +4064,7 @@
   <!-- MODAL: SUSCRIPCIÓN Y PLANES (GRATUITA, PLUS, PRO) -->
   <!-- ========================================== -->
   <div id="modal-suscripcion-usuario" onclick="if (event.target === this) closeSubscriptionModal()" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[9999] hidden items-center justify-center p-3 sm:p-5">
-    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-6xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
       
       <!-- Encabezado Ejecutivo -->
       <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white px-5 py-4 flex flex-wrap justify-between items-center gap-3 shrink-0 border-b border-slate-800">
@@ -3906,10 +4108,13 @@
         </div>
       </div>
 
-      <!-- Contenedor Principal de las 3 Opciones: Gratuita, Plus, Pro -->
-      <div class="p-5 overflow-y-auto custom-scroll flex-1 bg-slate-100/50">
+      <!-- Contenedor Principal de las 3 Opciones: Gratuita, Plus, Pro + Cuadro Comparativo -->
+      <div class="p-5 overflow-y-auto custom-scroll flex-1 bg-slate-100/50 space-y-6">
         <div id="subscription-plans-grid" class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
           <!-- Renderizado dinámico mediante renderSubscriptionCards() -->
+        </div>
+        <div id="subscription-comparison-container">
+          <!-- Cuadro Comparativo Final renderizado por renderSubscriptionCards() -->
         </div>
       </div>
 
@@ -4092,12 +4297,12 @@
           <span id="admin-kpi-revenue" class="text-base font-extrabold text-white font-mono">$ 0.00</span>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2">
-          <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Costo Técnico Recursos</span>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Costo Total (Stripe+IA+Search+Infra)</span>
           <span id="admin-kpi-cost" class="text-base font-extrabold text-amber-400 font-mono">$ 0.00</span>
         </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 col-span-2 sm:col-span-1">
-          <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Margen Bruto</span>
-          <span id="admin-kpi-margin" class="text-base font-extrabold text-emerald-400 font-mono">0.0%</span>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Margen Neto Real</span>
+          <span id="admin-kpi-margin" class="text-base font-extrabold text-emerald-400 font-mono">0.0% ($ 0.00)</span>
         </div>
       </div>
 
@@ -4164,13 +4369,14 @@
               <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">tipo de membrecia<br><span class="text-[9.5px] font-normal opacity-90">(mensual / anual)</span></th>
               <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">Inicio de membrecia</th>
               <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">Fin de membrecia</th>
-              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">Cantidad de usuarios<br>colaborativos por perfil</th>
-              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-right">Llamadas a la IA<br><span class="text-[9.5px] font-normal text-sky-200">(Tokens Gemini/OpenAI)</span></th>
-              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-right">Almacenamiento<br><span class="text-[9.5px] font-normal text-indigo-200">(Base de datos y Storage)</span></th>
-              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-right">Ancho de banda<br><span class="text-[9.5px] font-normal text-teal-200">(Realtime y Sync)</span></th>
-              <th class="px-3.5 py-2.5 font-bold border-r border-sky-800 text-right">Total de gastos en<br>suscripcion</th>
-              <th class="px-3.5 py-2.5 font-bold border-r border-sky-800 text-right">Total de gastos en recursos<br>consumidos por mes</th>
-              <th class="px-3.5 py-2.5 font-bold text-right min-w-[220px]">% de gastos en recursos consumidos por mes comparado<br>con su plan (si consumio todo el recurso)</th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-center">Colaboradores<br><span class="text-[9.5px] font-normal opacity-90">(3 / 10 / 30 max)</span></th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-right">IA Estándar (Tokens)<br><span class="text-[9.5px] font-normal text-sky-200">(Input / Output + Mes)</span></th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-right">Search Grounding<br><span class="text-[9.5px] font-normal text-amber-200">(0 / 70 / 200 req)</span></th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-right">Almacenamiento<br><span class="text-[9.5px] font-normal text-indigo-200">(200MB / 2GB / 5GB)</span></th>
+              <th class="px-3 py-2.5 font-bold border-r border-sky-800 text-right">Stripe + Infra<br><span class="text-[9.5px] font-normal text-teal-200">(3.6%+$3 + Sync)</span></th>
+              <th class="px-3.5 py-2.5 font-bold border-r border-sky-800 text-right">Ingresos<br>Suscripción</th>
+              <th class="px-3.5 py-2.5 font-bold border-r border-sky-800 text-right">Costo Real Total<br><span class="text-[9.5px] font-normal opacity-90">(Stripe+IA+Search+Infra)</span></th>
+              <th class="px-3.5 py-2.5 font-bold text-right min-w-[230px]">Margen Neto Real y % Consumo<br><span class="text-[9.5px] font-normal opacity-90">(Rentabilidad neta mensual)</span></th>
             </tr>
           </thead>
           <tbody id="admin-cubikar-table-body" class="divide-y divide-slate-800/80 bg-slate-900/60 font-sans">
@@ -4300,33 +4506,72 @@
         </button>
       </div>
 
-      <div class="p-5 space-y-4">
-        <div>
-          <label class="block text-xs font-bold text-slate-300 mb-1">
-            <i class="fa-solid fa-brain text-sky-400 mr-1"></i> Costo de IA por cada 1,000 Tokens ($ MXN)
-          </label>
-          <input type="number" step="0.0001" id="rate-input-ai"
-                 class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
-          <span class="text-[10px] text-slate-500 mt-1 block">Tarifa ponderada Gemini 1.5/2.0 Flash / OpenAI GPT-4o Mini (promedio $0.004 MXN / 1k tokens).</span>
+      <div class="p-5 space-y-3 max-h-[70vh] overflow-y-auto custom-scroll">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-300 mb-1">
+              <i class="fa-solid fa-arrow-right-to-bracket text-sky-400 mr-1"></i> IA Input / 1k tok ($ MXN)
+            </label>
+            <input type="number" step="0.0001" id="rate-input-ai-in"
+                   class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-300 mb-1">
+              <i class="fa-solid fa-brain text-indigo-400 mr-1"></i> IA Output / 1k tok ($ MXN)
+            </label>
+            <input type="number" step="0.0001" id="rate-input-ai-out"
+                   class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
+          </div>
         </div>
 
-        <div>
-          <label class="block text-xs font-bold text-slate-300 mb-1">
-            <i class="fa-solid fa-database text-indigo-400 mr-1"></i> Almacenamiento por MB al mes ($ MXN)
-          </label>
-          <input type="number" step="0.00001" id="rate-input-storage"
-                 class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
-          <span class="text-[10px] text-slate-500 mt-1 block">Costo base Supabase / AWS S3 (~$0.0005 MXN por MB/mes).</span>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold text-amber-300 mb-1">
+              <i class="fa-brands fa-google text-amber-400 mr-1"></i> Grounding / req ($ MXN)
+            </label>
+            <input type="number" step="0.01" id="rate-input-grounding"
+                   class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-emerald-300 mb-1">
+              Stripe % (ej. 3.6)
+            </label>
+            <input type="number" step="0.1" id="rate-input-stripe-pct"
+                   class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-emerald-300 mb-1">
+              Stripe Fijo ($ MXN)
+            </label>
+            <input type="number" step="0.5" id="rate-input-stripe-fixed"
+                   class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
+          </div>
         </div>
 
-        <div>
-          <label class="block text-xs font-bold text-slate-300 mb-1">
-            <i class="fa-solid fa-bolt text-teal-400 mr-1"></i> Transferencia y Sincronización Realtime por MB ($ MXN)
-          </label>
-          <input type="number" step="0.0001" id="rate-input-bandwidth"
-                 class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
-          <span class="text-[10px] text-slate-500 mt-1 block">Consumo de ancho de banda y WebSockets Realtime (~$0.002 MXN por MB).</span>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-300 mb-1">
+              Storage / MB ($ MXN)
+            </label>
+            <input type="number" step="0.00001" id="rate-input-storage"
+                   class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-300 mb-1">
+              Bandwidth / MB ($ MXN)
+            </label>
+            <input type="number" step="0.0001" id="rate-input-bandwidth"
+                   class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-300 mb-1">
+              Infra / cuenta ($ MXN)
+            </label>
+            <input type="number" step="0.1" id="rate-input-infra"
+                   class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-blue-500">
+          </div>
         </div>
+        <span class="text-[10px] text-slate-500 block">Gemini Flash: ~$0.002/1k in, $0.008/1k out. Search Grounding: $0.70 MXN/req. Stripe: 3.6% + $3.00 MXN.</span>
       </div>
 
       <div class="bg-slate-950 px-5 py-3 border-t border-slate-800 flex items-center justify-between">
@@ -4335,6 +4580,332 @@
         </button>
         <button type="button" onclick="saveMarketRatesFromModal()" class="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition cursor-pointer shadow-md">
           Guardar Tarifas
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- MODAL: NUEVA COMPRA / GASTO / ORDEN DE COMPRA -->
+  <div id="modal-nueva-compra" style="z-index: 100000;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-fade-in">
+      
+      <!-- Encabezado Modal -->
+      <div class="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300">
+            <i class="fa-solid fa-cart-shopping text-sm"></i>
+          </div>
+          <div>
+            <h3 id="modal-expense-title" class="font-extrabold text-sm leading-tight text-white">Nueva Compra / Registro de Gasto</h3>
+            <p class="text-[11px] text-blue-200/80">Control de egresos, orden de compra y cruce con explosión de insumos</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeNewExpenseModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Cuerpo del Formulario -->
+      <div class="p-5 overflow-y-auto custom-scroll space-y-4 text-xs">
+        
+        <!-- Vinculación con Insumo del Presupuesto Base -->
+        <div class="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+              <i class="fa-solid fa-link text-blue-600"></i> Vincular a Insumo del Catálogo Base:
+            </label>
+            <span id="expense-form-insumos-count-badge" class="text-[10px] text-blue-700 font-semibold">Cruce automático vs Presupuesto</span>
+          </div>
+
+          <!-- Buscador para filtrar el nombre del insumo -->
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <input type="text" id="expense-form-insumo-search" oninput="filterInsumosDropdown(this.value)" placeholder="Buscar insumo por nombre, clave o material (ej: cemento, varilla, arena)..." class="w-full pl-8 pr-7 py-1.5 bg-white border border-blue-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-2xs">
+            <button type="button" id="expense-form-insumo-search-clear" onclick="clearInsumoSearch()" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 hidden px-1 text-xs cursor-pointer" title="Limpiar búsqueda">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- Menú Desplegable -->
+          <select id="expense-form-insumo-select" onchange="onExpenseInsumoSelectChange(this)" class="w-full bg-white border border-blue-200 rounded-lg p-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-600 shadow-2xs">
+            <option value="">-- Seleccionar Insumo del Presupuesto (Opcional) --</option>
+          </select>
+        </div>
+
+        <!-- Fila 1: Fecha, Tipo de Gasto, Partida/Categoría -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Fecha:</label>
+            <input type="date" id="expense-form-date" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Tipo de Gasto:</label>
+            <select id="expense-form-type" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:bg-white">
+              <option value="material">📦 Materiales de Construcción</option>
+              <option value="labor">👷 Mano de Obra / Raya y Destajo</option>
+              <option value="tool">🛠️ Herramienta Menor y Especializada</option>
+              <option value="equipment">🚛 Equipo de Apoyo y Transporte</option>
+              <option value="machinery">🚜 Maquinaria Pesada y Renta</option>
+              <option value="subcontract">🤝 Subcontrato de Obra</option>
+              <option value="indirect">📑 Gasto Indirecto y Varios</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Partida / Categoría:</label>
+            <input type="text" id="expense-form-category" placeholder="Ej: Cimentación, Estructura" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+          </div>
+        </div>
+
+        <!-- Fila 2: Descripción detallada -->
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Descripción del Insumo / Concepto de Gasto: <span class="text-rose-500">*</span></label>
+          <input type="text" id="expense-form-desc" placeholder="Ej: 100 bultos de Cemento Gris Portland Tolteca 50kg" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:bg-white">
+        </div>
+
+        <!-- Fila 3: Proveedor y Factura -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <div class="flex items-center justify-between mb-1">
+              <label class="block font-bold text-slate-700">Proveedor / Destajista:</label>
+              <button type="button" onclick="openSupplierModal()" class="text-[10px] text-blue-600 hover:text-blue-700 font-bold flex items-center gap-1 cursor-pointer">
+                <i class="fa-solid fa-plus text-[9px]"></i> Nuevo Proveedor
+              </button>
+            </div>
+            <select id="expense-form-supplier-select" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+              <option value="">-- Seleccionar Proveedor --</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">No. Factura / Remisión:</label>
+            <input type="text" id="expense-form-invoice" placeholder="Ej: F-84920" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+          </div>
+        </div>
+
+        <!-- Fila 4: Cantidad y Unidad de Proyecto, Cantidad a Comprar, Unidad, Precio Unitario, Subtotal, IVA, Total -->
+        <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            
+            <!-- Cantidad y Unidad contemplada en el proyecto (lado izquierdo) -->
+            <div class="p-2.5 bg-blue-50/90 border border-blue-200 rounded-xl flex flex-col justify-between shadow-2xs">
+              <div class="flex items-center justify-between text-blue-800">
+                <span class="text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1">
+                  <i class="fa-solid fa-cubes text-blue-600"></i> En Proyecto:
+                </span>
+                <button type="button" onclick="copyProjectQtyToInput()" class="text-[9.5px] text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Copiar cantidad presupuestada al campo de compra">
+                  Usar
+                </button>
+              </div>
+              <div class="my-1 flex items-baseline gap-1.5">
+                <span id="expense-form-project-qty" class="text-sm font-black font-mono text-blue-950">---</span>
+                <span id="expense-form-project-unit" class="text-xs font-bold text-blue-700 uppercase"></span>
+              </div>
+              <div id="expense-form-project-saldo" class="text-[9.5px] text-blue-600/90 font-medium truncate">
+                Sin vincular
+              </div>
+            </div>
+
+            <!-- Cantidad a comprar -->
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Cantidad a Comprar:</label>
+              <input type="number" id="expense-form-quantity" value="1" min="0" step="any" oninput="calculateExpenseModalTotals()" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-900 font-bold text-right focus:outline-none focus:border-blue-500 shadow-2xs">
+            </div>
+
+            <!-- Unidad -->
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Unidad:</label>
+              <input type="text" id="expense-form-unit" value="pza" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-800 text-center focus:outline-none focus:border-blue-500 shadow-2xs">
+            </div>
+
+            <!-- Precio Unitario -->
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Precio Unitario ($):</label>
+              <input type="number" id="expense-form-price" value="0.00" min="0" step="any" oninput="calculateExpenseModalTotals()" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-900 font-bold text-right focus:outline-none focus:border-blue-500 shadow-2xs">
+            </div>
+          </div>
+
+          <div class="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Subtotal:</label>
+              <input type="number" id="expense-form-subtotal" readonly class="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-700 text-right">
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-[11px] font-semibold text-slate-600 flex items-center gap-1 cursor-pointer">
+                  <input type="checkbox" id="expense-form-apply-tax" checked onchange="calculateExpenseModalTotals()" class="rounded text-blue-600 focus:ring-blue-500">
+                  <span>I.V.A. (16%)</span>
+                </label>
+              </div>
+              <input type="number" id="expense-form-tax" readonly class="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-700 text-right">
+            </div>
+            <div>
+              <label class="block text-[11px] font-black text-slate-900 mb-1">Total Egreso:</label>
+              <input type="number" id="expense-form-total" readonly class="w-full bg-blue-50 border border-blue-300 rounded-lg p-1.5 text-sm font-mono font-black text-blue-900 text-right">
+            </div>
+          </div>
+        </div>
+
+        <!-- Fila 5: Estado de Pago y Método de Pago -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Estado del Pago:</label>
+            <select id="expense-form-status" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-bold focus:outline-none focus:border-blue-500 focus:bg-white">
+              <option value="paid" class="text-emerald-700 font-bold">✅ Pagado / Liquidado</option>
+              <option value="pending" class="text-amber-700 font-bold">⏳ Por Pagar / A Crédito</option>
+              <option value="cancelled" class="text-slate-500">❌ Cancelado</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Método de Pago:</label>
+            <select id="expense-form-method" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+              <option value="transfer">Transferencia Electrónica (SPEI)</option>
+              <option value="cash">Efectivo</option>
+              <option value="card">Tarjeta Débito / Crédito</option>
+              <option value="check">Cheque</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Fila 6: Comprobante en AWS S3 -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="font-bold text-slate-700 flex items-center gap-1.5">
+              <i class="fa-solid fa-paperclip text-indigo-600"></i> Comprobante (Factura / Nota de remisión):
+            </label>
+            <span class="text-[10.5px] text-slate-500 flex items-center gap-1">
+              <i class="fa-solid fa-cloud-arrow-up text-indigo-600"></i> Respaldo seguro AWS S3
+            </span>
+          </div>
+          <input type="file" id="expense-form-evidence-file" accept=".pdf,.xml,.jpg,.jpeg,.png,.webp" onchange="onEvidenceFileInputChange(this)" class="hidden">
+          <div id="expense-evidence-preview-zone"></div>
+        </div>
+
+        <!-- Fila 7: Notas y Observaciones -->
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Notas y Observaciones de Entrega:</label>
+          <textarea id="expense-form-notes" rows="2" placeholder="Ej: Entregado a pie de obra por chofer Don Ramiro; verificar nivel de resistencia del concreto" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"></textarea>
+        </div>
+
+      </div>
+
+      <!-- Pie del Modal -->
+      <div class="bg-slate-100 px-5 py-3 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <button type="button" onclick="closeNewExpenseModal()" class="px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer">
+          Cancelar
+        </button>
+        <button type="button" onclick="saveExpenseModalForm()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition shadow-md flex items-center gap-2 cursor-pointer">
+          <i class="fa-solid fa-floppy-disk text-xs"></i>
+          <span>Guardar Registro</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: DIRECTORIO DE PROVEEDORES -->
+  <div id="modal-lista-proveedores" style="z-index: 100000;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in">
+      
+      <!-- Encabezado -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+            <i class="fa-solid fa-truck-field text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-sm leading-tight text-white">Directorio de Proveedores & Destajistas</h3>
+            <p class="text-[11px] text-slate-300">Gestión de contactos comerciales para compras y órdenes de trabajo</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="openSupplierModal()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer">
+            <i class="fa-solid fa-plus text-[10px]"></i>
+            <span>Nuevo Proveedor</span>
+          </button>
+          <button type="button" onclick="closeSuppliersListModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center justify-center cursor-pointer">
+            <i class="fa-solid fa-xmark text-base"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabla de Proveedores -->
+      <div class="p-4 overflow-y-auto custom-scroll flex-1">
+        <div class="border border-slate-200 rounded-xl overflow-hidden">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 text-[11px]">
+                <th class="p-2.5">Razón Social</th>
+                <th class="p-2.5 w-28">RFC</th>
+                <th class="p-2.5 w-28">Teléfono</th>
+                <th class="p-2.5">Correo</th>
+                <th class="p-2.5">Contacto</th>
+                <th class="p-2.5 w-20 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="suppliers-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 flex justify-end shrink-0">
+        <button type="button" onclick="closeSuppliersListModal()" class="px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer">
+          Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: CREAR / EDITAR PROVEEDOR -->
+  <div id="modal-nuevo-proveedor" style="z-index: 100001;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md flex flex-col overflow-hidden animate-fade-in">
+      
+      <div class="bg-slate-900 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
+        <h3 id="supplier-form-title" class="font-extrabold text-sm leading-tight text-white">Nuevo Proveedor</h3>
+        <button type="button" onclick="closeSupplierModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-white transition flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Razón Social / Nombre: <span class="text-rose-500">*</span></label>
+          <input type="text" id="supplier-form-name" placeholder="Ej: Materiales Construrama del Norte" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-bold focus:outline-none focus:border-blue-500 focus:bg-white">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">R.F.C.:</label>
+            <input type="text" id="supplier-form-rfc" placeholder="MCN800101XYZ" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Teléfono:</label>
+            <input type="text" id="supplier-form-phone" placeholder="8181234567" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Correo Electrónico:</label>
+            <input type="email" id="supplier-form-email" placeholder="ventas@proveedor.com" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Persona de Contacto:</label>
+            <input type="text" id="supplier-form-contact" placeholder="Ing. Roberto Garza" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Dirección / Ubicación:</label>
+          <input type="text" id="supplier-form-address" placeholder="Av. Industrial 123, Parque Industrial" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+        </div>
+      </div>
+
+      <div class="bg-slate-100 px-5 py-3 border-t border-slate-200 flex justify-between shrink-0">
+        <button type="button" onclick="closeSupplierModal()" class="px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer">
+          Cancelar
+        </button>
+        <button type="button" onclick="saveSupplierModalForm()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer">
+          <i class="fa-solid fa-floppy-disk text-xs"></i>
+          <span>Guardar Proveedor</span>
         </button>
       </div>
 

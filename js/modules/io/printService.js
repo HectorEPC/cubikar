@@ -23,6 +23,8 @@ import {
   getDateWorkdayInfo
 } from '../calendario/calendarioModel.js';
 import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js';
+import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js';
+import { resolveActivePrintBranding } from './printBrandingService.js';
 
 // Escapar caracteres especiales en texto HTML
 function escapeHtml(str) {
@@ -283,31 +285,28 @@ const PRINT_BASE_STYLES = `
   }
 `;
 
-// Abrir documento e invocar diálogo de impresión
-export function openPrintWindow(docTitle, bodyContent, orientation = 'portrait', options = {}) {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    showToast('El navegador bloqueó la ventana de impresión. Por favor permite ventanas emergentes en esta página.', 'warning');
-    return;
-  }
-
+// Construir HTML completo del documento imprimible aplicando branding por plan
+export function buildPrintableHtmlDocument(docTitle, bodyContent, orientation = 'portrait', options = {}) {
   const extraToolbarHtml = options.extraToolbarHtml || '';
   const extraScripts = options.extraScripts || '';
   const shouldAutoPrint = options.autoPrint !== false;
+  const branding = options.branding || resolveActivePrintBranding(state?.settings, options.projectId || null);
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <title>${escapeHtml(docTitle)}</title>
   <style>
     ${PRINT_BASE_STYLES}
+    ${branding.watermarkCss || ''}
     ${orientation === 'landscape' 
       ? '@page { size: letter landscape !important; margin: 5mm 6mm 6mm 6mm !important; } .page-container { max-width: 100% !important; padding: 10px 14px !important; margin: 0 auto !important; } @media print { .page-container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; } }'
       : '@page { size: letter portrait !important; margin: 12mm 12mm 15mm 12mm !important; } .page-container { max-width: 960px !important; padding: 30px 35px !important; }'}
   </style>
 </head>
 <body>
+  ${branding.watermarkLayerHtml || ''}
   <!-- Barra de Acciones Flotante (Oculta al Imprimir) -->
   <div class="no-print" style="flex-wrap: wrap; gap: 10px;">
     <div style="font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -326,7 +325,9 @@ export function openPrintWindow(docTitle, bodyContent, orientation = 'portrait',
 
   <!-- Contenedor Principal Imprimible -->
   <div class="page-container">
+    ${branding.headerBadgeHtml || ''}
     ${bodyContent}
+    ${branding.watermarkFooterHtml || ''}
   </div>
 
   <script>
@@ -347,6 +348,17 @@ export function openPrintWindow(docTitle, bodyContent, orientation = 'portrait',
   </script>
 </body>
 </html>`;
+}
+
+// Abrir documento e invocar diálogo de impresión
+export function openPrintWindow(docTitle, bodyContent, orientation = 'portrait', options = {}) {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    showToast('El navegador bloqueó la ventana de impresión. Por favor permite ventanas emergentes en esta página.', 'warning');
+    return;
+  }
+
+  const html = buildPrintableHtmlDocument(docTitle, bodyContent, orientation, options);
 
   printWindow.document.open();
   printWindow.document.write(html);
@@ -373,8 +385,9 @@ export function printTab1Catalog() {
   const factorSobrecosto = getFactorSobrecosto();
   const applySobrecosto = state.settings.applySobrecosto;
   const pctSobrecosto = ((factorSobrecosto - 1) * 100).toFixed(2);
-  const companyName = (state.settings && state.settings.companyName) || 'Sistema de Control de Obra';
-  const companyLogo = (state.settings && state.settings.companyLogo) || '';
+  const _printBranding = resolveActivePrintBranding(state.settings);
+  const companyName = _printBranding.companyName;
+  const companyLogo = _printBranding.companyLogo;
   const projectName = (state.settings && state.settings.projectName) || 'Proyecto de Obra Base';
   const projectLocation = (state.settings && state.settings.projectLocation) || '';
 
@@ -586,8 +599,9 @@ export function printApuMatrix() {
   const factorSobrecosto = getFactorSobrecosto();
   const applySobrecosto = state.settings.applySobrecosto;
   const pctSobrecosto = ((factorSobrecosto - 1) * 100).toFixed(2);
-  const companyName = (state.settings && state.settings.companyName) || 'Sistema de Control de Obra';
-  const companyLogo = (state.settings && state.settings.companyLogo) || '';
+  const _printBranding = resolveActivePrintBranding(state.settings);
+  const companyName = _printBranding.companyName;
+  const companyLogo = _printBranding.companyLogo;
   const projectName = (state.settings && state.settings.projectName) || 'Proyecto de Obra Base';
   const projectLocation = (state.settings && state.settings.projectLocation) || '';
 
@@ -890,8 +904,10 @@ export function printInsumosGenerales() {
   const rubros = [
     { key: 'Material', label: '1. MATERIALES', icon: '📦' },
     { key: 'Mano de Obra', label: '2. MANO DE OBRA', icon: '👷' },
-    { key: 'Equipo', label: '3. MAQUINARIA, EQUIPO Y HERRAMIENTA', icon: '🚜' },
-    { key: 'Subcontrato', label: '4. SUBCONTRATOS Y TRABAJOS ESPECIALIZADOS', icon: '📑' }
+    { key: 'Herramienta', label: '3. HERRAMIENTA MENOR Y EQUIPO DE SEGURIDAD', icon: '🔧' },
+    { key: 'Equipo', label: '4. EQUIPO', icon: '⚙️' },
+    { key: 'Maquinaria', label: '5. MAQUINARIA Y EQUIPO PESADO', icon: '🚜' },
+    { key: 'Subcontrato', label: '6. SUBCONTRATOS Y TRABAJOS ESPECIALIZADOS', icon: '📑' }
   ];
 
   let totalItemsCount = 0;
@@ -918,8 +934,9 @@ export function printInsumosGenerales() {
 
   const currencySymbol = getCurrencySymbol();
   const currencyCode = getCurrencyCode();
-  const companyName = (state.settings && state.settings.companyName) || 'Sistema de Control de Obra';
-  const companyLogo = (state.settings && state.settings.companyLogo) || '';
+  const _printBranding = resolveActivePrintBranding(state.settings);
+  const companyName = _printBranding.companyName;
+  const companyLogo = _printBranding.companyLogo;
   const projectName = (state.settings && state.settings.projectName) || 'Proyecto de Obra Base';
   const projectLocation = (state.settings && state.settings.projectLocation) || '';
 
@@ -2571,8 +2588,9 @@ export function printCalendarioObraFormat() {
 
   const currencySymbol = getCurrencySymbol();
   const currencyCode = getCurrencyCode();
-  const companyName = (state.settings && state.settings.companyName) || 'Sistema de Control de Obra';
-  const companyLogo = (state.settings && state.settings.companyLogo) || '';
+  const _printBranding = resolveActivePrintBranding(state.settings);
+  const companyName = _printBranding.companyName;
+  const companyLogo = _printBranding.companyLogo;
   const projectName = (state.settings && state.settings.projectName) || 'Proyecto de Obra Base';
   const projectLocation = (state.settings && state.settings.projectLocation) || '';
 
@@ -2667,7 +2685,7 @@ export function printCalendarioObraFormat() {
 //   - Hoja 1: RESUMEN DE LA ESTIMACIÓN (solo conceptos con cantidad > 0 en "Esta Estimación (Actual) -> Cantidad Eje")
 //   - Hoja 2+ (Opcional en vista previa): CATÁLOGO GENERAL COMPLETO Y ESTADO DE CUENTA
 // -------------------------------------------------------------
-export function printEstimacionesFormat() {
+export async function printEstimacionesFormat() {
   const data = getEstimacionesCalculatedData();
   const { activeEst, rows, kpis } = data;
 
@@ -2684,8 +2702,9 @@ export function printEstimacionesFormat() {
 
   const currencySymbol = getCurrencySymbol();
   const currencyCode = getCurrencyCode();
-  const companyName = (state.settings && state.settings.companyName) || 'Sistema de Control de Obra';
-  const companyLogo = (state.settings && state.settings.companyLogo) || '';
+  const _printBranding = resolveActivePrintBranding(state.settings);
+  const companyName = _printBranding.companyName;
+  const companyLogo = _printBranding.companyLogo;
   const projectName = (state.settings && state.settings.projectName) || 'Proyecto de Obra Base';
   const projectLocation = (state.settings && state.settings.projectLocation) || '';
 
@@ -2821,9 +2840,21 @@ export function printEstimacionesFormat() {
     `;
 
   // =============================================================
-  // A.2) GENERAR UNA HOJA POR CADA CONCEPTO DEL RESUMEN + SUS FOTOS DE LA NUBE
+  // A.2) GENERAR UNA HOJA POR CADA CONCEPTO DEL RESUMEN + SUS FOTOS DE EVIDENCIA
   // =============================================================
   const conceptosParaHojasResumen = rows.filter(r => !r.isParent && (Number(r.cantEje) > 0 || (Array.isArray(r.fotos) && r.fotos.length > 0)));
+  for (const row of conceptosParaHojasResumen) {
+    if (!Array.isArray(row.fotos)) continue;
+    for (const foto of row.fotos) {
+      if (foto && !foto.displayUrl && (foto.mediaId || foto.s3Key)) {
+        try {
+          foto.displayUrl = await resolveManagedFileDataUrl(foto) || '';
+        } catch (err) {
+          console.warn('Error resolviendo foto de estimación para impresión:', err);
+        }
+      }
+    }
+  }
   const hojasConceptosConFotosHtml = conceptosParaHojasResumen.map((row, idx) => {
     const fotos = Array.isArray(row.fotos) ? row.fotos.slice(0, 2) : [];
     const f1 = fotos[0] || null;

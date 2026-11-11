@@ -27,7 +27,7 @@ export function generateUUID() {
 /**
  * Obtener o resolver la empresa_id del usuario conectado
  */
-async function resolveUserEmpresaId(sb, user) {
+export async function resolveUserEmpresaId(sb, user) {
   if (!user || !user.id) return null;
   if (user.empresaId && isValidUUID(user.empresaId)) {
     return user.empresaId;
@@ -317,7 +317,7 @@ export async function fetchCloudProjects() {
               email: user.email,
               avatar: user.avatar || '',
               role: 'editar',
-              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones']
+              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras']
             }
           ];
 

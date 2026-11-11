@@ -1,9 +1,13 @@
 import { state, persistLocalData } from '../../state/store.js';
 import { saveState } from '../../state/history.js';
+import { guardConceptLimit } from '../catalog/treeService.js';
+import { countTreeConcepts } from '../portal/projectService.js';
 import { showToast } from '../../ui/notifications.js';
 import { calculateParentTotal, calculateParentDirectTotal } from '../../core/calculations.js';
 import { recalculateClaves } from '../catalog/treeService.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
+import { getActiveProjectId } from '../../config/constants.js';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js';
 
 // Abrir modal interactivo de selección de formato de exportación
 export function openExportModal() {
@@ -146,6 +150,12 @@ export function exportCatalogExcel() {
 
     const filename = `${getSafeProjectFilename('Excel')}.xlsx`;
     window.XLSX.writeFile(wb, filename);
+    archiveGeneratedWorkbookReport(window.XLSX, wb, filename, {
+      modulo: 'reportes',
+      entidadId: 'presupuesto_excel',
+      proyectoId: getActiveProjectId(),
+      metadata: { tipo: 'presupuesto_base', items: flatRows.length }
+    });
 
     closeExportModal();
     showToast(`Presupuesto exportado a Excel (${flatRows.length} ítems)`, 'success');
@@ -576,6 +586,9 @@ export function importData(event) {
         }
       }
 
+      if (!guardConceptLimit(countTreeConcepts(parsedTree), { replaceExisting: true })) {
+        return;
+      }
       state.treeData = parsedTree;
       recalculateClaves(state.treeData);
       persistLocalData();

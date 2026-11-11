@@ -393,6 +393,8 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
   html.dark-mode #tab-members-calendario,
   html.dark-mode #tab-members-estimaciones,
   html.dark-mode #tab-members-insumos,
+  html.dark-mode #tab-members-compras,
+  html.dark-mode #tab-members-bitacora,
   html.dark-mode .dropdown-menu {
     background-color: #1e293b !important;
     border-color: #334155 !important;

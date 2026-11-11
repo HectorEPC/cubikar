@@ -253,6 +253,9 @@ export function syncLocalUserSession(user, perfil, force = false) {
     }
     setTimeout(() => {
       autoSyncCollaborationOnStartup(user);
+      import('../modules/ai/aiQuotaAndCacheService.js')
+        .then(m => m.syncAiQuotaFromSupabase())
+        .catch(() => {});
     }, 100);
   } catch (e) {}
   return localUser;

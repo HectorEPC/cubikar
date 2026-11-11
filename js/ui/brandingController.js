@@ -3,6 +3,13 @@
 
 import { state, persistSettings } from '../state/store.js';
 import { showToast } from './notifications.js';
+import {
+  blobToDataUrl,
+  dataUrlToFile,
+  processFileForUpload
+} from '../utils/fileCompressor.js';
+import { validatePreCompressionFile } from '../services/storageQuotaService.js';
+import { uploadManagedFile } from '../services/s3StorageService.js';
 
 // Dimensiones estándar del área de recorte para el logotipo (cuadrado 1:1)
 const CROP_WIDTH = 180;
@@ -221,7 +228,7 @@ export function triggerCompanyLogoUpload() {
 }
 
 // Manejar selección de imagen e iniciar el ajustador interactivo
-export function handleCompanyLogoUpload(event) {
+export async function handleCompanyLogoUpload(event) {
   const file = event?.target?.files?.[0];
   if (!file) return;
 
@@ -231,21 +238,31 @@ export function handleCompanyLogoUpload(event) {
   }
 
   try {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        openLogoAdjusterModal(img);
-      };
-      img.onerror = () => {
-        showToast('No se pudo procesar la imagen seleccionada', 'error');
-      };
-      img.src = e.target.result;
+    const preCheck = await validatePreCompressionFile(file, { categoria: 'branding' });
+    if (!preCheck.allowed) {
+      showToast(preCheck.reason, 'warning', 5500);
+      return;
+    }
+
+    let sourceDataUrl = '';
+    if (file.type === 'image/svg+xml') {
+      sourceDataUrl = await blobToDataUrl(file);
+    } else {
+      const processed = await processFileForUpload(file, { preset: 'branding', includeDataUrl: true });
+      sourceDataUrl = processed.dataUrl;
+      if (processed.compressed) {
+        showToast(`Optimizando logotipo (${processed.summaryText})...`, 'info', 3000);
+      }
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      openLogoAdjusterModal(img);
     };
-    reader.onerror = () => {
-      showToast('Error al leer el archivo de imagen', 'error');
+    img.onerror = () => {
+      showToast('No se pudo procesar la imagen seleccionada', 'error');
     };
-    reader.readAsDataURL(file);
+    img.src = sourceDataUrl;
   } catch (err) {
     console.error('Error al abrir imagen:', err);
     showToast('Error al abrir la imagen: ' + err.message, 'error');
@@ -581,17 +598,34 @@ export function closeLogoAdjusterModal() {
   }
 }
 
-// Guardar logotipo ajustado en el sistema
-export function applyAdjustedLogo() {
+// Guardar logotipo ajustado en el sistema (con validación de cuota y respaldo S3)
+export async function applyAdjustedLogo() {
   if (!adjusterState.image) return;
   try {
     const finalDataUrl = generateCroppedDataUrl();
+    const logoFile = dataUrlToFile(finalDataUrl, adjusterState.bgMode === 'white' ? 'logo_empresa.jpg' : 'logo_empresa.png');
+    const uploadRes = await uploadManagedFile({
+      file: logoFile,
+      modulo: 'branding',
+      categoria: 'branding',
+      preset: 'branding',
+      showFeedback: false,
+      includeDataUrl: true
+    });
+
+    if (!uploadRes.ok) {
+      showToast(uploadRes.reason || 'Cuota de almacenamiento alcanzada para guardar el logotipo.', 'error');
+      return;
+    }
+
     if (!state.settings) state.settings = {};
-    state.settings.companyLogo = finalDataUrl;
+    state.settings.companyLogo = uploadRes.dataUrl || finalDataUrl;
+    state.settings.companyLogoMediaId = uploadRes.mediaId || '';
+    state.settings.companyLogoS3Key = uploadRes.s3Key || '';
     persistSettings();
     renderBrandingUI();
     closeLogoAdjusterModal();
-    showToast('¡Logotipo ajustado y guardado correctamente!', 'success');
+    showToast(`¡Logotipo optimizado y guardado (${uploadRes.sizeLabel || 'listo'})!`, 'success');
   } catch (err) {
     console.error('Error al aplicar logo:', err);
     showToast('Error al guardar logotipo: ' + err.message, 'error');

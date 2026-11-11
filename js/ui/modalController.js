@@ -10,8 +10,11 @@ import { renderAPUInsumos } from '../modules/apu/apuView.js';
 import { renderInsumosGenerales } from '../modules/insumosGenerales/insumosView.js';
 import { renderCalendarioObra } from '../modules/calendario/calendarioView.js';
 import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView.js';
+import { renderExpensesView } from '../modules/compras/expensesView.js';
+import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js';
 import { renderBrandingUI } from './brandingController.js';
 import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js';
+import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js';
 
 // Modo de destino del modal Google IA: 'single' (solo concepto activo en matriz) o 'batch' (conceptos con casilla)
 export let aiModalTargetMode = 'single';
@@ -80,7 +83,6 @@ export function openAiGeneratorModal(singleSelectedOnly = false) {
     if (modalUnidEl) modalUnidEl.innerText = 'Varias';
     if (modalUnidHintEl) modalUnidHintEl.innerText = 'cada concepto seleccionado';
     if (modalCantEl) modalCantEl.innerText = `${checkedNodes.length} conceptos`;
-    if (btnRun) btnRun.innerHTML = `<i class="fa-brands fa-google text-[10px] text-amber-300"></i> Buscar en Google y Llenar ${checkedNodes.length} Matrices`;
   } else {
     const pathArr = getNodeHierarchyPath(state.treeData, node.id) || [];
     const parentPath = pathArr.length > 1 ? pathArr.slice(0, -1).join('  >  ') : 'Partida Principal';
@@ -91,11 +93,13 @@ export function openAiGeneratorModal(singleSelectedOnly = false) {
     if (modalUnidEl) modalUnidEl.innerText = node.unidad || 'pza';
     if (modalUnidHintEl) modalUnidHintEl.innerText = `1 ${node.unidad || 'pza'}`;
     if (modalCantEl) modalCantEl.innerText = formatQty(node.cantidad || 1);
-    if (btnRun) btnRun.innerHTML = `<i class="fa-brands fa-google text-[10px] text-amber-300"></i> Buscar en Google y Llenar Matriz`;
   }
   
   const modalKeyEl = document.getElementById('ai-modal-api-key');
   if (modalKeyEl) modalKeyEl.value = state.settings.apiKey || '';
+
+  const webCheckEl = document.getElementById('ai-modal-use-web-search');
+  if (webCheckEl) webCheckEl.checked = false;
 
   const modalLoadingEl = document.getElementById('ai-modal-loading');
   if (modalLoadingEl) modalLoadingEl.classList.add('hidden');
@@ -104,8 +108,91 @@ export function openAiGeneratorModal(singleSelectedOnly = false) {
 
   if (btnRun) btnRun.disabled = false;
 
+  refreshAiQuotaBadges();
+  updateAiModalRunButtonLabel();
+  syncAiQuotaFromSupabase().then(synced => {
+    if (synced) refreshAiQuotaBadges();
+  }).catch(() => {});
+
   const modalEl = document.getElementById('modal-ai-generator');
   if (modalEl) modalEl.classList.remove('hidden');
+}
+
+export function updateAiModalRunButtonLabel() {
+  const btnRun = document.getElementById('btn-ai-modal-run');
+  if (!btnRun) return;
+  const webCheckEl = document.getElementById('ai-modal-use-web-search');
+  const useWeb = Boolean(webCheckEl && webCheckEl.checked);
+  const checkedNodes = getSelectedLeafConcepts ? getSelectedLeafConcepts() : [];
+  const count = aiModalTargetMode === 'batch' ? checkedNodes.length : 1;
+
+  if (useWeb) {
+    btnRun.className = 'px-4 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded font-medium shadow-sm transition text-xs flex items-center gap-1.5 hover:scale-105 active:scale-95';
+    btnRun.innerHTML = aiModalTargetMode === 'batch'
+      ? `<i class="fa-solid fa-globe text-[10px] text-amber-200"></i> Cotizar en Web y Llenar ${count} Matrices`
+      : `<i class="fa-solid fa-globe text-[10px] text-amber-200"></i> Cotizar en Web y Llenar Matriz`;
+  } else {
+    btnRun.className = 'px-4 py-1.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded font-medium shadow-sm transition text-xs flex items-center gap-1.5 hover:scale-105 active:scale-95';
+    btnRun.innerHTML = aiModalTargetMode === 'batch'
+      ? `<i class="fa-solid fa-microchip text-[10px] text-sky-200"></i> Generar ${count} Matrices (IA Estándar)`
+      : `<i class="fa-solid fa-microchip text-[10px] text-sky-200"></i> Generar Matriz (IA Estándar)`;
+  }
+}
+
+export function refreshAiQuotaBadges() {
+  try {
+    const summary = getAiQuotaBadgeSummary();
+    if (!summary) return;
+
+    const modalKeyVal = document.getElementById('ai-modal-api-key')?.value?.trim() || '';
+    const usingOwnKey = summary.usingOwnApiKey || Boolean(modalKeyVal);
+
+    const bannerEl = document.getElementById('ai-modal-quota-banner');
+    if (bannerEl) {
+      const keyBadge = usingOwnKey
+        ? '<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">API Key Propia: Ilimitado</span>'
+        : `<span class="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold">Plan ${summary.planName}</span>`;
+      const stdText = usingOwnKey ? 'Ilimitado' : `${summary.stdUsed}/${summary.stdMax} este mes`;
+      const webText = usingOwnKey ? 'Ilimitado' : `${summary.webUsed}/${summary.webMax} este mes`;
+      bannerEl.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-1.5 text-[10px]">
+          <div class="flex items-center gap-1.5">
+            ${keyBadge}
+            <span class="text-slate-700 font-medium">IA Estándar: <strong>${stdText}</strong></span>
+          </div>
+          <div class="flex items-center gap-2 text-slate-600">
+            <span>Web Search: <strong class="${!usingOwnKey && summary.webMax === 0 ? 'text-rose-600' : 'text-amber-700'}">${webText}</strong></span>
+            <span class="text-emerald-700">Caché: <strong>${summary.cacheEntries}</strong></span>
+          </div>
+        </div>
+      `;
+    }
+
+    const webCheckEl = document.getElementById('ai-modal-use-web-search');
+    const webHintEl = document.getElementById('ai-modal-web-search-hint');
+    if (webCheckEl) {
+      const webBlocked = !usingOwnKey && summary.webMax <= 0;
+      if (webBlocked) {
+        webCheckEl.checked = false;
+        webCheckEl.disabled = true;
+        if (webHintEl) {
+          webHintEl.innerText = 'Bloqueado en Plan Gratuita (requiere Plan Plus/Pro o tu propia API Key).';
+          webHintEl.className = 'text-[10px] text-rose-600 block mt-0.5';
+        }
+      } else {
+        webCheckEl.disabled = false;
+        if (webHintEl) {
+          webHintEl.innerText = usingOwnKey
+            ? 'API Key propia detectada: puedes activar Google Search Grounding sin consumir cuota de la cuenta.'
+            : `Cuota disponible este mes: ${Math.max(0, summary.webMax - summary.webUsed)} de ${summary.webMax} consultas Web en Vivo.`;
+          webHintEl.className = 'text-[10px] text-amber-700 block mt-0.5';
+        }
+      }
+      updateAiModalRunButtonLabel();
+    }
+  } catch (err) {
+    console.warn('[UI] refreshAiQuotaBadges error:', err);
+  }
 }
 
 export function closeAiGeneratorModal() {
@@ -372,15 +459,56 @@ export function clearAllData() {
 }
 
 // Cambio de pestañas principales: Catálogo vs Insumos Generales vs Calendario de Obra vs Estimaciones
+export let activePresupuestoSubTab = 'cat';
+
+export function switchPresupuestoSubTab(subTab) {
+  activePresupuestoSubTab = subTab;
+  const viewCat = document.getElementById('view-cat');
+  const viewInsumos = document.getElementById('view-insumos');
+  const subBtnCat = document.getElementById('subtab-btn-cat');
+  const subBtnInsumos = document.getElementById('subtab-btn-insumos');
+
+  const activeSubClass = "px-3 py-1 rounded-md text-xs font-bold bg-blue-600 text-white shadow-xs transition flex items-center gap-1.5 cursor-pointer";
+  const inactiveSubClass = "px-3 py-1 rounded-md text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition flex items-center gap-1.5 cursor-pointer";
+
+  if (subTab === 'cat') {
+    if (viewCat) viewCat.classList.remove('hidden');
+    if (viewInsumos) viewInsumos.classList.add('hidden');
+    if (subBtnCat) subBtnCat.className = activeSubClass;
+    if (subBtnInsumos) subBtnInsumos.className = inactiveSubClass;
+  } else if (subTab === 'insumos') {
+    if (viewCat) viewCat.classList.add('hidden');
+    if (viewInsumos) viewInsumos.classList.remove('hidden');
+    if (subBtnCat) subBtnCat.className = inactiveSubClass;
+    if (subBtnInsumos) subBtnInsumos.className = activeSubClass;
+    renderInsumosGenerales();
+  }
+  updateUndoRedoButtons();
+}
+
 export function switchTab(tab) {
-  if (typeof canCurrentUserAccessTab === 'function' && !canCurrentUserAccessTab(tab)) {
+  // Soporte directo para 'cat' e 'insumos' redirigiendo a la pestaña unificada 'presupuesto'
+  let targetTab = tab;
+  let targetSubTab = null;
+  if (tab === 'cat') {
+    targetTab = 'presupuesto';
+    targetSubTab = 'cat';
+  } else if (tab === 'insumos') {
+    targetTab = 'presupuesto';
+    targetSubTab = 'insumos';
+  }
+
+  if (typeof canCurrentUserAccessTab === 'function' && !canCurrentUserAccessTab(targetTab)) {
     const tabNames = {
-      cat: 'Catálogo Base',
-      insumos: 'Insumos Base',
+      presupuesto: 'Presupuesto',
+      cat: 'Presupuesto',
+      insumos: 'Presupuesto',
       calendario: 'Calendario de Obra',
-      estimaciones: 'Estimaciones de Obra'
+      estimaciones: 'Estimaciones de Obra',
+      compras: 'Compras y Pagos',
+      bitacora: 'Bitácora de Obra'
     };
-    showToast(`🔒 No tienes permiso asignado para acceder a la pestaña "${tabNames[tab] || tab}". Esta pestaña está restringida solo a los miembros autorizados por el administrador.`, 'warning');
+    showToast(`🔒 No tienes permiso asignado para acceder a la pestaña "${tabNames[targetTab] || targetTab}". Esta pestaña está restringida solo a los miembros autorizados por el administrador.`, 'warning');
     return;
   }
 
@@ -388,33 +516,40 @@ export function switchTab(tab) {
   const viewInsumos = document.getElementById('view-insumos');
   const viewCalendario = document.getElementById('view-calendario');
   const viewEstimaciones = document.getElementById('view-estimaciones');
-  const btnCat = document.getElementById('tab-btn-cat');
+  const viewCompras = document.getElementById('view-compras');
+  const viewBitacora = document.getElementById('view-bitacora');
+
+  const btnPresupuesto = document.getElementById('tab-btn-presupuesto') || document.getElementById('tab-btn-cat');
   const btnInsumos = document.getElementById('tab-btn-insumos');
   const btnCalendario = document.getElementById('tab-btn-calendario');
   const btnEstimaciones = document.getElementById('tab-btn-estimaciones');
-  if (!viewCat || !viewInsumos || !btnCat || !btnInsumos) return;
+  const btnCompras = document.getElementById('tab-btn-compras');
+  const btnBitacora = document.getElementById('tab-btn-bitacora');
 
   const activeClass = "px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white transition flex items-center gap-1.5 cursor-pointer shadow-xs";
   const inactiveClass = "px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer";
 
-  viewCat.classList.add('hidden');
-  viewInsumos.classList.add('hidden');
+  if (viewCat) viewCat.classList.add('hidden');
+  if (viewInsumos) viewInsumos.classList.add('hidden');
   if (viewCalendario) viewCalendario.classList.add('hidden');
   if (viewEstimaciones) viewEstimaciones.classList.add('hidden');
+  if (viewCompras) viewCompras.classList.add('hidden');
+  if (viewBitacora) viewBitacora.classList.add('hidden');
 
-  btnCat.className = inactiveClass;
-  btnInsumos.className = inactiveClass;
+  if (btnPresupuesto) btnPresupuesto.className = inactiveClass;
+  if (btnInsumos) btnInsumos.className = inactiveClass;
   if (btnCalendario) btnCalendario.className = inactiveClass;
   if (btnEstimaciones) btnEstimaciones.className = inactiveClass;
+  if (btnCompras) btnCompras.className = inactiveClass;
+  if (btnBitacora) btnBitacora.className = inactiveClass;
 
-  if (tab === 'cat') {
-    viewCat.classList.remove('hidden');
-    btnCat.className = activeClass;
-  } else if (tab === 'insumos') {
-    viewInsumos.classList.remove('hidden');
-    btnInsumos.className = activeClass;
-    const viewInsumosEl = document.getElementById('view-insumos');
-  if (!viewInsumosEl || !viewInsumosEl.classList.contains('hidden')) { renderInsumosGenerales(); }
+  if (targetTab === 'presupuesto') {
+    if (btnPresupuesto) btnPresupuesto.className = activeClass;
+    if (targetSubTab) {
+      switchPresupuestoSubTab(targetSubTab);
+    } else {
+      switchPresupuestoSubTab(activePresupuestoSubTab || 'cat');
+    }
   } else if (tab === 'calendario') {
     if (viewCalendario) viewCalendario.classList.remove('hidden');
     if (btnCalendario) btnCalendario.className = activeClass;
@@ -423,10 +558,23 @@ export function switchTab(tab) {
     if (viewEstimaciones) viewEstimaciones.classList.remove('hidden');
     if (btnEstimaciones) btnEstimaciones.className = activeClass;
     renderEstimacionesView();
+  } else if (tab === 'compras') {
+    if (viewCompras) viewCompras.classList.remove('hidden');
+    if (btnCompras) btnCompras.className = activeClass;
+    renderExpensesView();
+  } else if (tab === 'bitacora') {
+    if (viewBitacora) viewBitacora.classList.remove('hidden');
+    if (btnBitacora) btnBitacora.className = activeClass;
+    renderBitacoraView();
   }
   updateUndoRedoButtons();
   if (typeof renderAllTabAssignedMembers === 'function') {
     renderAllTabAssignedMembers();
+  }
+  if (typeof window.onGlobalActiveTabChange === 'function') {
+    try {
+      window.onGlobalActiveTabChange(tab);
+    } catch (e) {}
   }
 }
 

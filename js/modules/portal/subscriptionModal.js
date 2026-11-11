@@ -49,7 +49,7 @@ export const SUBSCRIPTION_PLANS = [
     id: 'free',
     name: 'Gratuita',
     badge: 'INICIAL',
-    tagline: 'Ideal para conocer la plataforma y presupuestar obras pequeñas.',
+    tagline: 'Ideal para estudiantes, docentes y profesionales que quieren presupuestar y organizar obras pequeñas.',
     monthlyPrice: 0,
     annualPrice: 0,
     currency: 'MXN',
@@ -58,27 +58,35 @@ export const SUBSCRIPTION_PLANS = [
     popular: false,
     accent: 'slate',
     dropdownBadgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
+    maxProjects: 2,
+    maxConcepts: 100,
+    maxMembers: 3,
+    storageMb: 200,
+    catalogStorageMb: 6,
+    aiMonthlyConcepts: 10,
+    maxSearchQueries: 0,
     features: [
       'Hasta 2 proyectos activos en el portal',
-      'Hasta 100 líneas conceptos por proyecto',
+      'Hasta 100 conceptos por proyecto',
+      'Colaboración de 1 a 3 (hasta 3 usuarios) por cuenta para trabajar en equipo',
+      'Almacenamiento en Nube de 200 MB para proyectos y evidencias (más guardado local en navegador)',
+      'Espacio de 6 MB para importar catálogos maestros',
+      'Catálogo Base, Matrices APU esenciales y Explosión de Insumos',
       'Copiado de conceptos con Matriz APU entre obras',
-      'Catálogo Base y Matrices APU esenciales',
-      'Explosión básica de Insumos Base',
-      'Calendario de Obra con Diagrama de Gantt',
-      'Impresión institucional básica de presupuesto',
-      'Vista de Día y Modo Nocturno incluidos',
-      'Hasta 5 usuarios incluidos bajo la misma cuenta',
-      'Espacio de 6 mb para importar catalogos maestro',
       'Importador universal (Excel, CSV, JSON y Opus)',
-      'Módulo completo de Estimaciones de Obra',
-      'Genera matrices con IA de hasta 5 conceptos por proyecto al mes'
+      'Calendario de Obra con Diagrama de Gantt básico',
+      'Módulo de Estimaciones de Obra, Bitácora de obra y Control de Gastos básicos',
+      'Impresión disponible en todas las pestañas (Catálogo Base, APU, Insumos, Calendario, Estimaciones, Gastos y Bitácora) con logotipo y nombre de la aplicación',
+      'Vista de Día y Modo Nocturno incluidos',
+      'IA Estándar (Motor local + Gemini Flash): hasta 10 conceptos/mes (o ilimitado con tu propia API Key de Google)',
+      'Precios Web en Vivo (Google Search): 0 consultas/mes (o con API Key propia)'
     ]
   },
   {
     id: 'plus',
     name: 'Plus',
     badge: 'MÁS POPULAR',
-    tagline: 'Para arquitectos, analistas de costos y constructoras en crecimiento.',
+    tagline: 'Para arquitectos independientes, contratistas, residentes y despachos en crecimiento.',
     monthlyPrice: 350,
     annualPrice: 280,
     originalMonthlyPrice: 799,
@@ -90,28 +98,35 @@ export const SUBSCRIPTION_PLANS = [
     popular: true,
     accent: 'blue',
     dropdownBadgeClass: 'bg-blue-500/20 text-blue-300 border-blue-400/40',
+    maxProjects: 15,
+    maxConcepts: 1500,
+    maxMembers: 10,
+    storageMb: 2048,
+    catalogStorageMb: 50,
+    aiMonthlyConcepts: 1500,
+    maxSearchQueries: 70,
     features: [
-      'Hasta 15 proyectos activos en el portal',
-      'Hasta 1500 líneas conceptos por proyecto',
-      'Copiado de conceptos con Matriz APU entre obras',
-      'Catálogo Base y Matrices APU esenciales',
-      'Explosión básica de Insumos Base',
-      'Calendario de Obra con Ruta Crítica, Financiero y Curva "S"',
-      'Impresión institucional básica de presupuesto',
-      'Vista de Día y Modo Nocturno incluidos',
-      'Hasta 10 usuarios incluidos bajo la misma cuenta',
-      'Espacio de 50 mb para importar catalogos maestro',
-      'Importador universal (Excel, CSV, JSON y Opus)',
-      'Módulo completo de Estimaciones de Obra',
-      'Asistente IA para precios unitarios e insumos, APU y Secuencia en Gantt',
-      'Genera matrices con IA de hasta 1500 conceptos por proyecto al mes'
+      'Hasta 15 proyectos activos en la nube con sincronización en tiempo real',
+      'Hasta 1,500 líneas/conceptos por proyecto',
+      'Hasta 10 usuarios incluidos bajo la misma suscripción (invitados entran 100% gratis)',
+      'Selector de Espacio de Trabajo (Anfitrión / Personal)',
+      'Almacenamiento en Nube de 2 GB para facturas, PDFs y fotografías de obra (con compresión inteligente)',
+      'Espacio de 50 MB para importar catálogos maestros personalizados',
+      'Catálogo Base, Matrices APU y Explosión de Insumos completa + copiado entre obras',
+      'Asistente IA para análisis de insumos, matrices y secuencia lógica en Gantt',
+      'Calendario Gantt avanzado con Ruta Crítica, Financiero y Curva "S"',
+      'Control de Compras, Gastos, Órdenes de Compra y Dashboard Financiero (Presupuesto vs. Real)',
+      'Bitácora de Obra Digital Legal con firmas digitales y compilación automática PDF inmutable',
+      'Módulo completo de Estimaciones e Impresión profesional en todas las pestañas (sin marca de la app / con tu propio logotipo)',
+      'Motor IA + Catálogo Inteligente: hasta 1,500 conceptos APU al mes por cuenta',
+      'Cotizador Web en Vivo (Google Search): hasta 70 consultas de precios de mercado al mes'
     ]
   },
   {
     id: 'pro',
     name: 'Pro',
     badge: 'EMPRESARIAL',
-    tagline: 'Potencia total sin límites para empresas constructoras y licitaciones.',
+    tagline: 'Para empresas constructoras, gerencias de obra, despachos de ingeniería de costos y licitadores.',
     monthlyPrice: 950,
     annualPrice: 760,
     originalMonthlyPrice: 1799,
@@ -123,21 +138,27 @@ export const SUBSCRIPTION_PLANS = [
     popular: false,
     accent: 'amber',
     dropdownBadgeClass: 'bg-amber-500/20 text-amber-300 border-amber-400/50',
+    maxProjects: 50,
+    maxConcepts: 3500,
+    maxMembers: 30,
+    storageMb: 5120,
+    catalogStorageMb: 200,
+    aiMonthlyConcepts: 3500,
+    maxSearchQueries: 200,
     features: [
-      'Hasta 50 proyectos activos en el portal',
-      'Hasta 3500 líneas conceptos por proyecto',
-      'Copiado de conceptos con Matriz APU entre obras',
-      'Catálogo Base y Matrices APU esenciales',
-      'Explosión básica de Insumos Base',
-      'Calendario de Obra con Ruta Crítica, Financiero y Curva "S"',
-      'Impresión institucional básica de presupuesto',
-      'Vista de Día y Modo Nocturno incluidos',
-      'Hasta 20 usuarios incluidos bajo la misma cuenta',
-      'Espacio de 200 mb para importar catalogos maestro',
-      'Importador universal (Excel, CSV, JSON y Opus)',
-      'Módulo completo de Estimaciones de Obra',
-      'Asistente IA para precios unitarios e insumos, APU y Secuencia en Gantt',
-      'Genera matrices con IA de hasta 3500 conceptos por proyecto al mes'
+      'Hasta 50 proyectos activos en la nube con sincronización en tiempo real',
+      'Hasta 3,500 líneas/conceptos por proyecto (ideal para licitaciones y obra grande)',
+      'Hasta 30 usuarios incluidos bajo la misma suscripción con control granular de permisos por proyecto y rol',
+      'Almacenamiento en Nube de 5 GB de alta velocidad para toda la constructora',
+      'Espacio de 200 MB para importar grandes catálogos maestros (Opus, Neodata, BIMSA, Excel)',
+      'Catálogo Base, Matrices APU y Explosión de Insumos empresarial + copiado entre obras',
+      'Asistente IA completo para precios unitarios, insumos, optimización de Ruta Crítica y Gantt',
+      'Calendario Gantt avanzado con Ruta Crítica, Flujo Financiero y Curva "S"',
+      'Control de Compras, Nómina/Rayas y Dashboard Financiero Ejecutivo (comparativa y alertas de sobrecosto)',
+      'Bitácora de Obra Digital Legal: libro completo foliado en PDF, firmas digitales y archivo histórico',
+      'Módulo completo de Estimaciones e Impresión institucional en todas las pestañas (Marca blanca / Membrete propio)',
+      'Generación APU con Motor IA de alto volumen: hasta 3,500 conceptos al mes por cuenta',
+      'Cotizador Web en Vivo (Google Search): hasta 200 consultas de precios de mercado al mes'
     ]
   }
 ];
@@ -510,7 +531,7 @@ export function renderSubscriptionCards() {
             <span class="block text-[10px] font-bold uppercase tracking-wider ${night ? 'text-slate-400' : 'text-slate-500'}">
               Incluye:
             </span>
-            <ul class="space-y-2 text-xs">
+            <ul class="space-y-1.5 text-[11.5px] sm:text-xs">
               ${plan.features.map(feat => `
                 <li class="flex items-start gap-2 ${night ? 'text-slate-200' : 'text-slate-700'}">
                   <i class="fa-solid fa-check ${checkIconColor} mt-0.5 text-[11px] shrink-0"></i>
@@ -532,6 +553,68 @@ export function renderSubscriptionCards() {
       </div>
     `;
   }).join('');
+
+  renderSubscriptionComparisonTable(night);
+}
+
+export function renderSubscriptionComparisonTable(night = isNightMode()) {
+  if (typeof document === 'undefined') return;
+  const container = document.getElementById('subscription-comparison-container');
+  if (!container) return;
+
+  const isAnnual = activeBillingCycle === 'annual';
+  const rows = [
+    ['Proyectos Activos', '2 proyectos', '15 proyectos', '50 proyectos'],
+    ['Conceptos por Proyecto', '100', '1,500', '3,500'],
+    ['Usuarios Colaboradores', '3 usuarios (1 a 3)', '10 usuarios', '30 usuarios'],
+    ['Generación APU con IA (Motor + Flash)', '10 / mes', '1,500 / mes', '3,500 / mes'],
+    ['Precios Web en Vivo (Google Search)', '0 (o API propia)', '70 / mes', '200 / mes'],
+    ['Impresión en Todas las Pestañas', 'Con logo y nombre de la App', 'Marca propia / Sin marca de App', 'Marca blanca corporativa'],
+    ['Ruta Crítica, Curva S y Financiero', 'Básico', 'Completo', 'Completo'],
+    ['Bitácora Legal y Control de Compras', 'Básico', 'Completo', 'Completo'],
+    ['Almacenamiento en Nube', '200 MB', '2 GB', '5 GB'],
+    ['Catálogos Maestros Importados', '6 MB', '50 MB', '200 MB']
+  ];
+
+  const wrapCls = night ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-800';
+  const thCls = night ? 'bg-slate-800/90 text-slate-200 border-slate-700' : 'bg-slate-100 text-slate-700 border-slate-200';
+  const tdBorder = night ? 'border-slate-800' : 'border-slate-200';
+
+  container.innerHTML = `
+    <div id="subscription-comparison-table" class="rounded-2xl border overflow-hidden shadow-sm ${wrapCls}">
+      <div class="px-4 py-3 border-b ${tdBorder} flex items-center justify-between flex-wrap gap-2">
+        <h4 class="font-extrabold text-xs sm:text-sm flex items-center gap-2">
+          <i class="fa-solid fa-table-list text-blue-500"></i>
+          <span>Cuadro Comparativo de Planes y Cuotas</span>
+        </h4>
+        <span class="text-[10px] font-semibold ${night ? 'text-slate-400' : 'text-slate-500'}">
+          Gratuita (\$0) • Plus (${isAnnual ? '$280' : '$350'}/mes) • Pro (${isAnnual ? '$760' : '$950'}/mes)
+        </span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-[11px] sm:text-xs">
+          <thead>
+            <tr class="border-b ${thCls}">
+              <th class="py-2.5 px-3 font-bold">Característica</th>
+              <th class="py-2.5 px-3 font-bold text-center">Gratuita (\$0)</th>
+              <th class="py-2.5 px-3 font-bold text-center text-blue-500">Plus (${isAnnual ? '$280' : '$350'} / mes)</th>
+              <th class="py-2.5 px-3 font-bold text-center text-amber-500">Pro (${isAnnual ? '$760' : '$950'} / mes)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr class="border-b last:border-b-0 ${tdBorder}">
+                <td class="py-2 px-3 font-semibold">${r[0]}</td>
+                <td class="py-2 px-3 text-center">${r[1]}</td>
+                <td class="py-2 px-3 text-center font-medium">${r[2]}</td>
+                <td class="py-2 px-3 text-center font-medium">${r[3]}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
 }
 
 export function openSubscriptionModal() {

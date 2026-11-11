@@ -13,7 +13,9 @@ const TAB_LABELS = {
   cat: 'Catálogo Base',
   insumos: 'Insumos Base',
   calendario: 'Calendario de Obra',
-  estimaciones: 'Estimaciones'
+  estimaciones: 'Estimaciones',
+  compras: 'Compras y Pagos',
+  bitacora: 'Bitácora de Obra'
 };
 
 let lockRenderCallback = null;
@@ -35,13 +37,15 @@ export function loadProjectTabLocks(projectId = null) {
       return {
         cat: Boolean(parsed?.cat),
         insumos: Boolean(parsed?.insumos),
-        calendario: Boolean(parsed?.calendario)
+        calendario: Boolean(parsed?.calendario),
+        compras: Boolean(parsed?.compras),
+        bitacora: Boolean(parsed?.bitacora)
       };
     }
   } catch (err) {
     console.warn('Error al leer bloqueo de pestañas:', err);
   }
-  return { cat: false, insumos: false, calendario: false };
+  return { cat: false, insumos: false, calendario: false, compras: false, bitacora: false };
 }
 
 export function saveProjectTabLocks(locks, projectId = null) {
@@ -49,13 +53,15 @@ export function saveProjectTabLocks(locks, projectId = null) {
     const clean = {
       cat: Boolean(locks?.cat),
       insumos: Boolean(locks?.insumos),
-      calendario: Boolean(locks?.calendario)
+      calendario: Boolean(locks?.calendario),
+      compras: Boolean(locks?.compras),
+      bitacora: Boolean(locks?.bitacora)
     };
     localStorage.setItem(getTabLocksStorageKey(projectId), JSON.stringify(clean));
     return clean;
   } catch (err) {
     console.warn('Error al guardar bloqueo de pestañas:', err);
-    return { cat: false, insumos: false, calendario: false };
+    return { cat: false, insumos: false, calendario: false, compras: false, bitacora: false };
   }
 }
 
@@ -177,6 +183,10 @@ export function applyTabLocksToDOM() {
   const viewEstimaciones = document.getElementById('view-estimaciones');
   if (viewEstimaciones && typeof viewEstimaciones.setAttribute === 'function') {
     viewEstimaciones.setAttribute('data-tab-locked', estLocked ? 'true' : 'false');
+  }
+  const viewBitacora = document.getElementById('view-bitacora');
+  if (viewBitacora && typeof viewBitacora.setAttribute === 'function') {
+    viewBitacora.setAttribute('data-tab-locked', locks.bitacora ? 'true' : 'false');
   }
 
   // 3. Bloquear campos de encabezado de proyecto en Catálogo Base e Insumos Base cuando están bloqueados

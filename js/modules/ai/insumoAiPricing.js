@@ -4,6 +4,15 @@
 
 import { state } from '../../state/store.js';
 import { round2 } from '../../core/formatters.js';
+import { getSupabaseClient } from '../../core/supabaseClient.js';
+import {
+  getCachedSupplyPrice,
+  setCachedSupplyPrices,
+  checkStandardAiQuota,
+  checkWebSearchGroundingQuota,
+  recordAiQuotaConsumption,
+  applyServerQuotaSnapshot
+} from './aiQuotaAndCacheService.js';
 
 // Base de datos de referencia de precios de mercado de construcción en México (en Pesos Mexicanos MXN)
 const TABULADOR_MERCADO_MEXICO = [
@@ -158,20 +167,120 @@ export function estimarCostoInsumoLocal(tipo, descripcion, unidad, costoActual =
 }
 
 // Consultar Google Gemini para estimar precio unitario de un insumo
-export async function queryGeminiParaInsumo(insumo, apiKey) {
-  if (!apiKey) return null;
+// Por defecto (useWebSearch = false): usa Caché -> Gemini Flash SIN Google Search Grounding.
+// Si useWebSearch = true: ejecuta consulta explícita de Precios Web en Vivo validando cuota mensual (0/70/200).
+export async function queryGeminiParaInsumo(insumo, apiKey = '', options = {}) {
+  if (!insumo || !insumo.descripcion) return null;
+  const useWebSearch = Boolean(options?.useWebSearch === true);
+
+  // 1. Revisar caché de precios ($0 costo) cuando no se pide búsqueda web en vivo forzada
+  if (!useWebSearch) {
+    const cached = getCachedSupplyPrice(insumo.descripcion, insumo.unidad);
+    if (cached && cached.precioUnitario > 0) {
+      return {
+        precio: round2(cached.precioUnitario),
+        fuente: `${cached.fuente || 'Caché Cubikar'} (Caché)`,
+        justificacion: 'Precio reutilizado desde caché local sin gasto de IA.',
+        cachedHit: true
+      };
+    }
+  }
+
+  const quotaCheck = useWebSearch
+    ? checkWebSearchGroundingQuota(1, null, apiKey)
+    : checkStandardAiQuota(1, null, apiKey);
+
+  if (!quotaCheck.allowed) {
+    return {
+      blockedByQuota: true,
+      error: quotaCheck.reason,
+      precio: 0
+    };
+  }
+
+  const resolvedApiKey = String(apiKey || quotaCheck.ctx?.ownApiKey || state.settings?.apiKey || '').trim();
+
+  // Intentar vía endpoint unificado /api/gemini-apu (protege clave del servidor y valida cuotas)
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (resolvedApiKey) headers['X-Gemini-Key'] = resolvedApiKey;
+    try {
+      const sb = getSupabaseClient();
+      if (sb) {
+        const { data: sData } = await sb.auth.getSession();
+        if (sData?.session?.access_token) headers['Authorization'] = `Bearer ${sData.session.access_token}`;
+      }
+    } catch (_) {}
+
+    const proxyRes = await fetch('/api/gemini-apu', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        mode: 'insumo',
+        useWebSearch,
+        planId: quotaCheck.ctx?.planId || 'free',
+        projectId: quotaCheck.ctx?.projectId || '',
+        ownerEmail: quotaCheck.ctx?.ownerEmail || '',
+        userApiKey: resolvedApiKey,
+        insumo: {
+          tipo: insumo.tipo || 'Material',
+          clave: insumo.clave || '',
+          descripcion: insumo.descripcion || '',
+          unidad: insumo.unidad || 'pza',
+          costoActual: insumo.costoUnitario || 0
+        }
+      })
+    });
+
+    if (proxyRes.ok) {
+      const proxyData = await proxyRes.json();
+      if (proxyData?.quotaSnapshot) {
+        applyServerQuotaSnapshot(quotaCheck.ctx?.ownerEmail, proxyData.quotaSnapshot);
+      }
+      if (proxyData?.success && Number(proxyData.costoUnitario) > 0) {
+        const pRound = round2(proxyData.costoUnitario);
+        setCachedSupplyPrices([{
+          descripcion: insumo.descripcion,
+          unidad: insumo.unidad,
+          tipo: insumo.tipo,
+          precioUnitario: pRound
+        }], { usedWebSearch: Boolean(proxyData.usedWebSearch || useWebSearch), fuente: proxyData.fuente });
+
+        recordAiQuotaConsumption({
+          ownerEmail: quotaCheck.ctx?.ownerEmail,
+          usageMetadata: proxyData.usageMetadata,
+          standardConcepts: (proxyData.usedWebSearch || useWebSearch) ? 0 : 1,
+          searchGroundingCalls: (proxyData.usedWebSearch || useWebSearch) ? Math.max(1, Number(proxyData.groundingQueriesCount) || 1) : 0,
+          usedOwnApiKey: Boolean(proxyData.usedOwnApiKey || quotaCheck.usingOwnApiKey),
+          quotaSnapshot: proxyData.quotaSnapshot || null
+        });
+
+        return {
+          precio: pRound,
+          fuente: proxyData.fuente || (useWebSearch ? 'Google Search Grounding' : 'Gemini Flash Estándar'),
+          justificacion: proxyData.observaciones || 'Precio estimado en mercado mexicano'
+        };
+      }
+    } else if (proxyRes.status === 401 || proxyRes.status === 403 || proxyRes.status === 429) {
+      const errJson = await proxyRes.json().catch(() => ({}));
+      if (errJson?.quotaSnapshot) {
+        applyServerQuotaSnapshot(quotaCheck.ctx?.ownerEmail, errJson.quotaSnapshot);
+      }
+      return { blockedByQuota: true, error: errJson.error || 'Cuota de IA alcanzada.', precio: 0 };
+    }
+  } catch (_) {}
+
+  if (!resolvedApiKey) return null;
 
   const promptText = `Eres un ingeniero civil especialista en costos y presupuestos de construcción en México.
-Utiliza Google Search para investigar el precio unitario comercial promedio de mercado actual (año 2026 en México, en Pesos Mexicanos MXN antes de IVA) para el siguiente insumo de obra:
+${useWebSearch ? 'Utiliza Google Search para investigar el precio unitario comercial promedio de mercado actual en México (MXN sin IVA):' : 'Estima con base en tus conocimientos técnicos y tabuladores vigentes en México (MXN sin IVA) sin búsqueda web:'}
 - Categoría: "${insumo.tipo || 'Material'}"
 - Clave: "${insumo.clave || ''}"
 - Descripción: "${insumo.descripcion || ''}"
 - Unidad de medida: "${insumo.unidad || ''}"
 - Costo actual registrado: $${insumo.costoUnitario || 0} MXN
 
-Instrucciones:
-1. Cotiza el costo unitario puesto en obra en México (p. ej. Home Depot México, Cemex, Holcim, Comex, tabuladores CMIC / Neodata).
-2. Devuelve OBLIGATORIAMENTE un bloque de código JSON con esta estructura exacta:
+Devuelve OBLIGATORIAMENTE un bloque JSON:
 \`\`\`json
 {
   "precioUnitario": 123.45,
@@ -180,16 +289,16 @@ Instrucciones:
 }
 \`\`\``;
 
-  const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   for (const m of models) {
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`, {
+      const payload = { contents: [{ parts: [{ text: promptText }] }] };
+      if (useWebSearch) payload.tools = [{ googleSearch: {} }];
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${resolvedApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }],
-          tools: [{ googleSearch: {} }]
-        })
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
@@ -197,10 +306,26 @@ Instrucciones:
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         const parsed = extractJsonSafe(text);
         if (parsed && typeof parsed.precioUnitario === 'number' && parsed.precioUnitario > 0) {
+          const pRound = round2(parsed.precioUnitario);
+          setCachedSupplyPrices([{
+            descripcion: insumo.descripcion,
+            unidad: insumo.unidad,
+            tipo: insumo.tipo,
+            precioUnitario: pRound
+          }], { usedWebSearch, fuente: parsed.fuente || m });
+
+          recordAiQuotaConsumption({
+            ownerEmail: quotaCheck.ctx?.ownerEmail,
+            usageMetadata: data.usageMetadata,
+            standardConcepts: useWebSearch ? 0 : 1,
+            searchGroundingCalls: useWebSearch ? 1 : 0,
+            usedOwnApiKey: true
+          });
+
           return {
-            precio: round2(parsed.precioUnitario),
-            fuente: parsed.fuente || `Google Search Grounding (${m})`,
-            justificacion: parsed.justificacion || 'Precio comercial investigado con IA'
+            precio: pRound,
+            fuente: parsed.fuente || (useWebSearch ? `Google Search Grounding (${m})` : `Gemini Flash (${m})`),
+            justificacion: parsed.justificacion || 'Precio comercial estimado con IA'
           };
         }
       }
@@ -213,64 +338,207 @@ Instrucciones:
 }
 
 // Consultar Google Gemini por lote (Batch) para múltiples insumos seleccionados
-export async function queryGeminiLoteInsumos(insumosList, apiKey) {
-  if (!apiKey || !insumosList || insumosList.length === 0) return null;
+export async function queryGeminiLoteInsumos(insumosList, apiKey = '', options = {}) {
+  if (!insumosList || insumosList.length === 0) return null;
+  const useWebSearch = Boolean(options?.useWebSearch === true);
 
-  const promptText = `Eres un ingeniero civil especialista en costos de construcción en México.
-Utiliza Google Search para investigar el precio unitario comercial de mercado actual (año 2026 en México, en Pesos Mexicanos MXN antes de IVA) para los siguientes insumos de construcción:
+  const resultMap = {};
+  const pendingList = [];
 
-${insumosList.map((item, idx) => `[${idx + 1}] ID: "${item.key}", Categoría: "${item.tipo}", Descripción: "${item.descripcion}", Unidad: "${item.unidad}", Costo actual: $${item.costoUnitario || 0}`).join('\n')}
+  // 1. Cuando NO es búsqueda web en vivo forzada, resolver primero con Caché de precios ($0)
+  for (const item of insumosList) {
+    if (!useWebSearch) {
+      const cached = getCachedSupplyPrice(item.descripcion, item.unidad);
+      if (cached && cached.precioUnitario > 0) {
+        resultMap[item.key] = {
+          precio: round2(cached.precioUnitario),
+          fuente: `${cached.fuente || 'Caché'} (Caché)`
+        };
+        continue;
+      }
+    }
+    pendingList.push(item);
+  }
+
+  if (pendingList.length === 0) {
+    return resultMap;
+  }
+
+  const chunkSize = useWebSearch ? 10 : 35;
+  for (let start = 0; start < pendingList.length; start += chunkSize) {
+    const chunk = pendingList.slice(start, start + chunkSize);
+
+    const quotaCheck = useWebSearch
+      ? checkWebSearchGroundingQuota(1, null, apiKey)
+      : checkStandardAiQuota(1, null, apiKey);
+
+    if (!quotaCheck.allowed) {
+      return {
+        ...resultMap,
+        __quotaError: quotaCheck.reason
+      };
+    }
+
+    const resolvedApiKey = String(apiKey || quotaCheck.ctx?.ownApiKey || state.settings?.apiKey || '').trim();
+    let chunkHandled = false;
+
+    // Intentar primero vía backend /api/gemini-apu
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (resolvedApiKey) headers['X-Gemini-Key'] = resolvedApiKey;
+      try {
+        const sb = getSupabaseClient();
+        if (sb) {
+          const { data: sData } = await sb.auth.getSession();
+          if (sData?.session?.access_token) headers['Authorization'] = `Bearer ${sData.session.access_token}`;
+        }
+      } catch (_) {}
+
+      const proxyRes = await fetch('/api/gemini-apu', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          mode: 'insumos_batch',
+          useWebSearch,
+          planId: quotaCheck.ctx?.planId || 'free',
+          projectId: quotaCheck.ctx?.projectId || '',
+          ownerEmail: quotaCheck.ctx?.ownerEmail || '',
+          userApiKey: resolvedApiKey,
+          insumos: chunk.map(it => ({
+            key: it.key,
+            tipo: it.tipo,
+            descripcion: it.descripcion,
+            unidad: it.unidad,
+            costoUnitario: it.costoUnitario || 0
+          }))
+        })
+      });
+
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json();
+        if (proxyData?.quotaSnapshot) {
+          applyServerQuotaSnapshot(quotaCheck.ctx?.ownerEmail, proxyData.quotaSnapshot);
+        }
+        if (proxyData?.success && Array.isArray(proxyData.items)) {
+          const toCache = [];
+          proxyData.items.forEach((resItem, idx) => {
+            const orig = chunk[Number(resItem.indice || idx + 1) - 1] || chunk[idx];
+            const p = round2(parseFloat(resItem.costoUnitario) || 0);
+            if (orig && p > 0) {
+              resultMap[orig.key] = {
+                precio: p,
+                fuente: resItem.fuente || (useWebSearch ? 'Google Search Grounding' : 'Gemini Flash Estándar')
+              };
+              toCache.push({
+                descripcion: orig.descripcion,
+                unidad: orig.unidad,
+                tipo: orig.tipo,
+                precioUnitario: p
+              });
+            }
+          });
+          setCachedSupplyPrices(toCache, { usedWebSearch: Boolean(proxyData.usedWebSearch || useWebSearch) });
+          recordAiQuotaConsumption({
+            ownerEmail: quotaCheck.ctx?.ownerEmail,
+            usageMetadata: proxyData.usageMetadata,
+            standardConcepts: (proxyData.usedWebSearch || useWebSearch) ? 0 : 1,
+            searchGroundingCalls: (proxyData.usedWebSearch || useWebSearch) ? Math.max(1, Number(proxyData.groundingQueriesCount) || 1) : 0,
+            usedOwnApiKey: Boolean(proxyData.usedOwnApiKey || quotaCheck.usingOwnApiKey),
+            quotaSnapshot: proxyData.quotaSnapshot || null
+          });
+          chunkHandled = true;
+        }
+      } else if (proxyRes.status === 401 || proxyRes.status === 403 || proxyRes.status === 429) {
+        const errJson = await proxyRes.json().catch(() => ({}));
+        if (errJson?.quotaSnapshot) {
+          applyServerQuotaSnapshot(quotaCheck.ctx?.ownerEmail, errJson.quotaSnapshot);
+        }
+        return { ...resultMap, __quotaError: errJson.error || 'Cuota mensual de IA agotada.' };
+      }
+    } catch (_) {}
+
+    if (chunkHandled) continue;
+    if (!resolvedApiKey) continue;
+
+    const promptText = `Eres un ingeniero civil especialista en costos de construcción en México.
+${useWebSearch ? 'Utiliza Google Search para investigar el precio unitario comercial de mercado actual en México (MXN antes de IVA):' : 'Estima con base en tus conocimientos técnicos el precio unitario promedio actual en México (MXN antes de IVA) sin búsqueda web:'}
+
+${chunk.map((item, idx) => `[${idx + 1}] ID: "${item.key}", Categoría: "${item.tipo}", Descripción: "${item.descripcion}", Unidad: "${item.unidad}", Costo actual: $${item.costoUnitario || 0}`).join('\n')}
 
 Devuelve OBLIGATORIAMENTE un arreglo JSON con el precio comercial para cada insumo con esta estructura exacta:
 \`\`\`json
 [
-  ${insumosList.map(item => `{"id": "${item.key}", "precioUnitario": 0.00, "fuente": "Proveedor en México"}`).join(',\n  ')}
+  ${chunk.map(item => `{"id": "${item.key}", "precioUnitario": 0.00, "fuente": "Proveedor en México"}`).join(',\n  ')}
 ]
 \`\`\``;
 
-  const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
-  for (const m of models) {
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }],
-          tools: [{ googleSearch: {} }]
-        })
-      });
+    const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    for (const m of models) {
+      try {
+        const payload = { contents: [{ parts: [{ text: promptText }] }] };
+        if (useWebSearch) payload.tools = [{ googleSearch: {} }];
 
-      if (response.ok) {
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const parsed = extractJsonSafe(text);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const resultMap = {};
-          parsed.forEach(res => {
-            if (res && res.id && typeof res.precioUnitario === 'number' && res.precioUnitario > 0) {
-              resultMap[res.id] = {
-                precio: round2(res.precioUnitario),
-                fuente: res.fuente || `Google Search Grounding (${m})`
-              };
-            }
-          });
-          return resultMap;
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${resolvedApiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const parsed = extractJsonSafe(text);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const toCache = [];
+            parsed.forEach(res => {
+              if (res && res.id && typeof res.precioUnitario === 'number' && res.precioUnitario > 0) {
+                const pRound = round2(res.precioUnitario);
+                resultMap[res.id] = {
+                  precio: pRound,
+                  fuente: res.fuente || (useWebSearch ? `Google Search Grounding (${m})` : `Gemini Flash (${m})`)
+                };
+                const orig = chunk.find(x => x.key === res.id);
+                if (orig) toCache.push({ descripcion: orig.descripcion, unidad: orig.unidad, tipo: orig.tipo, precioUnitario: pRound });
+              }
+            });
+            setCachedSupplyPrices(toCache, { usedWebSearch });
+            recordAiQuotaConsumption({
+              ownerEmail: quotaCheck.ctx?.ownerEmail,
+              usageMetadata: data.usageMetadata,
+              standardConcepts: useWebSearch ? 0 : 1,
+              searchGroundingCalls: useWebSearch ? 1 : 0,
+              usedOwnApiKey: true
+            });
+            chunkHandled = true;
+            break;
+          }
         }
+      } catch (e) {
+        console.warn(`Error en consulta Gemini batch con modelo ${m}:`, e);
       }
-    } catch (e) {
-      console.warn(`Error en consulta Gemini batch con modelo ${m}:`, e);
     }
   }
 
-  return null;
+  return Object.keys(resultMap).length > 0 ? resultMap : null;
 }
 
-// Estimar costo de un insumo (Inteligente con IA Gemini o Fallback de Mercado)
-export async function estimarCostoInsumoConIA(insumo) {
+// Estimar costo de un insumo (Cascada: Caché / Tabulador Local -> Gemini Estándar; o Search Grounding si useWebSearch = true)
+export async function estimarCostoInsumoConIA(insumo, options = {}) {
+  const useWebSearch = Boolean(options?.useWebSearch === true);
   const apiKey = state.settings?.apiKey || '';
-  if (apiKey) {
-    const aiResult = await queryGeminiParaInsumo(insumo, apiKey);
-    if (aiResult) return aiResult;
+
+  const aiResult = await queryGeminiParaInsumo(insumo, apiKey, { useWebSearch });
+  if (aiResult && aiResult.blockedByQuota) {
+    return aiResult;
+  }
+  if (aiResult && aiResult.precio > 0) return aiResult;
+
+  if (useWebSearch) {
+    return {
+      blockedByQuota: false,
+      error: 'No se pudo obtener cotización en vivo para este insumo.',
+      precio: 0
+    };
   }
   return estimarCostoInsumoLocal(insumo.tipo, insumo.descripcion, insumo.unidad, insumo.costoUnitario);
 }

@@ -9,6 +9,7 @@ import {
   STORAGE_KEY_ACTIVE_WORKSPACE,
   getStorageKey,
   getSettingsKey,
+  getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
 } from '../../config/constants.js';
@@ -1175,6 +1176,14 @@ export function addProjectMember(projectId, memberData) {
 
   // Verificar si ya existe por email
   const existingIdx = proj.members.findIndex(m => m.email && m.email.toLowerCase() === memberData.email.toLowerCase());
+  if (existingIdx < 0) {
+    const ownerEmail = (proj.ownerEmail || getCurrentUser()?.email || '').toLowerCase().trim();
+    const quotaCheck = canAddUserToOwnerAccount(ownerEmail, memberData.email, projectId);
+    if (!quotaCheck.allowed) {
+      console.warn('[Suscripción] addProjectMember bloqueado por límite de plan:', quotaCheck.reason);
+      return null;
+    }
+  }
   const newMember = {
     id: memberData.id || ('mem-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5)),
     name: memberData.name.trim(),
@@ -1421,8 +1430,15 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
   const proj = list.find(p => p.id === projectId);
   if (!proj) return null;
 
-  const invs = getStoredInvitations();
+  const ownerEmail = (proj.ownerEmail || (invitedBy && invitedBy.email) || '').toLowerCase().trim();
   const emailClean = email.trim().toLowerCase();
+  const seatCheck = canAddUserToOwnerAccount(ownerEmail, emailClean, projectId);
+  if (!seatCheck.allowed) {
+    console.warn('[Suscripción] Invitación bloqueada por límite de usuarios:', seatCheck.reason);
+    return null;
+  }
+
+  const invs = getStoredInvitations();
 
   // Eliminar invitaciones previas pendientes hacia este mismo email y proyecto
   const filteredInvs = invs.filter(i => !(i.projectId === projectId && (i.email || '').toLowerCase() === emailClean));
@@ -1562,6 +1578,20 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
 
   if (!targetInv && !targetPlanInv) {
     return { ok: false, error: 'Invitación no encontrada' };
+  }
+
+  // Revalidar límite de usuarios de la cuenta anfitriona antes de aceptar
+  const hostOwnerForQuota = targetInv?.ownerEmail || targetPlanInv?.ownerEmail || (targetProjectId ? getProjectById(targetProjectId)?.ownerEmail : '') || '';
+  const targetProjIdForQuota = targetInv?.projectId || targetProjectId || null;
+  if (hostOwnerForQuota && userEmail) {
+    const quotaCheck = canAddUserToOwnerAccount(hostOwnerForQuota, userEmail, targetProjIdForQuota);
+    if (!quotaCheck.allowed) {
+      return {
+        ok: false,
+        limitReached: true,
+        error: quotaCheck.reason || 'El anfitrión alcanzó el límite de usuarios permitidos en su plan.'
+      };
+    }
   }
 
   // Aceptar Invitación Formal de Proyecto
@@ -1825,8 +1855,13 @@ export const PLAN_LIMITS = {
     name: 'Gratuita',
     maxProjects: 2,
     maxConcepts: 100,
-    maxMembers: 5,
-    storageMb: 6,
+    maxMembers: 3,
+    storageMb: 200,
+    catalogStorageMb: 6,
+    projectStorageMb: 194,
+    maxFileMb: 5,
+    aiMonthlyConcepts: 10,
+    maxSearchQueries: 0,
     canInvite: true
   },
   plus: {
@@ -1834,15 +1869,25 @@ export const PLAN_LIMITS = {
     maxProjects: 15,
     maxConcepts: 1500,
     maxMembers: 10,
-    storageMb: 50,
+    storageMb: 2048,
+    catalogStorageMb: 50,
+    projectStorageMb: 1998,
+    maxFileMb: 15,
+    aiMonthlyConcepts: 1500,
+    maxSearchQueries: 70,
     canInvite: true
   },
   pro: {
     name: 'Pro',
     maxProjects: 50,
     maxConcepts: 3500,
-    maxMembers: 20,
-    storageMb: 200,
+    maxMembers: 30,
+    storageMb: 5120,
+    catalogStorageMb: 200,
+    projectStorageMb: 4920,
+    maxFileMb: 25,
+    aiMonthlyConcepts: 3500,
+    maxSearchQueries: 200,
     canInvite: true
   }
 };
@@ -1987,8 +2032,8 @@ export function canUserCreateProject(user = null, targetScope = null) {
       if (myInv.role === 'editar') userHasEditorRole = true;
     }
 
-    // Administrador General siempre tiene permisos de edición
-    if (u.role === 'Admin General' || u.email === 'admin.general@constructora.com') {
+    // Solo el rol explícito 'editar' otorgado por el anfitrión (o ser el propio dueño) permite crear obras en este espacio
+    if (uEmail === hostEmail) {
       userHasEditorRole = true;
     }
 
@@ -2006,7 +2051,7 @@ export function canUserCreateProject(user = null, targetScope = null) {
     const hostLimits = getPlanLimits(hostPlanId);
     const hostProjectsCount = hostProjects.length;
 
-    if (hostProjectsCount >= hostLimits.maxProjects && u.role !== 'Admin General') {
+    if (hostProjectsCount >= hostLimits.maxProjects) {
       return {
         allowed: false,
         reason: `El anfitrión (${hostName}) ha alcanzado el límite de ${hostLimits.maxProjects} proyectos activos para su Plan ${hostLimits.name}.`,
@@ -2030,10 +2075,7 @@ export function canUserCreateProject(user = null, targetScope = null) {
     };
   }
 
-  // Modo Proyectos Propios: Administrador General siempre puede sin límite
-  if (u.role === 'Admin General' || u.email === 'admin.general@constructora.com') {
-    return { allowed: true, planId: 'pro', maxProjects: Infinity, currentProjects: 0, isHostContext: false };
-  }
+  // Modo Proyectos Propios: validar estrictamente contra la suscripción activa del usuario
 
   // Obtener plan del usuario, priorizando la membresía activa en memoria/modal
   let planId = getUserPlanId(u);
@@ -2187,13 +2229,9 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
 }
 
 // Validar si el usuario puede invitar a colaboradores a un proyecto específico
-export function canUserInviteToProject(projectId, user = null) {
+export function canUserInviteToProject(projectId, user = null, targetEmail = '') {
   const u = user || getCurrentUser();
   if (!u || !u.email) return { allowed: false, reason: 'Debes iniciar sesión.' };
-
-  if (u.role === 'Admin General' || u.email === 'admin.general@constructora.com') {
-    return { allowed: true, maxMembers: Infinity, currentMembers: 0 };
-  }
 
   const proj = getProjectById(projectId);
   if (!proj) return { allowed: false, reason: 'Proyecto no encontrado.' };
@@ -2217,15 +2255,21 @@ export function canUserInviteToProject(projectId, user = null) {
     };
   }
 
-  // Verificar el límite de colaboradores según el plan de la obra (heredado del creador)
   const effectivePlanId = getProjectEffectivePlan(projectId);
   const limits = getPlanLimits(effectivePlanId);
   const members = Array.isArray(proj.members) ? proj.members : [];
   const currentMembersCount = members.length;
+  const ownerEmail = (proj.ownerEmail || uEmail).toLowerCase().trim();
+  const normalizedTarget = (targetEmail || '').toLowerCase().trim();
+
+  if (normalizedTarget) {
+    return canAddUserToOwnerAccount(ownerEmail, normalizedTarget, projectId);
+  }
 
   if (currentMembersCount >= limits.maxMembers) {
     return {
       allowed: false,
+      limitReached: true,
       reason: `Este proyecto ha alcanzado el límite de ${limits.maxMembers} colaboradores permitidos en el Plan ${limits.name}. Para invitar a más colaboradores, actualiza la suscripción de la obra.`,
       planId: effectivePlanId,
       maxMembers: limits.maxMembers,
@@ -2233,11 +2277,27 @@ export function canUserInviteToProject(projectId, user = null) {
     };
   }
 
+  const accountStats = countAccountUsersForOwner(ownerEmail);
+  const projEmails = new Set(members.map(m => (m?.email || '').toLowerCase().trim()).filter(Boolean));
+  const hasUnassignedAccountCollab = [...accountStats.collaboratorsSet].some(em => !projEmails.has(em));
+
+  if (accountStats.totalUsers >= limits.maxMembers && !hasUnassignedAccountCollab) {
+    return {
+      allowed: false,
+      limitReached: true,
+      reason: `Has alcanzado el límite de ${limits.maxMembers} usuarios permitidos en tu cuenta (${limits.name}). Actualiza tu suscripción para invitar a más colaboradores.`,
+      planId: effectivePlanId,
+      maxMembers: limits.maxMembers,
+      currentMembers: accountStats.totalUsers
+    };
+  }
+
   return {
     allowed: true,
     planId: effectivePlanId,
     maxMembers: limits.maxMembers,
-    currentMembers: currentMembersCount
+    currentMembers: currentMembersCount,
+    accountUsers: accountStats.totalUsers
   };
 }
 
@@ -2331,34 +2391,37 @@ export function getPlanCollaboratorsForOwner(ownerEmail) {
   return Array.from(map.values());
 }
 
-export function canUserInviteToPlan(user = null) {
+export function canUserInviteToPlan(user = null, targetEmail = '') {
   const u = user || getCurrentUser();
   if (!u || !u.email) return { allowed: false, reason: 'Debes iniciar sesión para invitar usuarios a tu plan.' };
 
-  if (u.role === 'Admin General' || u.email === 'admin.general@constructora.com') {
+  const planId = getUserPlanId(u);
+  const limits = getPlanLimits(planId);
+  const normalizedTarget = (targetEmail || '').toLowerCase().trim();
+
+  if (normalizedTarget) {
+    const check = canAddUserToOwnerAccount(u.email, normalizedTarget, null);
     return {
-      allowed: true,
-      planId: 'pro',
-      planName: 'Pro',
-      maxMembers: Infinity,
-      currentMembers: 0,
-      remaining: Infinity
+      ...check,
+      planName: limits.name,
+      currentMembers: check.currentUsers,
+      maxMembers: limits.maxMembers
     };
   }
 
-  const planId = getUserPlanId(u);
-  const limits = getPlanLimits(planId);
-  const currentCollaborators = getPlanCollaboratorsForOwner(u.email);
-  const currentCount = currentCollaborators.length;
+  const accountStats = countAccountUsersForOwner(u.email);
+  const currentCount = accountStats.totalUsers;
 
   if (currentCount >= limits.maxMembers) {
     return {
       allowed: false,
-      reason: `Has alcanzado el límite de ${limits.maxMembers} usuarios permitidos en tu suscripción ${limits.name}. Actualiza tu plan para invitar más miembros.`,
+      limitReached: true,
+      reason: `Has alcanzado el límite de ${limits.maxMembers} usuarios permitidos en tu cuenta (${limits.name}: 1 titular + ${Math.max(0, limits.maxMembers - 1)} colaboradores). Actualiza tu plan para invitar más miembros.`,
       planId,
       planName: limits.name,
       maxMembers: limits.maxMembers,
       currentMembers: currentCount,
+      collaboratorsCount: accountStats.collaboratorsCount,
       remaining: 0
     };
   }
@@ -2369,7 +2432,8 @@ export function canUserInviteToPlan(user = null) {
     planName: limits.name,
     maxMembers: limits.maxMembers,
     currentMembers: currentCount,
-    remaining: limits.maxMembers - currentCount
+    collaboratorsCount: accountStats.collaboratorsCount,
+    remaining: Math.max(0, limits.maxMembers - currentCount)
   };
 }
 
@@ -2381,7 +2445,7 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
     return { ok: false, error: 'Usuario no autenticado.' };
   }
 
-  const check = canUserInviteToPlan(currentUser);
+  const check = canUserInviteToPlan(currentUser, email);
   if (!check.allowed) {
     return { ok: false, error: check.reason, limitReached: true };
   }
@@ -2584,7 +2648,7 @@ function calculateNodeTotal(node) {
   return node.children.reduce((acc, c) => acc + calculateNodeTotal(c), 0);
 }
 
-function countTreeConcepts(nodes) {
+export function countTreeConcepts(nodes) {
   if (!Array.isArray(nodes)) return 0;
   let count = 0;
   function traverse(list) {
@@ -2650,5 +2714,244 @@ export function getActiveWorkspaceData() {
   return {
     ownerEmail: (u?.email || '').toLowerCase().trim(),
     ownerName: u?.name || u?.email || ''
+  };
+}
+
+// ==========================================
+// RESOLUCIÓN UNIFICADA DE PLAN, USUARIOS Y CONCEPTOS POR SUSCRIPCIÓN
+// ==========================================
+const DEFAULT_SAMPLE_DEMO_EMAILS = new Set([
+  'mariana.torres.costos@gmail.com',
+  'roberto.mendez.obras@gmail.com'
+]);
+
+export function resolveWorkspacePlanContext(projectIdOverride = null) {
+  const currentUser = getCurrentUser();
+  const currentEmail = (currentUser?.email || '').toLowerCase().trim();
+  const projectId = projectIdOverride || (typeof getActiveProjectId === 'function' ? getActiveProjectId() : null);
+  const proj = projectId ? getProjectById(projectId) : null;
+  const activeWs = getActiveWorkspaceData();
+
+  let ownerEmail = currentEmail;
+  if (proj && proj.ownerEmail) {
+    ownerEmail = proj.ownerEmail.toLowerCase().trim();
+  } else if (activeWs && activeWs.ownerEmail) {
+    ownerEmail = activeWs.ownerEmail.toLowerCase().trim();
+  }
+
+  let planId = 'free';
+  if (proj) {
+    planId = getProjectEffectivePlan(proj.id) || 'free';
+  } else if (ownerEmail) {
+    planId = getUserPlanId(ownerEmail) || 'free';
+    if (ownerEmail === currentEmail && typeof window !== 'undefined' && typeof window.getCurrentSubscription === 'function') {
+      try {
+        const activeSub = window.getCurrentSubscription();
+        if (activeSub?.planId) planId = activeSub.planId;
+      } catch (_) {}
+    }
+  }
+
+  return {
+    projectId: proj?.id || projectId || null,
+    project: proj || null,
+    ownerEmail,
+    planId,
+    limits: getPlanLimits(planId),
+    currentUserEmail: currentEmail
+  };
+}
+
+/**
+ * Calcula todos los usuarios reales únicos asociados a la cuenta de un propietario:
+ * 1 propietario + colaboradores reales únicos (invitaciones de plan, invitaciones a obra aceptadas/pendientes y miembros no-muestra).
+ */
+export function countAccountUsersForOwner(ownerEmail) {
+  const oEmail = (ownerEmail || getCurrentUser()?.email || '').toLowerCase().trim();
+  const usersSet = new Set();
+  const collaboratorsSet = new Set();
+  if (oEmail) usersSet.add(oEmail);
+
+  // Colaboradores de plan globales
+  try {
+    const planCollabs = typeof getPlanCollaboratorsForOwner === 'function' ? getPlanCollaboratorsForOwner(oEmail) : [];
+    (Array.isArray(planCollabs) ? planCollabs : []).forEach(c => {
+      const em = (c?.email || '').toLowerCase().trim();
+      if (em && em !== oEmail) {
+        usersSet.add(em);
+        collaboratorsSet.add(em);
+      }
+    });
+  } catch (_) {}
+
+  // Invitaciones a plan pendientes o aceptadas
+  try {
+    const planInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
+    (Array.isArray(planInvs) ? planInvs : []).forEach(inv => {
+      if ((inv?.ownerEmail || '').toLowerCase().trim() !== oEmail) return;
+      if (inv?.status === 'rejected') return;
+      const em = (inv?.email || '').toLowerCase().trim();
+      if (em && em !== oEmail) {
+        usersSet.add(em);
+        collaboratorsSet.add(em);
+      }
+    });
+  } catch (_) {}
+
+  // Invitaciones por proyecto aceptadas o pendientes
+  const explicitlyInvitedEmails = new Set(collaboratorsSet);
+  try {
+    const projInvs = typeof getStoredInvitations === 'function' ? getStoredInvitations() : [];
+    (Array.isArray(projInvs) ? projInvs : []).forEach(inv => {
+      if ((inv?.ownerEmail || '').toLowerCase().trim() !== oEmail) return;
+      if (inv?.status === 'rejected') return;
+      const em = (inv?.email || '').toLowerCase().trim();
+      if (em && em !== oEmail) {
+        usersSet.add(em);
+        collaboratorsSet.add(em);
+        explicitlyInvitedEmails.add(em);
+      }
+    });
+  } catch (_) {}
+
+  // Miembros activos en proyectos propios (excluyendo presets de muestra no invitados explícitamente)
+  try {
+    const allProjects = getProjectsList();
+    allProjects
+      .filter(p => (p?.ownerEmail || '').toLowerCase().trim() === oEmail)
+      .forEach(p => {
+        (Array.isArray(p.members) ? p.members : []).forEach(m => {
+          const em = (m?.email || '').toLowerCase().trim();
+          if (!em || em === oEmail || m?.status === 'pending') return;
+          if (DEFAULT_SAMPLE_DEMO_EMAILS.has(em) && !explicitlyInvitedEmails.has(em)) return;
+          usersSet.add(em);
+          collaboratorsSet.add(em);
+        });
+      });
+  } catch (_) {}
+
+  return {
+    ownerEmail: oEmail,
+    totalUsers: Math.max(1, usersSet.size),
+    collaboratorsCount: collaboratorsSet.size,
+    usersSet,
+    collaboratorsSet
+  };
+}
+
+/**
+ * Valida si se puede agregar o invitar un usuario (targetEmail) bajo el plan del propietario de la cuenta.
+ */
+export function canAddUserToOwnerAccount(ownerEmail, targetEmail = '', targetProjectId = null) {
+  const oEmail = (ownerEmail || '').toLowerCase().trim();
+  const tEmail = (targetEmail || '').toLowerCase().trim();
+  const planId = getUserPlanId(oEmail) || 'free';
+  const limits = getPlanLimits(planId);
+  const accountStats = countAccountUsersForOwner(oEmail);
+
+  // Si ya pertenece al conjunto de usuarios reales de la cuenta, no consume un asiento nuevo de cuenta
+  if (tEmail && accountStats.usersSet.has(tEmail)) {
+    if (accountStats.totalUsers > limits.maxMembers) {
+      return {
+        allowed: false,
+        limitReached: true,
+        planId,
+        maxMembers: limits.maxMembers,
+        currentUsers: accountStats.totalUsers,
+        reason: `La cuenta ya excede el límite de ${limits.maxMembers} usuarios del Plan ${limits.name}. Actualiza tu plan o remueve colaboradores.`
+      };
+    }
+    return {
+      allowed: true,
+      alreadyAccountMember: true,
+      planId,
+      maxMembers: limits.maxMembers,
+      currentUsers: accountStats.totalUsers,
+      remaining: Math.max(0, limits.maxMembers - accountStats.totalUsers)
+    };
+  }
+
+  // Verificar límite global por cuenta (1 a 3 / 10 / 30 usuarios totales incluyendo propietario)
+  if (accountStats.totalUsers >= limits.maxMembers) {
+    return {
+      allowed: false,
+      limitReached: true,
+      planId,
+      maxMembers: limits.maxMembers,
+      currentUsers: accountStats.totalUsers,
+      reason: `Has alcanzado el límite de ${limits.maxMembers} usuarios en tu cuenta (Plan ${limits.name}). Actualiza a un plan superior para agregar más colaboradores.`
+    };
+  }
+
+  // Si se proporcionó un proyecto específico, validar que el proyecto tampoco rebase los miembros visibles de su plan
+  if (targetProjectId) {
+    const proj = getProjectById(targetProjectId);
+    if (proj && Array.isArray(proj.members)) {
+      const existingInProj = proj.members.some(m => (m?.email || '').toLowerCase().trim() === tEmail);
+      if (!existingInProj && proj.members.length >= limits.maxMembers) {
+        return {
+          allowed: false,
+          limitReached: true,
+          planId,
+          maxMembers: limits.maxMembers,
+          currentUsers: proj.members.length,
+          reason: `Este proyecto ya tiene ${proj.members.length} de ${limits.maxMembers} miembros permitidos en Plan ${limits.name}. Remueve un colaborador existente o actualiza tu plan.`
+        };
+      }
+    }
+  }
+
+  return {
+    allowed: true,
+    planId,
+    maxMembers: limits.maxMembers,
+    currentUsers: accountStats.totalUsers,
+    remaining: Math.max(0, limits.maxMembers - accountStats.totalUsers)
+  };
+}
+
+/**
+ * Valida límite de conceptos por proyecto (100 Gratuita, 1500 Plus, 3500 Pro) según el plan efectivo del dueño del proyecto.
+ */
+export function validateConceptAdditionLimit(projectId = null, additionalConcepts = 1, options = {}) {
+  const ctx = resolveWorkspacePlanContext(projectId);
+  const maxConcepts = ctx.limits?.maxConcepts || 100;
+  const replaceExisting = Boolean(options?.replaceExisting);
+
+  let currentConcepts = 0;
+  if (Array.isArray(options?.liveTreeData)) {
+    currentConcepts = countTreeConcepts(options.liveTreeData);
+  } else if (typeof localStorage !== 'undefined') {
+    try {
+      const storageKey = ctx.projectId ? getStorageKey(ctx.projectId) : getStorageKey();
+      const rawTree = localStorage.getItem(storageKey);
+      if (rawTree) currentConcepts = countTreeConcepts(JSON.parse(rawTree));
+    } catch (_) {}
+  }
+
+  const addNum = Math.max(0, Number(additionalConcepts) || 0);
+  const projectedTotal = replaceExisting ? addNum : currentConcepts + addNum;
+
+  if (projectedTotal > maxConcepts) {
+    return {
+      allowed: false,
+      limitReached: true,
+      planId: ctx.planId,
+      planName: ctx.limits?.name || ctx.planId,
+      currentConcepts,
+      projectedTotal,
+      maxConcepts,
+      reason: `Has alcanzado el límite de ${maxConcepts.toLocaleString('es-MX')} conceptos por proyecto para el Plan ${ctx.limits?.name || ctx.planId} (actuales: ${currentConcepts.toLocaleString('es-MX')}, proyectados: ${projectedTotal.toLocaleString('es-MX')}). Actualiza tu suscripción para continuar agregando conceptos.`
+    };
+  }
+
+  return {
+    allowed: true,
+    planId: ctx.planId,
+    planName: ctx.limits?.name || ctx.planId,
+    currentConcepts,
+    projectedTotal,
+    maxConcepts,
+    remaining: Math.max(0, maxConcepts - currentConcepts)
   };
 }

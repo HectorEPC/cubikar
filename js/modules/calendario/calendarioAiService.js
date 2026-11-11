@@ -5,6 +5,7 @@
 
 import { state, persistSettings } from '../../state/store.js';
 import { getActiveProjectId } from '../../config/constants.js';
+import { getSupabaseClient } from '../../core/supabaseClient.js';
 import { getProjectById } from '../portal/projectService.js';
 import { extractJsonFromAiResponse } from '../ai/geminiClient.js';
 import {
@@ -623,12 +624,14 @@ export function generateLocalConstructiveProposal(options = {}) {
 // Genera una propuesta avanzada consultando Gemini IA en tiempo real (con respaldo seguro al motor experto)
 export async function generateGeminiConstructiveProposal(options = {}) {
   const apiKey = String(options.apiKey || state.settings?.apiKey || '').trim();
-  if (!apiKey) {
-    throw new Error('Ingresa tu API Key de Google Gemini o utiliza la Propuesta Instantánea integrada.');
+  const { checkStandardAiQuota, recordAiQuotaConsumption, applyServerQuotaSnapshot } = await import('../ai/aiQuotaAndCacheService.js');
+  const quotaCheck = checkStandardAiQuota(1, null, apiKey);
+  if (!quotaCheck.allowed) {
+    throw new Error(quotaCheck.reason || 'Cuota mensual de IA estándar agotada para tu plan.');
   }
 
   // Guardar API Key en ajustes si el usuario la capturó en el modal
-  if (state.settings && state.settings.apiKey !== apiKey) {
+  if (apiKey && state.settings && state.settings.apiKey !== apiKey) {
     state.settings.apiKey = apiKey;
     persistSettings();
   }
@@ -678,8 +681,61 @@ Reglas obligatorias:
 }
 \`\`\``;
 
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  // Intentar primero vía endpoint proxy /api/gemini-apu si no hay key propia o para respaldo unificado
   let lastError = 'No fue posible conectar con Gemini.';
+  let usedModelName = 'gemini-2.5-flash';
+  try {
+    const calHeaders = { 'Content-Type': 'application/json', ...(apiKey ? { 'X-Gemini-Key': apiKey } : {}) };
+    try {
+      const sb = getSupabaseClient();
+      if (sb) {
+        const { data: sessionData } = await sb.auth.getSession();
+        if (sessionData?.session?.access_token) calHeaders['Authorization'] = `Bearer ${sessionData.session.access_token}`;
+      }
+    } catch (_) {}
+
+    const proxyRes = await fetch('/api/gemini-apu', {
+      method: 'POST',
+      headers: calHeaders,
+      body: JSON.stringify({
+        mode: 'calendario',
+        useWebSearch: false,
+        planId: quotaCheck.ctx?.planId || 'free',
+        projectId: quotaCheck.ctx?.projectId || '',
+        ownerEmail: quotaCheck.ctx?.ownerEmail || '',
+        userApiKey: apiKey,
+        promptText
+      })
+    });
+    if (proxyRes.ok) {
+      const pJson = await proxyRes.json();
+      if (pJson?.quotaSnapshot) {
+        applyServerQuotaSnapshot(quotaCheck.ctx?.ownerEmail, pJson.quotaSnapshot);
+      }
+      if (pJson?.success && pJson?.parsed && Array.isArray(pJson.parsed.tasks)) {
+        usedModelName = pJson.modelUsed || usedModelName;
+        recordAiQuotaConsumption({
+          ownerEmail: quotaCheck.ctx?.ownerEmail,
+          usageMetadata: pJson.usageMetadata,
+          standardConcepts: 1,
+          searchGroundingCalls: 0,
+          usedOwnApiKey: Boolean(pJson.usedOwnApiKey || quotaCheck.usingOwnApiKey),
+          quotaSnapshot: pJson.quotaSnapshot || null
+        });
+        options.__precomputedParsed = pJson.parsed;
+      }
+    } else if (proxyRes.status === 401 || proxyRes.status === 403 || proxyRes.status === 429) {
+      const errJson = await proxyRes.json().catch(() => ({}));
+      if (errJson?.quotaSnapshot) applyServerQuotaSnapshot(quotaCheck.ctx?.ownerEmail, errJson.quotaSnapshot);
+      throw new Error(errJson?.error || 'Cuota mensual de IA agotada o sesión requerida.');
+    }
+  } catch (proxyErr) {
+    if (proxyErr && /cuota|sesi[oó]n|api key|401|403|429/i.test(proxyErr.message || '')) {
+      throw proxyErr;
+    }
+  }
+
+  const models = (options.__precomputedParsed || !apiKey) ? [] : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
   for (const modelName of models) {
     try {
@@ -710,39 +766,53 @@ Reglas obligatorias:
         continue;
       }
 
-      const aiMap = new Map();
-      parsed.tasks.forEach(pt => {
-        if (pt && pt.id !== undefined) aiMap.set(String(pt.id), pt);
+      recordAiQuotaConsumption({
+        ownerEmail: quotaCheck.ctx?.ownerEmail,
+        usageMetadata: data.usageMetadata,
+        standardConcepts: 1,
+        searchGroundingCalls: 0,
+        usedOwnApiKey: true
       });
-
-      const mergedTasks = localBase.tasks.map(baseTask => {
-        const aiTask = aiMap.get(String(baseTask.id));
-        if (!aiTask) return baseTask;
-        return Object.assign({}, baseTask, {
-          durationDays: Math.max(3, Math.min(90, parseInt(aiTask.durationDays, 10) || baseTask.durationDays)),
-          stageName: aiTask.stageName || baseTask.stageName,
-          predecessors: Array.isArray(aiTask.predecessors)
-            ? aiTask.predecessors.map(String)
-            : baseTask.predecessors
-        });
-      });
-
-      const simAi = simulateProposalCPM(mergedTasks, localBase.startDate, localBase.respectWorkdays);
-
-      return Object.assign({}, localBase, {
-        source: 'gemini_ai',
-        modelUsed: `Google Gemini (${modelName})`,
-        reasoning: parsed.reasoning || localBase.reasoning,
-        startDate: simAi.startDate,
-        endDate: simAi.endDate,
-        totalNaturalDays: simAi.totalNaturalDays,
-        workingDays: simAi.workingDays,
-        criticalCount: simAi.criticalCount,
-        tasks: simAi.tasks
-      });
-    } catch (err) {
-      lastError = err?.message || String(err);
+      usedModelName = modelName;
+      options.__precomputedParsed = parsed;
+      break;
+    } catch (e) {
+      lastError = e.message || 'Error consultando Gemini';
     }
+  }
+
+  if (options.__precomputedParsed) {
+    const parsed = options.__precomputedParsed;
+    const aiMap = new Map();
+    parsed.tasks.forEach(pt => {
+      if (pt && pt.id !== undefined) aiMap.set(String(pt.id), pt);
+    });
+
+    const mergedTasks = localBase.tasks.map(baseTask => {
+      const aiTask = aiMap.get(String(baseTask.id));
+      if (!aiTask) return baseTask;
+      return Object.assign({}, baseTask, {
+        durationDays: Math.max(3, Math.min(90, parseInt(aiTask.durationDays, 10) || baseTask.durationDays)),
+        stageName: aiTask.stageName || baseTask.stageName,
+        predecessors: Array.isArray(aiTask.predecessors)
+          ? aiTask.predecessors.map(String)
+          : baseTask.predecessors
+      });
+    });
+
+    const simAi = simulateProposalCPM(mergedTasks, localBase.startDate, localBase.respectWorkdays);
+
+    return Object.assign({}, localBase, {
+      source: 'gemini_ai',
+      modelUsed: `Google Gemini (${usedModelName})`,
+      reasoning: parsed.reasoning || localBase.reasoning,
+      startDate: simAi.startDate,
+      endDate: simAi.endDate,
+      totalNaturalDays: simAi.totalNaturalDays,
+      workingDays: simAi.workingDays,
+      criticalCount: simAi.criticalCount,
+      tasks: simAi.tasks
+    });
   }
 
   throw new Error(lastError);

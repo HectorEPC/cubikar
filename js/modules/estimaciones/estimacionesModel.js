@@ -5,6 +5,8 @@
 import { state } from '../../state/store.js';
 import { getActiveProjectId, getStorageKey } from '../../config/constants.js';
 import { formatDate, parseDate, addDays, diffDays } from '../calendario/calendarioModel.js';
+import { scheduleEstimacionesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js';
+import { deleteManagedFile } from '../../services/s3StorageService.js';
 
 const STORAGE_KEY_PREFIX = 'estimaciones_data_';
 
@@ -68,7 +70,30 @@ export function loadEstimacionesData() {
 // Guardar estado de estimaciones en localStorage
 export function saveEstimacionesData(data) {
   try {
+    if (data && Array.isArray(data.estimaciones)) {
+      data.estimaciones = data.estimaciones.map((est) => {
+        const next = { ...est };
+        if (Array.isArray(next.fotos)) {
+          next.fotos = stripInlineBinaryPayloads(next.fotos);
+        } else if (next.fotos && typeof next.fotos === 'object') {
+          const sanitizedFotos = {};
+          for (const [k, list] of Object.entries(next.fotos)) {
+            sanitizedFotos[k] = stripInlineBinaryPayloads(Array.isArray(list) ? list : []);
+          }
+          next.fotos = sanitizedFotos;
+        }
+        if (next.conceptPhotos && typeof next.conceptPhotos === 'object') {
+          const sanitized = {};
+          for (const [k, list] of Object.entries(next.conceptPhotos)) {
+            sanitized[k] = stripInlineBinaryPayloads(Array.isArray(list) ? list : []);
+          }
+          next.conceptPhotos = sanitized;
+        }
+        return next;
+      });
+    }
     localStorage.setItem(getEstimacionesStorageKey(), JSON.stringify(data));
+    scheduleEstimacionesCloudSync();
   } catch (e) {
     console.error('Error al guardar datos de estimaciones:', e);
   }
@@ -202,6 +227,13 @@ export function deleteEstimacion(estId) {
   if (target && target.locked) {
     return false; // No permitir eliminar una estimación bloqueada
   }
+  if (target?.fotos && typeof target.fotos === 'object') {
+    Object.values(target.fotos).flat().forEach((foto) => {
+      if (foto && (foto.mediaId || foto.s3Key || foto.archivoId)) {
+        deleteManagedFile(foto).catch((err) => console.warn('Cleanup estimación foto S3:', err));
+      }
+    });
+  }
   data.estimaciones = data.estimaciones.filter(e => e.id !== estId);
   // Re-enumerar secuencialmente
   data.estimaciones.forEach((e, idx) => {
@@ -231,27 +263,18 @@ export function setConceptoCantidadEjecutada(conceptId, cantEje) {
   return true;
 }
 
-// Normalizar enlaces compartidos desde Google Drive, OneDrive o Dropbox para que se visualicen e impriman directamente en <img>
+// Normalizar enlaces externos de imágenes para visualización directa en <img>
 export function normalizeCloudImageUrl(rawUrl) {
   const url = String(rawUrl || '').trim();
   if (!url) return '';
 
-  // 1. Google Drive: https://drive.google.com/file/d/FILE_ID/view... o ?id=FILE_ID
-  const gdriveFileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/i)
-    || url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/i)
-    || url.match(/drive\.google\.com\/uc\?(?:export=[a-z]+&)?id=([a-zA-Z0-9_-]+)/i)
-    || url.match(/drive\.google\.com\/thumbnail\?id=([a-zA-Z0-9_-]+)/i);
-  if (gdriveFileMatch && gdriveFileMatch[1]) {
-    return `https://drive.google.com/thumbnail?id=${gdriveFileMatch[1]}&sz=w1600`;
-  }
-
-  // 2. Dropbox: convertir ?dl=0 a ?raw=1
+  // Dropbox: convertir ?dl=0 a ?raw=1
   if (/dropbox\.com/i.test(url)) {
     if (url.includes('?dl=0')) return url.replace('?dl=0', '?raw=1');
     if (!url.includes('raw=1')) return url + (url.includes('?') ? '&raw=1' : '?raw=1');
   }
 
-  // 3. OneDrive: convertir /embed? a /download? cuando sea enlace embed de OneDrive
+  // OneDrive: convertir /embed? a /download? cuando sea enlace embed de OneDrive
   if (/onedrive\.live\.com\/embed\?/i.test(url)) {
     return url.replace(/\/embed\?/i, '/download?');
   }
@@ -259,36 +282,77 @@ export function normalizeCloudImageUrl(rawUrl) {
   return url;
 }
 
-// Obtener los enlaces de fotos (1 o 2) asociados a un concepto en una estimación
+function normalizeEstimacionFotoItem(item) {
+  if (!item || typeof item !== 'object') return null;
+  const url = String(item.url || '').trim();
+  const mediaId = String(item.mediaId || '').trim();
+  const s3Key = String(item.s3Key || '').trim();
+  const archivoId = String(item.archivoId || '').trim();
+  if (!url && !mediaId && !s3Key) return null;
+
+  return {
+    url,
+    displayUrl: url ? normalizeCloudImageUrl(url) : '',
+    nota: String(item.nota || '').trim(),
+    mediaId,
+    s3Key,
+    archivoId,
+    fileName: String(item.fileName || '').trim(),
+    sizeLabel: String(item.sizeLabel || '').trim()
+  };
+}
+
+// Obtener los registros de fotos (1 o 2) asociados a un concepto en una estimación
 export function getConceptoFotosEstimacion(conceptId, estId = null) {
   const data = loadEstimacionesData();
   const targetId = estId || data.activeEstimacionId;
   const est = data.estimaciones.find(e => e.id === targetId) || data.estimaciones[0];
   if (!est || !est.fotos || !Array.isArray(est.fotos[conceptId])) return [];
   return est.fotos[conceptId]
-    .filter(f => f && String(f.url || '').trim().length > 0)
-    .slice(0, 2)
-    .map(f => ({
-      url: String(f.url || '').trim(),
-      displayUrl: normalizeCloudImageUrl(f.url),
-      nota: String(f.nota || '').trim()
-    }));
+    .map(normalizeEstimacionFotoItem)
+    .filter(Boolean)
+    .slice(0, 2);
 }
 
-// Guardar los enlaces de fotos (máximo 2) de un concepto en la estimación activa
+// Guardar los registros de fotos (máximo 2) de un concepto en la estimación activa
 export function setConceptoFotosEstimacion(conceptId, fotosList = []) {
   const data = loadEstimacionesData();
   const current = data.estimaciones.find(e => e.id === data.activeEstimacionId);
   if (!current || current.locked) return false;
 
   if (!current.fotos) current.fotos = {};
+  const previousList = Array.isArray(current.fotos[conceptId]) ? current.fotos[conceptId] : [];
   const cleaned = (Array.isArray(fotosList) ? fotosList : [])
-    .map(item => ({
-      url: String(item?.url || '').trim(),
-      nota: String(item?.nota || '').trim()
-    }))
-    .filter(item => item.url.length > 0)
+    .map((item) => {
+      const url = String(item?.url || '').trim();
+      const mediaId = String(item?.mediaId || '').trim();
+      const s3Key = String(item?.s3Key || '').trim();
+      const archivoId = String(item?.archivoId || '').trim();
+      if (!url && !mediaId && !s3Key) return null;
+      return {
+        url,
+        nota: String(item?.nota || '').trim(),
+        mediaId,
+        s3Key,
+        archivoId,
+        fileName: String(item?.fileName || '').trim(),
+        sizeLabel: String(item?.sizeLabel || '').trim()
+      };
+    })
+    .filter(Boolean)
     .slice(0, 2);
+
+  // Limpiar archivos S3/IndexedDB que fueron removidos del concepto
+  const keptKeys = new Set(
+    cleaned.flatMap((it) => [it.mediaId, it.s3Key].filter(Boolean))
+  );
+  previousList.forEach((prev) => {
+    if (!prev || (!prev.mediaId && !prev.s3Key && !prev.archivoId)) return;
+    const stillKept = (prev.mediaId && keptKeys.has(prev.mediaId)) || (prev.s3Key && keptKeys.has(prev.s3Key));
+    if (!stillKept) {
+      deleteManagedFile(prev).catch((err) => console.warn('Cleanup estimación foto S3:', err));
+    }
+  });
 
   if (cleaned.length === 0) {
     delete current.fotos[conceptId];
@@ -356,13 +420,9 @@ export function getEstimacionesCalculatedData() {
 
       const rawFotos = (activeEst.fotos && Array.isArray(activeEst.fotos[node.id])) ? activeEst.fotos[node.id] : [];
       const fotos = rawFotos
-        .filter(f => f && String(f.url || '').trim().length > 0)
-        .slice(0, 2)
-        .map(f => ({
-          url: String(f.url || '').trim(),
-          displayUrl: normalizeCloudImageUrl(f.url),
-          nota: String(f.nota || '').trim()
-        }));
+        .map(normalizeEstimacionFotoItem)
+        .filter(Boolean)
+        .slice(0, 2);
 
       grandTotalBase += importeBase;
       grandTotalEjecutado += totalEje;

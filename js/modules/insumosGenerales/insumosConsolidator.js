@@ -19,8 +19,15 @@ export function normalizeInsumoText(text) {
 
 // Helper para mapear rubros a las 4 tablas de consolidación general (Agrupando Herramienta y Maquinaria en Equipo/Maquinaria/Herramienta)
 export function normalizeConsolidatedTipo(t) {
-  if (t === 'Herramienta' || t === 'Maquinaria') return 'Equipo';
-  return ['Material', 'Mano de Obra', 'Equipo', 'Subcontrato'].includes(t) ? t : 'Material';
+  const valid = ['Material', 'Mano de Obra', 'Herramienta', 'Equipo', 'Maquinaria', 'Subcontrato'];
+  if (valid.includes(t)) return t;
+  const lower = (t || '').toString().toLowerCase().trim();
+  if (lower.includes('herramienta') || lower.includes('herr')) return 'Herramienta';
+  if (lower.includes('maquinaria') || lower.includes('maq')) return 'Maquinaria';
+  if (lower.includes('equipo')) return 'Equipo';
+  if (lower.includes('mano') || lower.includes('obra')) return 'Mano de Obra';
+  if (lower.includes('subcontrat')) return 'Subcontrato';
+  return 'Material';
 }
 
 // Generar una clave de agrupación robusta para un insumo
@@ -47,7 +54,9 @@ export function getConsolidatedDataMap() {
   const consolidated = {
     'Material': {},
     'Mano de Obra': {},
+    'Herramienta': {},
     'Equipo': {},
+    'Maquinaria': {},
     'Subcontrato': {}
   };
 
@@ -87,6 +96,7 @@ export function getConsolidatedDataMap() {
 
               const costoUnit = round2(ins.costoUnitario || 0);
 
+              if (!consolidated[tipo]) consolidated[tipo] = {};
               if (!consolidated[tipo][key]) {
                 consolidated[tipo][key] = {
                   key: key,

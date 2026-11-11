@@ -26,6 +26,9 @@ import {
 } from './estimacionesModel.js';
 import { guardTabUnlocked, applyTabLocksToDOM, toggleTabLock } from '../../ui/tabLockController.js';
 import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js';
+import { getActiveProjectId } from '../../config/constants.js';
+import { uploadManagedFile, resolveManagedFileUrl, deleteManagedFile } from '../../services/s3StorageService.js';
+import { mountStorageMeter } from '../../services/storageQuotaService.js';
 
 let estimacionesSearchTerm = '';
 let estimacionesCollapsedMap = {}; // { [nodeId]: boolean }
@@ -743,7 +746,7 @@ export function renderEstimacionesView() {
                                class="w-full min-w-[44px] text-center font-mono font-bold text-[11px] text-emerald-800 bg-white border border-emerald-300 focus:border-emerald-600 focus:bg-emerald-50/50 rounded px-1 py-0.5 outline-none transition shadow-2xs disabled:opacity-65 disabled:cursor-not-allowed">
                         <button type="button"
                                 onclick="openEstimacionConceptPhotosModal('${row.id}')"
-                                title="${(row.fotos && row.fotos.length > 0) ? `${row.fotos.length} foto(s) vinculada(s) desde la nube (Google Drive / OneDrive)` : 'Agregar enlaces de 1 o 2 fotos desde la nube (Google Drive / OneDrive)'}"
+                                title="${(row.fotos && row.fotos.length > 0) ? `${row.fotos.length} foto(s) de evidencia adjunta(s)` : 'Subir o vincular 1 o 2 fotos de evidencia (AWS S3)'}"
                                 class="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[9.5px] font-bold transition cursor-pointer ${(row.fotos && row.fotos.length > 0) ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-700 shadow-2xs' : 'bg-white hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 border-slate-300 hover:border-indigo-300'}">
                           <i class="fa-solid fa-camera text-[9.5px]"></i>
                           ${(row.fotos && row.fotos.length > 0) ? `<span class="font-mono leading-none">${row.fotos.length}</span>` : ''}
@@ -1152,9 +1155,88 @@ export function onEstimacionesIvaInput(val) {
 }
 
 // =========================================================================
-// MODAL DE REPORTE FOTOGRÁFICO DESDE LA NUBE DEL USUARIO (GOOGLE DRIVE / ONEDRIVE)
+// MODAL DE REPORTE FOTOGRÁFICO DE ESTIMACIONES (AWS S3 + ENLACE OPCIONAL)
 // =========================================================================
 let activePhotoModalConceptId = null;
+let activePhotoModalSlots = [null, null];
+
+function emptyFotoSlot() {
+  return { url: '', displayUrl: '', nota: '', mediaId: '', s3Key: '', archivoId: '', fileName: '', sizeLabel: '', __isNewTempUpload: false };
+}
+
+function renderEstimacionPhotoSlotCard(slotIdx, fotoObj, isLocked, placeholderNota) {
+  const f = fotoObj || emptyFotoSlot();
+  const hasManaged = Boolean(f.mediaId || f.s3Key);
+  const badgeText = hasManaged
+    ? (f.s3Key ? `AWS S3 • ${f.fileName || 'imagen.jpg'}${f.sizeLabel ? ` (${f.sizeLabel})` : ''}` : `Caché local • ${f.fileName || 'imagen.jpg'}${f.sizeLabel ? ` (${f.sizeLabel})` : ''}`)
+    : (f.url ? 'Enlace URL externo vinculado' : '');
+
+  return `
+    <div class="p-3 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-2xs">
+      <div class="flex items-center justify-between">
+        <span class="font-bold text-slate-800 flex items-center gap-1.5">
+          <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold inline-flex items-center justify-center">${slotIdx}</span>
+          <span>Fotografía ${slotIdx}${slotIdx === 2 ? ' (Opcional)' : ''}</span>
+        </span>
+        ${!isLocked ? `
+          <button type="button" onclick="clearEstimacionConceptPhotoSlot(${slotIdx})" class="text-[10.5px] text-rose-600 hover:underline cursor-pointer">
+            Limpiar
+          </button>
+        ` : ''}
+      </div>
+
+      ${!isLocked ? `
+        <div class="space-y-1">
+          <label class="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-[11px] cursor-pointer transition">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Subir Foto a AWS S3 (auto-compresión ≤1280px)</span>
+            <input type="file" id="est-foto-file-${slotIdx}"
+                   accept=".jpg,.jpeg,.png,.webp,image/*"
+                   onchange="onEstimacionPhotoFileSelected(${slotIdx}, this.files && this.files[0] ? this.files[0] : null)"
+                   class="hidden">
+          </label>
+          <div id="est-foto-status-${slotIdx}" class="text-[10px] font-medium ${badgeText ? 'text-emerald-700' : 'text-slate-400'} truncate">
+            ${badgeText || 'Sin archivo en AWS S3 todavía'}
+          </div>
+        </div>
+      ` : `
+        <div id="est-foto-status-${slotIdx}" class="text-[10px] font-medium text-slate-500 truncate">${badgeText || 'Sin archivo'}</div>
+      `}
+
+      <div class="space-y-1">
+        <label class="text-[10.5px] font-semibold text-slate-600 block">O pegar enlace URL externo (opcional):</label>
+        <input type="url" id="est-foto-url-${slotIdx}"
+               ${isLocked ? 'disabled readonly' : ''}
+               value="${String(f.url || '').replace(/"/g, '&quot;')}"
+               oninput="onEstimacionPhotoUrlPreviewInput(${slotIdx})"
+               placeholder="https://..."
+               class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-600 disabled:bg-slate-100">
+      </div>
+
+      <div class="space-y-1">
+        <label class="text-[10.5px] font-semibold text-slate-600 block">Pie de foto / Descripción:</label>
+        <input type="text" id="est-foto-nota-${slotIdx}"
+               ${isLocked ? 'disabled readonly' : ''}
+               value="${String(f.nota || '').replace(/"/g, '&quot;')}"
+               placeholder="${placeholderNota}"
+               class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-600 disabled:bg-slate-100">
+      </div>
+
+      <div class="h-36 rounded-lg border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden relative">
+        <img id="est-foto-preview-${slotIdx}"
+             src="${String(f.displayUrl || '').replace(/"/g, '&quot;')}"
+             referrerpolicy="no-referrer"
+             alt="Vista previa Foto ${slotIdx}"
+             class="${f.displayUrl ? '' : 'hidden'} w-full h-full object-contain bg-white"
+             onerror="this.classList.add('hidden'); document.getElementById('est-foto-empty-${slotIdx}').classList.remove('hidden');">
+        <div id="est-foto-empty-${slotIdx}" class="${f.displayUrl ? 'hidden' : ''} text-center p-2 text-slate-400 text-[11px]">
+          <i class="fa-regular fa-image text-lg block mb-1"></i>
+          <span>${hasManaged ? 'Cargando vista previa...' : `Sin vista previa de Foto ${slotIdx}`}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 export function openEstimacionConceptPhotosModal(conceptId) {
   const data = getEstimacionesCalculatedData();
@@ -1165,8 +1247,10 @@ export function openEstimacionConceptPhotosModal(conceptId) {
   const activeEst = data.activeEst;
   const isLocked = Boolean(activeEst && activeEst.locked);
   const fotos = getConceptoFotosEstimacion(conceptId);
-  const f1 = fotos[0] || { url: '', displayUrl: '', nota: '' };
-  const f2 = fotos[1] || { url: '', displayUrl: '', nota: '' };
+  activePhotoModalSlots = [
+    fotos[0] ? { ...emptyFotoSlot(), ...fotos[0], __isNewTempUpload: false } : emptyFotoSlot(),
+    fotos[1] ? { ...emptyFotoSlot(), ...fotos[1], __isNewTempUpload: false } : emptyFotoSlot()
+  ];
 
   let modalEl = document.getElementById('estimacion-fotos-modal');
   if (!modalEl) {
@@ -1187,9 +1271,9 @@ export function openEstimacionConceptPhotosModal(conceptId) {
             <i class="fa-solid fa-camera-retro text-base"></i>
           </span>
           <div class="min-w-0">
-            <h3 class="text-sm font-bold text-white truncate">Reporte Fotográfico en la Nube — ${activeEst.nombre}</h3>
+            <h3 class="text-sm font-bold text-white truncate">Reporte Fotográfico — ${activeEst.nombre}</h3>
             <p class="text-[11px] text-indigo-200 truncate">
-              Clave <strong>${row.clave}</strong> • Cant. Eje: <strong>${Number(row.cantEje || 0).toFixed(2)} ${row.unidad}</strong> (Sin ocupar espacio en servidor)
+              Clave <strong>${row.clave}</strong> • Cant. Eje: <strong>${Number(row.cantEje || 0).toFixed(2)} ${row.unidad}</strong> (Almacenamiento seguro AWS S3)
             </p>
           </div>
         </div>
@@ -1199,7 +1283,7 @@ export function openEstimacionConceptPhotosModal(conceptId) {
       </div>
 
       <!-- Cuerpo del Modal -->
-      <div class="p-4 overflow-y-auto space-y-4 text-xs">
+      <div class="p-4 overflow-y-auto space-y-3.5 text-xs">
         
         <!-- Resumen del Concepto -->
         <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
@@ -1210,111 +1294,21 @@ export function openEstimacionConceptPhotosModal(conceptId) {
           <p class="text-xs font-semibold text-slate-800 leading-snug">${row.descripcion}</p>
         </div>
 
-        <!-- Guía rápida de enlaces de nube -->
+        <!-- Medidor de Cuota Unificada -->
+        <div id="estimaciones-photos-storage-meter"></div>
+
+        <!-- Guía rápida -->
         <div class="p-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-[11px] text-blue-900 flex items-start gap-2">
           <i class="fa-solid fa-cloud-arrow-up text-blue-600 mt-0.5 shrink-0"></i>
           <div>
-            <strong>Enlaces desde tu nube (Google Drive / OneDrive / Dropbox):</strong> Pega el enlace compartido de 1 o 2 fotografías. El sistema convierte automáticamente los enlaces de Google Drive (<em>"Cualquier persona con el enlace"</em>) para que aparezcan en la hoja de este concepto al imprimir el <strong>Resumen de la Estimación</strong>.
+            <strong>Compresión automática y almacenamiento AWS S3:</strong> Sube fotos directo desde tu cámara o galería (JPEG/PNG/WebP se optimizan a ≤1280px y 150–350 KB) o pega una URL externa. Se incluirán automáticamente en la hoja fotográfica al imprimir la estimación.
           </div>
         </div>
 
         <!-- Grid de las 2 Fotografías -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          
-          <!-- FOTOGRAFÍA 1 -->
-          <div class="p-3 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-2xs">
-            <div class="flex items-center justify-between">
-              <span class="font-bold text-slate-800 flex items-center gap-1.5">
-                <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold inline-flex items-center justify-center">1</span>
-                <span>Fotografía 1</span>
-              </span>
-              ${!isLocked ? `
-                <button type="button" onclick="clearEstimacionConceptPhotoSlot(1)" class="text-[10.5px] text-rose-600 hover:underline cursor-pointer">
-                  Limpiar
-                </button>
-              ` : ''}
-            </div>
-
-            <div class="space-y-1">
-              <label class="text-[10.5px] font-semibold text-slate-600 block">Enlace URL (Google Drive / OneDrive):</label>
-              <input type="url" id="est-foto-url-1"
-                     ${isLocked ? 'disabled readonly' : ''}
-                     value="${f1.url.replace(/"/g, '&quot;')}"
-                     oninput="onEstimacionPhotoUrlPreviewInput(1)"
-                     placeholder="https://drive.google.com/file/d/.../view"
-                     class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-600 disabled:bg-slate-100">
-            </div>
-
-            <div class="space-y-1">
-              <label class="text-[10.5px] font-semibold text-slate-600 block">Pie de foto / Descripción:</label>
-              <input type="text" id="est-foto-nota-1"
-                     ${isLocked ? 'disabled readonly' : ''}
-                     value="${f1.nota.replace(/"/g, '&quot;')}"
-                     placeholder="Ej. Vista de armado y cimbrado en eje A-C..."
-                     class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-600 disabled:bg-slate-100">
-            </div>
-
-            <div class="h-36 rounded-lg border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden relative">
-              <img id="est-foto-preview-1"
-                   src="${f1.displayUrl.replace(/"/g, '&quot;')}"
-                   referrerpolicy="no-referrer"
-                   alt="Vista previa Foto 1"
-                   class="${f1.displayUrl ? '' : 'hidden'} w-full h-full object-contain bg-white"
-                   onerror="this.classList.add('hidden'); document.getElementById('est-foto-empty-1').classList.remove('hidden');">
-              <div id="est-foto-empty-1" class="${f1.displayUrl ? 'hidden' : ''} text-center p-2 text-slate-400 text-[11px]">
-                <i class="fa-regular fa-image text-lg block mb-1"></i>
-                <span>Sin vista previa de Foto 1</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- FOTOGRAFÍA 2 -->
-          <div class="p-3 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-2xs">
-            <div class="flex items-center justify-between">
-              <span class="font-bold text-slate-800 flex items-center gap-1.5">
-                <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold inline-flex items-center justify-center">2</span>
-                <span>Fotografía 2 (Opcional)</span>
-              </span>
-              ${!isLocked ? `
-                <button type="button" onclick="clearEstimacionConceptPhotoSlot(2)" class="text-[10.5px] text-rose-600 hover:underline cursor-pointer">
-                  Limpiar
-                </button>
-              ` : ''}
-            </div>
-
-            <div class="space-y-1">
-              <label class="text-[10.5px] font-semibold text-slate-600 block">Enlace URL (Google Drive / OneDrive):</label>
-              <input type="url" id="est-foto-url-2"
-                     ${isLocked ? 'disabled readonly' : ''}
-                     value="${f2.url.replace(/"/g, '&quot;')}"
-                     oninput="onEstimacionPhotoUrlPreviewInput(2)"
-                     placeholder="https://drive.google.com/file/d/.../view"
-                     class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-600 disabled:bg-slate-100">
-            </div>
-
-            <div class="space-y-1">
-              <label class="text-[10.5px] font-semibold text-slate-600 block">Pie de foto / Descripción:</label>
-              <input type="text" id="est-foto-nota-2"
-                     ${isLocked ? 'disabled readonly' : ''}
-                     value="${f2.nota.replace(/"/g, '&quot;')}"
-                     placeholder="Ej. Colado terminado y nivelado..."
-                     class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-600 disabled:bg-slate-100">
-            </div>
-
-            <div class="h-36 rounded-lg border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden relative">
-              <img id="est-foto-preview-2"
-                   src="${f2.displayUrl.replace(/"/g, '&quot;')}"
-                   referrerpolicy="no-referrer"
-                   alt="Vista previa Foto 2"
-                   class="${f2.displayUrl ? '' : 'hidden'} w-full h-full object-contain bg-white"
-                   onerror="this.classList.add('hidden'); document.getElementById('est-foto-empty-2').classList.remove('hidden');">
-              <div id="est-foto-empty-2" class="${f2.displayUrl ? 'hidden' : ''} text-center p-2 text-slate-400 text-[11px]">
-                <i class="fa-regular fa-image text-lg block mb-1"></i>
-                <span>Sin vista previa de Foto 2</span>
-              </div>
-            </div>
-          </div>
-
+          ${renderEstimacionPhotoSlotCard(1, activePhotoModalSlots[0], isLocked, 'Ej. Vista de armado y cimbrado en eje A-C...')}
+          ${renderEstimacionPhotoSlotCard(2, activePhotoModalSlots[1], isLocked, 'Ej. Colado terminado y nivelado...')}
         </div>
       </div>
 
@@ -1331,7 +1325,7 @@ export function openEstimacionConceptPhotosModal(conceptId) {
           ${!isLocked ? `
             <button type="button" onclick="saveEstimacionConceptPhotosModal()"
                     class="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-sm cursor-pointer transition flex items-center gap-1.5">
-              <i class="fa-solid fa-floppy-disk"></i> Guardar Enlaces de Fotos
+              <i class="fa-solid fa-floppy-disk"></i> Guardar Fotos
             </button>
           ` : ''}
         </div>
@@ -1339,12 +1333,106 @@ export function openEstimacionConceptPhotosModal(conceptId) {
 
     </div>
   `;
+
+  mountStorageMeter('estimaciones-photos-storage-meter', { compact: true, showUpgradeButton: true });
+
+  // Hidratar vistas previas almacenadas en IndexedDB / AWS S3
+  [1, 2].forEach(async (slotIdx) => {
+    const slot = activePhotoModalSlots[slotIdx - 1];
+    if (slot && (slot.mediaId || slot.s3Key)) {
+      const resolvedUrl = await resolveManagedFileUrl(slot, { cacheRemote: true });
+      if (resolvedUrl && activePhotoModalConceptId === String(conceptId)) {
+        slot.displayUrl = resolvedUrl;
+        const imgEl = document.getElementById(`est-foto-preview-${slotIdx}`);
+        const emptyEl = document.getElementById(`est-foto-empty-${slotIdx}`);
+        if (imgEl && emptyEl) {
+          imgEl.src = resolvedUrl;
+          imgEl.classList.remove('hidden');
+          emptyEl.classList.add('hidden');
+        }
+      }
+    }
+  });
 }
 
-export function closeEstimacionConceptPhotosModal() {
+export function closeEstimacionConceptPhotosModal(discardTemp = true) {
+  if (discardTemp && Array.isArray(activePhotoModalSlots)) {
+    activePhotoModalSlots.forEach((slot) => {
+      if (slot?.__isNewTempUpload && (slot.mediaId || slot.s3Key || slot.archivoId)) {
+        deleteManagedFile(slot).catch((err) => console.warn('Cleanup cancel estimación foto:', err));
+      }
+    });
+  }
   const modalEl = document.getElementById('estimacion-fotos-modal');
   if (modalEl) modalEl.classList.add('hidden');
   activePhotoModalConceptId = null;
+  activePhotoModalSlots = [emptyFotoSlot(), emptyFotoSlot()];
+}
+
+export async function onEstimacionPhotoFileSelected(slotIdx, file) {
+  if (!file || !activePhotoModalConceptId) return;
+  if (!guardTabUnlocked('estimaciones')) return;
+
+  const idx = slotIdx - 1;
+  const statusEl = document.getElementById(`est-foto-status-${slotIdx}`);
+  if (statusEl) {
+    statusEl.textContent = 'Optimizando y subiendo imagen...';
+    statusEl.className = 'text-[10px] font-medium text-indigo-600 truncate';
+  }
+
+  const res = await uploadManagedFile({
+    file,
+    modulo: 'estimaciones',
+    categoria: 'project_files',
+    proyectoId: getActiveProjectId(),
+    entidadId: `${activePhotoModalConceptId}_slot${slotIdx}`,
+    preset: 'photo',
+    showFeedback: true,
+    includeDataUrl: true
+  });
+
+  if (!res.ok) {
+    if (statusEl) {
+      statusEl.textContent = res.reason || 'Subida bloqueada o fallida';
+      statusEl.className = 'text-[10px] font-medium text-rose-600 truncate';
+    }
+    return;
+  }
+
+  const prev = activePhotoModalSlots[idx];
+  if (prev?.__isNewTempUpload && (prev.mediaId || prev.s3Key || prev.archivoId)) {
+    deleteManagedFile(prev).catch((err) => console.warn('Cleanup replaced estimación temp foto:', err));
+  }
+
+  const displayUrl = res.dataUrl || await resolveManagedFileUrl(res, { cacheRemote: true });
+  activePhotoModalSlots[idx] = {
+    url: '',
+    displayUrl,
+    nota: document.getElementById(`est-foto-nota-${slotIdx}`)?.value || '',
+    mediaId: res.mediaId,
+    s3Key: res.s3Key || '',
+    archivoId: res.archivoId || '',
+    fileName: res.fileName,
+    sizeLabel: res.sizeLabel,
+    __isNewTempUpload: true
+  };
+
+  const urlEl = document.getElementById(`est-foto-url-${slotIdx}`);
+  if (urlEl) urlEl.value = '';
+
+  const imgEl = document.getElementById(`est-foto-preview-${slotIdx}`);
+  const emptyEl = document.getElementById(`est-foto-empty-${slotIdx}`);
+  if (imgEl && emptyEl && displayUrl) {
+    imgEl.src = displayUrl;
+    imgEl.classList.remove('hidden');
+    emptyEl.classList.add('hidden');
+  }
+
+  if (statusEl) {
+    statusEl.textContent = `${res.cloudSynced ? 'AWS S3' : 'Cola local'} • ${res.fileName} (${res.sizeLabel})`;
+    statusEl.className = 'text-[10px] font-semibold text-emerald-700 truncate';
+  }
+  mountStorageMeter('estimaciones-photos-storage-meter', { compact: true, showUpgradeButton: true });
 }
 
 export function onEstimacionPhotoUrlPreviewInput(slotIdx) {
@@ -1353,11 +1441,20 @@ export function onEstimacionPhotoUrlPreviewInput(slotIdx) {
   const emptyEl = document.getElementById(`est-foto-empty-${slotIdx}`);
   if (!urlEl || !imgEl || !emptyEl) return;
 
+  const idx = slotIdx - 1;
   const normalized = normalizeCloudImageUrl(urlEl.value);
   if (normalized) {
+    if (activePhotoModalSlots[idx]) {
+      if (activePhotoModalSlots[idx].__isNewTempUpload && (activePhotoModalSlots[idx].mediaId || activePhotoModalSlots[idx].s3Key)) {
+        deleteManagedFile(activePhotoModalSlots[idx]).catch(() => {});
+      }
+      activePhotoModalSlots[idx] = { ...emptyFotoSlot(), url: urlEl.value.trim(), displayUrl: normalized };
+    }
     imgEl.src = normalized;
     imgEl.classList.remove('hidden');
     emptyEl.classList.add('hidden');
+  } else if (activePhotoModalSlots[idx] && (activePhotoModalSlots[idx].mediaId || activePhotoModalSlots[idx].s3Key)) {
+    imgEl.src = activePhotoModalSlots[idx].displayUrl || '';
   } else {
     imgEl.src = '';
     imgEl.classList.add('hidden');
@@ -1366,10 +1463,24 @@ export function onEstimacionPhotoUrlPreviewInput(slotIdx) {
 }
 
 export function clearEstimacionConceptPhotoSlot(slotIdx) {
+  const idx = slotIdx - 1;
+  const prev = activePhotoModalSlots[idx];
+  if (prev?.__isNewTempUpload && (prev.mediaId || prev.s3Key || prev.archivoId)) {
+    deleteManagedFile(prev).catch((err) => console.warn('Cleanup cleared estimación temp foto:', err));
+  }
+  activePhotoModalSlots[idx] = emptyFotoSlot();
+
   const urlEl = document.getElementById(`est-foto-url-${slotIdx}`);
   const notaEl = document.getElementById(`est-foto-nota-${slotIdx}`);
+  const fileEl = document.getElementById(`est-foto-file-${slotIdx}`);
+  const statusEl = document.getElementById(`est-foto-status-${slotIdx}`);
   if (urlEl) urlEl.value = '';
   if (notaEl) notaEl.value = '';
+  if (fileEl) fileEl.value = '';
+  if (statusEl) {
+    statusEl.textContent = 'Sin archivo en AWS S3 todavía';
+    statusEl.className = 'text-[10px] font-medium text-slate-400 truncate';
+  }
   onEstimacionPhotoUrlPreviewInput(slotIdx);
 }
 
@@ -1377,17 +1488,29 @@ export function saveEstimacionConceptPhotosModal() {
   if (!activePhotoModalConceptId) return;
   if (!guardTabUnlocked('estimaciones')) return;
 
-  const url1 = document.getElementById('est-foto-url-1')?.value || '';
-  const nota1 = document.getElementById('est-foto-nota-1')?.value || '';
-  const url2 = document.getElementById('est-foto-url-2')?.value || '';
-  const nota2 = document.getElementById('est-foto-nota-2')?.value || '';
-
-  const list = [];
-  if (url1.trim()) list.push({ url: url1.trim(), nota: nota1.trim() });
-  if (url2.trim()) list.push({ url: url2.trim(), nota: nota2.trim() });
+  const list = [1, 2].map((slotIdx) => {
+    const slot = activePhotoModalSlots[slotIdx - 1] || emptyFotoSlot();
+    const url = (document.getElementById(`est-foto-url-${slotIdx}`)?.value || '').trim();
+    const nota = (document.getElementById(`est-foto-nota-${slotIdx}`)?.value || '').trim();
+    if (slot.mediaId || slot.s3Key) {
+      return {
+        url: '',
+        nota,
+        mediaId: slot.mediaId,
+        s3Key: slot.s3Key,
+        archivoId: slot.archivoId,
+        fileName: slot.fileName,
+        sizeLabel: slot.sizeLabel
+      };
+    }
+    if (url) {
+      return { url, nota };
+    }
+    return null;
+  }).filter(Boolean);
 
   setConceptoFotosEstimacion(activePhotoModalConceptId, list);
-  closeEstimacionConceptPhotosModal();
+  closeEstimacionConceptPhotosModal(false);
   renderEstimacionesView();
-  showToast(list.length > 0 ? `${list.length} foto(s) vinculada(s) al concepto para impresión` : 'Enlaces de fotos eliminados del concepto', 'success');
+  showToast(list.length > 0 ? `${list.length} foto(s) guardada(s) en el concepto` : 'Fotos eliminadas del concepto', 'success');
 }

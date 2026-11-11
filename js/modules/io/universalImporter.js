@@ -6,8 +6,9 @@ import { saveState } from '../../state/history.js';
 import { showToast } from '../../ui/notifications.js';
 import { formatMoney, round2, round5, parseFlexibleNumber } from '../../core/formatters.js';
 import { updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js';
-import { recalculateClaves, findNodeById } from '../catalog/treeService.js';
+import { recalculateClaves, findNodeById, guardConceptLimit } from '../catalog/treeService.js';
 import { CASA_LAURA_PROJECT, getExactOpusInsumosForClave } from './casaLauraData.js';
+import { countTreeConcepts } from '../portal/projectService.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
 import { saveReferenceCatalog, getReferenceDatabaseStats, canImportReferenceCatalog } from '../reference/referenceDb.js';
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
@@ -1047,7 +1048,10 @@ export async function executeImport() {
     } else {
       // Cargar directamente al Presupuesto de Obra Activo (TAB1-CAT-BASE)
       const budgetMode = document.querySelector('input[name="budget-import-mode"]:checked')?.value || 'append';
-
+      const importedConceptsCount = countTreeConcepts(newNodes);
+      if (!guardConceptLimit(importedConceptsCount, { replaceExisting: budgetMode === 'replace' })) {
+        return;
+      }
       saveState();
 
       const hasChildren = currentParsedData.items.some(i => Array.isArray(i.children) && i.children.length > 0);
@@ -1136,6 +1140,9 @@ export function loadCasaLauraOpusDirectly() {
     });
   }
   ensureTreeStructure(rawCopy);
+  if (!guardConceptLimit(countTreeConcepts(rawCopy), { replaceExisting: true })) {
+    return;
+  }
 
   state.treeData = rawCopy;
   state.settings.projectName = 'Casa Laura (Opus 2014)';

@@ -74,6 +74,8 @@ import {
   resetPasswordForEmail
 } from '../../core/authService.js';
 import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js';
+import { mountStorageMeter } from '../../services/storageQuotaService.js';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
@@ -564,19 +566,41 @@ export function setRegSexo(sexo) {
   }
 }
 
-export function handleCustomPhotoUpload(e) {
-  const file = e.target.files[0];
+/**
+ * Helper compartido para comprimir (<canvas>), validar cuota y respaldar en IndexedDB/S3 avatares o logos en el portal.
+ */
+async function processPortalImageUpload(file, { modulo = 'avatares', preset = 'avatar' } = {}) {
+  const res = await uploadManagedFile({
+    file,
+    modulo,
+    categoria: 'branding',
+    preset,
+    showFeedback: true,
+    includeDataUrl: true
+  });
+  if (!res.ok) {
+    throw new Error(res.reason || 'No se pudo procesar la imagen.');
+  }
+  return res;
+}
+
+export async function handleCustomPhotoUpload(e) {
+  const inputEl = e?.target;
+  const file = inputEl?.files?.[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (evt) => {
-    customPhotoTemp = evt.target.result;
+  try {
+    const res = await processPortalImageUpload(file, { modulo: 'avatares', preset: 'avatar' });
+    customPhotoTemp = res.dataUrl;
     const preview = document.getElementById('reg-avatar-preview');
     const label = document.getElementById('reg-avatar-label');
     if (preview) preview.src = customPhotoTemp;
-    if (label) label.innerText = 'Foto personalizada cargada';
-    showToast('Foto cargada exitosamente');
-  };
-  reader.readAsDataURL(file);
+    if (label) label.innerText = `Foto personalizada cargada (${res.summaryText})`;
+    showToast(`Foto optimizada y cargada (${res.summaryText})`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (inputEl) inputEl.value = '';
+  }
 }
 
 // Enviar Registro
@@ -1580,9 +1604,13 @@ export function renderPortalDashboard() {
       <p class="text-xs text-slate-400 mt-1">Prueba con otros términos de búsqueda o limpia los filtros seleccionados.</p>
       <button onclick="resetProjectFilters()" class="mt-4 px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium transition cursor-pointer">Limpiar Filtros</button>
     </div>
+
+    <!-- Medidor de Cuota Unificada AWS S3 del Anfitrión -->
+    <div id="portal-dashboard-storage-meter" class="mt-2"></div>
   `;
 
   refreshProjectsGridUI();
+  mountStorageMeter('portal-dashboard-storage-meter', { showUpgradeButton: true }).catch(() => {});
 }
 
 export function getCompanyBadgeMeta(companyName) {
@@ -2371,7 +2399,14 @@ export function exportProjectToExcelAction(projectId) {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Presupuesto Base');
       const cleanName = (p.projectName || 'Proyecto').replace(/[^a-zA-Z0-9_-]/g, '_');
-      XLSX.writeFile(wb, `${cleanName}_Presupuesto.xlsx`);
+      const excelName = `${cleanName}_Presupuesto.xlsx`;
+      XLSX.writeFile(wb, excelName);
+      archiveGeneratedWorkbookReport(XLSX, wb, excelName, {
+        modulo: 'reportes',
+        entidadId: 'portal_presupuesto_excel',
+        proyectoId: p.id || getActiveProjectId(),
+        metadata: { tipo: 'portal_presupuesto' }
+      });
       showToast(`Proyecto "${p.projectName}" exportado a Excel exitosamente.`);
     } else {
       showToast('Descargando archivo Excel del proyecto...');
@@ -2560,14 +2595,18 @@ export function goToWizardStep(step) {
   }
 }
 
-export function handleWizardLogoFile(e) {
-  const file = e.target.files[0];
+export async function handleWizardLogoFile(e) {
+  const inputEl = e?.target;
+  const file = inputEl?.files?.[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (evt) => {
-    setWizardLogoImage(evt.target.result);
-  };
-  reader.readAsDataURL(file);
+  try {
+    const res = await processPortalImageUpload(file, { modulo: 'branding', preset: 'branding' });
+    setWizardLogoImage(res.dataUrl);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (inputEl) inputEl.value = '';
+  }
 }
 
 export function setSampleLogo(type) {
@@ -2789,6 +2828,7 @@ export function openProfileModal() {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
   }
+  mountStorageMeter('profile-modal-storage-meter', { showUpgradeButton: false }).catch(() => {});
 }
 
 export function closeProfileModal() {
@@ -2828,23 +2868,27 @@ export function selectProfileAvatar(key) {
   saveRegisteredUserAccount(u);
 }
 
-export function handleProfilePhotoUpload(e) {
-  const file = e.target.files[0];
+export async function handleProfilePhotoUpload(e) {
+  const inputEl = e?.target;
+  const file = inputEl?.files?.[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (evt) => {
+  try {
+    const res = await processPortalImageUpload(file, { modulo: 'avatares', preset: 'avatar' });
     const u = getCurrentUser();
     if (u) {
-      u.avatar = evt.target.result;
+      u.avatar = res.dataUrl;
+      u.avatarS3Key = res.s3Key || '';
       const a = document.getElementById('profile-edit-avatar-img');
-      if (a) a.src = evt.target.result;
-  
-  saveCurrentUser(u);
-  saveRegisteredUserAccount(u);
-      showToast('Foto de perfil actualizada');
+      if (a) a.src = res.dataUrl;
+      saveCurrentUser(u);
+      saveRegisteredUserAccount(u);
+      showToast(`Foto de perfil actualizada (${res.summaryText})`, 'success');
     }
-  };
-  reader.readAsDataURL(file);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (inputEl) inputEl.value = '';
+  }
 }
 
 export function saveProfileChanges() {
@@ -3387,7 +3431,7 @@ export function renderPlanInviteModalContent() {
         <div>
           <span class="font-bold text-white block text-xs">Cupo de usuarios de tu suscripción:</span>
           <span class="text-[11px] ${isAtLimit ? 'text-amber-300' : 'text-slate-300'}">
-            Tienes <strong class="text-white">${collaborators.length}</strong> de <strong class="text-white">${planLimits.maxMembers === Infinity ? 'Ilimitados' : planLimits.maxMembers}</strong> usuarios registrados en tu plan ${planLimits.name}.
+            Tienes <strong class="text-white">${collaborators.length + 1}</strong> de <strong class="text-white">${planLimits.maxMembers === Infinity ? 'Ilimitados' : planLimits.maxMembers}</strong> usuarios en tu plan ${planLimits.name} <span class="text-slate-400">(Tú + ${collaborators.length} colaborador${collaborators.length === 1 ? '' : 'es'})</span>.
           </span>
         </div>
       </div>
@@ -3490,15 +3534,19 @@ export function updatePlanInviteAvatarPreview() {
   }
 }
 
-export function handlePlanInvitePhotoUpload(event) {
-  const file = event.target?.files?.[0];
+export async function handlePlanInvitePhotoUpload(event) {
+  const inputEl = event?.target;
+  const file = inputEl?.files?.[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    planInviteCustomAvatarTemp = e.target.result;
+  try {
+    const res = await processPortalImageUpload(file, { modulo: 'avatares', preset: 'avatar' });
+    planInviteCustomAvatarTemp = res.dataUrl;
     updatePlanInviteAvatarPreview();
-  };
-  reader.readAsDataURL(file);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (inputEl) inputEl.value = '';
+  }
 }
 
 export function selectPlanInvitePreset(index) {
@@ -3689,15 +3737,19 @@ export function setInviteSexo(sexo) {
   updateInviteAvatarPreview();
 }
 
-export function handleInvitePhotoUpload(e) {
-  const file = e.target.files && e.target.files[0];
+export async function handleInvitePhotoUpload(e) {
+  const inputEl = e?.target;
+  const file = inputEl?.files?.[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (evt) => {
-    inviteCustomAvatarTemp = evt.target.result;
+  try {
+    const res = await processPortalImageUpload(file, { modulo: 'avatares', preset: 'avatar' });
+    inviteCustomAvatarTemp = res.dataUrl;
     updateInviteAvatarPreview();
-  };
-  reader.readAsDataURL(file);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (inputEl) inputEl.value = '';
+  }
 }
 
 function updateInviteAvatarPreview() {
@@ -3812,7 +3864,7 @@ export function setMemberAllTabsPermission(memberId, grantAll) {
   const mem = members.find(m => m.id === memberId);
   if (!mem) return;
 
-  const newTabs = grantAll ? ['cat', 'insumos', 'calendario', 'estimaciones'] : [];
+  const newTabs = grantAll ? ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'] : [];
   const ok = updateProjectMemberTabs(activeInviteProjectId, memberId, newTabs);
   if (ok) {
     showToast(grantAll ? `Todas las pestañas autorizadas para ${mem.name}` : `Todas las pestañas retiradas para ${mem.name}`, !grantAll);
@@ -3846,10 +3898,10 @@ export function submitInviteMember(e) {
 
   const avatar = inviteCustomAvatarTemp || AVATARS_BY_SEX[selectedInviteSexo] || AVATARS_BY_SEX['Masculino'];
   const currentUser = getCurrentUser();
-  const inviteCheck = canUserInviteToProject(activeInviteProjectId, currentUser);
+  const inviteCheck = canUserInviteToProject(activeInviteProjectId, currentUser, email);
   if (!inviteCheck.allowed) {
     showToast(`🔒 ${inviteCheck.reason || 'No tienes permitido invitar más colaboradores.'}`, 'warning');
-    if (inviteCheck.reason && inviteCheck.reason.includes('límite')) {
+    if (inviteCheck.limitReached || (inviteCheck.reason && inviteCheck.reason.includes('límite'))) {
       openSubscriptionModal();
     }
     return;
@@ -3962,7 +4014,9 @@ export function renderInviteModalMembersList() {
     { id: 'cat', label: 'Catálogo', icon: 'fa-list-check', activeBg: 'bg-blue-50 text-blue-700 border-blue-400 hover:bg-blue-100', iconColor: 'text-blue-600' },
     { id: 'insumos', label: 'Insumos', icon: 'fa-boxes-stacked', activeBg: 'bg-purple-50 text-purple-700 border-purple-400 hover:bg-purple-100', iconColor: 'text-purple-600' },
     { id: 'calendario', label: 'Calendario', icon: 'fa-calendar-days', activeBg: 'bg-amber-50 text-amber-700 border-amber-400 hover:bg-amber-100', iconColor: 'text-amber-500' },
-    { id: 'estimaciones', label: 'Estimaciones', icon: 'fa-file-invoice-dollar', activeBg: 'bg-emerald-50 text-emerald-700 border-emerald-400 hover:bg-emerald-100', iconColor: 'text-emerald-600' }
+    { id: 'estimaciones', label: 'Estimaciones', icon: 'fa-file-invoice-dollar', activeBg: 'bg-emerald-50 text-emerald-700 border-emerald-400 hover:bg-emerald-100', iconColor: 'text-emerald-600' },
+    { id: 'compras', label: 'Compras', icon: 'fa-cart-shopping', activeBg: 'bg-indigo-50 text-indigo-700 border-indigo-400 hover:bg-indigo-100', iconColor: 'text-indigo-600' },
+    { id: 'bitacora', label: 'Bitácora', icon: 'fa-book-bookmark', activeBg: 'bg-teal-50 text-teal-700 border-teal-400 hover:bg-teal-100', iconColor: 'text-teal-600' }
   ];
 
   container.innerHTML = members.map(m => {
@@ -4079,7 +4133,9 @@ export const TAB_METADATA = {
   cat: { id: 'cat', name: 'Catálogo Base', icon: 'fa-solid fa-list-check', color: 'blue' },
   insumos: { id: 'insumos', name: 'Insumos Base', icon: 'fa-solid fa-boxes-stacked', color: 'purple' },
   calendario: { id: 'calendario', name: 'Calendario de Obra', icon: 'fa-solid fa-calendar-days', color: 'amber' },
-  estimaciones: { id: 'estimaciones', name: 'Estimaciones', icon: 'fa-solid fa-file-invoice-dollar', color: 'emerald' }
+  estimaciones: { id: 'estimaciones', name: 'Estimaciones', icon: 'fa-solid fa-file-invoice-dollar', color: 'emerald' },
+  compras: { id: 'compras', name: 'Compras y Pagos', icon: 'fa-solid fa-cart-shopping', color: 'indigo' },
+  bitacora: { id: 'bitacora', name: 'Bitácora de Obra', icon: 'fa-solid fa-book-bookmark', color: 'teal' }
 };
 
 let activeConfiguringTabId = null;
@@ -4107,7 +4163,7 @@ export function canCurrentUserAccessTab(tabId) {
 
 // Actualizar iconos de candado y estado visual de las pestañas en el encabezado
 export function updateNavigationTabsAccess() {
-  const tabs = ['cat', 'insumos', 'calendario', 'estimaciones'];
+  const tabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
   tabs.forEach(tabId => {
     const btn = document.getElementById(`tab-btn-${tabId}`);
     if (!btn) return;
@@ -4171,7 +4227,7 @@ export function renderTabAssignedAvatars(tabId) {
 
 // Renderizar todos los widgets de miembros asignados a cada pestaña
 export function renderAllTabAssignedMembers() {
-  ['cat', 'insumos', 'calendario', 'estimaciones'].forEach(tabId => {
+  ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'].forEach(tabId => {
     renderTabAssignedAvatars(tabId);
   });
 }
