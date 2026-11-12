@@ -91,12 +91,26 @@ export function isPartidaChatActive(partidaId) {
   return Boolean(isChatDockExpanded && activePartidaFilterId && String(activePartidaFilterId) === String(partidaId));
 }
 
-// Helper que devuelve el HTML del botón de comentarios de alta visibilidad para cada Partida Nivel 1
+function escapeChatHtml(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeChatJsArg(value = '') {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+// Helper que devuelve el HTML del botón de comentarios de alta visibilidad para cualquier concepto o partida
 export function renderPartidaNivel1ChatButton(nodeId, clave = '', descripcion = '') {
   const count = getPartidaChatCount(nodeId);
   const isActive = isPartidaChatActive(nodeId);
-  const safeClave = String(clave || '').replace(/'/g, "\\'");
-  const safeDesc = String(descripcion || '').slice(0, 40).replace(/'/g, "\\'");
+  const safeClave = escapeChatHtml(clave || '');
+  const safeDesc = escapeChatHtml(String(descripcion || '').slice(0, 40));
+  const safeNodeId = escapeChatJsArg(nodeId || '');
 
   // Diseño de alto contraste con icono vectorial fa-comments para que destaque claramente
   let btnClasses = '';
@@ -119,8 +133,8 @@ export function renderPartidaNivel1ChatButton(nodeId, clave = '', descripcion = 
 
   return `
     <button type="button"
-            onclick="openProjectChatForPartida('${nodeId}', event)"
-            title="Comentarios de Nivel 1: ${safeClave} ${safeDesc} (${count})"
+            onclick="openProjectChatForPartida('${safeNodeId}', event)"
+            title="Comentarios (${count}): ${safeClave} ${safeDesc}"
             class="no-print inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-sans font-bold transition cursor-pointer shrink-0 ${btnClasses}">
       <i class="${iconClasses}"></i>
       ${badgeHtml}
@@ -184,14 +198,28 @@ function getActiveUserHandle(users = null) {
   return list[0] ? list[0].handle : '@Admin';
 }
 
-// Obtener las Partidas Nivel 1 reales del catálogo activo
-function getLevel1Partidas() {
-  const roots = Array.isArray(state.treeData) ? state.treeData : [];
-  return roots.map(node => ({
-    id: String(node.id),
-    clave: node.clave || '1',
-    descripcion: node.descripcion || 'PARTIDA NIVEL 1'
-  }));
+// Obtener todos los nodos (partidas, sub-partidas y conceptos de cualquier nivel) del catálogo activo
+function getAllCatalogNodes() {
+  const result = [];
+  function walk(nodes, level = 1) {
+    if (!Array.isArray(nodes)) return;
+    nodes.forEach((node) => {
+      if (!node) return;
+      const isParent = Array.isArray(node.children) && node.children.length > 0;
+      result.push({
+        id: String(node.id),
+        clave: node.clave || String(level),
+        descripcion: node.descripcion || (level === 1 ? 'PARTIDA NIVEL 1' : 'CONCEPTO'),
+        level,
+        isParent
+      });
+      if (isParent) {
+        walk(node.children, level + 1);
+      }
+    });
+  }
+  walk(state.treeData, 1);
+  return result;
 }
 
 // Clasificar sección del mensaje ('tecnico' vs 'financiero')
@@ -900,7 +928,7 @@ export function renderSidebarNotificationsUI() {
     return;
   }
 
-  const partidas = getLevel1Partidas();
+  const partidas = getAllCatalogNodes();
 
   if (popoverEl) {
     const projectUsers = getAllNotificationsUsers('current');
@@ -979,7 +1007,7 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
   const logoSrc = state.settings?.companyLogo || '';
 
   const users = getAssignedProjectUsers();
-  const partidas = getLevel1Partidas();
+  const partidas = getAllCatalogNodes();
   const allMessages = loadProjectChatMessages();
 
   // Filtrar según la sección seleccionada
@@ -1009,7 +1037,7 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
 
   let filterLabel = targetSection === 'todos' ? 'Bitácora Integral Completa' : (targetSection === 'tecnico' ? 'Sección Técnica de Obra' : 'Sección Financiera y Pagos');
   if (activePartidaObj) {
-    filterLabel += ` • Partida Nivel 1: /${activePartidaObj.clave} ${activePartidaObj.descripcion}`;
+    filterLabel += ` • Concepto (N${activePartidaObj.level}): /${activePartidaObj.clave} ${activePartidaObj.descripcion}`;
   } else if (activeChatFilter === 'mentions') {
     filterLabel += ` • Menciones de ${selectedAuthorHandle || 'usuario'}`;
   } else if (activeChatFilter === 'estimaciones') {
@@ -1454,9 +1482,9 @@ export function jumpToProjectChatTag(kind, value) {
     activeChatSection = 'tecnico';
     renderProjectChatDock();
     triggerExternalChatRefresh();
-    const pObj = getLevel1Partidas().find(p => p.id === String(value));
+    const pObj = getAllCatalogNodes().find(p => p.id === String(value));
     if (pObj) {
-      showToast(`Filtrando comentarios de Partida Nivel 1: ${pObj.clave} ${pObj.descripcion}`, 'info');
+      showToast(`Filtrando comentarios de: ${pObj.clave} ${pObj.descripcion}`, 'info');
     }
   } else if (kind === 'estimacion') {
     activeChatSection = 'financiero';
@@ -1533,7 +1561,7 @@ export function renderProjectChatDock() {
 
   const projectName = state.settings?.projectName || 'Proyecto de Obra';
   const users = getAssignedProjectUsers();
-  const partidas = getLevel1Partidas();
+  const partidas = getAllCatalogNodes();
   const estimaciones = getProjectEstimacionesTags();
   const compras = getProjectComprasTags();
   const reportes = getProjectReportesTags(activeChatSection);
@@ -1628,11 +1656,11 @@ export function renderProjectChatDock() {
     tagPickerHtml = `
       <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
         ${partidas.length > 0 ? partidas.map(p => `
-          <button type="button" onclick="addProjectChatPendingTag('partida', '${p.id}')"
+          <button type="button" onclick="addProjectChatPendingTag('partida', '${escapeChatJsArg(p.id)}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 cursor-pointer truncate max-w-full">
-            /${p.clave} ${p.descripcion}
+            <span class="opacity-65 mr-0.5">N${p.level}</span>/${escapeChatHtml(p.clave)} ${escapeChatHtml(p.descripcion)}
           </button>
-        `).join('') : `<span class="text-[11px] text-slate-400">Sin Partidas Nivel 1 en el catálogo</span>`}
+        `).join('') : `<span class="text-[11px] text-slate-400">Sin conceptos en el catálogo</span>`}
       </div>
     `;
   } else if (activeTagPickerKind === 'estimacion') {
@@ -1830,9 +1858,9 @@ export function renderProjectChatDock() {
           `}
           ${activePartidaObj ? `
             <button type="button" onclick="clearProjectChatPartidaFilter()"
-                    title="Quitar filtro de Partida Nivel 1"
+                    title="Quitar filtro de concepto / partida"
                     class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-500 text-white hover:bg-amber-600 cursor-pointer transition truncate max-w-[160px]">
-              /${activePartidaObj.clave} ${activePartidaObj.descripcion} ✕
+              /${escapeChatHtml(activePartidaObj.clave)} ${escapeChatHtml(activePartidaObj.descripcion)} ✕
             </button>
           ` : ''}
         </div>
@@ -1927,7 +1955,7 @@ export function renderProjectChatDock() {
           ${activeChatSection === 'tecnico' ? `
             <button type="button" onclick="toggleProjectChatTagPicker('partida')"
                     class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 cursor-pointer">
-              / Nivel 1
+              / Concepto
             </button>
             <button type="button" onclick="toggleProjectChatTagPicker('reporte')"
                     class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">

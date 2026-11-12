@@ -574,7 +574,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                     </button>
                     <span class="w-12 mr-1.5 text-blue-700 font-mono text-[11px] font-bold shrink-0 truncate">${item.clave || 'PART'}</span>
                     <span class="${isJustifyConcepts ? 'whitespace-normal break-words text-justify leading-snug' : 'truncate'} font-sans ${isLevel1 ? 'uppercase text-xs tracking-wide font-extrabold text-slate-900' : 'text-xs font-bold text-slate-800'}">${item.descripcion}</span>
-                    ${isLevel1 ? `<span class="ml-1.5 shrink-0">${renderPartidaNivel1ChatButton(item.id, item.clave, item.descripcion)}</span>` : ''}
+                    <span class="ml-1.5 shrink-0">${renderPartidaNivel1ChatButton(item.id, item.clave, item.descripcion)}</span>
                     ${!item.expanded ? `<span class="ml-1.5 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[9px] font-mono border border-blue-200 shrink-0 font-normal">Agrupado (${item.descendantConceptCount})</span>` : ''}
                   </div>
                   <div class="flex items-center shrink-0">
@@ -634,6 +634,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                       <span class="block ${isJustifyConcepts ? 'whitespace-normal break-words text-justify leading-snug' : 'truncate'} text-slate-800 text-xs font-medium" title="${item.descripcion}">${item.descripcion}</span>
                       <span class="text-[10px] text-slate-500 font-mono truncate block">${formatNumber(item.cantidad, 2)} ${item.unidad} • ${formatCurrency(item.importe, currencySymbol)}</span>
                     </div>
+                    <span class="ml-1.5 shrink-0">${renderPartidaNivel1ChatButton(item.id, item.clave, item.descripcion)}</span>
                   </div>
                   <div class="flex items-center shrink-0">
                     <!-- Selector de Predecesoras Fin-a-Inicio -->

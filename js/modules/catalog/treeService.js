@@ -710,6 +710,94 @@ export function clearNodeColor(id, event) {
   showToast(`Color restablecido en ${node.clave || 'partida'}`, 'info');
 }
 
+const AUTO_ROW_PALETTE = [
+  '#3b82f6',
+  '#10b981',
+  '#f59e0b',
+  '#8b5cf6',
+  '#ec4899',
+  '#06b6d4',
+  '#f97316',
+  '#6366f1',
+  '#14b8a6',
+  '#ef4444',
+  '#84cc16',
+  '#0ea5e9'
+];
+
+// Asignar colores jerárquicos automáticamente a las filas de primer nivel (o sub-partidas si hay una sola raíz)
+export function autoColorRows(event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  if (!guardTabUnlocked('cat')) return;
+  if (!Array.isArray(state.treeData) || state.treeData.length === 0) {
+    showToast('No hay partidas para colorear', 'warning');
+    return;
+  }
+
+  let targets = state.treeData;
+  if (state.treeData.length === 1 && Array.isArray(state.treeData[0].children)) {
+    const subPartidas = state.treeData[0].children.filter(
+      (child) => Array.isArray(child.children) && child.children.length > 0
+    );
+    if (subPartidas.length > 1) {
+      targets = [state.treeData[0], ...subPartidas];
+    }
+  }
+
+  saveState();
+
+  const hasUncolored = targets.some((node) => !node.color);
+  let coloredCount = 0;
+
+  if (hasUncolored) {
+    const usedColors = new Set(
+      targets.filter((node) => node.color).map((node) => node.color.toLowerCase())
+    );
+    let paletteIdx = 0;
+
+    targets.forEach((node) => {
+      if (node.color) return;
+      let chosen = null;
+      for (let attempt = 0; attempt < AUTO_ROW_PALETTE.length; attempt++) {
+        const candidate = AUTO_ROW_PALETTE[(paletteIdx + attempt) % AUTO_ROW_PALETTE.length];
+        if (!usedColors.has(candidate.toLowerCase())) {
+          chosen = candidate;
+          paletteIdx = (paletteIdx + attempt + 1) % AUTO_ROW_PALETTE.length;
+          break;
+        }
+      }
+      if (!chosen) {
+        chosen = AUTO_ROW_PALETTE[paletteIdx % AUTO_ROW_PALETTE.length];
+        paletteIdx = (paletteIdx + 1) % AUTO_ROW_PALETTE.length;
+      }
+      node.color = chosen;
+      usedColors.add(chosen.toLowerCase());
+      coloredCount++;
+    });
+  } else {
+    const firstColor = (targets[0].color || '').toLowerCase();
+    const currentIdx = AUTO_ROW_PALETTE.findIndex((c) => c.toLowerCase() === firstColor);
+    const startIdx = currentIdx >= 0 ? (currentIdx + 1) % AUTO_ROW_PALETTE.length : 0;
+
+    targets.forEach((node, idx) => {
+      node.color = AUTO_ROW_PALETTE[(startIdx + idx) % AUTO_ROW_PALETTE.length];
+      coloredCount++;
+    });
+  }
+
+  persistLocalData();
+  renderTAB1();
+  showToast(
+    hasUncolored
+      ? `Colores asignados automáticamente a ${coloredCount} ${coloredCount === 1 ? 'fila' : 'filas'}`
+      : `Esquema de color actualizado en ${coloredCount} ${coloredCount === 1 ? 'fila' : 'filas'}`,
+    'success'
+  );
+}
+
 // Checkbox individual de fila (con propagación a hijos)
 export function toggleSelectNode(id, isChecked, e) {
   if (e) e.stopPropagation();

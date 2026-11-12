@@ -100,7 +100,7 @@ export function renderTAB1() {
             ` : '<span class="w-4 inline-block shrink-0"></span>'}
             <textarea ${isCatLocked ? 'disabled readonly' : ''} onchange="updateNode('${node.id}', 'descripcion', this.value)" 
                       class="desc-input w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white px-1 py-0.5 rounded text-xs font-sans ${isLevel1 ? 'font-bold text-slate-900' : 'text-slate-700'} text-justify leading-snug break-words whitespace-normal disabled:cursor-default">${node.descripcion || ''}</textarea>
-            ${isLevel1 ? `<div class="ml-1.5 mt-0.5 shrink-0">${renderPartidaNivel1ChatButton(node.id, node.clave, node.descripcion)}</div>` : ''}
+            <div class="ml-1.5 mt-0.5 shrink-0">${renderPartidaNivel1ChatButton(node.id, node.clave, node.descripcion)}</div>
           </div>
         </td>
         <td class="p-1.5 text-right align-top pt-2">

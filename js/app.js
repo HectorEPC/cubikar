@@ -176,6 +176,7 @@ import {
   desagruparCatalogoConceptos,
   updateNodeColor,
   clearNodeColor,
+  autoColorRows,
   toggleSelectNode,
   toggleSelectAll
 } from './modules/catalog/treeService.js';
@@ -724,6 +725,7 @@ Object.assign(window, {
   desagruparCatalogoConceptos,
   updateNodeColor,
   clearNodeColor,
+  autoColorRows,
   toggleSelectNode,
   toggleSelectAll,
   selectRow,

@@ -671,7 +671,7 @@ export function renderEstimacionesView() {
                           <i class="fa-solid fa-chevron-${isCollapsed ? 'right' : 'down'} text-[9px]"></i>
                         </button>
                         <span class="estimaciones-concepto-desc flex-1 ${isLevel1 ? 'font-extrabold text-slate-900' : 'font-bold text-slate-800'}" style="text-align: justify; text-justify: inter-word;">${row.descripcion}</span>
-                        ${isLevel1 ? `<span class="ml-1 shrink-0 self-center">${renderPartidaNivel1ChatButton(row.id, row.clave, row.descripcion)}</span>` : ''}
+                        <span class="ml-1 shrink-0 self-center">${renderPartidaNivel1ChatButton(row.id, row.clave, row.descripcion)}</span>
                         ${isCollapsed ? `<span class="px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 text-[8.5px] font-mono border border-blue-200 ml-1.5 shrink-0 font-normal self-center whitespace-nowrap">Agrupado (${row.descendantCount} conc.)</span>` : ''}
                       </div>
                     </td>
@@ -712,6 +712,7 @@ export function renderEstimacionesView() {
                       <div class="flex items-start gap-1.5 min-w-0">
                         <span class="w-1.5 h-1.5 rounded-full mt-1 shrink-0" style="background-color: ${row.color.bar};"></span>
                         <span class="estimaciones-concepto-desc flex-1 text-slate-800 font-sans" style="text-align: justify; text-justify: inter-word;">${row.descripcion}</span>
+                        <span class="ml-1 shrink-0 self-center">${renderPartidaNivel1ChatButton(row.id, row.clave, row.descripcion)}</span>
                       </div>
                     </td>
 
