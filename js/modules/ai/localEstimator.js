@@ -430,10 +430,17 @@ export async function executeLocalGeneration(catalogIds = 'all') {
     return;
   }
 
-  const btnLocal = document.getElementById('btn-matriz-catalogo-local') || document.getElementById('btn-ai-modal-local');
+  const btnLocal = document.getElementById('btn-ai-apu') || document.getElementById('btn-ai-modal-local');
+  const btnLocalMax = document.getElementById('btn-ai-apu-max');
+  const originalLocalHtml = btnLocal ? btnLocal.innerHTML : '';
+  const originalLocalMaxHtml = btnLocalMax ? btnLocalMax.innerHTML : '';
   if (btnLocal) {
     btnLocal.disabled = true;
-    btnLocal.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> Consultando Catálogo...';
+    btnLocal.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>Catálogo...</span>';
+  }
+  if (btnLocalMax) {
+    btnLocalMax.disabled = true;
+    btnLocalMax.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i> <span>Consultando Catálogo...</span>';
   }
 
   try {
@@ -457,7 +464,11 @@ export async function executeLocalGeneration(catalogIds = 'all') {
   } finally {
     if (btnLocal) {
       btnLocal.disabled = false;
-      btnLocal.innerHTML = '<i class="fa-solid fa-database text-amber-600 text-[9px]"></i> <span>Catálogo local</span>';
+      btnLocal.innerHTML = originalLocalHtml;
+    }
+    if (btnLocalMax) {
+      btnLocalMax.disabled = false;
+      btnLocalMax.innerHTML = originalLocalMaxHtml;
     }
   }
 }

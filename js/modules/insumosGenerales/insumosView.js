@@ -616,6 +616,15 @@ export async function actualizarCostoIndividualConIA(tipo, key, options = {}) {
 async function processBatchInsumosConIA(selectedItems, { label = 'seleccionados', useWebSearch = false } = {}) {
   if (!Array.isArray(selectedItems) || selectedItems.length === 0) return;
 
+  const btnInsumos = typeof document !== 'undefined' ? document.getElementById('btn-ai-general-insumos') : null;
+  const btnInsumosMenu = typeof document !== 'undefined' ? document.getElementById('btn-insumos-ai-menu') : null;
+  const originalInsumosHtml = btnInsumos ? btnInsumos.innerHTML : '';
+  if (btnInsumos) {
+    btnInsumos.disabled = true;
+    btnInsumos.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-[10px] text-amber-200"></i> ${useWebSearch ? 'Buscando Web...' : 'Cotizando...'}`;
+  }
+  if (btnInsumosMenu) btnInsumosMenu.disabled = true;
+
   showToast(
     useWebSearch
       ? `🌐 Cotizando ${selectedItems.length} insumos ${label} en Web en Vivo (Google Search)...`
@@ -623,49 +632,57 @@ async function processBatchInsumosConIA(selectedItems, { label = 'seleccionados'
     'info'
   );
 
-  const apiKey = state.settings?.apiKey || '';
-  let batchResults = null;
-  if (selectedItems.length > 1) {
-    batchResults = await queryGeminiLoteInsumos(selectedItems, apiKey, { useWebSearch });
-    if (batchResults && batchResults.__quotaError) {
-      showToast(`🔒 ${batchResults.__quotaError}`, 'warning');
-      if (typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') window.openSubscriptionModal();
-      return;
-    }
-  }
-
-  saveState();
-  let count = 0;
-
-  for (const item of selectedItems) {
-    let nuevoPrecio = null;
-    if (batchResults && batchResults[item.key]) {
-      nuevoPrecio = batchResults[item.key].precio;
-    } else {
-      const res = await estimarCostoInsumoConIA(item, { useWebSearch });
-      if (res && res.blockedByQuota) {
-        showToast(`🔒 ${res.error}`, 'warning');
+  try {
+    const apiKey = state.settings?.apiKey || '';
+    let batchResults = null;
+    if (selectedItems.length > 1) {
+      batchResults = await queryGeminiLoteInsumos(selectedItems, apiKey, { useWebSearch });
+      if (batchResults && batchResults.__quotaError) {
+        showToast(`🔒 ${batchResults.__quotaError}`, 'warning');
         if (typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') window.openSubscriptionModal();
-        break;
+        return;
       }
-      nuevoPrecio = res?.precio ?? null;
     }
 
-    if (nuevoPrecio !== null && nuevoPrecio > 0) {
-      const parsedCosto = round2(nuevoPrecio);
-      propagateInsumoCostToAllMatrices(item.key, parsedCosto, item);
-      count++;
-    }
-  }
+    saveState();
+    let count = 0;
 
-  persistLocalData();
-  renderInsumosGenerales();
-  syncCatalogAndActiveMatrixAfterInsumoChange();
-  if (count > 0) {
-    showToast(
-      `✅ ${count} insumo${count > 1 ? 's' : ''} ${label} actualizado${count > 1 ? 's' : ''} (${useWebSearch ? 'Precios Web en Vivo' : 'Caché / IA Estándar'}).`,
-      'success'
-    );
+    for (const item of selectedItems) {
+      let nuevoPrecio = null;
+      if (batchResults && batchResults[item.key]) {
+        nuevoPrecio = batchResults[item.key].precio;
+      } else {
+        const res = await estimarCostoInsumoConIA(item, { useWebSearch });
+        if (res && res.blockedByQuota) {
+          showToast(`🔒 ${res.error}`, 'warning');
+          if (typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') window.openSubscriptionModal();
+          break;
+        }
+        nuevoPrecio = res?.precio ?? null;
+      }
+
+      if (nuevoPrecio !== null && nuevoPrecio > 0) {
+        const parsedCosto = round2(nuevoPrecio);
+        propagateInsumoCostToAllMatrices(item.key, parsedCosto, item);
+        count++;
+      }
+    }
+
+    persistLocalData();
+    renderInsumosGenerales();
+    syncCatalogAndActiveMatrixAfterInsumoChange();
+    if (count > 0) {
+      showToast(
+        `✅ ${count} insumo${count > 1 ? 's' : ''} ${label} actualizado${count > 1 ? 's' : ''} (${useWebSearch ? 'Precios Web en Vivo' : 'Caché / IA Estándar'}).`,
+        'success'
+      );
+    }
+  } finally {
+    if (btnInsumos) {
+      btnInsumos.disabled = false;
+      btnInsumos.innerHTML = originalInsumosHtml;
+    }
+    if (btnInsumosMenu) btnInsumosMenu.disabled = false;
   }
 }
 

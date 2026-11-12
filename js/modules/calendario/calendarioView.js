@@ -273,15 +273,7 @@ export function renderCalendarioObra() {
             <i class="fa-solid fa-print text-[10px]"></i> <span>Imprimir</span>
           </button>
 
-          <!-- 11. IA (Secuencia por Proceso Constructivo) -->
-          <button type="button" onclick="openCalendarioAiModal()" id="btn-calendario-ia" ${isCalLocked ? 'disabled' : ''}
-                  class="bg-violet-600 hover:bg-violet-500 text-white border border-violet-700 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-bold shadow-sm transition active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-                  title="${isCalLocked ? 'Calendario bloqueado (Solo consulta e impresión)' : 'Generar propuesta con IA tomando en cuenta el Proceso Constructivo de cada Tipo de Obra'}">
-            <i class="fa-solid fa-wand-magic-sparkles text-[11px] text-amber-200"></i>
-            <span>IA</span>
-          </button>
-
-          <!-- 12. Días Inhábiles (Jornada Laboral, Festivos, Lluvias) -->
+          <!-- 11. Días Inhábiles (Jornada Laboral, Festivos, Lluvias) -->
           <button type="button" onclick="openCalendarioJornadaModal()" id="btn-calendario-jornada" ${isCalLocked ? 'disabled' : ''}
                   class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0" 
                   title="${isCalLocked ? 'Calendario bloqueado (Solo consulta e impresión)' : 'Configurar Jornada Laboral, Días Inhábiles, Festivos y Lluvias'}">

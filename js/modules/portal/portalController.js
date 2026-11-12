@@ -2139,8 +2139,8 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
         <!-- Header Card: Company, Tag & Dropdown Menu -->
         <div class="flex items-start justify-between gap-3 mb-3">
           <div class="flex items-center gap-3 min-w-0">
-            <div class="w-11 h-11 rounded-xl ${badgeMeta.bg} border ${badgeMeta.border} flex items-center justify-center ${badgeMeta.text} font-bold text-sm tracking-wider shadow-inner shrink-0 overflow-hidden">
-              ${proj.companyLogo ? `<img src="${proj.companyLogo}" class="max-h-full max-w-full object-contain">` : badgeMeta.initials}
+            <div class="w-11 h-11 rounded-xl ${badgeMeta.bg} border ${badgeMeta.border} flex items-center justify-center ${badgeMeta.text} font-bold text-sm tracking-wider shadow-inner shrink-0 overflow-hidden p-0.5">
+              ${proj.companyLogo ? `<img src="${proj.companyLogo}" class="w-full h-full max-w-full max-h-full object-contain rounded-lg">` : badgeMeta.initials}
             </div>
             <div class="min-w-0 flex-1">
               <span class="text-xs font-semibold text-blue-400 tracking-wide uppercase block truncate">${proj.companyName}</span>
@@ -2623,7 +2623,10 @@ export function setWizardLogoImage(src) {
     img.src = src;
     img.classList.remove('hidden');
   }
-  if (fb) fb.classList.add('hidden');
+  if (fb) {
+    fb.classList.add('hidden');
+    fb.style.display = 'none';
+  }
 }
 
 export function clearWizardLogo() {
@@ -2631,7 +2634,10 @@ export function clearWizardLogo() {
   const img = document.getElementById('wizard-logo-img');
   const fb = document.getElementById('wizard-logo-fallback');
   if (img) { img.src = ''; img.classList.add('hidden'); }
-  if (fb) fb.classList.remove('hidden');
+  if (fb) {
+    fb.classList.remove('hidden');
+    fb.style.display = '';
+  }
 }
 
 export function onWizardCurrencyChange(val) {
@@ -4130,8 +4136,14 @@ export function renderInviteModalMembersList() {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('click', (e) => {
-    if (!e.target.closest('.relative')) {
-      document.querySelectorAll('[id^="menu-card-"]').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('[id^="menu-card-"]:not(.hidden)').forEach((el) => {
+      const container = el.parentElement || el;
+      if (!(e.target instanceof Node && container.contains(e.target))) {
+        el.classList.add('hidden');
+      }
+    });
+    const portalUserWrapper = document.getElementById('portal-user-menu-wrapper');
+    if (portalUserWrapper && !(e.target instanceof Node && portalUserWrapper.contains(e.target))) {
       closePortalUserDropdown();
     }
   });

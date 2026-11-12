@@ -275,6 +275,7 @@ import {
   exportCatalogCsv
 } from './modules/io/csvHandler.js';
 import { initPanelResizer } from './ui/resizer.js';
+import { toggleAiSplitMenu, closeAiSplitMenu } from './ui/aiSplitMenu.js';
 
 import {
   openImportModal,
@@ -329,6 +330,10 @@ import {
   updateAiModalRunButtonLabel,
   openSettingsModal,
   closeSettingsModal,
+  openPlatformInfoModal,
+  closePlatformInfoModal,
+  handlePlatformInfoEmpiezaGratis,
+  handlePlatformInfoVerPlanes,
   switchSettingsTab,
   updateCalculatedFactorPreview,
   updateFasarPreview,
@@ -339,7 +344,8 @@ import {
   resetToDemoData,
   clearAllData,
   switchTab,
-  switchPresupuestoSubTab
+  switchPresupuestoSubTab,
+  initFloatingWindowOutsideClose
 } from './ui/modalController.js';
 
 import {
@@ -787,10 +793,16 @@ Object.assign(window, {
   generarMatrizConBusquedaWebActiva,
   generarMatrizCasillasConBusquedaWeb,
   getSelectedLeafConcepts,
+  toggleAiSplitMenu,
+  closeAiSplitMenu,
 
   // Settings & Modals
   openSettingsModal,
   closeSettingsModal,
+  openPlatformInfoModal,
+  closePlatformInfoModal,
+  handlePlatformInfoEmpiezaGratis,
+  handlePlatformInfoVerPlanes,
   switchSettingsTab,
   updateCalculatedFactorPreview,
   updateFasarPreview,
@@ -1260,6 +1272,7 @@ if (isWorkspaceActive) {
 
 // Asegurar renderizado de colaboradores en el encabezado de proyecto
 if (typeof document !== 'undefined') {
+  initFloatingWindowOutsideClose();
   renderHeaderCollaborators();
   renderAllTabAssignedMembers();
   updateNavigationTabsAccess();

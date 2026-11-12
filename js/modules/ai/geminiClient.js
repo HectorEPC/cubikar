@@ -194,8 +194,10 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
     return false;
   }
 
-  const btnHeader = document.getElementById(useWebSearch ? 'btn-ai-apu-web' : 'btn-ai-apu');
-  const btnMax = document.getElementById(useWebSearch ? 'btn-ai-apu-max-web' : 'btn-ai-apu-max');
+  const btnHeader = document.getElementById('btn-ai-apu');
+  const btnHeaderMenu = document.getElementById('btn-apu-ai-menu');
+  const btnMax = document.getElementById('btn-ai-apu-max');
+  const btnMaxMenu = document.getElementById('btn-apu-max-ai-menu');
   const originalHeaderHtml = btnHeader ? btnHeader.innerHTML : '';
   const originalMaxHtml = btnMax ? btnMax.innerHTML : '';
 
@@ -206,12 +208,14 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
         ? `<i class="fa-solid fa-circle-notch fa-spin text-[10px] text-amber-300"></i> <span class="text-[8px]">${useWebSearch ? 'Buscando Web...' : 'Generando...'}</span>`
         : originalHeaderHtml;
     }
+    if (btnHeaderMenu) btnHeaderMenu.disabled = loading;
     if (btnMax) {
       btnMax.disabled = loading;
       btnMax.innerHTML = loading
         ? `<i class="fa-solid fa-circle-notch fa-spin text-xs text-amber-300"></i> ${useWebSearch ? 'Buscando Web...' : 'Generando...'}`
         : originalMaxHtml;
     }
+    if (btnMaxMenu) btnMaxMenu.disabled = loading;
   };
 
   setLoadingState(true);
@@ -379,12 +383,14 @@ export async function generarMatrizCasillasGoogleIA(options = {}) {
     return;
   }
 
-  const btnToolbar = document.getElementById(useWebSearch ? 'btn-toolbar-web-search-ia' : 'btn-toolbar-google-ia');
+  const btnToolbar = document.getElementById('btn-toolbar-google-ia');
+  const btnToolbarMenu = document.getElementById('btn-toolbar-ai-menu');
   const originalToolbarHtml = btnToolbar ? btnToolbar.innerHTML : '';
   if (btnToolbar) {
     btnToolbar.disabled = true;
     btnToolbar.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-[10px] text-amber-200"></i> ${useWebSearch ? 'Buscando Web...' : 'Generando...'}`;
   }
+  if (btnToolbarMenu) btnToolbarMenu.disabled = true;
 
   saveState();
   let successCount = 0;
@@ -406,6 +412,7 @@ export async function generarMatrizCasillasGoogleIA(options = {}) {
     btnToolbar.disabled = false;
     btnToolbar.innerHTML = originalToolbarHtml;
   }
+  if (btnToolbarMenu) btnToolbarMenu.disabled = false;
 
   if (quotaStopped && typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') {
     window.openSubscriptionModal();

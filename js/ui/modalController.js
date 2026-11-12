@@ -593,3 +593,264 @@ export function switchTab(tab) {
   }
 }
 
+// Modal de Información de la Plataforma (Hero, Funciones Estrella y Comparativo)
+export function openPlatformInfoModal() {
+  const modal = document.getElementById('modal-platform-info');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+export function closePlatformInfoModal() {
+  const modal = document.getElementById('modal-platform-info');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+}
+
+export function handlePlatformInfoEmpiezaGratis() {
+  closePlatformInfoModal();
+  const user = (typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : null;
+  if (!user) {
+    if (typeof window.renderPortalAuth === 'function') {
+      window.renderPortalAuth('register');
+    }
+  } else {
+    if (typeof window.openNuevoProyectoModal === 'function') {
+      window.openNuevoProyectoModal();
+    } else if (typeof window.renderPortalDashboard === 'function') {
+      window.renderPortalDashboard();
+    }
+  }
+}
+
+export function handlePlatformInfoVerPlanes() {
+  closePlatformInfoModal();
+  if (typeof window.openSubscriptionModal === 'function') {
+    window.openSubscriptionModal();
+  }
+}
+
+// =========================================================================
+// CIERRE AUTOMÁTICO AL HACER CLIC FUERA DE VENTANAS FLOTANTES Y MODALES
+// =========================================================================
+
+const BACKDROP_MODAL_CLOSERS = {
+  'modal-ai-generator': () => window.closeAiGeneratorModal?.(),
+  'modal-local-catalog-selector': () => window.closeLocalCatalogSelectorModal?.(),
+  'matriz-modal': () => window.closeMatrizModal?.(),
+  'settings-modal': () => window.closeSettingsModal?.(),
+  'logo-adjuster-modal': () => window.closeLogoAdjusterModal?.(),
+  'universal-import-modal': () => window.closeImportModal?.(),
+  'catalog-export-modal': () => window.closeExportModal?.(),
+  'master-catalog-modal': () => window.closeMasterCatalogModal?.(),
+  'apu-reference-modal': () => window.closeApuReferenceModal?.(),
+  'modal-combinar-insumos': () => window.closeCombinarModal?.(),
+  'modal-google-auth': () => window.closeGoogleAuthModal?.(),
+  comparisonModal: () => window.toggleComparisonModal?.(),
+  'modal-nuevo-proyecto': () => window.closeNuevoProyectoModal?.(),
+  'modal-perfil-usuario': () => window.closeProfileModal?.(),
+  'modal-asignar-miembros-pestana': () => window.closeTabMembersAssignModal?.(),
+  'modal-calendario-jornada': () => window.closeCalendarioJornadaModal?.(),
+  'modal-invitaciones-plan': () => window.closePlanInviteModal?.(),
+  'modal-invitar-usuario': () => window.closeInviteModal?.(),
+  'modal-copiar-de-otro-proyecto': () => window.closeImportConceptsModal?.(),
+  'modal-platform-info': () => window.closePlatformInfoModal?.(),
+  'modal-suscripcion-usuario': () => window.closeSubscriptionModal?.(),
+  'modal-admin-dual-login': () => {
+    if (typeof window._adminChoiceCommon === 'function') {
+      window._adminChoiceCommon();
+      return;
+    }
+    const modal = document.getElementById('modal-admin-dual-login');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
+    }
+  },
+  'modal-admin-cubikar': () => window.closeCubikarAdminModal?.(),
+  'modal-admin-coadmins': () => window.closeCoAdminsModal?.(),
+  'modal-admin-market-rates': () => window.closeMarketRatesModal?.(),
+  'modal-nueva-compra': () => window.closeNewExpenseModal?.(),
+  'modal-lista-proveedores': () => window.closeSuppliersListModal?.(),
+  'modal-nuevo-proveedor': () => window.closeSupplierModal?.(),
+  'modal-bitacora-note': () => window.closeBitacoraModal?.(),
+  'modal-bitacora-sign': () => window.closeBitacoraModal?.(),
+  'modal-bitacora-config': () => window.closeBitacoraModal?.(),
+  'modal-bitacora-lightbox': () => window.closeBitacoraModal?.(),
+  'modal-calendario-dependencias': () => window.closeConceptDependenciesModal?.(),
+  'modal-calendario-ia': () => window.closeCalendarioAiModal?.(),
+  'estimacion-fotos-modal': () => window.closeEstimacionConceptPhotosModal?.()
+};
+
+let floatingOutsideCloseBound = false;
+let lastFloatingPointerDownTarget = null;
+let hadAiSplitMenuOpenOnPointerDown = false;
+
+function isFloatingElementVisible(el) {
+  if (!el || !el.isConnected || el.classList.contains('hidden')) return false;
+  if (typeof getComputedStyle === 'function') {
+    const style = getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+  }
+  const rect = typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : null;
+  return Boolean(rect && rect.width > 0 && rect.height > 0);
+}
+
+function getEffectiveZIndex(el) {
+  if (!el || typeof getComputedStyle !== 'function') return 0;
+  const parsed = Number.parseInt(getComputedStyle(el).zIndex, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getTopmostVisibleBackdropModal() {
+  if (typeof document === 'undefined') return null;
+  const visible = Array.from(document.querySelectorAll('.fixed.inset-0')).filter(isFloatingElementVisible);
+  if (visible.length === 0) return null;
+
+  return visible.reduce((topEl, candidate) => {
+    if (!topEl) return candidate;
+    const zDiff = getEffectiveZIndex(candidate) - getEffectiveZIndex(topEl);
+    if (zDiff > 0) return candidate;
+    if (zDiff < 0) return topEl;
+    // Desempate por orden real de apilamiento en el DOM (último queda al frente)
+    return (topEl.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING) ? candidate : topEl;
+  }, null);
+}
+
+function closeBackdropModalElement(modalEl) {
+  if (!modalEl) return;
+  const mappedCloser = modalEl.id ? BACKDROP_MODAL_CLOSERS[modalEl.id] : null;
+  if (typeof mappedCloser === 'function') {
+    mappedCloser();
+  }
+
+  if (!isFloatingElementVisible(modalEl)) return;
+
+  const fallbackCloseBtn = modalEl.querySelector('button[onclick*="close" i], button[onclick*="Close"]');
+  if (fallbackCloseBtn && typeof fallbackCloseBtn.click === 'function') {
+    fallbackCloseBtn.click();
+  }
+
+  if (isFloatingElementVisible(modalEl)) {
+    modalEl.classList.add('hidden');
+    if (modalEl.style && modalEl.style.display === 'flex') {
+      modalEl.style.display = 'none';
+    }
+  }
+}
+
+function isClickInsideElement(target, downTarget, containerEl) {
+  if (!containerEl) return false;
+  return (target instanceof Node && containerEl.contains(target)) ||
+    (downTarget instanceof Node && containerEl.contains(downTarget));
+}
+
+function isTargetOrOriginInsideSelector(target, downTarget, selector) {
+  const toElement = (node) => (node instanceof Element ? node : node?.parentElement || null);
+  const check = (node) => {
+    const el = toElement(node);
+    return Boolean(el && el.closest(selector));
+  };
+  return check(target) || check(downTarget);
+}
+
+const SINGLE_POPOVER_CLOSE_RULES = [
+  {
+    isOpen: () =>
+      isFloatingElementVisible(document.getElementById('portal-notifications-popover')) ||
+      isFloatingElementVisible(document.getElementById('sidebar-notifications-popover')),
+    allowedSelector: '#portal-notifications-wrapper, #sidebar-notifications-wrapper',
+    close: () => window.closeMentionNotificationsPopover?.()
+  },
+  {
+    isOpen: () => isFloatingElementVisible(document.getElementById('workspace-user-dropdown')),
+    allowedSelector: '#user-menu-wrapper',
+    close: () => window.closeUserDropdown?.()
+  },
+  {
+    isOpen: () => isFloatingElementVisible(document.getElementById('portal-user-dropdown')),
+    allowedSelector: '#portal-user-menu-wrapper',
+    close: () => window.closePortalUserDropdown?.()
+  },
+  {
+    isOpen: () => isFloatingElementVisible(document.getElementById('cubikar-chat-dock')),
+    allowedSelector: '#cubikar-chat-dock, #sidebar-project-chat-wrapper, #btn-sidebar-project-chat, [onclick*="openProjectChatForPartida"], [onclick*="toggleProjectChatDock"]',
+    close: () => window.toggleProjectChatDock?.(false)
+  }
+];
+
+function closeOpenNonModalPopovers(target, downTarget) {
+  SINGLE_POPOVER_CLOSE_RULES.forEach((rule) => {
+    if (rule.isOpen() && !isTargetOrOriginInsideSelector(target, downTarget, rule.allowedSelector)) {
+      rule.close();
+    }
+  });
+
+  document.querySelectorAll('[id^="menu-card-"]:not(.hidden)').forEach((menuEl) => {
+    if (!isClickInsideElement(target, downTarget, menuEl.parentElement || menuEl)) {
+      menuEl.classList.add('hidden');
+    }
+  });
+
+  document.querySelectorAll('.dropdown-menu.show').forEach((menuEl) => {
+    const container = menuEl.closest('.dropdown-container') || menuEl;
+    if (!isClickInsideElement(target, downTarget, container)) {
+      menuEl.classList.remove('show', 'dropdown-menu-up');
+      if (container !== menuEl) container.classList.remove('is-open');
+    }
+  });
+}
+
+/**
+ * Registra listeners globales en fase de captura para cerrar modales, menús y ventanas
+ * flotantes al hacer clic fuera de su contenido, ignorando arrastres iniciados dentro.
+ */
+export function initFloatingWindowOutsideClose() {
+  if (floatingOutsideCloseBound || typeof document === 'undefined') return;
+  floatingOutsideCloseBound = true;
+
+  document.addEventListener('pointerdown', (e) => {
+    lastFloatingPointerDownTarget = e.target;
+    const splitMenu = document.getElementById('ai-split-floating-menu');
+    hadAiSplitMenuOpenOnPointerDown = Boolean(
+      isFloatingElementVisible(splitMenu) && !(e.target instanceof Node && splitMenu.contains(e.target))
+    );
+  }, true);
+
+  document.addEventListener('click', (e) => {
+    const downTarget = lastFloatingPointerDownTarget;
+    const consumeForSplitMenu = hadAiSplitMenuOpenOnPointerDown;
+    lastFloatingPointerDownTarget = null;
+    hadAiSplitMenuOpenOnPointerDown = false;
+
+    if (e.target instanceof Element && e.target.closest('#toast-container')) {
+      return;
+    }
+
+    const topmostModal = getTopmostVisibleBackdropModal();
+    if (topmostModal) {
+      if (e.target === topmostModal) {
+        // Evitar cerrar si el usuario inició un arrastre o selección dentro del modal y soltó fuera
+        const dragStartedInsideDialog = Boolean(
+          downTarget instanceof Node &&
+          downTarget !== topmostModal &&
+          topmostModal.contains(downTarget)
+        );
+        if (consumeForSplitMenu || dragStartedInsideDialog) {
+          e.stopPropagation();
+          return;
+        }
+        closeBackdropModalElement(topmostModal);
+        e.stopPropagation();
+      }
+      return;
+    }
+
+    closeOpenNonModalPopovers(e.target, downTarget);
+  }, true);
+}
+
+

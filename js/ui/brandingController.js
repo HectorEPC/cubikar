@@ -90,7 +90,7 @@ export function renderBrandingUI() {
       customImg.src = companyLogo;
       customImg.classList.remove('hidden');
     }
-    if (defaultIcon) defaultIcon.classList.add('hidden');
+    if (defaultIcon) { defaultIcon.classList.add('hidden'); defaultIcon.style.display = 'none'; }
     if (btnRemove) btnRemove.classList.remove('hidden');
     if (btnHeaderAdjust) btnHeaderAdjust.classList.remove('hidden');
     if (container) {
@@ -103,7 +103,7 @@ export function renderBrandingUI() {
       customImg.src = '';
       customImg.classList.add('hidden');
     }
-    if (defaultIcon) defaultIcon.classList.remove('hidden');
+    if (defaultIcon) { defaultIcon.classList.remove('hidden'); defaultIcon.style.display = ''; }
     if (btnRemove) btnRemove.classList.add('hidden');
     if (btnHeaderAdjust) btnHeaderAdjust.classList.add('hidden');
     if (container) {
@@ -134,12 +134,12 @@ export function renderBrandingUI() {
     if (companyLogo) {
       modalLogoPreview.src = companyLogo;
       modalLogoPreview.classList.remove('hidden');
-      if (modalEmptyIcon) modalEmptyIcon.classList.add('hidden');
+      if (modalEmptyIcon) { modalEmptyIcon.classList.add('hidden'); modalEmptyIcon.style.display = 'none'; }
       if (btnAdjustCurrent) btnAdjustCurrent.classList.remove('hidden');
     } else {
       modalLogoPreview.src = '';
       modalLogoPreview.classList.add('hidden');
-      if (modalEmptyIcon) modalEmptyIcon.classList.remove('hidden');
+      if (modalEmptyIcon) { modalEmptyIcon.classList.remove('hidden'); modalEmptyIcon.style.display = ''; }
       if (btnAdjustCurrent) btnAdjustCurrent.classList.add('hidden');
     }
   }
@@ -304,8 +304,8 @@ function setupAdjusterCanvasListeners() {
 
   window.addEventListener('mousemove', (e) => {
     if (!adjusterState.isDragging || !adjusterState.image) return;
-    const dx = e.clientX - adjusterState.dragStartX;
-    const dy = e.clientY - adjusterState.dragStartY;
+    const dx = (e.clientX - adjusterState.dragStartX) * (canvas.clientWidth ? canvas.width / canvas.clientWidth : 1);
+    const dy = (e.clientY - adjusterState.dragStartY) * (canvas.clientHeight ? canvas.height / canvas.clientHeight : 1);
     adjusterState.offsetX = adjusterState.initialOffsetX + dx;
     adjusterState.offsetY = adjusterState.initialOffsetY + dy;
     renderAdjusterCanvas();
@@ -327,8 +327,8 @@ function setupAdjusterCanvasListeners() {
 
   canvas.addEventListener('touchmove', (e) => {
     if (!adjusterState.isDragging || !adjusterState.image || e.touches.length === 0) return;
-    const dx = e.touches[0].clientX - adjusterState.dragStartX;
-    const dy = e.touches[0].clientY - adjusterState.dragStartY;
+    const dx = (e.touches[0].clientX - adjusterState.dragStartX) * (canvas.clientWidth ? canvas.width / canvas.clientWidth : 1);
+    const dy = (e.touches[0].clientY - adjusterState.dragStartY) * (canvas.clientHeight ? canvas.height / canvas.clientHeight : 1);
     adjusterState.offsetX = adjusterState.initialOffsetX + dx;
     adjusterState.offsetY = adjusterState.initialOffsetY + dy;
     renderAdjusterCanvas();
@@ -583,7 +583,7 @@ export function openCurrentLogoAdjuster() {
     triggerCompanyLogoUpload();
     return;
   }
-  const img = new Image();
+  const img = new Image(); if (!currentLogo.startsWith('data:') && !currentLogo.startsWith('blob:')) img.crossOrigin = 'anonymous';
   img.onload = () => openLogoAdjusterModal(img);
   img.onerror = () => triggerCompanyLogoUpload();
   img.src = currentLogo;

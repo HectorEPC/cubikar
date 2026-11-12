@@ -785,9 +785,12 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
 #view-cat[data-tab-locked="true"] button[onclick^="deleteSelectedRow"],
 #view-cat[data-tab-locked="true"] button[onclick^="addInsumo"],
 #view-cat[data-tab-locked="true"] button[onclick^="openAiGeneratorModal"],
+#view-cat[data-tab-locked="true"] #toolbar-ai-split-wrapper,
+#view-cat[data-tab-locked="true"] #apu-ai-split-wrapper,
 #view-insumos[data-tab-locked="true"] button[onclick^="combinarInsumosSeleccionados"],
 #view-insumos[data-tab-locked="true"] button[onclick^="actualizarCostosConIASeleccionados"],
-#view-insumos[data-tab-locked="true"] #btn-ai-general-insumos {
+#view-insumos[data-tab-locked="true"] #btn-ai-general-insumos,
+#view-insumos[data-tab-locked="true"] #insumos-ai-split-wrapper {
   opacity: 0.4 !important;
   cursor: not-allowed !important;
 }
@@ -808,16 +811,20 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
 }
 
 /* Estabilidad visual antes de Tailwind CDN y durante la carga de FontAwesome */
-.hidden {
+:where(.hidden) {
   display: none;
 }
 
-i.fa-solid,
-i.fa-regular,
-i.fa-brands {
+:where(i.fa-solid, i.fa-regular, i.fa-brands) {
   display: inline-block;
   min-width: 1em;
   text-align: center;
+}
+
+.fa-solid.hidden,
+.fa-regular.hidden,
+.fa-brands.hidden {
+  display: none;
 }
 
 @keyframes cubikarFadeIn {

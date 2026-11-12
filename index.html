@@ -49,6 +49,13 @@
 
         <!-- Navigation & Action Links -->
         <div class="flex items-center space-x-3">
+          <!-- Botón de Información de la Plataforma (a la izquierda de la campana) -->
+          <button type="button" id="btn-portal-info" onclick="openPlatformInfoModal()"
+                  class="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition cursor-pointer group"
+                  title="Conoce cubikar: Funciones estrella, APU con IA, cronogramas y ventajas">
+            <i class="fa-solid fa-circle-info text-lg group-hover:text-blue-400 transition"></i>
+          </button>
+
           <!-- Quick Notifications (Menciones del Chat de Obra en todos los proyectos) -->
           <div class="hidden relative flex items-center" id="portal-notifications-wrapper">
             <button type="button" id="btn-portal-notifications" onclick="toggleMentionNotificationsPopover(event)"
@@ -270,14 +277,14 @@
         <!-- Logo y Nombre de la Empresa Personalizables -->
         <div class="flex items-center gap-3 min-w-0">
           <!-- Contenedor del Logo (Sombrero amarillo o Imagen subida) -->
-          <div class="relative group cursor-pointer" onclick="triggerCompanyLogoUpload()" title="Haz clic para subir o cambiar el logotipo de la empresa">
+          <div class="relative group cursor-pointer shrink-0" onclick="triggerCompanyLogoUpload()" title="Haz clic para subir o cambiar el logotipo de la empresa">
             <input type="file" id="company-logo-input" accept="image/*" class="hidden" onchange="handleCompanyLogoUpload(event)">
             
-            <div id="company-logo-container" class="flex items-center justify-center w-10 h-10 min-w-[40px] aspect-square rounded-lg bg-slate-800/80 border border-slate-700 hover:border-blue-400 transition overflow-hidden p-0.5">
+            <div id="company-logo-container" class="flex items-center justify-center w-10 h-10 min-w-[40px] shrink-0 aspect-square rounded-lg bg-slate-800/80 border border-slate-700 hover:border-blue-400 transition overflow-hidden p-0.5">
               <!-- Icono por defecto (sombrero amarillo) -->
               <i id="default-company-icon" class="fa-solid fa-helmet-safety text-amber-400 text-xl"></i>
               <!-- Imagen de logo personalizada (cuadrada) -->
-              <img id="custom-company-logo" src="" alt="Logo Empresa" class="w-full h-full object-contain rounded hidden">
+              <img id="custom-company-logo" src="" alt="Logo Empresa" class="w-full h-full max-w-full max-h-full object-contain rounded hidden">
             </div>
 
             <!-- Overlay al pasar el mouse -->
@@ -483,16 +490,16 @@
 
           <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
 
-          <!-- Botones Generación APU en Lote (Casillas Seleccionadas) -->
-          <button type="button" onclick="generarMatrizCasillasLocal()" id="btn-toolbar-catalogo-local" class="bg-amber-600 hover:bg-amber-700 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Generar matrices APU con Catálogo Local de los conceptos seleccionados con casilla">
-            <i class="fa-solid fa-database text-[10px] text-amber-200"></i> Catálogo local
-          </button>
-          <button type="button" onclick="generarMatrizCasillasGoogleIA()" id="btn-toolbar-google-ia" class="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Generar matrices APU en modo Estándar (Motor Local + Caché + Gemini Flash sin Google Search)">
-            <i class="fa-solid fa-microchip text-[10px] text-sky-200"></i> IA Estándar
-          </button>
-          <button type="button" onclick="generarMatrizCasillasConBusquedaWeb()" id="btn-toolbar-web-search-ia" class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Cotizar matrices seleccionadas con precios de internet en vivo (Google Search Grounding - consume cuota Web Search)">
-            <i class="fa-solid fa-globe text-[10px] text-amber-200"></i> Cotizar Web en Vivo
-          </button>
+          <!-- Botón Split Generación APU en Lote (Casillas Seleccionadas) -->
+          <div id="toolbar-ai-split-wrapper" class="inline-flex items-stretch rounded shadow-sm bg-gradient-to-r from-indigo-600 to-blue-600 text-white overflow-hidden">
+            <button type="button" onclick="generarMatrizCasillasGoogleIA()" id="btn-toolbar-google-ia" class="hover:bg-white/10 text-white text-[11px] px-2.5 py-1 flex items-center gap-1.5 font-medium transition active:scale-95 cursor-pointer" title="Generar matrices APU seleccionadas (1º Catálogo Local y Caché $0 → 2º IA Estándar sin Web Search)">
+              <i class="fa-solid fa-wand-magic-sparkles text-[10px] text-amber-200"></i>
+              <span>Generar APU</span>
+            </button>
+            <button type="button" onclick="toggleAiSplitMenu('toolbar', this, event)" id="btn-toolbar-ai-menu" aria-haspopup="menu" aria-expanded="false" class="hover:bg-white/15 border-l border-white/25 px-1.5 py-1 flex items-center justify-center transition cursor-pointer" title="Elegir modo: Solo Catálogo Local ($0), IA Rápida o Precios Web en Vivo">
+              <i class="fa-solid fa-chevron-down text-[9px] text-sky-100"></i>
+            </button>
+          </div>
 
           <div class="h-4 w-[1px] bg-slate-300 mx-1"></div>
 
@@ -616,18 +623,15 @@
             <span id="matriz-collapsed-badge" class="ml-2 text-[10px] font-mono font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 hidden"></span>
           </div>
           <div class="flex items-center gap-1">
-            <button onclick="openLocalCatalogSelectorModal(true)" id="btn-matriz-catalogo-local" class="bg-amber-600 hover:bg-amber-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Generar matriz APU usando catálogos locales para el concepto seleccionado">
-              <i class="fa-solid fa-database text-amber-200 text-[9px]"></i>
-              <span>Catálogo local</span>
-            </button>
-            <button onclick="generarMatrizConceptoActivoGoogleIA()" id="btn-ai-apu" class="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Generar matriz en 1 clic con IA Estándar (Motor Local + Caché + Gemini Flash sin Web Search)">
-              <i class="fa-solid fa-microchip text-sky-200 text-[10px]"></i>
-              <span>IA Estándar</span>
-            </button>
-            <button onclick="generarMatrizConBusquedaWebActiva()" id="btn-ai-apu-web" class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Cotizar precios en vivo desde internet con Google Search Grounding (consume cuota mensual Web Search)">
-              <i class="fa-solid fa-globe text-amber-200 text-[10px]"></i>
-              <span>Web Search</span>
-            </button>
+            <div id="apu-ai-split-wrapper" class="inline-flex items-stretch rounded shadow-sm bg-gradient-to-r from-indigo-600 to-blue-600 text-white overflow-hidden">
+              <button onclick="generarMatrizConceptoActivoGoogleIA()" id="btn-ai-apu" class="hover:bg-white/10 text-white text-[9px] px-2 py-1 flex items-center gap-1 font-sans font-semibold transition active:scale-95 cursor-pointer" title="Generar matriz en 1 clic (1º Catálogo Local y Caché $0 → 2º IA Estándar)">
+                <i class="fa-solid fa-wand-magic-sparkles text-amber-200 text-[9px]"></i>
+                <span>Generar APU</span>
+              </button>
+              <button type="button" onclick="toggleAiSplitMenu('apu', this, event)" id="btn-apu-ai-menu" aria-haspopup="menu" aria-expanded="false" class="hover:bg-white/15 border-l border-white/25 px-1.5 py-1 flex items-center justify-center transition cursor-pointer" title="Elegir modo: Solo Catálogo Local ($0), IA Rápida o Precios Web en Vivo">
+                <i class="fa-solid fa-chevron-down text-[8px] text-sky-100"></i>
+              </button>
+            </div>
             <button onclick="openApuReferenceModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Buscar insumos en catálogos de referencia (BIMSA, Gobierno, etc.)">
               <i class="fa-solid fa-book-bookmark text-[9px]"></i> + Catálogo
             </button>
@@ -960,13 +964,16 @@
             <i class="fa-solid fa-print text-[10px]"></i> Imprimir Insumos
           </button>
 
-          <!-- Botón Actualizar Insumos Seleccionados con IA (Estándar vs Web Search) -->
-          <button onclick="actualizarTodosLosInsumosSeleccionadosConIA()" id="btn-ai-general-insumos" class="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Actualizar costos con IA Estándar (Caché local + Gemini Flash sin Google Search)">
-            <i class="fa-solid fa-microchip text-[10px] text-sky-200"></i> Actualizar IA Estándar
-          </button>
-          <button onclick="actualizarInsumosConBusquedaWeb()" id="btn-ai-general-insumos-web" class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium shadow-sm transition active:scale-95 cursor-pointer" title="Cotizar precios vigentes en internet con Google Search Grounding (consume cuota Web Search)">
-            <i class="fa-solid fa-globe text-[10px] text-amber-200"></i> Cotizar Web en Vivo
-          </button>
+          <!-- Botón Split Actualizar Insumos Seleccionados con IA (Estándar vs Web Search) -->
+          <div id="insumos-ai-split-wrapper" class="inline-flex items-stretch rounded shadow-sm bg-gradient-to-r from-indigo-600 to-blue-600 text-white overflow-hidden">
+            <button onclick="actualizarTodosLosInsumosSeleccionadosConIA()" id="btn-ai-general-insumos" class="hover:bg-white/10 text-white text-[11px] px-2.5 py-1 flex items-center gap-1.5 font-medium transition active:scale-95 cursor-pointer" title="Actualizar costos seleccionados (1º Caché local $0 → 2º IA Estándar sin Google Search)">
+              <i class="fa-solid fa-wand-magic-sparkles text-[10px] text-amber-200"></i>
+              <span>Cotizar IA</span>
+            </button>
+            <button type="button" onclick="toggleAiSplitMenu('insumos', this, event)" id="btn-insumos-ai-menu" aria-haspopup="menu" aria-expanded="false" class="hover:bg-white/15 border-l border-white/25 px-1.5 py-1 flex items-center justify-center transition cursor-pointer" title="Elegir modo: IA Rápida o Precios Web en Vivo (Google)">
+              <i class="fa-solid fa-chevron-down text-[9px] text-sky-100"></i>
+            </button>
+          </div>
         </div>
 
         <div class="text-right flex items-center gap-3">
@@ -1550,15 +1557,15 @@
 
         <!-- Acciones rápidas de cabecera -->
         <div class="flex items-center gap-2 shrink-0">
-          <button onclick="openLocalCatalogSelectorModal(true)" id="btn-modal-matriz-catalogo-local" class="bg-amber-600 hover:bg-amber-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95 cursor-pointer" title="Generar matriz APU usando catálogos locales para el concepto seleccionado">
-            <i class="fa-solid fa-database text-xs text-amber-200"></i> Catálogo local
-          </button>
-          <button onclick="generarMatrizConceptoActivoGoogleIA()" id="btn-ai-apu-max" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95 cursor-pointer" title="Generar matriz en Cascada: 1° Motor Local + Caché ($0), 2° Gemini Flash Estándar (sin Google Search)">
-            <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-xs"></i> IA Estándar
-          </button>
-          <button onclick="generarMatrizConBusquedaWebActiva()" id="btn-ai-apu-max-web" class="bg-slate-900 hover:bg-slate-800 border border-amber-400/60 text-amber-200 text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95 cursor-pointer" title="Cotizar Precios Web en Vivo usando Google Search Grounding (cuota mensual del plan)">
-            <i class="fa-brands fa-google text-amber-300 text-xs"></i> Cotizar Web en Vivo
-          </button>
+          <div id="apu-max-ai-split-wrapper" class="inline-flex items-stretch rounded shadow-sm bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white overflow-hidden">
+            <button onclick="generarMatrizConceptoActivoGoogleIA()" id="btn-ai-apu-max" class="hover:bg-white/10 text-white text-xs px-3 py-1.5 flex items-center gap-1.5 font-semibold transition active:scale-95 cursor-pointer" title="Generar matriz en 1 clic (1º Catálogo Local y Caché $0 → 2º IA Estándar)">
+              <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-xs"></i>
+              <span>Generar APU</span>
+            </button>
+            <button type="button" onclick="toggleAiSplitMenu('apu-max', this, event)" id="btn-apu-max-ai-menu" aria-haspopup="menu" aria-expanded="false" class="hover:bg-white/15 border-l border-white/25 px-2 py-1.5 flex items-center justify-center transition cursor-pointer" title="Elegir modo: Solo Catálogo Local ($0), IA Rápida o Precios Web en Vivo">
+              <i class="fa-solid fa-chevron-down text-[10px] text-sky-100"></i>
+            </button>
+          </div>
           <button onclick="openApuReferenceModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm font-semibold transition active:scale-95" title="Buscar insumos en catálogos de referencia">
             <i class="fa-solid fa-book-bookmark text-xs"></i> + Catálogo
           </button>
@@ -4054,6 +4061,279 @@
                   class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer opacity-40 cursor-not-allowed">
             <i class="fa-solid fa-file-import"></i>
             <span>Selecciona conceptos para copiar</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: INFORMACIÓN DE LA PLATAFORMA (HERO, 6 FUNCIONES ESTRELLA Y COMPARATIVO) -->
+  <!-- ========================================== -->
+  <div id="modal-platform-info" onclick="if (event.target === this) closePlatformInfoModal()" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[9999] hidden items-center justify-center p-3 sm:p-5">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header (Compacto con gradiente oscuro e icono institucional) -->
+      <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 text-white px-5 sm:px-6 py-4 flex justify-between items-center shrink-0 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 text-lg shadow-inner">
+            <i class="fa-solid fa-circle-info"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-black text-base text-white tracking-tight">cubikar<span class="text-rose-500">.</span></span>
+              <span class="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                Plataforma Integral de Obra
+              </span>
+            </div>
+            <p class="text-xs text-slate-300">Conoce todas las capacidades y herramientas para la gestión de construcción</p>
+          </div>
+        </div>
+        <button type="button" onclick="closePlatformInfoModal()" class="text-slate-400 hover:text-white cursor-pointer p-2 rounded-xl hover:bg-white/10 transition" title="Cerrar ventana">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body con Scroll -->
+      <div class="overflow-y-auto flex-1 p-5 sm:p-7 space-y-8 bg-slate-50 text-slate-800">
+        
+        <!-- 1. Encabezado Principal (Hero Section) -->
+        <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white p-6 sm:p-8 md:p-10 shadow-xl border border-slate-800">
+          <div class="relative z-10 max-w-3xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold mb-4">
+              <i class="fa-solid fa-cloud"></i>
+              <span>100% en la nube • Sin instalaciones</span>
+            </div>
+            <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
+              Presupuesta, programa y controla tus obras en tiempo real directamente en la nube.
+            </h2>
+            <p class="mt-4 text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
+              La plataforma integral de precios unitarios, calendario Gantt, estimaciones, bitácora legal y control de gastos diseñada para la construcción moderna. Trabaja en tiempo real con hasta 20 colaboradores desde cualquier lugar, sin instalaciones ni licencias costosas.
+            </p>
+            <div class="mt-6 flex flex-wrap items-center gap-3">
+              <button type="button" onclick="handlePlatformInfoEmpiezaGratis()"
+                      class="px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-blue-600/30 transition transform hover:-translate-y-0.5 active:scale-95 cursor-pointer flex items-center gap-2">
+                <i class="fa-solid fa-rocket"></i>
+                <span>Empieza Gratis Hoy</span>
+              </button>
+              <button type="button" onclick="handlePlatformInfoVerPlanes()"
+                      class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-xs sm:text-sm border border-slate-700 transition transform hover:-translate-y-0.5 active:scale-95 cursor-pointer flex items-center gap-2">
+                <i class="fa-solid fa-crown text-amber-400"></i>
+                <span>Ver Planes y Precios</span>
+              </button>
+            </div>
+          </div>
+          <!-- Adorno decorativo de fondo -->
+          <div class="absolute -right-12 -bottom-12 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute right-12 top-6 opacity-10 hidden md:block pointer-events-none">
+            <i class="fa-solid fa-cubes text-9xl text-white"></i>
+          </div>
+        </section>
+
+        <!-- 2. Las 6 Funciones Estrella (Resumen en Tarjetas) -->
+        <section class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                <span class="text-blue-600">★</span> Las 6 Funciones Estrella
+              </h3>
+              <p class="text-xs sm:text-sm text-slate-500">Módulos especializados interconectados para cada etapa constructiva</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            
+            <!-- Tarjeta 1 -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+              <div>
+                <div class="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center text-lg mb-3 shadow-inner group-hover:scale-105 transition">
+                  <span>🧠</span>
+                </div>
+                <h4 class="font-extrabold text-sm text-slate-900 mb-2 leading-snug">
+                  1. Presupuestos y Matrices APU con Inteligencia Artificial
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  Olvídate de capturar cientos de insumos manualmente. Genera análisis de precios unitarios completos en segundos con nuestro motor inteligente, desglosa materiales, cuadrillas (con FASAR) y equipo, e incluso cotiza insumos con precios de mercado en tiempo real.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-semibold text-violet-600">
+                <i class="fa-solid fa-sparkles text-xs"></i>
+                <span>Generación instantánea APU</span>
+              </div>
+            </div>
+
+            <!-- Tarjeta 2 -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+              <div>
+                <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-lg mb-3 shadow-inner group-hover:scale-105 transition">
+                  <span>📅</span>
+                </div>
+                <h4 class="font-extrabold text-sm text-slate-900 mb-2 leading-snug">
+                  2. Calendario de Obra, Ruta Crítica y Curva "S"
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  Transforma tu presupuesto en un cronograma de ejecución dinámico. Visualiza el diagrama de Gantt interactivo, detecta automáticamente la ruta crítica de tu proyecto y controla el flujo financiero programado semana a semana.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-semibold text-blue-600">
+                <i class="fa-solid fa-chart-gantt text-xs"></i>
+                <span>Cronograma y Curva S</span>
+              </div>
+            </div>
+
+            <!-- Tarjeta 3 -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+              <div>
+                <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg mb-3 shadow-inner group-hover:scale-105 transition">
+                  <span>📋</span>
+                </div>
+                <h4 class="font-extrabold text-sm text-slate-900 mb-2 leading-snug">
+                  3. Estimaciones de Obra y Generadores
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  Controla los avances físicos y cobros al cliente con precisión. Administra volúmenes acumulados, estimaciones actuales, saldos por ejecutar, anticipos, amortizaciones y genera reportes ejecutivos listos para autorización.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
+                <i class="fa-solid fa-file-invoice-dollar text-xs"></i>
+                <span>Avance físico y financiero</span>
+              </div>
+            </div>
+
+            <!-- Tarjeta 4 -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+              <div>
+                <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg mb-3 shadow-inner group-hover:scale-105 transition">
+                  <span>💳</span>
+                </div>
+                <h4 class="font-extrabold text-sm text-slate-900 mb-2 leading-snug">
+                  4. Control de Compras, Gastos y Dashboard Financiero
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  ¿Vas ganando o perdiendo dinero en la obra? Compara en tiempo real lo presupuestado contra lo realmente gastado insumo por insumo. Emite órdenes de compra, registra rayas de mano de obra, sube facturas y recibe alertas de sobrecosto al instante.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-semibold text-amber-600">
+                <i class="fa-solid fa-chart-line text-xs"></i>
+                <span>Presupuestado vs Real</span>
+              </div>
+            </div>
+
+            <!-- Tarjeta 5 -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+              <div>
+                <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-lg mb-3 shadow-inner group-hover:scale-105 transition">
+                  <span>✍️</span>
+                </div>
+                <h4 class="font-extrabold text-sm text-slate-900 mb-2 leading-snug">
+                  5. Bitácora de Obra Digital con Validez Legal
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  Registra el día a día de la obra con evidencias fotográficas y ubicación en ejes. Al asentar y firmar cada nota, el documento queda bloqueado e inmutable (sin edición ni borrado) y genera automáticamente un PDF oficial foliado para supervisión o auditoría.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-semibold text-rose-600">
+                <i class="fa-solid fa-stamp text-xs"></i>
+                <span>Foliado inmutable y firma digital</span>
+              </div>
+            </div>
+
+            <!-- Tarjeta 6 -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+              <div>
+                <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center text-lg mb-3 shadow-inner group-hover:scale-105 transition">
+                  <span>☁️</span>
+                </div>
+                <h4 class="font-extrabold text-sm text-slate-900 mb-2 leading-snug">
+                  6. Colaboración en Tiempo Real y Migración Total
+                </h4>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  Tu oficina y tus residentes en campo trabajando sobre el mismo proyecto al mismo tiempo. Importa tus catálogos existentes desde Excel, CSV, JSON, Opus y Neodata, imprime reportes profesionales con tu propio logotipo y disfruta de vistas en Modo Día y Modo Nocturno.
+                </p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-semibold text-sky-600">
+                <i class="fa-solid fa-users text-xs"></i>
+                <span>Multi-usuario y formatos estándar</span>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- 3. Bloque Comparativo Rápido (¿Por qué elegirnos?) -->
+        <section class="bg-slate-900 rounded-3xl p-6 sm:p-8 text-white border border-slate-800 shadow-lg">
+          <div class="max-w-3xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-semibold mb-3">
+              <i class="fa-solid fa-check-double"></i>
+              <span>Ventajas Competitivas</span>
+            </div>
+            <h3 class="text-xl sm:text-2xl font-extrabold tracking-tight text-white mb-2">
+              ¿Por qué elegirnos?
+            </h3>
+            <p class="text-xs sm:text-sm text-slate-300 mb-6">
+              Diseñado específicamente para contratistas, ingenieros, arquitectos y constructoras que buscan agilidad y ahorro real.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
+            <div class="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/80">
+              <div class="flex items-center gap-2.5 mb-2">
+                <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm">
+                  <i class="fa-solid fa-laptop-mobile"></i>
+                </div>
+                <h5 class="text-xs sm:text-sm font-extrabold text-white">100% Web y Multiplataforma</h5>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">
+                Funciona en PC, Mac, tablet o celular en obra sin instalar programas pesados ni usar candados USB.
+              </p>
+            </div>
+
+            <div class="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/80">
+              <div class="flex items-center gap-2.5 mb-2">
+                <div class="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center text-sm">
+                  <i class="fa-solid fa-user-group"></i>
+                </div>
+                <h5 class="text-xs sm:text-sm font-extrabold text-white">Equipo Conectado Sin Costo Extra</h5>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">
+                Invita desde 3 hasta 30 colaboradores bajo la misma cuenta para trabajar en vivo.
+              </p>
+            </div>
+
+            <div class="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/80">
+              <div class="flex items-center gap-2.5 mb-2">
+                <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm">
+                  <i class="fa-solid fa-piggy-bank"></i>
+                </div>
+                <h5 class="text-xs sm:text-sm font-extrabold text-white">Ahorro del 90% en Licencias</h5>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">
+                Planes desde $0 (Gratis para estudiantes y obras pequeñas) hasta $350 MXN/mes para contratistas y $950 MXN/mes para constructoras.
+              </p>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-100 border-t border-slate-200 px-5 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <span class="text-xs text-slate-600 flex items-center gap-1.5">
+          <i class="fa-solid fa-shield-check text-emerald-600"></i>
+          <span>Información actualizada del sistema cubikar</span>
+        </span>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closePlatformInfoModal(); openSubscriptionModal();"
+                  class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition shadow cursor-pointer flex items-center gap-1.5">
+            <i class="fa-solid fa-crown text-amber-300 text-[11px]"></i>
+            <span>Ver Suscripción y Planes</span>
+          </button>
+          <button type="button" onclick="closePlatformInfoModal()"
+                  class="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs transition cursor-pointer">
+            Cerrar
           </button>
         </div>
       </div>
