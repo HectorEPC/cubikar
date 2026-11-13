@@ -3,8 +3,8 @@
 // Permite al usuario elegir entre el Tour Guiado en Vivo (Alternativa 3) con botón de Saltar,
 // o el Reproductor Web de Video-Simulación Animada (Alternativa 1).
 
-import { startInteractiveTour, isTourDismissed, resetTourDismissedStatus } from './interactiveTour.js';
-import { openVideoSimulatorModal, VIDEO_MODULES } from './videoSimulatorModal.js';
+import { startInteractiveTour, isTourDismissed, resetTourDismissedStatus } from './interactiveTour.js?v=20261113_20';
+import { openVideoSimulatorModal, VIDEO_MODULES } from './videoSimulatorModal.js?v=20261113_22';
 
 let isTutorialHubOpen = false;
 
@@ -34,25 +34,30 @@ export function closeTutorialHubModal() {
 }
 
 /**
- * Inicia el Tour Guiado contextual cerrando el Hub
+ * Inicia el Tour Guiado interactivo cerrando el Hub
+ * @param {string} preferredTourId - 'master' (15 módulos recorriendo todas las pestañas) | 'contextual' (pantalla actual)
  */
-export function launchTourFromHub() {
+export function launchTourFromHub(preferredTourId = 'master') {
   closeTutorialHubModal();
 
-  // Detectar en qué pantalla está el usuario
-  const viewPortal = document.getElementById('view-portal');
-  let tourId = 'portal';
+  let tourId = preferredTourId || 'master';
 
-  if (!viewPortal || viewPortal.classList.contains('hidden')) {
-    const viewCompras = document.getElementById('view-compras');
-    const viewBitacora = document.getElementById('view-bitacora');
+  if (preferredTourId === 'contextual') {
+    // Detectar en qué pantalla está el usuario para tour breve de esa pantalla
+    const viewPortal = document.getElementById('view-portal');
+    tourId = 'portal';
 
-    if (viewCompras && !viewCompras.classList.contains('hidden')) {
-      tourId = 'compras';
-    } else if (viewBitacora && !viewBitacora.classList.contains('hidden')) {
-      tourId = 'bitacora';
-    } else {
-      tourId = 'workspace';
+    if (!viewPortal || viewPortal.classList.contains('hidden')) {
+      const viewCompras = document.getElementById('view-compras');
+      const viewBitacora = document.getElementById('view-bitacora');
+
+      if (viewCompras && !viewCompras.classList.contains('hidden')) {
+        tourId = 'compras';
+      } else if (viewBitacora && !viewBitacora.classList.contains('hidden')) {
+        tourId = 'bitacora';
+      } else {
+        tourId = 'workspace';
+      }
     }
   }
 
@@ -82,7 +87,14 @@ export function resetTourPreferencesFromHub() {
 }
 
 function injectTutorialHubDom() {
-  if (document.getElementById('cubikar-tutorial-hub-modal')) return;
+  const existing = document.getElementById('cubikar-tutorial-hub-modal');
+  if (existing) {
+    if (!existing.innerHTML.includes('Con Voz y Efectos')) {
+      existing.remove(); // Elimina la versión antigua en memoria para re-inyectar la nueva
+    } else {
+      return;
+    }
+  }
 
   const modal = document.createElement('div');
   modal.id = 'cubikar-tutorial-hub-modal';
@@ -160,11 +172,18 @@ function injectTutorialHubDom() {
               </div>
             </div>
 
-            <button type="button" onclick="window.launchTourFromHubAction()"
-                    class="mt-5 w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-98 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-600/30 transition cursor-pointer">
-              <i class="fa-solid fa-person-walking-arrow-right text-sm"></i>
-              <span>Iniciar Tour Guiado en Pantalla Actual</span>
-            </button>
+            <div class="mt-5 space-y-2">
+              <button type="button" onclick="window.launchTourFromHubAction('master')"
+                      class="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-98 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-600/30 transition cursor-pointer">
+                <i class="fa-solid fa-person-walking-arrow-right text-sm"></i>
+                <span>Iniciar Tour Maestro (${VIDEO_MODULES.length} Módulos en Todas las Pestañas)</span>
+              </button>
+              <button type="button" onclick="window.launchTourFromHubAction('contextual')"
+                      class="w-full py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-98 text-slate-300 hover:text-white font-medium text-[11px] flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <i class="fa-solid fa-crosshairs text-[10px]"></i>
+                <span>O ver solo el tour de esta pantalla actual</span>
+              </button>
+            </div>
           </div>
 
           <!-- TARJETA 2: REPRODUCTOR DE VIDEO-SIMULACIÓN (Alternativa 1) -->
@@ -175,7 +194,9 @@ function injectTutorialHubDom() {
                   <i class="fa-solid fa-circle-play text-[9px]"></i>
                   ALTERNATIVA 1
                 </span>
-                <span class="text-[10px] text-slate-400 font-mono">15 Módulos</span>
+                <span class="text-[10px] text-amber-300 font-bold flex items-center gap-1">
+                  <i class="fa-solid fa-volume-high text-[9px]"></i> Con Voz y Efectos
+                </span>
               </div>
 
               <div>
@@ -183,22 +204,22 @@ function injectTutorialHubDom() {
                   Video-Simulador Interactivo
                 </h3>
                 <p class="text-slate-300 text-xs mt-1 leading-relaxed">
-                  Visualiza cómo se utiliza Cubikar con un <strong>cursor animado</strong> que recorre la pantalla, hace clics, llena campos y despliega <strong>subtítulos paso a paso</strong> con controles de video.
+                  Visualiza cómo se utiliza Cubikar con <strong>narración por voz en español</strong>, un <strong>cursor animado</strong> que recorre la pantalla, clics con sonido, llenado de campos y subtítulos sincronizados.
                 </p>
               </div>
 
               <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-700/50 space-y-1.5 text-[11px] text-slate-300">
                 <div class="flex items-center gap-2">
                   <i class="fa-solid fa-circle-check text-amber-400 text-xs"></i>
-                  <span>Controles Play, Pausa, barra de tiempo y velocidad 1.5x / 2x.</span>
+                  <span><strong>Voz guiada en español</strong> describiendo cada acción en tiempo real.</span>
                 </div>
                 <div class="flex items-center gap-2">
                   <i class="fa-solid fa-circle-check text-amber-400 text-xs"></i>
-                  <span>Simulación visual con clics animados y subtítulos.</span>
+                  <span>Efectos de sonido (SFX) táctiles en clics y tecleo.</span>
                 </div>
                 <div class="flex items-center gap-2">
                   <i class="fa-solid fa-circle-check text-amber-400 text-xs"></i>
-                  <span>Cobertura al 100% de los 15 módulos del sistema.</span>
+                  <span>Controles Play, Pausa, barra de tiempo, velocidad y silenciador.</span>
                 </div>
               </div>
             </div>
@@ -217,7 +238,7 @@ function injectTutorialHubDom() {
           <div class="flex items-center justify-between pb-1 border-b border-slate-800">
             <h4 class="font-bold text-xs text-slate-200 flex items-center gap-2">
               <i class="fa-solid fa-film text-blue-400"></i>
-              <span>Acceso Directo a los 15 Módulos en Video</span>
+              <span>Acceso Directo a los ${VIDEO_MODULES.length} Módulos en Video</span>
             </h4>
             <span class="text-[10px] text-slate-400">Haz clic en cualquier módulo para reproducir</span>
           </div>

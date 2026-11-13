@@ -7,6 +7,7 @@ import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js';
 import { APU_WIDTH_KEY } from '../../config/constants.js';
 import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js';
 import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js';
+import { getClampedApuWidth } from '../../ui/resizer.js';
 
 // Renderizado de la tabla principal de catálogo (TAB1-CAT-BASE)
 export function renderTAB1() {
@@ -279,13 +280,12 @@ export function selectRow(id) {
   if (apuPanel) apuPanel.classList.remove('hidden');
   if (panelResizer) panelResizer.classList.remove('hidden');
 
-  // Restaurar ancho guardado en localStorage
-  const savedWidth = localStorage.getItem(APU_WIDTH_KEY);
-  if (savedWidth && apuPanel) {
-    const parsed = parseInt(savedWidth, 10);
-    if (!isNaN(parsed) && parsed >= 320) {
-      apuPanel.style.width = `${parsed}px`;
-    }
+  // Restaurar ancho guardado adaptado a la resolución actual de la pantalla
+  if (apuPanel) {
+    const savedWidth = localStorage.getItem(APU_WIDTH_KEY);
+    const clampedWidth = getClampedApuWidth(savedWidth);
+    apuPanel.style.width = `${clampedWidth}px`;
+    apuPanel.style.maxWidth = `${getClampedApuWidth(99999)}px`;
   }
 
   const apuClave = document.getElementById('apu-clave');

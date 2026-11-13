@@ -1,10 +1,10 @@
 // js/ui/interactiveTour.js
-// Motor de Tour Guiado en Vivo (Onboarding Interactivo) para Cubikar
-// Resalta elementos clave con un foco de atención (Spotlight), tarjeta explicativa animada,
-// navegación paso a paso y botón para SALTAR el tutorial con persistencia.
+// Motor de Tour Guiado en Vivo (Onboarding Interactivo) para Cubikar (Alternativa 3)
+// Cobertura completa del 100% de la aplicación en todas las pestañas y los 15 módulos.
+// Incluye Foco de Luz (Spotlight), navegación automática entre pestañas y botón visible SALTAR TUTORIAL.
 
 const STORAGE_KEY_TOUR_DISMISSED = 'cubikar_interactive_tour_dismissed_v1';
-const STORAGE_KEY_TOUR_PREFS = 'cubikar_interactive_tour_prefs_v1';
+const STORAGE_KEY_TOUR_SESSION = 'cubikar_interactive_tour_session_v1';
 
 let currentTourId = null;
 let currentStepIndex = 0;
@@ -12,199 +12,308 @@ let activeTourSteps = [];
 let isTourActive = false;
 let resizeObserver = null;
 
+function saveTourSessionState(tourId, stepIndex) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY_TOUR_SESSION, JSON.stringify({
+      tourId: tourId || 'master',
+      stepIndex: stepIndex || 0,
+      timestamp: Date.now()
+    }));
+  } catch (e) {}
+}
+
+function clearTourSessionState() {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY_TOUR_SESSION);
+  } catch (e) {}
+}
+
+/**
+ * Verifica si había un tour en curso antes de recargar la página (p.ej. al entrar a un proyecto)
+ * y lo reanuda automáticamente en el paso exacto donde se encontraba.
+ */
+export function checkAndResumeTourOnLoad() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_TOUR_SESSION);
+    if (!raw) return false;
+    const session = JSON.parse(raw);
+    if (session && typeof session.stepIndex === 'number') {
+      // Reanudar solo si la sesión se guardó hace menos de 5 minutos
+      if (Date.now() - (session.timestamp || 0) < 300000) {
+        clearTourSessionState();
+        setTimeout(() => {
+          startInteractiveTour(session.tourId || 'master', true, session.stepIndex);
+        }, 400);
+        return true;
+      }
+    }
+  } catch (e) {
+    clearTourSessionState();
+  }
+  return false;
+}
+
 // =========================================================================
-// DEFINICIÓN DE TOURS DISPONIBLES POR PANTALLA / MÓDULO
+// DEFINICIÓN DE TOURS: TOUR MAESTRO (16 MÓDULOS) + TOURS ESPECÍFICOS POR PESTAÑA
 // =========================================================================
 
 export const TOUR_DEFINITIONS = {
-  // 1. TOUR DEL PORTAL GENERAL (Mis Proyectos de Obra)
+  // TOUR MAESTRO: RECORRIDO EN CADENA POR TODAS LAS PESTAÑAS (16 MÓDULOS)
+  'master': {
+    id: 'master',
+    title: 'Tour Maestro • Los 16 Módulos de Cubikar',
+    steps: [
+      {
+        tab: 'portal',
+        target: '#btn-portal-nuevo-proyecto',
+        fallbackTarget: '#projectScopeModeSelect',
+        moduleBadge: 'Módulo 1 • Inicio',
+        title: '1. Creación de Proyectos e Identidad',
+        content: 'Desde aquí inicias el <strong>Asistente en 2 Pasos</strong>: asignas tu empresa, subes tu logotipo oficial con recorte 1:1 y configuras tu factor de sobrecosto (Indirectos y Utilidad).',
+        position: 'bottom'
+      },
+      {
+        tab: 'portal',
+        target: '#projectScopeModeSelect',
+        fallbackTarget: '#btn-workspace-plan-invite',
+        moduleBadge: 'Módulo 2 • Modo de Trabajo',
+        title: '2. Modo de Trabajo: Propias vs. Invitaciones',
+        content: 'Alterna con un clic entre <strong>Mis proyectos</strong> (obras bajo tu suscripción) y proyectos compartidos donde colaboras como invitado con permisos asignados por otros despachos.',
+        position: 'bottom'
+      },
+      {
+        tab: 'portal',
+        target: '#btn-workspace-plan-invite',
+        fallbackTarget: '#projectScopeModeSelect',
+        moduleBadge: 'Módulo 3 • Equipo',
+        title: '3. Invitaciones y Permisos Granulares',
+        content: 'Invita a tu equipo asignando roles de <strong>Editar</strong> (control total), <strong>Escribir</strong> (captura) o <strong>Leer</strong> (solo consulta). Puedes autorizar o restringir pestañas individualmente.',
+        position: 'bottom'
+      },
+      {
+        tab: 'presupuesto',
+        target: '#header-project-name',
+        fallbackTarget: '#header-company-name',
+        moduleBadge: 'Módulo 3 • Obra Activa',
+        title: '3. Encabezado y Membrete Institucional',
+        content: 'Al ingresar a una obra, el logotipo de tu empresa, nombre del proyecto, sobrecosto y divisa quedan permanentemente vinculados para generar reportes oficiales en PDF.',
+        position: 'bottom'
+      },
+      {
+        tab: 'presupuesto',
+        subtab: 'cat',
+        target: '#subtab-btn-cat',
+        fallbackTarget: '#tb1-container',
+        moduleBadge: 'Módulo 4 • Presupuesto',
+        title: '4. Catálogo de Conceptos y Presupuesto Base',
+        content: 'Estructura partidas y conceptos con renumeración automática (1, 1.1). Edita directamente en celda y usa el atajo <strong>Alt + Flecha Arriba/Abajo</strong> para mover filas.',
+        position: 'bottom'
+      },
+      {
+        tab: 'presupuesto',
+        subtab: 'cat',
+        target: '#badge-sobrecosto',
+        fallbackTarget: '#btn-toolbar-google-ia',
+        moduleBadge: 'Módulo 5 • Matrices',
+        title: '5. Análisis de Precios Unitarios (APU)',
+        content: 'Cada concepto cuenta con su matriz APU desglosada en 4 rubros: <strong>Materiales, Mano de Obra con FASAR, Maquinaria y Subcontratos</strong>, calculando el precio de venta final.',
+        position: 'right'
+      },
+      {
+        tab: 'presupuesto',
+        target: '#badge-sobrecosto',
+        fallbackTarget: '#header-factor-display',
+        moduleBadge: 'Módulo 6 • Sobrecosto',
+        title: '6. Factor de Sobrecosto y Moneda',
+        content: 'Fija los porcentajes oficiales de Indirectos (oficina y campo), Financiamiento, Utilidad y Fianzas. El sistema calcula el multiplicador en tiempo real.',
+        position: 'right'
+      },
+      {
+        tab: 'presupuesto',
+        target: '#toolbar-ai-split-wrapper',
+        fallbackTarget: '#btn-toolbar-google-ia',
+        moduleBadge: 'Módulo 7 • IA Gemini',
+        title: '7. Inteligencia Artificial y Google Search Grounding',
+        content: 'Consulta precios vigentes de mercado en tiempo real o describe un trabajo en lenguaje común para que la IA formule la matriz APU con cuadrillas y rendimientos.',
+        position: 'bottom'
+      },
+      {
+        tab: 'presupuesto',
+        subtab: 'insumos',
+        target: '#subtab-btn-insumos',
+        fallbackTarget: '#view-insumos',
+        moduleBadge: 'Módulo 8 • Insumos',
+        title: '8. Explosión y Consolidado de Insumos',
+        content: 'Visualiza la suma global de todos los materiales y cuadrillas de la obra. Si cambias el precio de un insumo aquí, todas las matrices del presupuesto se actualizan en cascada.',
+        position: 'bottom'
+      },
+      {
+        tab: 'presupuesto',
+        target: '#btn-sidebar-project-chat',
+        fallbackTarget: '#sidebar-chat-icon',
+        moduleBadge: 'Módulo 9 • Chat',
+        title: '9. Chat del Proyecto y Bitácora Contextual',
+        content: 'Comunícate con tu equipo en canales separados: <strong>Sección Técnica</strong> y <strong>Sección Financiera</strong>. Puedes mencionar a compañeros (@) y ligar notas a partidas de obra.',
+        position: 'right'
+      },
+      {
+        tab: 'compras',
+        target: '#tab-btn-compras',
+        fallbackTarget: '#view-compras',
+        moduleBadge: 'Módulo 10 • Egresos',
+        title: '10. Compras, Gastos y ERP Financiero',
+        content: 'Dashboard con Presupuesto vs Gasto Real en vivo, registro de facturas con PDF, órdenes de compra oficiales con folio y semáforos de alerta de sobrecosto.',
+        position: 'bottom'
+      },
+      {
+        tab: 'bitacora',
+        target: '#tab-btn-bitacora',
+        fallbackTarget: '#view-bitacora',
+        moduleBadge: 'Módulo 11 • Bitácora',
+        title: '11. Bitácora Electrónica y Legal (LOPSRM / BESOP)',
+        content: 'Folios inalterables (#001, #002), registro de clima, firmas táctiles manuscritas y <strong>sellado criptográfico SHA</strong> para compilar el Libro Completo de Bitácora en PDF.',
+        position: 'bottom'
+      },
+      {
+        tab: 'calendario',
+        target: '#tab-btn-calendario',
+        fallbackTarget: '#view-calendario',
+        moduleBadge: 'Módulo 12 • Tiempos',
+        title: '12. Calendario de Obra y Diagrama de Gantt',
+        content: 'Cronograma visual ligado al presupuesto: ajusta duraciones, activa la <strong>Ruta Crítica</strong> para vigilar tareas clave y consulta el calendario financiero de cobros.',
+        position: 'bottom'
+      },
+      {
+        tab: 'estimaciones',
+        target: '#tab-btn-estimaciones',
+        fallbackTarget: '#view-estimaciones',
+        moduleBadge: 'Módulo 13 • Cobros',
+        title: '13. Estimaciones y Números Generadores',
+        content: 'Genera cortes periódicos de cobro, captura volúmenes ejecutados, aplica amortización de anticipos y descarga la carátula oficial de estimación en PDF.',
+        position: 'bottom'
+      },
+      {
+        tab: 'presupuesto',
+        target: '#btn-sidebar-import-modal',
+        fallbackTarget: '#btn-sidebar-export-modal',
+        moduleBadge: 'Módulo 14 • Importar/Exportar',
+        title: '14. Importación Universal (Excel, Opus, Neodata)',
+        content: 'Carga archivos de Excel (.xlsx, .xls), CSV o respaldos de Opus y Neodata con mapeo automático de columnas y procesamiento 100% offline.',
+        position: 'right'
+      },
+      {
+        tab: 'presupuesto',
+        target: '#btn-lock-cat',
+        fallbackTarget: '#workspace-user-btn',
+        moduleBadge: 'Módulo 15 • Seguridad',
+        title: '15. Seguridad, Tab Lock y Respaldos',
+        content: 'Protege tu obra con el candado <strong>Tab Lock</strong> para impedir cambios involuntarios, descarga respaldos locales .JSON y alterna entre Modo Día y Modo Nocturno.',
+        position: 'bottom'
+      }
+    ]
+  },
+
+  // TOURS INDIVIDUALES POR PESTAÑA
   'portal': {
     id: 'portal',
-    title: 'Tour de Inicio • Mis Proyectos de Obra',
+    title: 'Tour • Mis Proyectos de Obra',
     steps: [
       {
         target: '#btn-portal-nuevo-proyecto',
         fallbackTarget: '#portal-top-new-project-btn',
-        title: '¡Crea tu Primera Obra!',
         moduleBadge: 'Paso 1: Nuevo Proyecto',
-        content: 'Haz clic aquí para abrir el <strong>Asistente en 2 Pasos</strong>. Podrás configurar el nombre de tu empresa, subir tu logotipo oficial, fijar el sobrecosto y elegir una plantilla en blanco o de muestra.',
-        position: 'bottom',
-        highlightPadding: 8
+        title: 'Crear Nuevo Proyecto',
+        content: 'Haz clic aquí para abrir el Asistente en 2 Pasos y dar de alta tu primera obra con logotipo, datos de empresa y sobrecosto.',
+        position: 'bottom'
       },
       {
         target: '#projectScopeModeSelect',
         fallbackTarget: '#btn-workspace-plan-invite',
-        title: 'Organización de Espacios de Trabajo',
-        moduleBadge: 'Paso 2: Modo y Alcance',
-        content: 'Filtra rápidamente entre <strong>Tus Obras Propias</strong> y los <strong>Proyectos donde colaboras como Invitado</strong>. Cubikar aísla los datos y presupuestos de cada cliente con total seguridad.',
-        position: 'bottom',
-        highlightPadding: 6
+        moduleBadge: 'Paso 2: Modo de Trabajo',
+        title: 'Obras Propias vs. Invitaciones',
+        content: 'Filtra rápidamente entre tus obras personales y los proyectos donde colaboras como invitado con acceso restringido.',
+        position: 'bottom'
       },
       {
         target: '#searchInput',
         fallbackTarget: '#portal-search-input',
-        title: 'Búsqueda Instantánea de Obras',
         moduleBadge: 'Paso 3: Búsqueda Rápida',
-        content: 'Localiza cualquier presupuesto en milisegundos por nombre, empresa o ciudad conforme crece tu cartera de proyectos.',
-        position: 'bottom',
-        highlightPadding: 6
+        title: 'Buscador Instantáneo',
+        content: 'Localiza cualquier presupuesto en milisegundos por nombre de obra, cliente o ubicación.',
+        position: 'bottom'
       },
       {
         target: '#btn-portal-notifications',
         fallbackTarget: '#btn-sidebar-notifications',
-        title: 'Centro de Notificaciones y Menciones',
         moduleBadge: 'Paso 4: Notificaciones',
-        content: 'La campana te avisará cuando te mencionen con <strong>@Usuario</strong> en el chat de cualquier obra, cuando recibas <strong>invitaciones a colaborar</strong> o cuando haya alertas de consumo.',
-        position: 'bottom',
-        highlightPadding: 8
+        title: 'Campana de Alertas Globales',
+        content: 'Te avisa de menciones (@Usuario) en el chat de obra, invitaciones recibidas y avisos de consumo.',
+        position: 'bottom'
       },
       {
         target: '#btn-portal-tutorial-hub',
         fallbackTarget: '#btn-portal-info',
-        title: 'Centro de Tutoriales y Ayuda',
-        moduleBadge: 'Paso 5: Aprende a tu Ritmo',
-        content: 'Puedes volver a abrir este <strong>Tour Guiado en Vivo</strong> o consultar el <strong>Video-Simulador con los 15 módulos</strong> en cualquier momento desde este botón.',
-        position: 'bottom',
-        highlightPadding: 8
+        moduleBadge: 'Paso 5: Centro de Ayuda',
+        title: 'Tutoriales y Video-Simulador',
+        content: 'Vuelve a abrir este tour interactivo o consulta los videos de los 15 módulos cuando lo necesites.',
+        position: 'bottom'
       }
     ]
   },
 
-  // 2. TOUR DEL ÁREA DE TRABAJO (Catálogo Base, APU, Chat y Barra Lateral)
-  'workspace': {
-    id: 'workspace',
-    title: 'Tour General • Área de Trabajo de Presupuestos',
-    steps: [
-      {
-        target: '#company-logo-img',
-        fallbackTarget: '#header-project-name',
-        title: 'Identidad y Membrete Oficial',
-        moduleBadge: '1. Encabezado Institucional',
-        content: 'Aquí se sincronizan el <strong>logotipo de tu empresa</strong>, el nombre de la obra, la ubicación y la fecha. Todos los reportes PDF oficiales llevarán este membrete automático.',
-        position: 'bottom',
-        highlightPadding: 10
-      },
-      {
-        target: '#nav-tab-cat',
-        fallbackTarget: '#workspace-tabs-container',
-        title: 'Pestañas de Módulos Integrados',
-        moduleBadge: '2. Navegación Modular',
-        content: 'Alterna entre el <strong>Catálogo Base</strong>, <strong>Insumos Generales</strong>, <strong>Calendario Gantt</strong>, <strong>Estimaciones</strong>, <strong>Compras y Pagos</strong> y la <strong>Bitácora Legal de Obra</strong>.',
-        position: 'bottom',
-        highlightPadding: 6
-      },
-      {
-        target: '#btn-add-partida-n1',
-        fallbackTarget: '#btn-add-concept',
-        title: 'Estructuración Jerárquica',
-        moduleBadge: '3. Agregar Partidas y Conceptos',
-        content: 'Crea Partidas (Nivel 1), Subpartidas y Conceptos con renumeración automática (1, 1.1, 1.1.1). Usa el atajo <strong>Alt + Flecha Arriba/Abajo</strong> para reordenar filas.',
-        position: 'bottom',
-        highlightPadding: 6
-      },
-      {
-        target: '#badge-sobrecosto',
-        fallbackTarget: '#header-factor-display',
-        title: 'Factor de Sobrecosto Dinámico',
-        moduleBadge: '4. Indirectos y Utilidad',
-        content: 'Configura tus porcentajes de Indirectos, Financiamiento, Utilidad y FASAR. El sistema calcula en tiempo real el paso de Costo Directo a Precio Unitario de Venta.',
-        position: 'right',
-        highlightPadding: 8
-      },
-      {
-        target: '#btn-sidebar-project-chat',
-        fallbackTarget: '#chat-dock-toggle-btn',
-        title: 'Chat y Bitácora Contextual',
-        moduleBadge: '5. Chat de Obra',
-        content: 'Abre la ventana de chat para comunicarte con tu equipo. Puedes filtrar por <strong>Sección Técnica</strong> o <strong>Financiera</strong> y hacer comentarios directos en cada concepto del catálogo.',
-        position: 'right',
-        highlightPadding: 8
-      },
-      {
-        target: '#btn-ai-split-menu',
-        fallbackTarget: '#btn-ai-matrix-generate',
-        title: 'Inteligencia Artificial con Google Search',
-        moduleBadge: '6. Asistente con IA',
-        content: 'Investiga costos de mercado en tiempo real mediante <strong>Google Search Grounding</strong> o genera matrices completas de precios unitarios con Gemini a partir de una descripción.',
-        position: 'bottom',
-        highlightPadding: 6
-      }
-    ]
-  },
-
-  // 3. TOUR DEL MÓDULO DE COMPRAS Y PAGOS
   'compras': {
     id: 'compras',
-    title: 'Tour • Compras, Gastos y ERP Financiero',
+    title: 'Tour • Compras y ERP Financiero',
     steps: [
       {
-        target: '#expenses-kpi-banner',
+        tab: 'compras',
+        target: '#tab-btn-compras',
         fallbackTarget: '#view-compras',
-        title: 'Tablero de Control Financiero (KPIs)',
-        moduleBadge: '1. Métricas en Tiempo Real',
-        content: 'Monitorea de un vistazo el <strong>Presupuesto Total Contratado</strong>, el <strong>Gasto Real Acumulado</strong>, las <strong>Cuentas por Pagar</strong> y el <strong>Saldo Remanente</strong> de la obra.',
-        position: 'bottom',
-        highlightPadding: 8
+        moduleBadge: '1. Tablero Financiero',
+        title: 'Presupuesto vs. Gasto Real',
+        content: 'Indicadores en tiempo real del presupuesto contratado, egresos acumulados, cuentas por pagar y saldo de obra.',
+        position: 'bottom'
       },
       {
-        target: '#btn-new-expense-record',
-        fallbackTarget: '#expenses-subtab-bitacora',
-        title: 'Registro de Egresos y Facturas',
-        moduleBadge: '2. Captura de Gastos',
-        content: 'Registra compras con desglose de IVA, clasifícalas por rubro (Materiales, Mano de Obra, Subcontratos) y adjunta <strong>facturas PDF o fotos de tickets</strong> respaldadas en la nube.',
-        position: 'bottom',
-        highlightPadding: 6
-      },
-      {
-        target: '#expenses-subtab-comparativa',
-        fallbackTarget: '#expenses-filter-status',
-        title: 'Comparativa Presupuesto vs. Real',
-        moduleBadge: '3. Semáforos de Desvío',
-        content: 'Confronta en tiempo real los insumos planeados contra lo efectivamente comprado. Los semáforos en rojo te alertarán si hay sobrecostos antes de que afecten tu utilidad.',
-        position: 'bottom',
-        highlightPadding: 6
+        tab: 'compras',
+        target: '#view-compras',
+        fallbackTarget: '#tab-btn-compras',
+        moduleBadge: '2. Registro de Compras',
+        title: 'Captura de Facturas y Egresos',
+        content: 'Registra compras con desglose de IVA, clasifícalas por rubro y adjunta comprobantes o facturas PDF respaldadas en la nube.',
+        position: 'top'
       }
     ]
   },
 
-  // 4. TOUR DE LA BITÁCORA LEGAL DE OBRA
   'bitacora': {
     id: 'bitacora',
-    title: 'Tour • Bitácora Electrónica y Legal (LOPSRM / BESOP)',
+    title: 'Tour • Bitácora Legal de Obra',
     steps: [
       {
-        target: '#btn-new-bitacora-note',
+        tab: 'bitacora',
+        target: '#tab-btn-bitacora',
         fallbackTarget: '#view-bitacora',
-        title: 'Nueva Nota Oficial de Bitácora',
-        moduleBadge: '1. Apertura de Notas',
-        content: 'Genera notas oficiales con folios consecutivos inalterables (#001, #002), condiciones de clima, vinculación a conceptos del catálogo y fotografías con visor.',
-        position: 'bottom',
-        highlightPadding: 6
+        moduleBadge: '1. Libro de Bitácora',
+        title: 'Notas Oficiales con Folio Inmutable',
+        content: 'Genera notas oficiales foliadas correlativamente (#001, #002) conforme a normativa de obra pública y privada.',
+        position: 'bottom'
       },
       {
-        target: '#bitacora-timeline-container',
-        fallbackTarget: '#bitacora-search-input',
-        title: 'Línea de Tiempo Legal y Criptoseguridad',
-        moduleBadge: '2. Inviolabilidad de Notas',
-        content: 'Cada nota sellada genera un <strong>Hash criptográfico</strong> que certifica que no ha sido alterada. Incluye <strong>firma manuscrita digital</strong> con panel táctil.',
-        position: 'top',
-        highlightPadding: 8
-      },
-      {
-        target: '#btn-download-full-bitacora-book',
-        fallbackTarget: '#btn-bitacora-export-pdf',
-        title: 'Descarga del Libro Completo de Bitácora',
-        moduleBadge: '3. Encuadernado Oficial en PDF',
-        content: 'Compila en un solo clic todas las notas, actas, firmas y evidencias fotográficas en un <strong>Libro de Bitácora oficial</strong> foliado listo para auditoría o entrega.',
-        position: 'bottom',
-        highlightPadding: 6
+        tab: 'bitacora',
+        target: '#view-bitacora',
+        fallbackTarget: '#tab-btn-bitacora',
+        moduleBadge: '2. Firmas y Sellado',
+        title: 'Firma Digital y Hash de Integridad',
+        content: 'Firma en panel táctil y sella la nota para congelarla con un Hash criptográfico SHA que certifica su inviolabilidad.',
+        position: 'top'
       }
     ]
   }
 };
 
 // =========================================================================
-// MÉTODOS DE PERSISTENCIA Y PREFERENCIAS
+// MÉTODOS DE CONTROL DEL TOUR GUIADO
 // =========================================================================
 
 export function isTourDismissed(tourId = null) {
@@ -212,9 +321,7 @@ export function isTourDismissed(tourId = null) {
     const raw = localStorage.getItem(STORAGE_KEY_TOUR_DISMISSED);
     if (!raw) return false;
     const dismissed = JSON.parse(raw);
-    if (tourId) {
-      return Boolean(dismissed && (dismissed === true || dismissed[tourId] === true || dismissed['all'] === true));
-    }
+    if (tourId) return Boolean(dismissed && (dismissed[tourId] === true || dismissed['all'] === true));
     return Boolean(dismissed && (dismissed === true || dismissed['all'] === true));
   } catch (e) {
     return false;
@@ -229,11 +336,8 @@ export function setTourDismissed(tourId = null, dismissed = true) {
       try { current = JSON.parse(raw); } catch (e) { current = {}; }
       if (typeof current !== 'object' || current === null) current = {};
     }
-    if (tourId) {
-      current[tourId] = Boolean(dismissed);
-    } else {
-      current['all'] = Boolean(dismissed);
-    }
+    if (tourId) current[tourId] = Boolean(dismissed);
+    else current['all'] = Boolean(dismissed);
     localStorage.setItem(STORAGE_KEY_TOUR_DISMISSED, JSON.stringify(current));
   } catch (e) {}
 }
@@ -244,36 +348,38 @@ export function resetTourDismissedStatus() {
   } catch (e) {}
 }
 
-// =========================================================================
-// MOTOR PRINCIPAL DEL TOUR
-// =========================================================================
-
 /**
- * Inicia un tour guiado interactivo por ID
- * @param {string} tourId - 'portal' | 'workspace' | 'compras' | 'bitacora'
+ * Inicia el Tour Guiado interactivo
+ * @param {string} tourId - 'master' (15 módulos) | 'portal' | 'compras' | 'bitacora'
  * @param {boolean} forceStart - Si es true, inicia aunque haya sido saltado previamente
+ * @param {number} initialStepIndex - Índice del paso en el que debe iniciar o reanudarse
  */
-export function startInteractiveTour(tourId = 'portal', forceStart = false) {
-  if (!forceStart && isTourDismissed(tourId)) {
-    return false;
-  }
-
-  const def = TOUR_DEFINITIONS[tourId] || TOUR_DEFINITIONS.portal;
+export function startInteractiveTour(tourId = 'master', forceStart = true, initialStepIndex = 0) {
+  const def = TOUR_DEFINITIONS[tourId] || TOUR_DEFINITIONS.master;
   currentTourId = def.id;
-  activeTourSteps = (def.steps || []).filter(s => Boolean(s));
-  currentStepIndex = 0;
+  activeTourSteps = (def.steps || []).filter(Boolean);
 
-  if (activeTourSteps.length === 0) {
-    console.warn(`[Tour] No hay pasos definidos para el tour: ${tourId}`);
-    return false;
+  if (activeTourSteps.length === 0) return false;
+
+  // Si el usuario ya está dentro del workspace y lanza el tour maestro desde el workspace
+  // sin especificar un paso específico, iniciar en el paso 3 (Módulo 3: Obra Activa)
+  // para no interrumpir su trabajo ni recargar la página.
+  if (tourId === 'master' && initialStepIndex === 0) {
+    const workspaceContainer = document.getElementById('workspace-container');
+    const isWorkspaceVisible = workspaceContainer && !workspaceContainer.classList.contains('hidden') && workspaceContainer.style.display !== 'none';
+    if (isWorkspaceVisible) {
+      initialStepIndex = 2; // Índice 2 es el Paso 3 (Módulo 3: Encabezado y Membrete Institucional)
+    }
   }
+
+  currentStepIndex = Math.min(Math.max(0, initialStepIndex), activeTourSteps.length - 1);
 
   isTourActive = true;
+  saveTourSessionState(currentTourId, currentStepIndex);
   injectTourDomElements();
-  showCurrentStep();
+  executeCurrentStep();
   setupKeyboardNavigation();
 
-  // Escuchar redimensionamiento para reposicionar la tarjeta
   if (window.ResizeObserver && !resizeObserver) {
     resizeObserver = new ResizeObserver(() => {
       if (isTourActive) positionTourElements();
@@ -285,30 +391,84 @@ export function startInteractiveTour(tourId = 'portal', forceStart = false) {
 }
 
 /**
- * Muestra el paso actual del tour activo
+ * Ejecuta y muestra el paso actual navegando entre pestañas automáticamente
  */
-function showCurrentStep() {
+function executeCurrentStep() {
   if (!isTourActive || !activeTourSteps[currentStepIndex]) return;
 
   const step = activeTourSteps[currentStepIndex];
-  const targetEl = resolveStepTarget(step);
 
-  // Asegurar visibilidad haciendo scroll suave si es necesario
-  if (targetEl && typeof targetEl.scrollIntoView === 'function') {
-    try {
-      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-    } catch (e) {}
+  // Si el paso requiere una pestaña específica de la aplicación, conmutar a ella
+  if (step.tab) {
+    if (step.tab === 'portal') {
+      const viewPortal = document.getElementById('view-portal');
+      const workspace = document.getElementById('workspace-container');
+      if (workspace && (!viewPortal || viewPortal.classList.contains('hidden') || viewPortal.style.display === 'none')) {
+        // Conmutar a la vista del portal limpiamente en memoria
+        if (typeof window.goToProjectsDashboard === 'function') {
+          try { window.goToProjectsDashboard(); } catch (_) {}
+        }
+        if (viewPortal) {
+          viewPortal.classList.remove('hidden');
+          viewPortal.style.display = '';
+        }
+        if (workspace) {
+          workspace.classList.add('hidden');
+          workspace.style.display = 'none';
+        }
+      }
+    } else {
+      // El paso pertenece a una pestaña del espacio de trabajo (presupuesto, compras, bitácora, etc.):
+      const viewPortal = document.getElementById('view-portal');
+      const workspace = document.getElementById('workspace-container');
+      const isViewingPortal = viewPortal && !viewPortal.classList.contains('hidden') && viewPortal.style.display !== 'none';
+
+      if (isViewingPortal && workspace) {
+        // Conmutar instantáneamente al Workspace en memoria (SPA sin recarga forzada para no perder el tour)
+        viewPortal.classList.add('hidden');
+        viewPortal.style.display = 'none';
+        workspace.classList.remove('hidden');
+        workspace.style.display = 'flex';
+        if (document.documentElement?.classList) document.documentElement.classList.remove('portal-active');
+        if (document.body?.classList) document.body.classList.remove('portal-active');
+
+        if (typeof window.renderTAB1 === 'function') {
+          try { window.renderTAB1(); } catch (_) {}
+        }
+        if (typeof window.renderHeaderCollaborators === 'function') {
+          try { window.renderHeaderCollaborators(); } catch (_) {}
+        }
+      }
+
+      // Conmutar a la pestaña requerida del workspace
+      if (typeof window.switchTab === 'function') {
+        try {
+          window.switchTab(step.tab);
+          if (step.subtab && typeof window.switchPresupuestoSubTab === 'function') {
+            window.switchPresupuestoSubTab(step.subtab);
+          }
+        } catch (e) {}
+      }
+    }
   }
 
+  // Guardar estado actual de sesión
+  saveTourSessionState(currentTourId, currentStepIndex);
+
+  // Dar tiempo a la transición y renderizado de la pestaña
   setTimeout(() => {
+    const targetEl = resolveStepTarget(step);
+    if (targetEl && typeof targetEl.scrollIntoView === 'function') {
+      try {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      } catch (e) {}
+    }
+
     renderTourCard(step, targetEl);
     highlightTargetElement(targetEl, step.highlightPadding || 8);
-  }, 80);
+  }, 180);
 }
 
-/**
- * Resuelve el elemento HTML objetivo del paso
- */
 function resolveStepTarget(step) {
   if (!step) return null;
   let el = null;
@@ -318,12 +478,14 @@ function resolveStepTarget(step) {
   if (!el && step.fallbackTarget) {
     try { el = document.querySelector(step.fallbackTarget); } catch (e) {}
   }
-  return (el && el.offsetParent !== null) ? el : null;
+  if (!el) return null;
+
+  // Comprobar visibilidad geométrica real en pantalla (soporta fixed, sticky, flex)
+  const rect = el.getBoundingClientRect();
+  const isVisible = rect.width > 0 && rect.height > 0;
+  return isVisible ? el : (el.offsetParent !== null ? el : null);
 }
 
-/**
- * Inyecta los contenedores HTML del tour en el body si no existen
- */
 function injectTourDomElements() {
   let overlay = document.getElementById('cubikar-tour-overlay');
   if (!overlay) {
@@ -332,8 +494,7 @@ function injectTourDomElements() {
     overlay.className = 'fixed inset-0 pointer-events-none transition-all duration-200';
     overlay.style.zIndex = '99990';
     overlay.innerHTML = `
-      <!-- Máscara SVG con recorte dinámico (Spotlight) -->
-      <svg id="cubikar-tour-svg-mask" class="w-full h-full absolute inset-0 pointer-events-auto" style="fill: rgba(15, 23, 42, 0.78);">
+      <svg id="cubikar-tour-svg-mask" class="w-full h-full absolute inset-0 pointer-events-auto" style="fill: rgba(15, 23, 42, 0.82);">
         <defs>
           <mask id="cubikar-tour-mask-cutout">
             <rect width="100%" height="100%" fill="white" />
@@ -342,8 +503,7 @@ function injectTourDomElements() {
         </defs>
         <rect width="100%" height="100%" mask="url(#cubikar-tour-mask-cutout)" />
       </svg>
-      <!-- Anillo pulsante que enmarca el elemento enfocado -->
-      <div id="cubikar-tour-focus-ring" class="absolute pointer-events-none transition-all duration-200 ring-4 ring-blue-500/90 shadow-[0_0_30px_rgba(59,130,246,0.6)] rounded-xl" style="display: none;"></div>
+      <div id="cubikar-tour-focus-ring" class="absolute pointer-events-none transition-all duration-200 ring-4 ring-blue-500 shadow-[0_0_35px_rgba(59,130,246,0.7)] rounded-xl" style="display: none;"></div>
     `;
     document.body.appendChild(overlay);
   }
@@ -352,22 +512,18 @@ function injectTourDomElements() {
   if (!card) {
     card = document.createElement('div');
     card.id = 'cubikar-tour-card';
-    card.className = 'fixed bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700/80 p-4 sm:p-5 w-[92vw] sm:w-[410px] max-w-[440px] pointer-events-auto transition-all duration-200 animate-in fade-in zoom-in-95';
+    card.className = 'fixed bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700/80 p-4 sm:p-5 w-[92vw] sm:w-[420px] max-w-[450px] pointer-events-auto transition-all duration-200 animate-in fade-in zoom-in-95';
     card.style.zIndex = '99995';
     document.body.appendChild(card);
   }
 }
 
-/**
- * Resalta visualmente el elemento con la máscara SVG y el anillo pulsante
- */
 function highlightTargetElement(targetEl, padding = 8) {
   const cutoutRect = document.getElementById('cubikar-tour-cutout-rect');
   const focusRing = document.getElementById('cubikar-tour-focus-ring');
   if (!cutoutRect || !focusRing) return;
 
   if (!targetEl) {
-    // Si no hay elemento en pantalla, centrar el foco o enfocar neutro
     cutoutRect.setAttribute('x', '0');
     cutoutRect.setAttribute('y', '0');
     cutoutRect.setAttribute('width', '0');
@@ -397,9 +553,6 @@ function highlightTargetElement(targetEl, padding = 8) {
   focusRing.style.height = `${height}px`;
 }
 
-/**
- * Dibuja el contenido de la tarjeta flotante del tour
- */
 function renderTourCard(step, targetEl) {
   const card = document.getElementById('cubikar-tour-card');
   if (!card) return;
@@ -434,22 +587,20 @@ function renderTourCard(step, targetEl) {
       </button>
     </div>
 
-    <!-- Cuerpo con la Explicación -->
+    <!-- Explicación del Paso -->
     <div class="py-3 text-xs text-slate-300 leading-relaxed font-normal">
       ${step.content || ''}
     </div>
 
-    <!-- Barra de Navegación y Acciones -->
+    <!-- Barra de Navegación y Botón SALTAR TUTORIAL -->
     <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2 select-none">
-      <!-- Botón Saltar Tutorial con Menú de Preferencia -->
       <button type="button" onclick="window.skipInteractiveTourAction(true)"
               class="text-xs text-slate-400 hover:text-rose-400 font-bold flex items-center gap-1.5 transition cursor-pointer group py-1"
-              title="Saltar este recorrido interactivo">
+              title="Saltar y cerrar el tutorial ahora">
         <i class="fa-solid fa-forward-step text-[10px] group-hover:translate-x-0.5 transition-transform"></i>
         <span>Saltar Tutorial</span>
       </button>
 
-      <!-- Botones Anterior y Siguiente -->
       <div class="flex items-center gap-2">
         ${!isFirst ? `
           <button type="button" onclick="window.prevInteractiveTourStep()"
@@ -461,7 +612,7 @@ function renderTourCard(step, targetEl) {
 
         <button type="button" onclick="window.nextInteractiveTourStep()"
                 class="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-blue-600/30">
-          <span>${isLast ? '¡Entendido! Finalizar' : 'Siguiente'}</span>
+          <span>${isLast ? '¡Finalizar Tour!' : 'Siguiente'}</span>
           <i class="fa-solid ${isLast ? 'fa-check' : 'fa-arrow-right'} text-[10px]"></i>
         </button>
       </div>
@@ -471,9 +622,6 @@ function renderTourCard(step, targetEl) {
   positionTourElements();
 }
 
-/**
- * Calcula y posiciona la tarjeta cerca del elemento enfocado
- */
 function positionTourElements() {
   const card = document.getElementById('cubikar-tour-card');
   if (!card || !isTourActive) return;
@@ -482,7 +630,6 @@ function positionTourElements() {
   const targetEl = resolveStepTarget(step);
 
   if (!targetEl) {
-    // Si no hay elemento visible, centrar la tarjeta en la pantalla
     card.style.left = '50%';
     card.style.top = '50%';
     card.style.transform = 'translate(-50%, -50%)';
@@ -502,31 +649,23 @@ function positionTourElements() {
   if (prefPos === 'bottom') {
     top = rect.bottom + margin;
     left = rect.left + (rect.width / 2) - (cardRect.width / 2);
-    // Si se desborda por abajo, cambiar a top
     if (top + cardRect.height > viewportHeight - 10) {
       top = rect.top - cardRect.height - margin;
     }
   } else if (prefPos === 'top') {
     top = rect.top - cardRect.height - margin;
     left = rect.left + (rect.width / 2) - (cardRect.width / 2);
-    if (top < 10) {
-      top = rect.bottom + margin;
-    }
+    if (top < 10) top = rect.bottom + margin;
   } else if (prefPos === 'left') {
     top = rect.top + (rect.height / 2) - (cardRect.height / 2);
     left = rect.left - cardRect.width - margin;
-    if (left < 10) {
-      left = rect.right + margin;
-    }
+    if (left < 10) left = rect.right + margin;
   } else if (prefPos === 'right') {
     top = rect.top + (rect.height / 2) - (cardRect.height / 2);
     left = rect.right + margin;
-    if (left + cardRect.width > viewportWidth - 10) {
-      left = rect.left - cardRect.width - margin;
-    }
+    if (left + cardRect.width > viewportWidth - 10) left = rect.left - cardRect.width - margin;
   }
 
-  // Ajustes para no salir de los bordes de la ventana
   left = Math.max(12, Math.min(left, viewportWidth - cardRect.width - 12));
   top = Math.max(12, Math.min(top, viewportHeight - cardRect.height - 12));
 
@@ -535,34 +674,24 @@ function positionTourElements() {
   card.style.transform = 'none';
 }
 
-/**
- * Avanza al siguiente paso del tour
- */
 export function nextInteractiveTourStep() {
   if (!isTourActive) return;
   if (currentStepIndex < activeTourSteps.length - 1) {
     currentStepIndex++;
-    showCurrentStep();
+    executeCurrentStep();
   } else {
-    // Final del tour completado con éxito
     closeInteractiveTour(true);
   }
 }
 
-/**
- * Retrocede al paso anterior
- */
 export function prevInteractiveTourStep() {
   if (!isTourActive) return;
   if (currentStepIndex > 0) {
     currentStepIndex--;
-    showCurrentStep();
+    executeCurrentStep();
   }
 }
 
-/**
- * Salta el tutorial inmediatamente y guarda la preferencia si el usuario lo decide
- */
 export function skipInteractiveTour(persistDismissal = true) {
   if (persistDismissal) {
     setTourDismissed(currentTourId, true);
@@ -570,14 +699,12 @@ export function skipInteractiveTour(persistDismissal = true) {
   closeInteractiveTour(false);
 }
 
-/**
- * Cierra y limpia los elementos del tour en pantalla
- */
 export function closeInteractiveTour(completed = false) {
   isTourActive = false;
   currentTourId = null;
   activeTourSteps = [];
   currentStepIndex = 0;
+  clearTourSessionState();
 
   const overlay = document.getElementById('cubikar-tour-overlay');
   if (overlay) overlay.remove();
@@ -587,23 +714,16 @@ export function closeInteractiveTour(completed = false) {
 
   teardownKeyboardNavigation();
 
-  if (completed) {
-    if (typeof window.showToast === 'function') {
-      window.showToast('🎉 ¡Excelente! Has completado el recorrido guiado.', 'success');
-    }
+  if (completed && typeof window.showToast === 'function') {
+    window.showToast('🎉 ¡Felicidades! Has completado el recorrido completo de Cubikar.', 'success');
   }
 }
 
-// Navegación por teclado (Flechas y Escape)
 function onTourKeyDown(e) {
   if (!isTourActive) return;
-  if (e.key === 'Escape') {
-    skipInteractiveTour(true);
-  } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
-    nextInteractiveTourStep();
-  } else if (e.key === 'ArrowLeft') {
-    prevInteractiveTourStep();
-  }
+  if (e.key === 'Escape') skipInteractiveTour(true);
+  else if (e.key === 'ArrowRight' || e.key === 'Enter') nextInteractiveTourStep();
+  else if (e.key === 'ArrowLeft') prevInteractiveTourStep();
 }
 
 function setupKeyboardNavigation() {
@@ -614,9 +734,6 @@ function teardownKeyboardNavigation() {
   window.removeEventListener('keydown', onTourKeyDown);
 }
 
-// =========================================================================
-// ASIGNACIÓN DE GLOBALES PARA EVENTOS ONCLICK EN EL DOM
-// =========================================================================
 if (typeof window !== 'undefined') {
   window.startInteractiveTour = startInteractiveTour;
   window.nextInteractiveTourStep = nextInteractiveTourStep;

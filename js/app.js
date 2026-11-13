@@ -417,18 +417,20 @@ import {
   skipInteractiveTour,
   closeInteractiveTour,
   isTourDismissed,
-  resetTourDismissedStatus
-} from './ui/interactiveTour.js';
+  resetTourDismissedStatus,
+  checkAndResumeTourOnLoad
+} from './ui/interactiveTour.js?v=20261113_20';
 
 import {
   openVideoSimulatorModal,
-  closeVideoSimulatorModal
-} from './ui/videoSimulatorModal.js';
+  closeVideoSimulatorModal,
+  toggleVoiceNarration
+} from './ui/videoSimulatorModal.js?v=20261113_22';
 
 import {
   openTutorialHubModal,
   closeTutorialHubModal
-} from './ui/tutorialHubModal.js';
+} from './ui/tutorialHubModal.js?v=20261113_22';
 
 import {
   toggleProjectChatDock,
@@ -1366,6 +1368,13 @@ if (isWorkspaceActive) {
   } catch (e) {
     console.warn('[Realtime] Aviso inicializando sincronización global:', e);
   }
+
+  // Reanudar automáticamente tour interactivo si hubo recarga al entrar a un proyecto
+  try {
+    checkAndResumeTourOnLoad();
+  } catch (e) {
+    console.warn('[Tour] Aviso al verificar reanudación de tour:', e);
+  }
 }
 
 // Asegurar renderizado de colaboradores en el encabezado de proyecto
@@ -1527,7 +1536,9 @@ window.closeTutorialHubModal = closeTutorialHubModal;
 window.startInteractiveTour = startInteractiveTour;
 window.skipInteractiveTour = skipInteractiveTour;
 window.closeInteractiveTour = closeInteractiveTour;
+window.checkAndResumeTourOnLoad = checkAndResumeTourOnLoad;
 window.openVideoSimulatorModal = openVideoSimulatorModal;
+window.toggleVoiceNarration = toggleVoiceNarration;
 
 setProjectChatRefreshCallback(() => {
   renderTAB1();
