@@ -7,6 +7,8 @@ import {
   STORAGE_KEY_INVITATIONS,
   STORAGE_KEY_PLAN_INVITATIONS,
   STORAGE_KEY_ACTIVE_WORKSPACE,
+  STORAGE_KEY_AUTH_SESSION_VERSION,
+  CURRENT_AUTH_SESSION_VERSION,
   getStorageKey,
   getSettingsKey,
   getActiveProjectId,
@@ -180,6 +182,7 @@ export function findRegisteredUserAccount(email) {
 // ==========================================
 export function getFeaturedProfilesList() {
   try {
+    enforceGlobalSessionRevocation();
     const closedList = getClosedSessionsList();
     const closedSet = new Set(closedList);
     const seenEmails = new Set();
@@ -451,10 +454,72 @@ export function deleteUserAccountAndData(email) {
 }
 
 // ==========================================
+// REVOCACIÓN Y CONTROL GLOBAL DE SESIONES
+// ==========================================
+export function enforceGlobalSessionRevocation() {
+  try {
+    if (typeof localStorage === 'undefined') return false;
+    const currentVersion = localStorage.getItem(STORAGE_KEY_AUTH_SESSION_VERSION);
+    if (currentVersion !== CURRENT_AUTH_SESSION_VERSION) {
+      console.info('[Session Isolation] Revocación global activa. Purgando sesiones previas en esta máquina...');
+      const oldRaw = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY_USER) : null) ||
+                     localStorage.getItem(STORAGE_KEY_USER) ||
+                     localStorage.getItem(STORAGE_KEY_USER + '_last');
+      if (oldRaw) {
+        try {
+          const oldU = JSON.parse(oldRaw);
+          if (oldU?.email) {
+            markSessionClosed(oldU.email);
+          }
+        } catch (_) {}
+      }
+
+      // 1. Limpiar usuario local y temporal
+      localStorage.removeItem(STORAGE_KEY_USER);
+      localStorage.removeItem(STORAGE_KEY_USER + '_last');
+      localStorage.removeItem('control_obra_user_profile_dismissed');
+      localStorage.removeItem('cubikar_remember_device');
+      localStorage.removeItem(STORAGE_KEY_FEATURED_PROFILES);
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.clear();
+      }
+
+      // 2. Purgar todos los tokens de Supabase Auth en esta máquina
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('sb-') || k.includes('auth-token'))) {
+          localStorage.removeItem(k);
+        }
+      }
+
+      // 3. Registrar versión actual de revocación global
+      localStorage.setItem(STORAGE_KEY_AUTH_SESSION_VERSION, CURRENT_AUTH_SESSION_VERSION);
+
+      // 4. Invocar signOut global en Supabase si está disponible
+      try {
+        if (typeof window !== 'undefined') {
+          import('../../core/supabaseClient.js').then(m => {
+            const sb = m.getSupabaseClient();
+            if (sb) sb.auth.signOut({ scope: 'global' }).catch(() => {});
+          }).catch(() => {});
+        }
+      } catch (_) {}
+
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.warn('[Session Isolation] Error al comprobar versión de revocación:', e);
+    return false;
+  }
+}
+
+// ==========================================
 // GESTIÓN DE USUARIO
 // ==========================================
 export function getCurrentUser() {
   try {
+    enforceGlobalSessionRevocation();
     let raw = null;
     // 1. Revisar si hay sesión temporal en sessionStorage (ej. no se marcó "Recordar en este equipo")
     if (typeof sessionStorage !== 'undefined') {
@@ -493,6 +558,7 @@ export function getCurrentUser() {
 // Retorna el usuario guardado en localStorage sin forzar ningún fallback inventado
 export function getSavedUserProfile() {
   try {
+    enforceGlobalSessionRevocation();
     const isDismissed = localStorage.getItem('control_obra_user_profile_dismissed');
     if (isDismissed === 'true') {
       return null;
@@ -617,6 +683,10 @@ export function saveCurrentUser(user, remember = null) {
       const shouldRemember = remember !== null 
         ? !!remember 
         : (typeof localStorage !== 'undefined' && localStorage.getItem('cubikar_remember_device') !== 'false');
+
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY_AUTH_SESSION_VERSION, CURRENT_AUTH_SESSION_VERSION);
+      }
 
       if (shouldRemember) {
         localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));

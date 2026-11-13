@@ -52,6 +52,7 @@ import {
   markSessionOpen,
   purgeAllRegisteredAccountsAndUsers,
   deleteUserAccountAndData,
+  enforceGlobalSessionRevocation,
   PROJECT_ROLES,
   AVATARS_BY_SEX,
   GOOGLE_PRESET_ACCOUNTS,
@@ -106,6 +107,7 @@ let wizardData = {
 // INICIALIZACIÓN DEL PORTAL
 // ==========================================
 export function initPortal() {
+  enforceGlobalSessionRevocation();
   const urlParams = new URLSearchParams(window.location.search);
   const projIdFromUrl = urlParams.get('project');
   const user = getCurrentUser();
@@ -3034,11 +3036,11 @@ export async function logoutUser(skipConfirm = false) {
   const current = getCurrentUser();
   const cleanEmail = (current?.email || '').toLowerCase().trim();
 
-  // 1. Cerrar sesión formalmente en Supabase Auth
+  // 1. Cerrar sesión formalmente en Supabase Auth con alcance global
   try {
     const sb = getSupabaseClient();
     if (sb) {
-      await sb.auth.signOut();
+      await sb.auth.signOut({ scope: 'global' });
     }
   } catch (err) {
     console.warn('[Logout] Aviso al cerrar sesión en Supabase:', err);
@@ -3084,6 +3086,32 @@ export async function logoutUser(skipConfirm = false) {
   } else {
     showPortalView('login');
   }
+}
+
+// Cerrar sesión en absolutamente todas las computadoras y navegadores
+export async function logoutAllDevices(skipConfirm = false) {
+  if (!skipConfirm && !confirm('¿Deseas cerrar sesión en TODAS las computadoras y dispositivos?')) return;
+  const current = getCurrentUser();
+  const cleanEmail = (current?.email || '').toLowerCase().trim();
+
+  try {
+    const sb = getSupabaseClient();
+    if (sb) {
+      await sb.auth.signOut({ scope: 'global' });
+    }
+  } catch (err) {
+    console.warn('[LogoutAll] Error revocando sesión global en Supabase:', err);
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const nextRevokeVersion = `v2_global_revoke_${Date.now()}`;
+      localStorage.setItem('cubikar_auth_session_version', nextRevokeVersion);
+    }
+  } catch (_) {}
+
+  await logoutUser(true);
+  showToast('🔒 Has cerrado la sesión en todas las computadoras.', 'info');
 }
 
 // Eliminar permanentemente la cuenta del usuario actual y todos sus datos/archivos locales
@@ -3214,6 +3242,11 @@ export function updatePortalHeaderUserArea(user) {
                   class="w-full text-left px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-400 flex items-center gap-2 transition cursor-pointer">
             <i class="fa-solid fa-power-off text-rose-500 text-xs"></i>
             <span>Cerrar Sesión</span>
+          </button>
+          <button type="button" onclick="closePortalUserDropdown(); logoutAllDevices()" 
+                  class="w-full text-left px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-300 flex items-center gap-2 transition cursor-pointer" title="Cierra la sesión activa en todas las computadoras y dispositivos">
+            <i class="fa-solid fa-laptop-slash text-rose-400 text-xs"></i>
+            <span>Cerrar Sesión en Todas las PCs</span>
           </button>
         </div>
       </div>

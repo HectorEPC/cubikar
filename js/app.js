@@ -319,7 +319,7 @@ import {
   switchMasterCatalogTab,
   handleDeleteCatalog,
   refreshMasterCatalogList
-} from './modules/reference/masterCatalogModal.js';
+} from './modules/reference/masterCatalogModal.js?v=20261113_02';
 
 import {
   openApuReferenceModal,
@@ -551,7 +551,8 @@ import {
   toggleSort,
   setStatusFilter,
   resetFilters,
-  exportProjectToExcelAction
+  exportProjectToExcelAction,
+  logoutAllDevices
 } from './modules/portal/portalController.js';
 
 import {
@@ -1229,6 +1230,21 @@ window.ignoreSpellCheckOnce = ignoreSpellCheckOnce;
 window.ignoreAllSpellCheckWord = ignoreAllSpellCheckWord;
 window.addCurrentToDictionary = addCurrentToDictionary;
 window.rescanSpellCheck = rescanSpellCheck;
+window.logoutAllDevices = logoutAllDevices;
+
+// Verificar validez de sesión al volver a la pestaña en cualquier computadora
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    const activeUser = getCurrentUser();
+    if (!activeUser) {
+      const workspaceContainer = document.getElementById('workspace-container');
+      const isWs = workspaceContainer && !workspaceContainer.classList.contains('hidden') && workspaceContainer.style.display !== 'none';
+      if (isWs) {
+        showPortalView('login');
+      }
+    }
+  }
+});
 try {
   initAuthListener((event, session, perfil) => {
     if (session?.user) {

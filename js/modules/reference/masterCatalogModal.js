@@ -14,7 +14,7 @@ import {
   getReferenceDatabaseStats,
   syncMasterCatalogsFromCloud
 } from './referenceDb.js';
-import { ensureDefaultMasterCatalogs } from './presetCatalogs.js';
+import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetCatalogs.js';
 import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js';
 import { openImportModal } from '../io/universalImporter.js';
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
@@ -60,17 +60,68 @@ export function closeMasterCatalogModal() {
   }
 }
 
+// Orden oficial estricto de catálogos base absorbidos por el sistema
+const OFFICIAL_DEFAULT_ORDER = [
+  'catalogo_muestra_residencial',
+  'cubikar_igi_2026',
+  'cubikar_vivienda_2026'
+];
+
 // Actualizar lista de catálogos en el filtro y estadísticas
 export async function refreshMasterCatalogList() {
   try {
     const stats = await getReferenceDatabaseStats();
 
+    // Obtener manifiesto para asegurar que los 3 catálogos base siempre aparezcan en orden debajo de muestra
+    const manifest = await getPresetCatalogManifest().catch(() => []);
+    const defaultPresets = manifest.filter(m => m.isDefault || m.absorbedByApp || m.isBase);
+
+    // Mapear catálogos actualmente guardados en IndexedDB
+    const dbCatMap = new Map();
+    (stats.catalogs || []).forEach(c => dbCatMap.set(c.id, c));
+
+    // Construir lista ordenada:
+    // 1. Catalogo muestra - Proyecto Residencial
+    // 2. Catálogo Ingeniería e Infraestructura 2026
+    // 3. Catálogo Vivienda 2026
+    // 4. Catálogos importados por el usuario
+    const orderedCatalogs = [];
+    OFFICIAL_DEFAULT_ORDER.forEach(defId => {
+      if (dbCatMap.has(defId)) {
+        orderedCatalogs.push(dbCatMap.get(defId));
+        dbCatMap.delete(defId);
+      } else {
+        const p = defaultPresets.find(m => m.id === defId);
+        if (p) {
+          orderedCatalogs.push({
+            id: p.id,
+            name: p.name,
+            category: p.category,
+            itemsCount: p.itemsCount || 0,
+            sizeBytes: 0,
+            sizeMb: 0,
+            isPreset: true,
+            isSystem: true,
+            absorbedByApp: true,
+            ownerEmail: 'system',
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+    });
+
+    // Agregar catálogos adicionales del usuario
+    dbCatMap.forEach(c => orderedCatalogs.push(c));
+
+    const totalItemsCount = orderedCatalogs.reduce((acc, c) => acc + (c.itemsCount || 0), 0);
+    const totalCatsCount = orderedCatalogs.length;
+
     // Actualizar contadores superiores
     const countEl = document.getElementById('master-cat-total-items');
-    if (countEl) countEl.textContent = stats.totalItems.toLocaleString();
+    if (countEl) countEl.textContent = totalItemsCount.toLocaleString();
 
     const catsCountEl = document.getElementById('master-cat-total-catalogs');
-    if (catsCountEl) catsCountEl.textContent = stats.catalogsCount.toLocaleString();
+    if (catsCountEl) catsCountEl.textContent = totalCatsCount.toLocaleString();
 
     // Actualizar badges de almacenamiento y espacio de trabajo
     const storageBadgeEl = document.getElementById('master-cat-storage-badge');
@@ -89,7 +140,7 @@ export async function refreshMasterCatalogList() {
     if (select) {
       const currentVal = select.value;
       select.innerHTML = '<option value="all">📚 Todos los Catálogos</option>';
-      stats.catalogs.forEach(c => {
+      orderedCatalogs.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c.id;
         const isAbsorbed = Boolean(c.isPreset || c.isSystem || c.absorbedByApp || c.ownerEmail === 'system');
@@ -101,7 +152,7 @@ export async function refreshMasterCatalogList() {
     }
 
     // Actualizar tabla de administración de catálogos
-    await renderCatalogsManageList(stats.catalogs, stats);
+    await renderCatalogsManageList(orderedCatalogs, { ...stats, catalogsCount: totalCatsCount });
   } catch (err) {
     console.error('Error cargando catálogos:', err);
   }
@@ -160,11 +211,27 @@ async function renderCatalogsManageList(catalogs, stats = null) {
       ? '<span class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-200">0 MB • Absorbido por la app</span>'
       : `<span class="bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded font-mono">${c.sizeMb !== undefined ? `${c.sizeMb} MB` : (c.sizeBytes ? `${(c.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : '0.10 MB')}</span>`;
 
+    let icon = 'fa-book';
+    let iconColor = 'bg-blue-50 text-blue-600';
+    if (c.id === 'catalogo_muestra_residencial' || c.name.toLowerCase().includes('residencial')) {
+      icon = 'fa-house-chimney';
+      iconColor = 'bg-purple-100 text-purple-700';
+    } else if (c.id === 'cubikar_igi_2026' || c.name.toLowerCase().includes('ingeniería')) {
+      icon = 'fa-bridge-water';
+      iconColor = 'bg-teal-100 text-teal-700';
+    } else if (c.id === 'cubikar_vivienda_2026' || c.name.toLowerCase().includes('vivienda')) {
+      icon = 'fa-city';
+      iconColor = 'bg-blue-100 text-blue-700';
+    } else if (isAbsorbed) {
+      icon = 'fa-shield-halved';
+      iconColor = 'bg-emerald-100 text-emerald-700';
+    }
+
     html += `
       <div class="flex items-center justify-between p-2.5 bg-white border ${isAbsorbed ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200'} rounded-xl shadow-xs hover:border-blue-300 transition">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg ${isAbsorbed ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-50 text-blue-600'} flex items-center justify-center font-bold text-sm shrink-0">
-            <i class="fa-solid ${isAbsorbed ? 'fa-shield-halved' : 'fa-book'}"></i>
+          <div class="w-8 h-8 rounded-lg ${iconColor} flex items-center justify-center font-bold text-sm shrink-0">
+            <i class="fa-solid ${icon}"></i>
           </div>
           <div class="min-w-0">
             <span class="font-bold text-xs text-slate-800 block truncate">${c.name}</span>
@@ -174,7 +241,7 @@ async function renderCatalogsManageList(catalogs, stats = null) {
               <span>•</span>
               <span>${c.category || 'General'}</span>
               <span>•</span>
-              <span>${fecha}</span>
+              <span>${fecha || '12 nov 2026'}</span>
             </div>
           </div>
         </div>
@@ -194,6 +261,11 @@ async function renderCatalogsManageList(catalogs, stats = null) {
   });
   html += '</div>';
   container.innerHTML = html;
+}
+
+if (typeof window !== 'undefined') {
+  window.refreshMasterCatalogList = refreshMasterCatalogList;
+  window.triggerMasterCatalogSearch = triggerMasterCatalogSearch;
 }
 
 // Eliminar un catálogo con confirmación

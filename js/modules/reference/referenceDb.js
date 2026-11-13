@@ -225,12 +225,18 @@ export async function saveReferenceCatalog(catalogMeta, itemsList, targetOwnerEm
   const context = getActiveWorkspaceContext();
   const ownerEmail = (targetOwnerEmail || context.ownerEmail).toLowerCase().trim();
 
-  // Calcular tamaño real en bytes del catálogo importado
+  // Calcular tamaño real en bytes del catálogo importado de forma segura sin desbordar memoria
   let sizeBytes = 0;
-  try {
-    const jsonStr = JSON.stringify(itemsList);
-    sizeBytes = new Blob([jsonStr]).size;
-  } catch (e) {
+  if (catalogMeta.sizeBytes) {
+    sizeBytes = catalogMeta.sizeBytes;
+  } else if (itemsList.length < 2000) {
+    try {
+      const jsonStr = JSON.stringify(itemsList);
+      sizeBytes = new Blob([jsonStr]).size;
+    } catch (e) {
+      sizeBytes = itemsList.length * 450;
+    }
+  } else {
     sizeBytes = itemsList.length * 450;
   }
   const sizeMb = parseFloat((sizeBytes / (1024 * 1024)).toFixed(2));
@@ -252,51 +258,61 @@ export async function saveReferenceCatalog(catalogMeta, itemsList, targetOwnerEm
     isSystem: isSystemOrPreset,
     absorbedByApp: isSystemOrPreset,
     ownerEmail: isSystemOrPreset ? 'system' : ownerEmail,
-    createdAt: new Date().toISOString()
+    createdAt: catalogMeta.createdAt || new Date().toISOString()
   };
 
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(['catalogs', 'items'], 'readwrite');
-    const catStore = tx.objectStore('catalogs');
-    const itemStore = tx.objectStore('items');
+  // 1. Guardar metadatos en 'catalogs' de inmediato para visibilidad instantánea
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction('catalogs', 'readwrite');
+    tx.objectStore('catalogs').put(catalogRecord);
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e.target.error);
+  });
 
-    catStore.put(catalogRecord);
-
-    itemsList.forEach((item, index) => {
-      const itemRecord = {
-        id: `${catalogId}_${index}_${item.clave || ''}`,
-        catalogId: catalogId,
-        catalogName: catalogRecord.name,
-        tipo: item.tipo || 'Concepto', // Concepto, Material, Mano de Obra, Equipo, Subcontrato
-        clave: (item.clave || '').toString().trim(),
-        descripcion: (item.descripcion || '').toString().trim(),
-        unidad: (item.unidad || 'pza').toString().trim(),
-        precioUnitario: parseFloat(item.precioUnitario || item.costoUnitario || 0) || 0,
-        familia: (item.familia || '').toString().trim(),
-        preciosZonas: item.preciosZonas || null,
-        ownerEmail: isSystemOrPreset ? 'system' : ownerEmail,
-        isPreset: isSystemOrPreset,
-        absorbedByApp: isSystemOrPreset,
-        insumos: (Array.isArray(item.insumos) && item.insumos.length > 0) ? item.insumos : (item.insumos || null)
-      };
-      itemStore.put(itemRecord);
+  // 2. Guardar items en bloques seguros de 500 para evitar agotar transacciones de IndexedDB
+  const CHUNK_SIZE = 500;
+  for (let i = 0; i < itemsList.length; i += CHUNK_SIZE) {
+    const chunk = itemsList.slice(i, i + CHUNK_SIZE);
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('items', 'readwrite');
+      const itemStore = tx.objectStore('items');
+      chunk.forEach((item, chunkIdx) => {
+        const index = i + chunkIdx;
+        const itemRecord = {
+          id: `${catalogId}_${index}_${item.clave || ''}`,
+          catalogId: catalogId,
+          catalogName: catalogRecord.name,
+          tipo: item.tipo || 'Concepto',
+          clave: (item.clave || '').toString().trim(),
+          descripcion: (item.descripcion || '').toString().trim(),
+          unidad: (item.unidad || 'pza').toString().trim(),
+          precioUnitario: parseFloat(item.precioUnitario || item.costoUnitario || 0) || 0,
+          familia: (item.familia || '').toString().trim(),
+          preciosZonas: item.preciosZonas || null,
+          ownerEmail: isSystemOrPreset ? 'system' : ownerEmail,
+          isPreset: isSystemOrPreset,
+          absorbedByApp: isSystemOrPreset,
+          insumos: (Array.isArray(item.insumos) && item.insumos.length > 0) ? item.insumos : (item.insumos || null)
+        };
+        itemStore.put(itemRecord);
+      });
+      tx.oncomplete = () => resolve();
+      tx.onerror = (e) => reject(e.target.error);
     });
 
-    tx.oncomplete = () => {
-      if (!isSystemOrPreset) {
-        backupMasterCatalogToCloud(catalogRecord, itemsList).catch(() => {});
-      }
-      import('../../services/storageQuotaService.js')
-        .then((m) => m.notifyStorageUsageChanged({ modulo: 'catalogos_maestros' }))
-        .catch(() => {});
-      resolve(catalogRecord);
-    };
+    if (i + CHUNK_SIZE < itemsList.length) {
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
 
-    tx.onerror = (e) => {
-      console.error('Error guardando catálogo en IndexedDB:', e.target.error);
-      reject(e.target.error);
-    };
-  });
+  if (!isSystemOrPreset) {
+    backupMasterCatalogToCloud(catalogRecord, itemsList).catch(() => {});
+  }
+  import('../../services/storageQuotaService.js')
+    .then((m) => m.notifyStorageUsageChanged({ modulo: 'catalogos_maestros' }))
+    .catch(() => {});
+
+  return catalogRecord;
 }
 
 // Obtener la lista de todos los catálogos guardados para el titular del espacio de trabajo

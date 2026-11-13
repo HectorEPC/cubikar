@@ -26,7 +26,7 @@ export async function getPresetCatalogManifest() {
 export async function ensureDefaultMasterCatalogs() {
   try {
     const manifest = await getPresetCatalogManifest();
-    const defaultPresets = manifest.filter(m => m.isDefault || m.absorbedByApp);
+    const defaultPresets = manifest.filter(m => m.isDefault || m.absorbedByApp || m.isBase);
     if (!defaultPresets || defaultPresets.length === 0) return 0;
 
     const existingCatalogs = await listReferenceCatalogs();
@@ -39,8 +39,21 @@ export async function ensureDefaultMasterCatalogs() {
       try {
         let data = null;
 
-        // Prioridad 1: Descomprimir paquete ZIP base ultraligero con JSZip
-        if (preset.zipFile && typeof window !== 'undefined' && window.JSZip) {
+        // Prioridad 1: Lectura directa por JSON nativo C++ si está disponible
+        if (preset.file) {
+          try {
+            const res = await fetch(preset.file);
+            if (res.ok) {
+              data = await res.json();
+              console.log(`[DefaultCatalogs] Archivo cargado directamente: ${preset.file}`);
+            }
+          } catch (fileErr) {
+            console.warn(`[DefaultCatalogs] Aviso al leer JSON ${preset.file}, probando ZIP:`, fileErr);
+          }
+        }
+
+        // Prioridad 2: Descomprimir paquete ZIP base ultraligero con JSZip
+        if (!data && preset.zipFile && typeof window !== 'undefined' && window.JSZip) {
           try {
             const zipRes = await fetch(preset.zipFile);
             if (zipRes.ok) {
@@ -54,16 +67,7 @@ export async function ensureDefaultMasterCatalogs() {
               }
             }
           } catch (zipErr) {
-            console.warn(`[DefaultCatalogs] Aviso al leer ZIP ${preset.zipFile}, reintentando con JSON:`, zipErr);
-          }
-        }
-
-        // Prioridad 2: Archivo JSON directo si el ZIP no estuvo disponible
-        if (!data && preset.file) {
-          const res = await fetch(preset.file);
-          if (res.ok) {
-            const rawText = await res.text();
-            data = JSON.parse(rawText.replace(/^\uFEFF/, ''));
+            console.warn(`[DefaultCatalogs] Error al leer ZIP ${preset.zipFile}:`, zipErr);
           }
         }
 
@@ -83,6 +87,9 @@ export async function ensureDefaultMasterCatalogs() {
           }, itemsList, 'system');
           loadedCount++;
           console.log(`[DefaultCatalogs] Catálogo oficial cargado: ${preset.name} (${itemsList.length} items, absorbido por app)`);
+          if (typeof window !== 'undefined' && window.refreshMasterCatalogList) {
+            window.refreshMasterCatalogList().catch(() => {});
+          }
         }
       } catch (err) {
         console.warn(`[DefaultCatalogs] Error cargando ${preset.name}:`, err);

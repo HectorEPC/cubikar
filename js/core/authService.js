@@ -2,7 +2,7 @@
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
-import { getCurrentUser, saveCurrentUser, markSessionOpen, saveRegisteredUserAccount, getClosedSessionsList } from '../modules/portal/projectService.js';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js';
 import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js';
 
 /**
@@ -85,7 +85,7 @@ export async function signOut() {
   const sb = getSupabaseClient();
   if (sb) {
     try {
-      await sb.auth.signOut();
+      await sb.auth.signOut({ scope: 'global' });
     } catch (_) {}
   }
   saveCurrentUser(null);
@@ -266,6 +266,7 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
  * Listener global de eventos de autenticación
  */
 export function initAuthListener(onAuthChangeCallback) {
+  enforceGlobalSessionRevocation();
   const sb = getSupabaseClient();
   if (!sb) return;
 
@@ -287,7 +288,7 @@ export function initAuthListener(onAuthChangeCallback) {
       if (event === 'INITIAL_SESSION' && !isOAuthRedirect && (isClosed || !current || !isDeviceRemembered)) {
         console.info('[Supabase Auth] Sesión inicial cerrada o no persistida en este equipo. Limpiando estado.');
         try {
-          await sb.auth.signOut();
+          await sb.auth.signOut({ scope: 'global' });
         } catch (_) {}
         saveCurrentUser(null);
         if (onAuthChangeCallback) onAuthChangeCallback('SIGNED_OUT', null, null);
