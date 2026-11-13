@@ -2565,6 +2565,12 @@ export function openNuevoProyectoModal() {
     }
   }
   
+  const radioBlank = document.querySelector('input[name="wiz-template"][value="blank"]');
+  if (radioBlank) {
+    radioBlank.checked = true;
+  }
+  updateTemplateSelection();
+
   goToWizardStep(1);
   const modal = document.getElementById('modal-nuevo-proyecto');
   if (modal) {
@@ -2687,16 +2693,16 @@ export function updateWizardFactorPreview() {
 
 export function updateTemplateSelection() {
   const checked = document.querySelector('input[name="wiz-template"]:checked');
-  const val = checked ? checked.value : 'demo';
+  const val = checked ? checked.value : 'blank';
   const lblDemo = document.getElementById('lbl-tpl-demo');
   const lblBlank = document.getElementById('lbl-tpl-blank');
   if (!lblDemo || !lblBlank) return;
-  if (val === 'demo') {
+  if (val === 'blank') {
+    lblBlank.className = "p-2.5 bg-slate-50 border-2 border-blue-500 rounded-lg cursor-pointer flex items-start gap-2 select-none";
+    lblDemo.className = "p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer flex items-start gap-2 select-none";
+  } else {
     lblDemo.className = "p-2.5 bg-slate-50 border-2 border-blue-500 rounded-lg cursor-pointer flex items-start gap-2 select-none";
     lblBlank.className = "p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer flex items-start gap-2 select-none";
-  } else {
-    lblDemo.className = "p-2.5 bg-white border border-slate-200 rounded-lg cursor-pointer flex items-start gap-2 select-none";
-    lblBlank.className = "p-2.5 bg-slate-50 border-2 border-blue-500 rounded-lg cursor-pointer flex items-start gap-2 select-none";
   }
 }
 
@@ -2718,7 +2724,7 @@ export async function finalizeCreateProject() {
   const fasarVal = parseFloat(document.getElementById('wiz-fasar')?.value);
   const fasar = isNaN(fasarVal) ? 70.00 : fasarVal;
   const tplEl = document.querySelector('input[name="wiz-template"]:checked');
-  const tpl = tplEl ? tplEl.value : 'demo';
+  const tpl = tplEl ? tplEl.value : 'blank';
 
   const user = getCurrentUser();
 
