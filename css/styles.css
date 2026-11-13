@@ -854,3 +854,26 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
 .animate-in.fade-in.zoom-in-95 {
   animation: cubikarZoomIn95 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* ========================================================= */
+/* ESTILOS DE ORTOGRAFÍA Y AUTOCORRECCIÓN ESTILO MICROSOFT WORD */
+/* ========================================================= */
+.word-spell-target {
+  text-decoration: underline wavy #e11d48 !important;
+  text-decoration-thickness: 1.5px !important;
+  text-underline-offset: 3px !important;
+}
+
+.word-wavy-red {
+  text-decoration: underline wavy #e11d48 !important;
+  text-decoration-thickness: 1.5px !important;
+  text-underline-offset: 3px !important;
+}
+
+/* Subrayado de gramática / estilo azul estilo Word */
+.word-wavy-blue {
+  text-decoration: underline wavy #2563eb !important;
+  text-decoration-thickness: 1.5px !important;
+  text-underline-offset: 3px !important;
+}
+

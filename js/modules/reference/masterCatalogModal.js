@@ -14,6 +14,7 @@ import {
   getReferenceDatabaseStats,
   syncMasterCatalogsFromCloud
 } from './referenceDb.js';
+import { ensureDefaultMasterCatalogs } from './presetCatalogs.js';
 import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js';
 import { openImportModal } from '../io/universalImporter.js';
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
@@ -32,6 +33,14 @@ export async function openMasterCatalogModal() {
   switchMasterCatalogTab('search');
   await refreshMasterCatalogList();
   triggerMasterCatalogSearch();
+
+  // Carga e indexación automática de catálogos por defecto (espacio absorbido por la app)
+  ensureDefaultMasterCatalogs().then(async (added) => {
+    if (added > 0) {
+      await refreshMasterCatalogList();
+      triggerMasterCatalogSearch();
+    }
+  }).catch(() => {});
 
   syncMasterCatalogsFromCloud().then(async (res) => {
     if (res?.restored > 0) {
@@ -83,8 +92,9 @@ export async function refreshMasterCatalogList() {
       stats.catalogs.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c.id;
-        const mbTxt = c.sizeMb !== undefined ? `${c.sizeMb} MB` : (c.sizeBytes ? `${(c.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : '');
-        opt.textContent = `${c.name} (${(c.itemsCount || 0).toLocaleString()} reg${mbTxt ? ' • ' + mbTxt : ''})`;
+        const isAbsorbed = Boolean(c.isPreset || c.isSystem || c.absorbedByApp || c.ownerEmail === 'system');
+        const mbTxt = isAbsorbed ? 'Espacio absorbido' : (c.sizeMb !== undefined ? `${c.sizeMb} MB` : (c.sizeBytes ? `${(c.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : ''));
+        opt.textContent = `${c.name} (${(c.itemsCount || 0).toLocaleString()} reg • ${mbTxt})`;
         select.appendChild(opt);
       });
       if (currentVal) select.value = currentVal;
@@ -144,19 +154,23 @@ async function renderCatalogsManageList(catalogs, stats = null) {
 
   let html = storageHeader + '<div class="space-y-2">';
   catalogs.forEach(c => {
+    const isAbsorbed = Boolean(c.isPreset || c.isSystem || c.absorbedByApp || c.ownerEmail === 'system');
     const fecha = c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
-    const mbTxt = c.sizeMb !== undefined ? `${c.sizeMb} MB` : (c.sizeBytes ? `${(c.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : '0.10 MB');
+    const mbTxt = isAbsorbed 
+      ? '<span class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-200">0 MB • Absorbido por la app</span>'
+      : `<span class="bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded font-mono">${c.sizeMb !== undefined ? `${c.sizeMb} MB` : (c.sizeBytes ? `${(c.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : '0.10 MB')}</span>`;
+
     html += `
-      <div class="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-xl shadow-xs hover:border-blue-300 transition">
+      <div class="flex items-center justify-between p-2.5 bg-white border ${isAbsorbed ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200'} rounded-xl shadow-xs hover:border-blue-300 transition">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm shrink-0">
-            <i class="fa-solid fa-book"></i>
+          <div class="w-8 h-8 rounded-lg ${isAbsorbed ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-50 text-blue-600'} flex items-center justify-center font-bold text-sm shrink-0">
+            <i class="fa-solid ${isAbsorbed ? 'fa-shield-halved' : 'fa-book'}"></i>
           </div>
           <div class="min-w-0">
             <span class="font-bold text-xs text-slate-800 block truncate">${c.name}</span>
             <div class="flex flex-wrap items-center gap-2 text-[10px] text-slate-500 mt-0.5">
               <span class="bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded font-mono">${(c.itemsCount || 0).toLocaleString()} registros</span>
-              <span class="bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded font-mono">${mbTxt}</span>
+              ${mbTxt}
               <span>•</span>
               <span>${c.category || 'General'}</span>
               <span>•</span>
@@ -164,9 +178,17 @@ async function renderCatalogsManageList(catalogs, stats = null) {
             </div>
           </div>
         </div>
-        <button onclick="handleDeleteCatalog('${c.id}', '${c.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition shrink-0 cursor-pointer" title="Eliminar este catálogo">
-          <i class="fa-solid fa-trash-can text-xs"></i>
-        </button>
+        <div class="flex items-center gap-2">
+          ${isAbsorbed ? `
+            <span class="text-emerald-700 bg-emerald-50 text-[10px] font-bold px-2.5 py-1 rounded-md border border-emerald-200 flex items-center gap-1 shrink-0" title="Catálogo oficial del sistema (Espacio absorbido por Cubikar • No consume almacenamiento del usuario)">
+              <i class="fa-solid fa-circle-check text-emerald-600"></i> Por defecto
+            </span>
+          ` : `
+            <button onclick="handleDeleteCatalog('${c.id}', '${c.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition shrink-0 cursor-pointer" title="Eliminar este catálogo">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
+          `}
+        </div>
       </div>
     `;
   });

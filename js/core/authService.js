@@ -2,7 +2,7 @@
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
-import { getCurrentUser, saveCurrentUser, markSessionOpen, saveRegisteredUserAccount } from '../modules/portal/projectService.js';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, saveRegisteredUserAccount, getClosedSessionsList } from '../modules/portal/projectService.js';
 import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js';
 
 /**
@@ -31,7 +31,7 @@ export async function signUp({ email, password, fullName }) {
 /**
  * Inicio de sesión con Correo Electrónico y Contraseña
  */
-export async function signInWithPassword({ email, password }) {
+export async function signInWithPassword({ email, password, remember = false }) {
   const sb = getSupabaseClient();
   if (!isSupabaseConfigured() || !sb) {
     throw new Error('Supabase no está disponible en este momento.');
@@ -45,7 +45,7 @@ export async function signInWithPassword({ email, password }) {
   if (error) throw error;
 
   const perfil = await fetchUserProfile(data.user.id);
-  syncLocalUserSession(data.user, perfil, true);
+  syncLocalUserSession(data.user, perfil, true, remember);
 
   return { session: data.session, user: data.user, perfil };
 }
@@ -150,7 +150,7 @@ export async function fetchUserProfile(userId) {
 /**
  * Sincroniza la sesión con el estado local del portal
  */
-export function syncLocalUserSession(user, perfil, force = false) {
+export function syncLocalUserSession(user, perfil, force = false, remember = null) {
   if (!user) return;
   const current = getCurrentUser();
   if (!force && current && current.email && user.email && current.email.toLowerCase().trim() !== user.email.toLowerCase().trim()) {
@@ -241,7 +241,7 @@ export function syncLocalUserSession(user, perfil, force = false) {
     estadoSuscripcion: perfil?.empresas?.estado_suscripcion || 'trialing',
     user_metadata: user.user_metadata ? { ...user.user_metadata } : {}
   };
-  saveCurrentUser(localUser);
+  saveCurrentUser(localUser, remember);
   try {
     saveRegisteredUserAccount(localUser);
     markSessionOpen(localUser.email || localUser);
@@ -250,7 +250,7 @@ export function syncLocalUserSession(user, perfil, force = false) {
       window.updateSubscriptionBadgesUI();
     }
     if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
-      window.refreshProjectsGridUI();
+      refreshProjectsGridUI();
     }
     setTimeout(() => {
       autoSyncCollaborationOnStartup(user);
@@ -272,8 +272,30 @@ export function initAuthListener(onAuthChangeCallback) {
   sb.auth.onAuthStateChange(async (event, session) => {
     console.info(`[Supabase Auth] Evento: ${event}`);
     if (session?.user) {
+      const email = (session.user.email || '').toLowerCase().trim();
+      const current = getCurrentUser();
+      const closedList = getClosedSessionsList();
+      const isClosed = closedList.includes(email);
+      const isDeviceRemembered = typeof localStorage !== 'undefined' && localStorage.getItem('cubikar_remember_device') === 'true';
+      const isOAuthRedirect = typeof window !== 'undefined' && (
+        window.location.hash.includes('access_token') ||
+        window.location.hash.includes('refresh_token') ||
+        window.location.search.includes('code=')
+      );
+
+      // Si es carga inicial (INITIAL_SESSION) y la sesión fue cerrada en esta máquina o no se marcó recordar en este equipo
+      if (event === 'INITIAL_SESSION' && !isOAuthRedirect && (isClosed || !current || !isDeviceRemembered)) {
+        console.info('[Supabase Auth] Sesión inicial cerrada o no persistida en este equipo. Limpiando estado.');
+        try {
+          await sb.auth.signOut();
+        } catch (_) {}
+        saveCurrentUser(null);
+        if (onAuthChangeCallback) onAuthChangeCallback('SIGNED_OUT', null, null);
+        return;
+      }
+
       const isInternalSync = (event === 'USER_UPDATED' && isRecentInternalCloudAuthUpdate());
-      const isExplicitLogin = (event === 'SIGNED_IN' || (event === 'USER_UPDATED' && !isInternalSync));
+      const isExplicitLogin = (event === 'SIGNED_IN' || (event === 'USER_UPDATED' && !isInternalSync) || isOAuthRedirect);
       const perfil = await fetchUserProfile(session.user.id);
       syncLocalUserSession(session.user, perfil, isExplicitLogin);
       if (!isInternalSync) {

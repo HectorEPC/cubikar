@@ -25,6 +25,7 @@ import {
 import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js';
 import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js';
 import { resolveActivePrintBranding } from './printBrandingService.js';
+import { getBudgetSignatures } from '../catalog/signaturesModal.js';
 
 // Escapar caracteres especiales en texto HTML
 function escapeHtml(str) {
@@ -543,21 +544,23 @@ export function printTab1Catalog() {
       </div>
     </div>
 
-    <!-- Área de Firmas Institucionales -->
-    <div class="signatures-grid">
-      <div class="signature-box">
-        <strong>ELABORÓ</strong>
-        <span>Departamento de Precios Unitarios y Presupuestos</span>
-      </div>
-      <div class="signature-box">
-        <strong>REVISÓ</strong>
-        <span>Coordinación de Costos e Ingeniería</span>
-      </div>
-      <div class="signature-box">
-        <strong>AUTORIZÓ / CLIENTE</strong>
-        <span>Dirección de Obra y Supervisión</span>
-      </div>
-    </div>
+    <!-- Área de Firmas Institucionales y Responsables de Obra -->
+    ${(() => {
+      const budgetSignatures = getBudgetSignatures();
+      const sigCols = Math.min(Math.max(budgetSignatures.length, 1), 5);
+      const signaturesHtml = budgetSignatures.map(sig => `
+        <div class="signature-box">
+          <strong>${escapeHtml(sig.rol || 'FIRMA')}</strong>
+          ${sig.nombre ? `<div style="font-weight: 700; color: #0f172a; font-size: 8.5pt; margin: 3px 0 2px 0;">${escapeHtml(sig.nombre)}</div>` : '<div style="height: 14px;"></div>'}
+          <span>${escapeHtml(sig.cargo || '')}</span>
+        </div>
+      `).join('');
+      return `
+        <div class="signatures-grid" style="grid-template-columns: repeat(${sigCols}, 1fr);">
+          ${signaturesHtml}
+        </div>
+      `;
+    })()}
   `;
 
   openPrintWindow('Presupuesto de Obra - TAB1-CAT-BASE', bodyContent);

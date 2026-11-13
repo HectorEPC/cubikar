@@ -15,6 +15,7 @@ import {
   saveProjectsList,
   getProjectById,
   createNewProject,
+  loadSampleResidentialZipCatalog,
   duplicateProject,
   deleteProject,
   addProjectMember,
@@ -372,6 +373,14 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
             </div>
           </div>
 
+          <!-- Opción de Recordar Sesión (Si no se marca, al cerrar el navegador no queda iniciada) -->
+          <div class="flex items-center gap-2 pt-0.5">
+            <label class="flex items-center gap-2 text-xs text-slate-600 hover:text-slate-900 cursor-pointer select-none">
+              <input type="checkbox" id="login-remember-me" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+              <span>Mantener sesión iniciada en esta computadora</span>
+            </label>
+          </div>
+
           <button type="submit" id="btn-login-submit" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold text-xs py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 active:scale-98 cursor-pointer">
             <i class="fa-solid fa-right-to-bracket text-xs"></i>
             <span>Iniciar sesión</span>
@@ -507,6 +516,14 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
           <div>
             <label class="block font-bold text-xs text-slate-700 mb-1">6. Fecha de Nacimiento *</label>
             <input type="date" id="reg-dob" required value="1992-06-15" class="w-full border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl p-2 text-xs font-sans bg-white text-slate-800" style="color-scheme: light;">
+          </div>
+
+          <!-- Opción de Recordar Sesión -->
+          <div class="flex items-center gap-2 pt-0.5">
+            <label class="flex items-center gap-2 text-xs text-slate-600 hover:text-slate-900 cursor-pointer select-none">
+              <input type="checkbox" id="reg-remember-me" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+              <span>Mantener sesión iniciada en esta computadora</span>
+            </label>
           </div>
 
           <button type="submit" id="btn-submit-reg" class="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-98 text-white font-bold text-xs py-2.5 rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2 cursor-pointer">
@@ -679,7 +696,8 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
         } catch (_) {}
       }
 
-      saveCurrentUser(localAccount);
+      const remember = document.getElementById('reg-remember-me')?.checked ?? false;
+      saveCurrentUser(localAccount, remember);
       saveRegisteredUserAccount(localAccount);
 
       showToast(`¡Bienvenido a Cubikar, ${name}! Tu cuenta fue creada exitosamente.`, 'success');
@@ -742,7 +760,8 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
     avatar,
     registeredAt: new Date().toISOString()
   };
-  saveCurrentUser(newUser);
+  const remember = document.getElementById('reg-remember-me')?.checked ?? false;
+  saveCurrentUser(newUser, remember);
   showToast(`¡Bienvenido, ${name}! Tu perfil ha sido creado.`);
 
   if (returnProjectId) {
@@ -800,7 +819,8 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
         role: 'Admin General',
         lastLogin: new Date().toISOString()
       };
-      saveCurrentUser(loggedUser);
+      const remember = document.getElementById('login-remember-me')?.checked ?? false;
+      saveCurrentUser(loggedUser, remember);
       updateSubscriptionBadgesUI();
       updatePortalHeaderUserArea(loggedUser);
       updateWorkspaceHeaderUser(loggedUser);
@@ -2678,7 +2698,7 @@ export function updateTemplateSelection() {
   }
 }
 
-export function finalizeCreateProject() {
+export async function finalizeCreateProject() {
   const company = document.getElementById('wiz-company-name').value.trim();
   const project = document.getElementById('wiz-project-name').value.trim();
   const location = document.getElementById('wiz-project-location').value.trim();
@@ -2709,6 +2729,16 @@ export function finalizeCreateProject() {
     return;
   }
 
+  let sampleTree = null;
+  if (tpl === 'demo') {
+    showToast('Importando catálogo base de muestra (Proyecto Residencial APU)...', 'info');
+    try {
+      sampleTree = await loadSampleResidentialZipCatalog();
+    } catch (e) {
+      console.warn('[NewProject] Error al importar paquete zip de muestra:', e);
+    }
+  }
+
   const projPayload = {
     companyName: company || (check.isHostContext ? check.hostName : 'Constructora'),
     companyLogo: wizardData.logo,
@@ -2725,7 +2755,8 @@ export function finalizeCreateProject() {
     pctAdicionales: adi,
     pctSegurosFianzas: seg,
     pctFasar: fasar,
-    template: tpl
+    template: tpl,
+    treeData: sampleTree
   };
 
   if (check.isHostContext && check.hostEmail) {
@@ -2997,17 +3028,57 @@ export async function deleteCurrentUserAccountAction() {
   }
 }
 
-export function logoutUser() {
-  if (!confirm('Â¿Deseas cerrar sesiÃ³n para cambiar de usuario o crear uno nuevo? Tus proyectos se conservarÃ¡n intactos.')) return;
-  saveCurrentUser(null);
+export async function logoutUser(skipConfirm = false) {
+  if (!skipConfirm && !confirm('¿Deseas cerrar sesión en esta computadora? Tus proyectos se conservarán intactos.')) return;
+
+  const current = getCurrentUser();
+  const cleanEmail = (current?.email || '').toLowerCase().trim();
+
+  // 1. Cerrar sesión formalmente en Supabase Auth
   try {
-    localStorage.removeItem(STORAGE_KEY_ACTIVE_WORKSPACE);
-    localStorage.removeItem('control_obra_active_workspace_v1');
+    const sb = getSupabaseClient();
+    if (sb) {
+      await sb.auth.signOut();
+    }
+  } catch (err) {
+    console.warn('[Logout] Aviso al cerrar sesión en Supabase:', err);
+  }
+
+  // 2. Marcar la sesión cerrada para este correo en esta PC
+  if (cleanEmail) {
+    markSessionClosed(cleanEmail);
+  }
+
+  // 3. Limpiar almacenamiento de usuario activo
+  saveCurrentUser(null);
+
+  // 4. Limpiar tokens residuales de Supabase y perfiles de sesión en esta computadora
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY_ACTIVE_WORKSPACE);
+      localStorage.removeItem('control_obra_active_workspace_v1');
+      localStorage.removeItem('control_obra_user_profile_v1');
+      localStorage.removeItem('control_obra_user_profile_v1_last');
+      localStorage.removeItem('cubikar_remember_device');
+
+      // Purgar todos los tokens sb-* en localStorage
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('sb-') || k.includes('auth-token'))) {
+          localStorage.removeItem(k);
+        }
+      }
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.clear();
+    }
   } catch (_) {}
+
   currentScopeFilter = 'owned';
   updatePortalHeaderUserArea(null);
   renderSidebarNotificationsUI();
-  showToast('Has cerrado sesiÃ³n exitosamente.');
+  showToast('Has cerrado sesión exitosamente.');
+
   if (window.location.search) {
     window.location.href = window.location.pathname;
   } else {
@@ -3053,7 +3124,7 @@ export function updatePortalHeaderUserArea(user) {
 
   if (!container) return;
 
-  const initials = (user.name || 'Hepc 90').split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'H9';
+  const initials = (user.name || 'Usuario').split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'U';
   const normalizedEmail = (user.email || '').toLowerCase().trim();
   const safeAvatar = (typeof user.avatar === 'string' && user.avatar.trim() && user.avatar !== 'undefined' && user.avatar !== 'null') ? user.avatar : '';
   const existingWrapper = document.getElementById('portal-user-menu-wrapper');
@@ -3071,10 +3142,10 @@ export function updatePortalHeaderUserArea(user) {
     const pillRole = existingWrapper.querySelector('[data-portal-user-role]');
     const dropName = existingWrapper.querySelector('[data-portal-dropdown-name]');
     const dropEmail = existingWrapper.querySelector('[data-portal-dropdown-email]');
-    if (pillName) pillName.textContent = user.name || 'Hepc 90';
-    if (pillRole) pillRole.textContent = user.roleLabel || 'Admin General';
-    if (dropName) dropName.textContent = user.name || 'Hepc 90';
-    if (dropEmail) dropEmail.textContent = user.email || 'admin@obra.com';
+    if (pillName) pillName.textContent = user.name || 'Usuario';
+    if (pillRole) pillRole.textContent = user.roleLabel || 'Invitado';
+    if (dropName) dropName.textContent = user.name || 'Usuario';
+    if (dropEmail) dropEmail.textContent = user.email || '';
     updateSubscriptionBadgesUI({ refreshGrid: false });
     return;
   }
@@ -3087,8 +3158,8 @@ export function updatePortalHeaderUserArea(user) {
           ${safeAvatar ? `<img src="${safeAvatar}" class="w-full h-full object-cover" alt="Perfil">` : initials}
         </div>
         <div class="text-left hidden sm:block">
-          <div data-portal-user-name class="text-xs font-semibold text-slate-200 leading-tight max-w-[130px] truncate">${user.name || 'Hepc 90'}</div>
-          <div data-portal-user-role class="text-[11px] text-slate-400 leading-tight max-w-[130px] truncate">${user.roleLabel || 'Admin General'}</div>
+          <div data-portal-user-name class="text-xs font-semibold text-slate-200 leading-tight max-w-[130px] truncate">${user.name || 'Usuario'}</div>
+          <div data-portal-user-role class="text-[11px] text-slate-400 leading-tight max-w-[130px] truncate">${user.roleLabel || 'Invitado'}</div>
         </div>
         <svg class="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -3102,8 +3173,8 @@ export function updatePortalHeaderUserArea(user) {
             ${safeAvatar ? `<img src="${safeAvatar}" class="w-full h-full object-cover" alt="Avatar">` : `<div class="w-full h-full bg-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center">${initials}</div>`}
           </div>
           <div class="min-w-0 flex-1">
-            <span data-portal-dropdown-name class="font-bold text-xs text-white block truncate">${user.name || 'Hepc 90'}</span>
-            <span data-portal-dropdown-email class="text-[10px] text-slate-400 font-mono block truncate">${user.email || 'admin@obra.com'}</span>
+            <span data-portal-dropdown-name class="font-bold text-xs text-white block truncate">${user.name || 'Usuario'}</span>
+            <span data-portal-dropdown-email class="text-[10px] text-slate-400 font-mono block truncate">${user.email || ''}</span>
           </div>
         </div>
 
@@ -3201,10 +3272,10 @@ export function updateWorkspaceHeaderUser(user) {
   let u = user || getCurrentUser();
   if (!u) {
     u = {
-      name: 'Hepc 90',
-      email: 'admin.general@constructora.com',
+      name: 'Usuario Invitado',
+      email: '',
       avatar: '',
-      role: 'Admin General'
+      role: 'Invitado'
     };
   }
   const nameEl = document.getElementById('workspace-user-name');
@@ -3216,14 +3287,14 @@ export function updateWorkspaceHeaderUser(user) {
   const dropAvatarEl = document.getElementById('dropdown-user-avatar');
   const dropInitialsEl = document.getElementById('dropdown-user-initials');
 
-  const initials = (u.name || 'Hepc 90').split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'H9';
+  const initials = (u.name || 'Usuario').split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'U';
 
   if (nameEl) nameEl.innerText = u.name;
   if (dropNameEl) dropNameEl.innerText = u.name;
   if (dropEmailEl) dropEmailEl.innerText = u.email;
   if (initialsEl) initialsEl.innerText = initials;
   if (dropInitialsEl) dropInitialsEl.innerText = initials;
-  if (btnEl) btnEl.title = `${u.name} (${u.roleLabel || u.role || 'Admin General'}) - Clic para ver opciones`;
+  if (btnEl) btnEl.title = `${u.name} (${u.roleLabel || u.role || 'Invitado'}) - Clic para ver opciones`;
   updateSubscriptionBadgesUI({ refreshGrid: false });
 
   const hasPhoto = u.avatar && u.avatar !== 'undefined' && u.avatar !== 'null' && (u.avatar.startsWith('http') || u.avatar.startsWith('data:image/png') || u.avatar.startsWith('data:image/jpeg') || u.avatar.startsWith('data:image/webp'));
@@ -4419,7 +4490,7 @@ export function saveTabMembersAssignment() {
 export function simulateUserView(emailOrRole) {
   if (emailOrRole === 'admin') {
     const adminUser = {
-      name: 'Hepc 90',
+      name: 'Administrador de Obra',
       email: 'admin.general@constructora.com',
       avatar: '',
       role: 'Admin General',

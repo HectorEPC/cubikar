@@ -169,7 +169,7 @@ export function initStore() {
 
     // Si el proyecto actual es Casa Laura o contiene conceptos Opus, desactivar sobrecosto para reflejar el catálogo exacto de Opus
     const projName = (state.settings.projectName || '').toLowerCase();
-    if (hasOpusConcepts && (projName.includes('laura') || projName.includes('opus'))) {
+    if (hasOpusConcepts && (projName.includes('laura') || projName.includes('opus') || projName.includes('residencial') || projName.includes('muestra'))) {
       state.settings.applySobrecosto = false;
     }
   }

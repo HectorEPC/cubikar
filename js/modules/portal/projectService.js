@@ -28,7 +28,7 @@ export const AVATARS_BY_SEX = {
 // Cuentas de demostración de Google con foto real
 export const GOOGLE_PRESET_ACCOUNTS = [
   {
-    name: "Hepc 90",
+    name: "Administrador de Obra",
     email: "admin.general@constructora.com",
     avatar: "",
     sexo: "Masculino",
@@ -455,7 +455,15 @@ export function deleteUserAccountAndData(email) {
 // ==========================================
 export function getCurrentUser() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_USER);
+    let raw = null;
+    // 1. Revisar si hay sesión temporal en sessionStorage (ej. no se marcó "Recordar en este equipo")
+    if (typeof sessionStorage !== 'undefined') {
+      raw = sessionStorage.getItem(STORAGE_KEY_USER);
+    }
+    // 2. Si no, revisar en localStorage si se guardó como persistente
+    if (!raw && typeof localStorage !== 'undefined') {
+      raw = localStorage.getItem(STORAGE_KEY_USER);
+    }
     if (raw) {
       const u = JSON.parse(raw);
       const cleanEmail = (u?.email || '').toLowerCase().trim();
@@ -489,7 +497,9 @@ export function getSavedUserProfile() {
     if (isDismissed === 'true') {
       return null;
     }
-    const raw = localStorage.getItem(STORAGE_KEY_USER + '_last') || localStorage.getItem(STORAGE_KEY_USER);
+    const raw = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY_USER) : null) ||
+                localStorage.getItem(STORAGE_KEY_USER + '_last') || 
+                localStorage.getItem(STORAGE_KEY_USER);
     if (raw) {
       const u = JSON.parse(raw);
       const cleanEmail = (u?.email || '').toLowerCase().trim();
@@ -518,8 +528,8 @@ export function getLastKnownUser() {
   if (saved) return saved;
 
   const fallback = {
-    name: 'Hepc 90',
-    email: 'admin.general@constructora.com',
+    name: 'Usuario',
+    email: 'admin@obra.com',
     avatar: '',
     role: 'Admin General',
     sexo: 'Masculino'
@@ -532,17 +542,23 @@ export function getLastKnownUser() {
   return fallback;
 }
 
-export function saveCurrentUser(user) {
+export function saveCurrentUser(user, remember = null) {
   try {
     if (!user) {
-      localStorage.removeItem(STORAGE_KEY_USER);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEY_USER);
+        localStorage.removeItem(STORAGE_KEY_USER + '_last');
+      }
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem(STORAGE_KEY_USER);
+      }
     } else {
       try {
         localStorage.removeItem('control_obra_user_profile_dismissed');
       } catch (e) {}
       const cleanUserEmail = (user?.email || '').toLowerCase().trim();
 
-      // Sincronizar siempre con la suscripciÃ³n aislada del usuario
+      // Sincronizar siempre con la suscripción aislada del usuario
       if (cleanUserEmail && typeof localStorage !== 'undefined') {
         const subRaw = localStorage.getItem(`adm_const_subscription_${cleanUserEmail}`);
         const PLAN_RANKS = { pro: 3, plus: 2, free: 1 };
@@ -596,10 +612,32 @@ export function saveCurrentUser(user) {
       if (!user.subscription) {
         user.subscription = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
       }
-      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
-      try {
-        localStorage.setItem(STORAGE_KEY_USER + '_last', JSON.stringify(user));
-      } catch (e) {}
+
+      // Determinar si se debe recordar en este equipo o si es sesión temporal
+      const shouldRemember = remember !== null 
+        ? !!remember 
+        : (typeof localStorage !== 'undefined' && localStorage.getItem('cubikar_remember_device') !== 'false');
+
+      if (shouldRemember) {
+        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+        try {
+          localStorage.setItem(STORAGE_KEY_USER + '_last', JSON.stringify(user));
+          localStorage.setItem('cubikar_remember_device', 'true');
+        } catch (e) {}
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.removeItem(STORAGE_KEY_USER);
+        }
+      } else {
+        // Modo sesión temporal: solo existe mientras la ventana/pestaña permanezca abierta
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+        }
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(STORAGE_KEY_USER);
+          localStorage.removeItem(STORAGE_KEY_USER + '_last');
+          localStorage.setItem('cubikar_remember_device', 'false');
+        }
+      }
     }
   } catch (e) {
     console.error('Error guardando usuario:', e);
@@ -618,14 +656,14 @@ export function getProjectsList() {
       const currentUser = getCurrentUser();
       let changed = false;
 
-      // Asegurar que el proyecto auténtico Casa Laura (Opus 2014) esté siempre registrado
-      const hasCasaLaura = list.some(p => p.id === 'proj-opus-casa-laura' || (p.projectName && p.projectName.toLowerCase().includes('casa laura')));
+      // Asegurar que el proyecto auténtico Catálogo Muestra - Proyecto Residencial esté siempre registrado
+      const hasCasaLaura = list.some(p => p.id === 'proj-opus-casa-laura' || (p.projectName && (p.projectName.toLowerCase().includes('casa laura') || p.projectName.toLowerCase().includes('proyecto residencial'))));
       if (!hasCasaLaura) {
         const proj3Id = 'proj-opus-casa-laura';
         const proj3Settings = Object.assign({}, defaultSettings, {
           companyName: 'Constructora Opus México',
           companyLogo: SAMPLE_LOGOS.building,
-          projectName: 'Casa Laura (Opus 2014)',
+          projectName: 'Catálogo Muestra - Proyecto Residencial',
           projectLocation: 'Fraccionamiento Residencial, Puebla, Pue.',
           currency: 'MXN',
           currencySymbol: '$',
@@ -635,7 +673,7 @@ export function getProjectsList() {
           pctUtilidad: 0.00,
           pctAdicionales: 0.00
         });
-        const proj3Tree = JSON.parse(JSON.stringify(CASA_LAURA_PROJECT));
+        const proj3Tree = JSON.parse(JSON.stringify(defaultTreeData));
         try {
           localStorage.setItem(getSettingsKey(proj3Id), JSON.stringify(proj3Settings));
           localStorage.setItem(getStorageKey(proj3Id), JSON.stringify(proj3Tree));
@@ -651,8 +689,8 @@ export function getProjectsList() {
           currency: proj3Settings.currency,
           currencySymbol: proj3Settings.currencySymbol,
           factorSobrecosto: 1.0000,
-          totalPresupuesto: 2043699.54,
-          conceptCount: 94,
+          totalPresupuesto: 2043699.52,
+          conceptCount: 102,
           partidasCount: 12,
           createdAt: '2024-05-20',
           members: [
@@ -936,12 +974,12 @@ function initializeDefaultProjects() {
     createdAt: '2026-10-10'
   });
 
-  // Proyecto 3: Casa Laura (Opus 2014)
+  // Proyecto 3: Catálogo Muestra - Proyecto Residencial
   const proj3Id = 'proj-opus-casa-laura';
   const proj3Settings = Object.assign({}, defaultSettings, {
     companyName: 'Constructora Opus México',
     companyLogo: SAMPLE_LOGOS.building,
-    projectName: 'Casa Laura (Opus 2014)',
+    projectName: 'Catálogo Muestra - Proyecto Residencial',
     projectLocation: 'Fraccionamiento Residencial, Puebla, Pue.',
     currency: 'MXN',
     currencySymbol: '$',
@@ -952,7 +990,7 @@ function initializeDefaultProjects() {
     pctAdicionales: 0.00
   });
 
-  const proj3Tree = JSON.parse(JSON.stringify(CASA_LAURA_PROJECT));
+  const proj3Tree = JSON.parse(JSON.stringify(defaultTreeData));
 
   try {
     localStorage.setItem(getSettingsKey(proj3Id), JSON.stringify(proj3Settings));
@@ -969,14 +1007,77 @@ function initializeDefaultProjects() {
     currency: proj3Settings.currency,
     currencySymbol: proj3Settings.currencySymbol,
     factorSobrecosto: 1.0000,
-    totalPresupuesto: 2043699.54,
-    conceptCount: 94,
+    totalPresupuesto: 2043699.52,
+    conceptCount: 102,
     partidasCount: 12,
     createdAt: '2024-05-20'
   });
 
   saveProjectsList(initialProjects);
   return initialProjects;
+}
+
+// Carga del catálogo muestra Proyecto Residencial desde el paquete ZIP
+export async function loadSampleResidentialZipCatalog() {
+  try {
+    if (typeof window !== 'undefined' && window.JSZip && typeof fetch === 'function') {
+      const resp = await fetch('data/Catalogo_Muestra_Proyecto_Residencial_APU.zip');
+      if (resp.ok) {
+        const blob = await resp.blob();
+        const zip = await window.JSZip.loadAsync(blob);
+        const jsonFile = zip.file('catalogo_muestra_proyecto_residencial.json') ||
+                         Object.values(zip.files).find(f => f && f.name && f.name.endsWith('.json'));
+        if (jsonFile) {
+          const text = await jsonFile.async('string');
+          const data = JSON.parse(text);
+          if (Array.isArray(data) && data.length > 0) {
+            console.info('[ProjectService] Paquete Catalogo_Muestra_Proyecto_Residencial_APU.zip importado exitosamente.');
+            return prepareCatalogTreeNodes(data);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[ProjectService] Aviso al cargar Catalogo_Muestra_Proyecto_Residencial_APU.zip:', err);
+  }
+
+  // Fallback directo a data/catalogo_muestra_proyecto_residencial.json
+  try {
+    if (typeof fetch === 'function') {
+      const resp = await fetch('data/catalogo_muestra_proyecto_residencial.json');
+      if (resp.ok) {
+        const data = await resp.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return prepareCatalogTreeNodes(data);
+        }
+      }
+    }
+  } catch (err) {}
+
+  // Fallback a defaultTreeData en memoria
+  return prepareCatalogTreeNodes(JSON.parse(JSON.stringify(defaultTreeData)));
+}
+
+export function prepareCatalogTreeNodes(nodes, prefix = '') {
+  if (!Array.isArray(nodes)) return [];
+  return nodes.map((node, idx) => {
+    const currentId = node.id || (prefix ? `${prefix}.${idx + 1}` : `${idx + 1}`);
+    const copy = { ...node, id: currentId, expanded: true, selected: true };
+    if (Array.isArray(copy.children) && copy.children.length > 0) {
+      copy.tipo = 'Partida';
+      copy.children = prepareCatalogTreeNodes(copy.children, currentId);
+    } else {
+      copy.tipo = 'Concepto';
+      if (Array.isArray(copy.insumos)) {
+        copy.insumos = copy.insumos.map(ins => ({
+          ...ins,
+          cantidad: ins.cantidad !== undefined ? Math.round(((Number(ins.cantidad) || 0) + Number.EPSILON) * 100000) / 100000 : 0,
+          costoUnitario: ins.costoUnitario !== undefined ? Math.round(((Number(ins.costoUnitario) || 0) + Number.EPSILON) * 100) / 100 : 0
+        }));
+      }
+    }
+    return copy;
+  });
 }
 
 // Crear un nuevo proyecto
@@ -1001,7 +1102,9 @@ export function createNewProject(params) {
     pctFasar: params.pctFasar ?? 70.00
   });
 
-  const projTree = params.template === 'demo' ? JSON.parse(JSON.stringify(defaultTreeData)) : [];
+  const projTree = params.treeData && Array.isArray(params.treeData) && params.treeData.length > 0
+    ? params.treeData
+    : (params.template === 'demo' ? prepareCatalogTreeNodes(JSON.parse(JSON.stringify(defaultTreeData))) : []);
 
   // Almacenar settings y catálogo del nuevo proyecto
   try {

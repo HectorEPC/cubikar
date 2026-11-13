@@ -1,4 +1,5 @@
 import { parseSheetData } from './universalImporter.js';
+import { flattenPresetData } from '../ai/localMatrixEngine.js';
 ﻿// js/modules/io/opusNeodataImporter.js
 // Importador nativo para paquetes de restauración Opus (.zip con .bak),
 // archivos de base de datos Opus (.bak) y exportaciones de Neodata.
@@ -407,6 +408,37 @@ async function parseZipPackage(file) {
   const fileEntries = Object.keys(zip.files);
 
   console.log(`[OpusImporter] Archivo ZIP abierto: ${file.name}. Entradas:`, fileEntries);
+
+  // 1.0 Si el ZIP contiene un archivo JSON directo (Paquete de Catálogo Maestro Base Cubikar / Opus APU)
+  const jsonFileKey = fileEntries.find(k => k.endsWith('.json') && !k.startsWith('__MACOSX'));
+  if (jsonFileKey) {
+    console.log(`[OpusImporter] Archivo JSON de matrices detectado dentro del ZIP: ${jsonFileKey}`);
+    const jsonText = await zip.file(jsonFileKey).async('string');
+    const rawData = JSON.parse(jsonText.replace(/^\uFEFF/, ''));
+
+    let cleanName = file.name.replace(/\.zip$/i, '').replace(/_/g, ' ');
+    if (/ingenieria|infraestructura/i.test(file.name) || /ingenieria|infraestructura/i.test(jsonFileKey)) {
+      cleanName = 'Catálogo Ingeniería e Infraestructura 2026';
+    } else if (/vivienda/i.test(file.name) || /vivienda/i.test(jsonFileKey)) {
+      cleanName = 'Catálogo Vivienda 2026';
+    } else if (/residencial|muestra/i.test(file.name) || /residencial|muestra/i.test(jsonFileKey)) {
+      cleanName = 'Catalogo muestra - Proyecto Residencial';
+    }
+
+    const items = flattenPresetData(rawData).map(item => ({
+      ...item,
+      catalogName: item.catalogName || cleanName
+    }));
+
+    return {
+      catalogName: cleanName,
+      category: /infraestructura/i.test(cleanName) ? 'Ingeniería e Infraestructura' : (/vivienda/i.test(cleanName) ? 'Vivienda y Edificación Residencial' : 'Edificación Residencial'),
+      sourceFileName: file.name,
+      tipoDetectado: 'Paquete de Catálogo Maestro APU (.zip)',
+      hasHierarchy: Array.isArray(rawData) && rawData.some(n => n.children && n.children.length > 0),
+      items: items
+    };
+  }
 
   // 1.1 Si el archivo corresponde al proyecto "Casa laura" o similar
   if (/casa.*laura|laura/i.test(file.name) || fileEntries.some(e => /laura/i.test(e))) {

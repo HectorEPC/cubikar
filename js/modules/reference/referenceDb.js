@@ -90,18 +90,17 @@ export function getWorkspacePlanInfo(ownerEmail) {
 
 // Obtener contexto del espacio de trabajo activo (titular, email y cuota de almacenamiento)
 export function getActiveWorkspaceContext() {
-  let currentUserEmail = 'admin.general@constructora.com';
-  let currentUserName = 'Hepc 90';
+  let currentUserEmail = '';
+  let currentUserName = 'Usuario';
 
   try {
-    if (typeof localStorage !== 'undefined') {
-      const rawUser = localStorage.getItem(STORAGE_KEY_USER);
-      if (rawUser) {
-        const u = JSON.parse(rawUser);
-        if (u?.email) {
-          currentUserEmail = u.email;
-          currentUserName = u.name || u.email;
-        }
+    const rawUser = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY_USER) : null) ||
+                    (typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY_USER) : null);
+    if (rawUser) {
+      const u = JSON.parse(rawUser);
+      if (u?.email) {
+        currentUserEmail = u.email;
+        currentUserName = u.name || u.email;
       }
     }
   } catch (e) {}
@@ -154,7 +153,10 @@ export function getActiveWorkspaceOwnerEmail() {
 }
 
 // Verificar si la importación cabe en el almacenamiento del plan del espacio de trabajo
-export async function canImportReferenceCatalog(estimatedBytes = 0, targetOwnerEmail = null) {
+export async function canImportReferenceCatalog(estimatedBytes = 0, targetOwnerEmail = null, isAppPreset = false) {
+  if (isAppPreset) {
+    return { allowed: true, currentMb: 0, neededMb: 0, afterMb: 0, maxStorageMb: 9999, usagePct: 0, absorbedByApp: true };
+  }
   const context = getActiveWorkspaceContext();
   const owner = (targetOwnerEmail || context.ownerEmail).toLowerCase().trim();
   const stats = await getReferenceDatabaseStats(owner);
@@ -234,16 +236,22 @@ export async function saveReferenceCatalog(catalogMeta, itemsList, targetOwnerEm
   const sizeMb = parseFloat((sizeBytes / (1024 * 1024)).toFixed(2));
 
   const catalogId = catalogMeta.id || 'cat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+  const isSystemOrPreset = Boolean(catalogMeta.isPreset || catalogMeta.isSystem || catalogMeta.absorbedByApp);
   const catalogRecord = {
     id: catalogId,
     name: catalogMeta.name || 'Catálogo de Referencia',
     category: catalogMeta.category || 'General', // Edificación, Instalaciones, Gobierno, etc.
     type: catalogMeta.type || 'mixto', // conceptos, materiales, mano_obra, maquinaria, mixto
     sourceFileName: catalogMeta.sourceFileName || '',
+    zipFile: catalogMeta.zipFile || '',
+    zipName: catalogMeta.zipName || '',
     itemsCount: itemsList.length,
     sizeBytes: sizeBytes,
     sizeMb: sizeMb,
-    ownerEmail: ownerEmail,
+    isPreset: isSystemOrPreset,
+    isSystem: isSystemOrPreset,
+    absorbedByApp: isSystemOrPreset,
+    ownerEmail: isSystemOrPreset ? 'system' : ownerEmail,
     createdAt: new Date().toISOString()
   };
 
@@ -266,14 +274,18 @@ export async function saveReferenceCatalog(catalogMeta, itemsList, targetOwnerEm
         precioUnitario: parseFloat(item.precioUnitario || item.costoUnitario || 0) || 0,
         familia: (item.familia || '').toString().trim(),
         preciosZonas: item.preciosZonas || null,
-        ownerEmail: ownerEmail,
+        ownerEmail: isSystemOrPreset ? 'system' : ownerEmail,
+        isPreset: isSystemOrPreset,
+        absorbedByApp: isSystemOrPreset,
         insumos: (Array.isArray(item.insumos) && item.insumos.length > 0) ? item.insumos : (item.insumos || null)
       };
       itemStore.put(itemRecord);
     });
 
     tx.oncomplete = () => {
-      backupMasterCatalogToCloud(catalogRecord, itemsList).catch(() => {});
+      if (!isSystemOrPreset) {
+        backupMasterCatalogToCloud(catalogRecord, itemsList).catch(() => {});
+      }
       import('../../services/storageQuotaService.js')
         .then((m) => m.notifyStorageUsageChanged({ modulo: 'catalogos_maestros' }))
         .catch(() => {});
@@ -300,6 +312,10 @@ export async function listReferenceCatalogs(ownerEmail = null) {
     request.onsuccess = () => {
       const allCatalogs = request.result || [];
       const filtered = allCatalogs.filter(c => {
+        // Catálogos oficiales o absorbidos por la aplicación están disponibles para todos los usuarios
+        if (c.isPreset || c.isSystem || c.absorbedByApp || c.ownerEmail === 'system') {
+          return true;
+        }
         const catOwner = (c.ownerEmail || 'admin.general@constructora.com').toLowerCase().trim();
         return catOwner === targetOwner;
       });
@@ -618,6 +634,10 @@ export async function getReferenceDatabaseStats(ownerEmail = null) {
 
   catalogs.forEach(c => {
     totalItems += (c.itemsCount || 0);
+    // EL ESPACIO LO ABSORBE LA APLICACIÓN: Catálogos predeterminados/oficiales NO consumen cuota del usuario
+    if (c.isPreset || c.isSystem || c.absorbedByApp || c.ownerEmail === 'system') {
+      return;
+    }
     const catBytes = c.sizeBytes || ((c.itemsCount || 0) * 450);
     totalBytes += catBytes;
   });

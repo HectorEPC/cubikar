@@ -196,6 +196,17 @@ import {
 import { renderTAB1, selectRow, highlightCatalogRowInPlace, closeApuPanel, toggleDropdownMenu, closeAllDropdownMenus } from './modules/catalog/catalogView.js';
 
 import {
+  openPresupuestoSignaturesModal,
+  closePresupuestoSignaturesModal,
+  addPresupuestoSignature,
+  removePresupuestoSignature,
+  updateDraftSignature,
+  resetDefaultPresupuestoSignatures,
+  savePresupuestoSignatures,
+  getBudgetSignatures
+} from './modules/catalog/signaturesModal.js';
+
+import {
   addInsumo,
   updateInsumo,
   removeInsumo,
@@ -319,9 +330,22 @@ import {
   addInsumoToApuMatrix
 } from './modules/reference/apuAssistantModal.js';
 
-import { installPresetCatalog, installAllPresets } from './modules/reference/presetCatalogs.js';
+import { installPresetCatalog, installAllPresets, ensureDefaultMasterCatalogs } from './modules/reference/presetCatalogs.js';
 
 import { openReferenceDb } from './modules/reference/referenceDb.js';
+
+// Motor de Autocorrección y Revisor Ortográfico estilo Microsoft Word (F7)
+import { wordAutocorrectService } from './core/wordAutocorrectService.js';
+import {
+  openSpellCheckModal,
+  closeSpellCheckModal,
+  changeSpellCheckCurrentWord,
+  changeAllSpellCheckWord,
+  ignoreSpellCheckOnce,
+  ignoreAllSpellCheckWord,
+  addCurrentToDictionary,
+  rescanSpellCheck
+} from './ui/spellCheckModal.js';
 
 import {
   openAiGeneratorModal,
@@ -734,6 +758,16 @@ Object.assign(window, {
   renderTAB1,
   toggleDropdownMenu,
   closeAllDropdownMenus,
+
+  // Firmas y Responsables de Presupuesto
+  openPresupuestoSignaturesModal,
+  closePresupuestoSignaturesModal,
+  addPresupuestoSignature,
+  removePresupuestoSignature,
+  updateDraftSignature,
+  resetDefaultPresupuestoSignatures,
+  savePresupuestoSignatures,
+  getBudgetSignatures,
 
   // APU Actions
   addInsumo,
@@ -1183,6 +1217,18 @@ window.addEventListener('storage', (e) => {
 
 // Inicializar tema visual (Vista de Día por defecto o Modo Nocturno guardado)
 initThemeMode();
+
+// Inicializar Motor Global de Autocorrección y Spellcheck estilo Microsoft Word
+wordAutocorrectService.initGlobalObserver();
+window.wordAutocorrectService = wordAutocorrectService;
+window.openSpellCheckModal = openSpellCheckModal;
+window.closeSpellCheckModal = closeSpellCheckModal;
+window.changeSpellCheckCurrentWord = changeSpellCheckCurrentWord;
+window.changeAllSpellCheckWord = changeAllSpellCheckWord;
+window.ignoreSpellCheckOnce = ignoreSpellCheckOnce;
+window.ignoreAllSpellCheckWord = ignoreAllSpellCheckWord;
+window.addCurrentToDictionary = addCurrentToDictionary;
+window.rescanSpellCheck = rescanSpellCheck;
 try {
   initAuthListener((event, session, perfil) => {
     if (session?.user) {
@@ -1202,6 +1248,10 @@ try {
       } catch (_) {}
 
       const currentUser = getCurrentUser();
+      if (!currentUser) {
+        showPortalView('login');
+        return;
+      }
       const workspaceContainer = document.getElementById('workspace-container');
       const isWorkspaceVisible = workspaceContainer && !workspaceContainer.classList.contains('hidden') && workspaceContainer.style.display !== 'none';
       if (!isWorkspaceVisible) {
@@ -1229,6 +1279,11 @@ try {
       if (typeof window !== 'undefined' && window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('type=recovery'))) {
         window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
       }
+    } else {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        showPortalView('login');
+      }
     }
   });
 } catch (_) {}
@@ -1242,7 +1297,9 @@ if (isWorkspaceActive) {
   renderTAB1();
   updateUndoRedoButtons();
   updateClipboardUI();
-  openReferenceDb().catch(err => console.warn('IndexedDB reference DB:', err));
+  openReferenceDb()
+    .then(() => ensureDefaultMasterCatalogs().catch(err => console.warn('[PresetCatalogs] Error al sincronizar catálogos por defecto:', err)))
+    .catch(err => console.warn('IndexedDB reference DB:', err));
   const activePId = getActiveProjectId();
   if (activePId) {
     try {

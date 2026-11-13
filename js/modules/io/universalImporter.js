@@ -8,7 +8,8 @@ import { formatMoney, round2, round5, parseFlexibleNumber } from '../../core/for
 import { updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js';
 import { recalculateClaves, findNodeById, guardConceptLimit } from '../catalog/treeService.js';
 import { CASA_LAURA_PROJECT, getExactOpusInsumosForClave } from './casaLauraData.js';
-import { countTreeConcepts } from '../portal/projectService.js';
+import { countTreeConcepts, loadSampleResidentialZipCatalog } from '../portal/projectService.js';
+import { defaultTreeData } from '../../config/defaultData.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
 import { saveReferenceCatalog, getReferenceDatabaseStats, canImportReferenceCatalog } from '../reference/referenceDb.js';
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
@@ -1113,10 +1114,16 @@ export async function executeImport() {
 }
 
 
-// Carga directa del proyecto autntico Casa Laura (Opus 2014) con sus 12 partidas y 94 conceptos exactos
-export function loadCasaLauraOpusDirectly() {
+// Carga directa del Catálogo Muestra - Proyecto Residencial (desde Catalogo_Muestra_Proyecto_Residencial_APU.zip) con 12 partidas y 102 conceptos exactos
+export async function loadCasaLauraOpusDirectly() {
   saveState();
-  const rawCopy = JSON.parse(JSON.stringify(CASA_LAURA_PROJECT));
+  let rawCopy = null;
+  try {
+    rawCopy = await loadSampleResidentialZipCatalog();
+  } catch (e) {}
+  if (!rawCopy || rawCopy.length === 0) {
+    rawCopy = JSON.parse(JSON.stringify(defaultTreeData));
+  }
 
   function ensureTreeStructure(nodes) {
     nodes.forEach(n => {
@@ -1145,18 +1152,18 @@ export function loadCasaLauraOpusDirectly() {
   }
 
   state.treeData = rawCopy;
-  state.settings.projectName = 'Casa Laura (Opus 2014)';
+  state.settings.projectName = 'Catálogo Muestra - Proyecto Residencial';
   state.settings.companyName = 'Constructora Opus México';
   state.settings.projectLocation = 'Fraccionamiento Residencial, Puebla, Pue.';
   state.settings.applySobrecosto = false;
   state.settings.currency = 'MXN';
   state.settings.currencySymbol = '$';
 
-  // Buscar concepto G970110-1010 de Cimentación o primer concepto disponible
+  // Buscar concepto CBK-RES-0001 o primer concepto disponible
   let targetId = null;
   function findConcept(nodes) {
     for (const n of nodes) {
-      if (n.clave === 'G970110-1010') return n.id;
+      if (n.clave === 'CBK-RES-0001' || n.clave === 'G970110-1010') return n.id;
       if (!n.children || n.children.length === 0) {
         if (!targetId) targetId = n.id;
       } else {
@@ -1185,5 +1192,6 @@ export function loadCasaLauraOpusDirectly() {
   }
 
   closeImportModal();
-  showToast('¡Proyecto Casa Laura (Opus 2014) cargado con 12 partidas, 94 conceptos y matrices exactas!', 'success');
+  showToast('¡Catálogo Muestra - Proyecto Residencial cargado con 12 partidas, 102 conceptos y matrices exactas!', 'success');
 }
+export const loadSampleResidentialDirectly = loadCasaLauraOpusDirectly;
