@@ -1,19 +1,18 @@
 /**
  * wordAutocorrectService.js
- * Motor de Autocorrección y Diccionario en tiempo real estilo Microsoft Word para Cubikar.
+ * Motor de Autocorrección, Subrayado Ondulado Rojo en Vivo y Menú Contextual (Clic Derecho) estilo Microsoft Word.
  * 
  * Características:
- * 1. Corrección automática al presionar Espacio o Puntuación:
- *    - Corrección de DOS MAyúsculas iniciales (ej: COncreto -> Concreto).
- *    - Mayúscula inicial al comienzo de frase/oración.
- *    - Tildes automáticas en palabras técnicas de construcción y español general.
- *    - Reglas morfológicas automáticas (-ción, -ería, -ísimo, etc.).
- *    - Símbolos y unidades estándar de obra (m2 -> m², m3 -> m³, cm2 -> cm²).
- * 2. Deshacer rápido con Backspace tras una autocorrección.
- * 3. Diccionario personalizado persistente (localStorage) con "Agregar al diccionario".
- * 4. Lista de palabras omitidas para la sesión.
- * 5. Generador de sugerencias ortográficas estilo Word (Levenshtein y fonética).
- * 6. Enforzador global de spellcheck nativo en todo el DOM.
+ * 1. Subrayado rojo ondulado en tiempo real en descripciones y campos editables al escribir.
+ * 2. Menú contextual flotante al hacer clic derecho sobre cualquier palabra con error:
+ *    - Sugerencias inmediatas ordenadas por similitud fonética y distancia de edición.
+ *    - Reemplazo instantáneo al hacer clic en una sugerencia.
+ *    - "Omitir palabra" para ignorar en la sesión.
+ *    - "Agregar al diccionario" con persistencia en localStorage.
+ * 3. Menú contextual estándar preservado si se hace clic derecho en palabras correctas.
+ * 4. Autocorrección rápida al teclear espacio/puntuación (COncreto -> Concreto, m2 -> m², tildes técnicas).
+ * 5. Deshacer con Backspace inmediato.
+ * 6. Diccionario de construcción civil, arquitectura, administración de obra y español general.
  */
 
 import { showToast } from '../ui/notifications.js';
@@ -233,36 +232,163 @@ const AUTOCORRECT_MAP = {
   'km2': 'km²'
 };
 
-// Palabras de diccionario base ampliado en español
+// Diccionario base amplio de español y terminología de construcción y arquitectura
 const SPANISH_BASE_DICT = new Set([
   ...DEFAULT_WHITELIST,
   ...Object.values(AUTOCORRECT_MAP).map(w => w.toLowerCase()),
-  'suministro', 'suministros', 'suministrar', 'mano', 'obra', 'material', 'materiales',
-  'equipo', 'equipos', 'herramienta', 'herramientas', 'menor', 'seguridad', 'concepto',
-  'conceptos', 'precio', 'precios', 'unitario', 'unitarios', 'presupuesto', 'partida',
-  'partidas', 'importe', 'cantidad', 'unidad', 'total', 'subtotal', 'iva', 'sobrecosto',
-  'concreto', 'acero', 'cemento', 'arena', 'grava', 'agua', 'madera', 'tabique', 'block',
-  'ladrillo', 'yeso', 'cal', 'pintura', 'esmalte', 'impermeabilizante', 'placa', 'solera',
-  'viga', 'trabe', 'columna', 'zapata', 'losa', 'firme', 'plantilla', 'muro', 'piso',
-  'techo', 'cubierta', 'azotea', 'fachada', 'banqueta', 'pavimento', 'asfalto', 'tubo',
-  'cople', 'codo', 'reduccion', 'reducción', 'niple', 'tuerca', 'tornillo', 'taquete',
-  'anclaje', 'soldadura', 'cable', 'conductor', 'interruptor', 'tablero', 'centro',
-  'carga', 'contacto', 'apagador', 'luminaria', 'foco', 'registro', 'caja', 'tapa',
-  'incluye', 'incluyen', 'acarreo', 'elevacion', 'elevación', 'trazo', 'nivelacion',
-  'desperdicio', 'limpieza', 'retiro', 'banco', 'obra', 'proyecto', 'plano', 'planos',
-  'contratista', 'residente', 'supervisor', 'supervisión', 'avance', 'estimación',
-  'finiquito', 'fianza', 'anticipo', 'amortizacion', 'amortización', 'directo', 'indirecto',
-  'financiamiento', 'utilidad', 'cargos', 'adicionales', 'maquinaria', 'pesada', 'retroexcavadora',
-  'revolvedora', 'compactador', 'bailarina', 'vibrador', 'camion', 'camión', 'volteo',
-  'grúa', 'andamio', 'puntal', 'planta', 'corte', 'detalle', 'especificaciones', 'norma'
+
+  // Preposiciones, conjunciones y conectores gramaticales
+  'a', 'ante', 'bajo', 'cabe', 'con', 'contra', 'de', 'desde', 'durante', 'en', 'entre',
+  'hacia', 'hasta', 'mediante', 'para', 'por', 'según', 'segun', 'sin', 'so', 'sobre', 'tras',
+  'versus', 'vía', 'via', 'y', 'e', 'ni', 'o', 'u', 'pero', 'mas', 'sino', 'siquiera',
+  'aunque', 'porque', 'pues', 'ya', 'si', 'como', 'que', 'conforme', 'mientras', 'cuando', 'donde',
+
+  // Artículos, pronombres y determinantes
+  'el', 'la', 'los', 'las', 'lo', 'un', 'una', 'uno', 'unos', 'unas', 'del', 'al',
+  'este', 'esta', 'estos', 'estas', 'esto', 'ese', 'esa', 'esos', 'esas', 'eso',
+  'aquel', 'aquella', 'aquellos', 'aquellas', 'aquello', 'mi', 'mis', 'tu', 'tus', 'su', 'sus',
+  'nuestro', 'nuestra', 'nuestros', 'nuestras', 'cuyo', 'cuya', 'cuyos', 'cuyas',
+  'otro', 'otra', 'otros', 'otras', 'mismo', 'misma', 'mismos', 'mismas',
+  'todo', 'toda', 'todos', 'todas', 'cada', 'cierto', 'cierta', 'ciertos', 'ciertas',
+  'tal', 'tales', 'tanto', 'tanta', 'tantos', 'tantas', 'mucho', 'mucha', 'muchos', 'muchas',
+  'poco', 'poca', 'pocos', 'pocas', 'bastante', 'bastantes', 'demasiado', 'demasiada',
+  'alguno', 'alguna', 'algunos', 'algunas', 'algún', 'algun', 'ninguno', 'ninguna', 'ningún',
+  'ambos', 'ambas', 'propio', 'propia', 'propios', 'propias',
+  'yo', 'tú', 'tu', 'él', 'ella', 'ello', 'nosotros', 'nosotras', 'ellos', 'ellas', 'usted', 'ustedes',
+  'me', 'te', 'se', 'nos', 'le', 'les',
+
+  // Adverbios comunes
+  'no', 'sí', 'ya', 'más', 'menos', 'bien', 'mal', 'muy', 'tan', 'así', 'asi',
+  'acá', 'aca', 'aquí', 'aqui', 'allí', 'alli', 'allá', 'alla', 'ahí', 'ahi',
+  'cerca', 'lejos', 'arriba', 'abajo', 'delante', 'detrás', 'detras', 'dentro', 'fuera',
+  'antes', 'después', 'despues', 'luego', 'pronto', 'tarde', 'temprano', 'siempre', 'nunca',
+  'jamás', 'jamas', 'apenas', 'casi', 'solo', 'solamente', 'también', 'tambien', 'además', 'ademas',
+
+  // Verbos frecuentes (obra y español general)
+  'suministro', 'suministros', 'suministrar', 'suministrado', 'suministrada', 'suministrados', 'suministradas',
+  'colocación', 'colocar', 'colocado', 'colocada', 'colocados', 'colocadas', 'colocando',
+  'instalación', 'instalar', 'instalado', 'instalada', 'instalados', 'instaladas', 'instalando',
+  'aplicación', 'aplicar', 'aplicado', 'aplicada', 'aplicados', 'aplicadas',
+  'elaboración', 'elaborar', 'elaborado', 'elaborada', 'elaborados', 'elaboradas',
+  'fabricación', 'fabricar', 'fabricado', 'fabricada', 'fabricados', 'fabricadas',
+  'construcción', 'construir', 'construido', 'construida', 'construidos', 'construidas',
+  'ejecución', 'ejecutar', 'ejecutado', 'ejecutada', 'ejecutados', 'ejecutadas',
+  'reparación', 'reparar', 'reparado', 'reparada', 'reparados', 'reparadas',
+  'nivelación', 'nivelar', 'nivelado', 'nivelada', 'nivelados', 'niveladas',
+  'compactación', 'compactar', 'compactado', 'compactada', 'compactados', 'compactadas',
+  'excavación', 'excavar', 'excavado', 'excavada',
+  'demolición', 'demoler', 'demolido', 'demolida', 'demolidos', 'demolidas',
+  'incluye', 'incluyen', 'incluido', 'incluida', 'incluidos', 'incluidas', 'incluyendo',
+  'acarreo', 'acarrear', 'acarreado', 'habilitado', 'armado', 'cimbrado', 'descimbrado',
+  'colado', 'vibrado', 'curado', 'plomado', 'ranurado', 'resanado', 'sellado', 'emboquillado',
+  'pintado', 'limpieza', 'limpiar', 'retiro', 'retirar', 'verificar', 'revisar',
+  'ser', 'es', 'son', 'era', 'eran', 'fue', 'fueron', 'será', 'sera', 'serán', 'sido', 'siendo',
+  'estar', 'está', 'están', 'estaba', 'estaban', 'estuvo', 'estado', 'estados',
+  'haber', 'hay', 'había', 'habia', 'hubo',
+  'tener', 'tiene', 'tienen', 'tenía', 'tenia', 'tuvo', 'tenido',
+  'hacer', 'hace', 'hacen', 'hizo', 'hecho', 'hecha', 'hechos', 'hechas',
+  'dar', 'da', 'dan', 'dio', 'dado', 'dada', 'dados', 'dadas',
+  'ir', 'va', 'van', 'iba', 'ido',
+  'ver', 've', 'ven', 'vio', 'visto', 'vista', 'vistos', 'vistas',
+  'poder', 'puede', 'pueden', 'pudo', 'podrá', 'podra',
+  'deber', 'debe', 'deben', 'debido', 'debida', 'debidos', 'debidas',
+  'usar', 'usa', 'usan', 'usado', 'usada', 'usados', 'usadas',
+  'utilizar', 'utiliza', 'utilizan', 'utilizado', 'utilizada', 'utilizados', 'utilizadas',
+  'quedar', 'queda', 'quedan', 'quedado',
+  'llevar', 'lleva', 'llevan', 'llevado',
+
+  // Sustantivos y Adjetivos de construcción, arquitectura y obra
+  'necesario', 'necesaria', 'necesarios', 'necesarias',
+  'correcto', 'correcta', 'correctos', 'correctas',
+  'completo', 'completa', 'completos', 'completas',
+  'directo', 'directa', 'directos', 'directas',
+  'indirecto', 'indirecta', 'indirectos', 'indirectas',
+  'general', 'generales', 'particular', 'particulares',
+  'específico', 'especifica', 'específicos', 'específicas',
+  'indicado', 'indicada', 'indicados', 'indicadas',
+  'aparente', 'aparentes', 'rústico', 'rustico', 'liso', 'lisa', 'pulido', 'pulida',
+  'acabado', 'acabados', 'fino', 'fina', 'grueso', 'gruesa', 'firme', 'firmes',
+  'pesado', 'pesada', 'ligero', 'ligera',
+  'alto', 'alta', 'altura', 'bajo', 'baja', 'ancho', 'ancha', 'anchura',
+  'largo', 'larga', 'longitud', 'espesor', 'espesores', 'diámetro', 'diametro',
+  'sección', 'seccion', 'secciones', 'calibre', 'calibres', 'cédula', 'cedula',
+  'norma', 'normas', 'proyecto', 'proyectos', 'obra', 'obras', 'sitio', 'sitios',
+  'plano', 'planos', 'croquis', 'detalle', 'detalles', 'corte', 'cortes', 'planta', 'plantas',
+  'fachada', 'fachadas', 'especificación', 'especificaciones',
+  'concepto', 'conceptos', 'partida', 'partidas', 'catálogo', 'catalogos', 'catálogos',
+  'matriz', 'matrices', 'precio', 'precios', 'unitario', 'unitarios',
+  'presupuesto', 'presupuestos', 'importe', 'importes', 'cantidad', 'cantidades',
+  'unidad', 'unidades', 'costo', 'costos', 'total', 'totales', 'subtotal', 'subtotales',
+  'iva', 'sobrecosto', 'financiamiento', 'utilidad', 'fianza', 'fianzas', 'anticipo', 'anticipos',
+  'estimación', 'estimaciones', 'generador', 'generadores',
+  'número', 'numero', 'números', 'numeros', 'clave', 'claves', 'código', 'codigo',
+  'descripción', 'descripciones', 'tipo', 'tipos', 'marca', 'marcas', 'modelo', 'modelos',
+  'serie', 'series', 'línea', 'lineas', 'líneas', 'color', 'colores',
+  'peso', 'pesos', 'volumen', 'área', 'superficie', 'capacidad', 'resistencia',
+  'presión', 'tensión', 'temperatura', 'tiempo', 'plazo', 'fecha',
+  'día', 'días', 'semana', 'semanas', 'mes', 'meses', 'año', 'años', 'hora', 'horas',
+  'jornada', 'jornadas', 'viaje', 'viajes', 'tramo', 'tramos', 'lote', 'lotes',
+  'juego', 'juegos', 'pieza', 'piezas', 'salida', 'salidas',
+  'banco', 'tiro', 'material', 'materiales', 'insumo', 'insumos',
+  'mano', 'obra', 'equipo', 'equipos', 'herramienta', 'herramientas', 'menor',
+  'seguridad', 'protección', 'maquinaria', 'andamio', 'andamios', 'puntal', 'puntales',
+  'cimbra', 'cimbras', 'madera', 'polín', 'polin', 'polines', 'barrote', 'barrotes',
+  'tabla', 'tablas', 'tablón', 'triplay', 'duela', 'tarima', 'tarimas',
+  'concreto', 'premezclado', 'cemento', 'arena', 'grava', 'agua', 'cal', 'yeso', 'estuco',
+  'aditivo', 'acelerante', 'retardante', 'impermeabilizante',
+  'acero', 'refuerzo', 'estructural', 'varilla', 'varillas', 'corrugada', 'corrugadas',
+  'alambrón', 'alambre', 'recocido', 'malla', 'electrosoldada', 'soldadura', 'electrodo',
+  'placa', 'placas', 'solera', 'soleras', 'ángulo', 'angulos', 'canal', 'canales',
+  'viga', 'vigas', 'perfil', 'perfiles', 'ipr', 'ips', 'ptr', 'hss',
+  'trabe', 'trabes', 'liga', 'cerramiento', 'cerramientos', 'columna', 'columnas',
+  'castillo', 'castillos', 'armex', 'dala', 'dalas', 'cadena', 'cadenas',
+  'zapata', 'zapatas', 'losa', 'losas', 'firme', 'firmes', 'plantilla', 'plantillas',
+  'muro', 'muros', 'carga', 'divisorio', 'contención',
+  'tabique', 'tabicón', 'block', 'bloque', 'ladrillo', 'hueco', 'macizo',
+  'piso', 'pisos', 'pavimento', 'pavimentos', 'asfalto', 'adoquín', 'adoquines',
+  'banqueta', 'banquetas', 'guarnición', 'guarniciones', 'machuelo', 'machuelos',
+  'techo', 'techos', 'cubierta', 'cubiertas', 'azotea', 'azoteas',
+  'plafón', 'plafones', 'tablaroca', 'durock', 'panel', 'paneles',
+  'zoclo', 'zoclos', 'rodapié', 'gotero', 'chaflán', 'pretil', 'pretiles', 'murete', 'muretes',
+  'dintel', 'dinteles', 'enrase', 'enrases', 'entortado', 'enladrillado', 'aplanado', 'tirol',
+  'tubo', 'tubos', 'tubería', 'tuberias', 'cobre', 'pvc', 'cpvc', 'cxc', 'hdpe', 'pead',
+  'codo', 'codos', 'cople', 'coples', 'reducción', 'reducciones', 'tee', 'niple', 'niples',
+  'tuerca', 'tuercas', 'tornillo', 'tornillos', 'taquete', 'taquetes', 'anclaje', 'perno', 'pernos',
+  'válvula', 'válvulas', 'llave', 'llaves', 'grifo', 'grifos',
+  'bomba', 'bombas', 'cisterna', 'cisternas', 'tinaco', 'tinacos', 'tanque', 'tanques',
+  'flotador', 'flotadores', 'presurizador', 'hidroneumático', 'biodigestor',
+  'tarja', 'tarjas', 'lavabo', 'lavabos', 'inodoro', 'inodoros', 'mingitorio', 'mingitorios',
+  'regadera', 'regaderas', 'coladera', 'coladeras', 'cespol',
+  'cable', 'cables', 'conductor', 'conductores', 'thw', 'thhn',
+  'interruptor', 'interruptores', 'termomagnético', 'pastilla', 'pastillas',
+  'tablero', 'tableros', 'centro', 'centros', 'carga',
+  'contacto', 'contactos', 'duplex', 'apagador', 'apagadores',
+  'luminaria', 'luminarias', 'foco', 'focos', 'lámpara', 'lámparas', 'led',
+  'registro', 'registros', 'caja', 'cajas', 'chalupa', 'tapa', 'tapas',
+  'cancelería', 'aluminio', 'vidrio', 'vidrios', 'cristal', 'cristales', 'espejo', 'espejos',
+  'puerta', 'puertas', 'ventana', 'ventanas', 'marco', 'marcos', 'chapa', 'chapas', 'cerradura',
+  'bisagra', 'bisagras', 'jaladera', 'jaladeras',
+  'herrería', 'reja', 'rejas', 'barandal', 'barandales', 'pasamanos',
+  'carpintería', 'closet', 'closets', 'mueble', 'muebles',
+  'pintura', 'pinturas', 'esmalte', 'esmaltes', 'vinílica', 'acrílica', 'epóxica', 'sellador', 'barniz',
+  'azulejo', 'azulejos', 'loseta', 'losetas', 'cerámica', 'porcelanato', 'mármol', 'granito', 'cantera',
+  'pegazulejo', 'boquilla', 'junteador',
+  'camión', 'camiones', 'volteo', 'retroexcavadora', 'revolvedora', 'bailarina', 'vibrador', 'compactador',
+  'oficial', 'ayudante', 'peón', 'peones', 'cuadrilla', 'cabo', 'residente', 'supervisor', 'supervisión',
+  'ingeniero', 'arquitecto', 'contratista',
+
+  // Abreviaturas y notaciones comunes
+  'no', 'no.', 'núm', 'num', 'núm.', 'num.', 'c/u', 'promedio', 'similar', 'equivalente'
 ]);
 
 class WordAutocorrectService {
   constructor() {
     this.customDictionary = new Set();
     this.ignoredWords = new Set();
-    this.lastAutocorrectEvent = null; // Para poder revertir con Backspace
+    this.lastAutocorrectEvent = null;
     this.enabled = true;
+    this.highlightedElements = new Set();
+    this.activeContextMenu = null;
 
     this.loadCustomDictionary();
     this.loadSettings();
@@ -284,7 +410,8 @@ class WordAutocorrectService {
     try {
       localStorage.setItem(STORAGE_KEY_AUTOCORRECT_ENABLED, String(this.enabled));
     } catch (e) {}
-    showToast(this.enabled ? 'Autocorrección estilo Word activada' : 'Autocorrección desactivada', 'info');
+    showToast(this.enabled ? 'Corrector ortográfico estilo Word activado' : 'Corrector ortográfico desactivado', 'info');
+    this.refreshHighlighters();
     return this.enabled;
   }
 
@@ -314,6 +441,7 @@ class WordAutocorrectService {
     const clean = word.toLowerCase().trim();
     this.customDictionary.add(clean);
     this.saveCustomDictionary();
+    this.refreshHighlighters();
     showToast(`"${word}" agregada al diccionario personal`, 'success');
   }
 
@@ -322,6 +450,7 @@ class WordAutocorrectService {
     const clean = word.toLowerCase().trim();
     this.customDictionary.delete(clean);
     this.saveCustomDictionary();
+    this.refreshHighlighters();
   }
 
   getCustomDictionary() {
@@ -331,6 +460,7 @@ class WordAutocorrectService {
   ignoreWord(word) {
     if (!word) return;
     this.ignoredWords.add(word.toLowerCase().trim());
+    this.refreshHighlighters();
   }
 
   isIgnored(word) {
@@ -340,13 +470,22 @@ class WordAutocorrectService {
 
   clearIgnored() {
     this.ignoredWords.clear();
+    this.refreshHighlighters();
   }
 
-  // Verifica si una palabra se considera ortográficamente válida
+  /**
+   * Verifica si una palabra se considera ortográficamente válida.
+   */
   isValidWord(rawWord) {
     if (!rawWord) return true;
     const word = rawWord.trim();
     if (!word || word.length <= 1) return true;
+
+    // Abreviaturas y notaciones técnicas admitidas
+    const lower = word.toLowerCase();
+    if (['no.', 'núm.', 'num.', 'c/u', 'kg/cm2', 'kg/cm²', 'ton/m3', 'ton/m²', 'f\'c'].includes(lower)) {
+      return true;
+    }
 
     // Números, medidas técnicas (ej: 250kg, 1/2", 12.5m), códigos con guion (PRE-001)
     if (/^[0-9]+([\.,\/][0-9]+)*$/.test(word)) return true;
@@ -354,13 +493,16 @@ class WordAutocorrectService {
     if (/^[A-Z0-9_\-]+$/.test(word)) return true; // Claves en mayúsculas como CLV-01, APU1
     if (word.includes('/') || word.includes('=')) return true; // f'c=250, kg/m2
 
-    const lower = word.toLowerCase();
-
-    // En lista de ignorados
+    // En lista de ignorados para esta sesión
     if (this.ignoredWords.has(lower)) return true;
 
     // En diccionario de usuario
     if (this.customDictionary.has(lower)) return true;
+
+    // Si la palabra está en AUTOCORRECT_MAP y requiere acentuación (ej: colocacion -> colocación)
+    if (AUTOCORRECT_MAP[lower] && AUTOCORRECT_MAP[lower].toLowerCase() !== lower) {
+      return false;
+    }
 
     // En diccionario pre-aprobado
     if (SPANISH_BASE_DICT.has(lower)) return true;
@@ -370,9 +512,6 @@ class WordAutocorrectService {
 
   /**
    * Corrige el case respetando mayúsculas/minúsculas originales:
-   * - "TODO MAYÚSCULAS" -> devuelve en MAYÚSCULAS
-   * - "Tipo Oracion" -> devuelve con Mayúscula inicial
-   * - "minusculas" -> devuelve en minúsculas
    */
   matchCasing(original, replacement) {
     if (!original || !replacement) return replacement;
@@ -400,11 +539,9 @@ class WordAutocorrectService {
   getAutocorrectReplacement(rawWord, isSentenceStart = false) {
     if (!this.enabled || !rawWord || rawWord.length < 2) return null;
 
-    // 1. Regla de Word: "Corregir DOS MAyúsculas Iniciales" (ej: COncreto -> Concreto, SUministro -> Suministro)
-    if (rawWord.length >= 3 &&
-        /^[A-ZÁÉÍÓÚÑ]{2}[a-záéíóúñ]+$/.test(rawWord)) {
+    // 1. Regla de Word: "Corregir DOS MAyúsculas Iniciales" (ej: COncreto -> Concreto)
+    if (rawWord.length >= 3 && /^[A-ZÁÉÍÓÚÑ]{2}[a-záéíóúñ]+$/.test(rawWord)) {
       const fixed = rawWord.charAt(0) + rawWord.slice(1).toLowerCase();
-      // Si la palabra resultante tiene un reemplazo de tildes posterior
       const mapped = AUTOCORRECT_MAP[fixed.toLowerCase()];
       if (mapped) {
         return this.matchCasing(fixed, mapped);
@@ -417,7 +554,6 @@ class WordAutocorrectService {
     // 2. Mapeo directo en tabla de autocorrección
     if (AUTOCORRECT_MAP[lower]) {
       let rep = AUTOCORRECT_MAP[lower];
-      // Si está al inicio de la oración, forzar mayúscula inicial
       if (isSentenceStart && rep.length > 0) {
         rep = rep.charAt(0).toUpperCase() + rep.slice(1);
       } else {
@@ -426,7 +562,7 @@ class WordAutocorrectService {
       return rep;
     }
 
-    // 3. Regla morfológica: Palabras que terminan en "cion" sin tilde (longitud >= 6)
+    // 3. Regla morfológica: Palabras que terminan en "cion" sin tilde
     if (lower.length >= 6 && lower.endsWith('cion')) {
       const corrected = lower.slice(0, -4) + 'ción';
       let rep = this.matchCasing(rawWord, corrected);
@@ -434,7 +570,7 @@ class WordAutocorrectService {
       return rep;
     }
 
-    // 4. Regla morfológica: Palabras que terminan en "eria" sin tilde (longitud >= 6)
+    // 4. Regla morfológica: Palabras que terminan en "eria" sin tilde
     if (lower.length >= 6 && lower.endsWith('eria')) {
       const corrected = lower.slice(0, -4) + 'ería';
       let rep = this.matchCasing(rawWord, corrected);
@@ -482,8 +618,15 @@ class WordAutocorrectService {
       }
     }
 
-    // Ordenar candidatos por menor distancia
-    candidates.sort((a, b) => a.dist - b.dist);
+    // Ordenar candidatos por menor distancia y relevancia
+    candidates.sort((a, b) => {
+      if (a.dist !== b.dist) return a.dist - b.dist;
+      const aFirst = a.word[0] === lower[0] ? 0 : 1;
+      const bFirst = b.word[0] === lower[0] ? 0 : 1;
+      if (aFirst !== bFirst) return aFirst - bFirst;
+      return Math.abs(a.word.length - lower.length) - Math.abs(b.word.length - lower.length);
+    });
+
     for (const c of candidates.slice(0, 4)) {
       suggestions.add(this.matchCasing(rawWord, c.word));
     }
@@ -516,26 +659,84 @@ class WordAutocorrectService {
   }
 
   /**
+   * Obtiene la palabra y sus coordenadas [start, end] en una posición específica de texto.
+   */
+  getWordAtPosition(text, pos) {
+    if (!text || typeof text !== 'string') return null;
+    const len = text.length;
+    if (pos < 0 || pos > len) return null;
+
+    const isWordChar = (c) => /[a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9\/\'\.\-]/.test(c);
+
+    let checkPos = pos;
+    // Si el cursor cayó al final de la palabra o en un separador tras la palabra
+    if (checkPos > 0 && (checkPos >= len || !isWordChar(text[checkPos])) && isWordChar(text[checkPos - 1])) {
+      checkPos = checkPos - 1;
+    }
+
+    if (checkPos < 0 || checkPos >= len || !isWordChar(text[checkPos])) {
+      return null;
+    }
+
+    let start = checkPos;
+    while (start > 0 && isWordChar(text[start - 1])) {
+      start--;
+    }
+    let end = checkPos;
+    while (end < len && isWordChar(text[end])) {
+      end++;
+    }
+
+    let rawWord = text.substring(start, end);
+    let cleanWord = rawWord;
+
+    const matchPunct = cleanWord.match(/([\.,;:!?\)\"\'\]]+)$/);
+    if (matchPunct && !['no.', 'núm.', 'num.', 'c/u', 'kg/cm2', 'ton/m3', 'f\'c'].includes(cleanWord.toLowerCase())) {
+      const punctLen = matchPunct[1].length;
+      cleanWord = cleanWord.slice(0, -punctLen);
+      end -= punctLen;
+    }
+
+    return {
+      word: cleanWord,
+      rawWord,
+      start,
+      end
+    };
+  }
+
+  /**
    * Escanea un texto completo y devuelve los errores encontrados con posición y sugerencias.
    */
   findSpellingErrorsInText(text) {
     if (!text || typeof text !== 'string') return [];
 
-    // Separar palabras conservando índices
     const regex = /([a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9\/\'\.\-]+)/g;
     const errors = [];
     let match;
 
     while ((match = regex.exec(text)) !== null) {
-      const word = match[0];
-      const start = match.index;
-      const end = start + word.length;
+      let rawWord = match[0];
+      let cleanWord = rawWord;
+      let start = match.index;
+      let end = start + rawWord.length;
+
+      // Descartar puntuación final común a menos que sea abreviatura técnica
+      const matchPunct = cleanWord.match(/([\.,;:!?\)\"\'\]]+)$/);
+      if (matchPunct && !['no.', 'núm.', 'num.', 'c/u', 'kg/cm2', 'ton/m3', 'f\'c'].includes(cleanWord.toLowerCase())) {
+        const punctLen = matchPunct[1].length;
+        cleanWord = cleanWord.slice(0, -punctLen);
+        end -= punctLen;
+      }
+
+      if (!cleanWord || cleanWord.length <= 1) continue;
 
       // Si la palabra no es válida
-      if (!this.isValidWord(word)) {
-        const suggestions = this.getSuggestions(word);
+      if (!this.isValidWord(cleanWord)) {
+        const suggestions = this.getSuggestions(cleanWord);
         errors.push({
-          word,
+          word: cleanWord,
+          rawWord,
           start,
           end,
           suggestions,
@@ -569,7 +770,6 @@ class WordAutocorrectService {
     const target = e.target;
     if (!target) return;
 
-    // Solo inputs editables de texto o textareas
     const isInput = target.tagName === 'INPUT' && (target.type === 'text' || target.type === 'search' || !target.type);
     const isTextarea = target.tagName === 'TEXTAREA';
     const isContentEditable = target.isContentEditable;
@@ -581,7 +781,6 @@ class WordAutocorrectService {
     if (e.key === 'Backspace' && this.lastAutocorrectEvent) {
       const { element, originalText, cursorPosition } = this.lastAutocorrectEvent;
       if (element === target && (target.value !== undefined || isContentEditable)) {
-        // Si el usuario presiona Backspace inmediatamente tras la corrección, revertimos al original
         if (target.selectionStart === cursorPosition) {
           e.preventDefault();
           if (isContentEditable) {
@@ -593,51 +792,42 @@ class WordAutocorrectService {
           this.lastAutocorrectEvent = null;
           target.dispatchEvent(new Event('input', { bubbles: true }));
           target.dispatchEvent(new Event('change', { bubbles: true }));
+          this.updateElementHighlight(target);
           return;
         }
       }
       this.lastAutocorrectEvent = null;
     }
 
-    // Teclas disparadoras de Word AutoCorrect: Espacio, Enter, Punto, Coma, Punto y coma, Dos puntos
     const triggers = [' ', 'Enter', '.', ',', ';', ':', '!', '?'];
     if (!triggers.includes(e.key)) {
       this.lastAutocorrectEvent = null;
       return;
     }
 
-    if (isContentEditable) {
-      // Para contenteditable el flujo nativo maneja texto enriquecido
-      return;
-    }
+    if (isContentEditable) return;
 
     const value = target.value;
     const cursorPos = target.selectionStart;
 
-    // Solo si el cursor está en un punto único (no una selección amplia)
     if (cursorPos !== target.selectionEnd) return;
 
-    // Obtener el texto previo al cursor
     const textBefore = value.slice(0, cursorPos);
-    // Extraer la última palabra completa antes del trigger
     const match = textBefore.match(/([a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9\/\'\.\-]+)$/);
     if (!match) return;
 
     const lastWord = match[1];
     const wordStart = cursorPos - lastWord.length;
 
-    // Determinar si es inicio de oración
     const textPreWord = textBefore.slice(0, wordStart).trim();
     const isSentenceStart = textPreWord.length === 0 || /[\.\?\!\n]\s*$/.test(textPreWord);
 
     const replacement = this.getAutocorrectReplacement(lastWord, isSentenceStart);
     if (!replacement || replacement === lastWord) return;
 
-    // Registrar para posible Backspace
     const triggerChar = e.key === 'Enter' ? '\n' : e.key;
     const originalFullValue = value;
 
-    // Realizar el reemplazo manteniendo la tecla pulsada
     e.preventDefault();
 
     const newValue = value.slice(0, wordStart) + replacement + triggerChar + value.slice(cursorPos);
@@ -652,13 +842,349 @@ class WordAutocorrectService {
       cursorPosition: newCursorPos
     };
 
-    // Disparar eventos para que los bindings reactivos del proyecto se enteren
     target.dispatchEvent(new Event('input', { bubbles: true }));
     target.dispatchEvent(new Event('change', { bubbles: true }));
+    this.updateElementHighlight(target);
   }
 
   /**
-   * Configura atributos nativos de spellcheck en un elemento
+   * Reemplaza la palabra errónea por la seleccionada en el target editable.
+   */
+  replaceWord(target, wordInfo, newWord) {
+    if (!target || !wordInfo || !newWord) return;
+
+    if (target.isContentEditable) {
+      const text = target.innerText;
+      const before = text.slice(0, wordInfo.start);
+      const after = text.slice(wordInfo.end);
+      target.innerText = before + newWord + after;
+    } else {
+      const val = target.value;
+      const before = val.slice(0, wordInfo.start);
+      const after = val.slice(wordInfo.end);
+      target.value = before + newWord + after;
+      const newPos = wordInfo.start + newWord.length;
+      target.setSelectionRange(newPos, newPos);
+      target.focus();
+    }
+
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+    target.dispatchEvent(new Event('change', { bubbles: true }));
+    this.updateElementHighlight(target);
+  }
+
+  /**
+   * Oculta el menú contextual flotante.
+   */
+  hideContextMenu() {
+    const menu = document.getElementById('word-spell-context-menu');
+    if (menu) {
+      menu.classList.add('hidden');
+      menu.style.display = 'none';
+    }
+    this.activeContextMenu = null;
+  }
+
+  /**
+   * Renderiza el contenido del menú flotante de corrección.
+   */
+  renderContextMenu(menu, word, suggestions, x, y, onSelect, onIgnore, onAddDict) {
+    const escape = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    menu.innerHTML = '';
+
+    // Encabezado
+    const header = document.createElement('div');
+    header.className = 'px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between border-b border-slate-100 mb-1';
+    header.innerHTML = `<span>Corrección: <span class="text-rose-600 font-semibold normal-case">${escape(word)}</span></span><i class="fa-solid fa-spell-check text-blue-600 text-xs"></i>`;
+    menu.appendChild(header);
+
+    // Lista de sugerencias
+    const suggContainer = document.createElement('div');
+    suggContainer.className = 'px-1 space-y-0.5';
+
+    if (suggestions && suggestions.length > 0) {
+      suggestions.forEach(sug => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'w-full text-left px-2.5 py-1.5 rounded-lg text-slate-800 font-bold hover:text-blue-600 hover:bg-blue-50 transition flex items-center justify-between cursor-pointer group text-xs';
+        btn.innerHTML = `<span class="flex items-center gap-2"><i class="fa-solid fa-check text-[11px] text-blue-500 group-hover:scale-110 transition-transform"></i><span>${escape(sug)}</span></span><span class="text-[9px] text-slate-400 font-normal">Reemplazar</span>`;
+        btn.onmousedown = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onSelect(sug);
+        };
+        suggContainer.appendChild(btn);
+      });
+    } else {
+      const noSug = document.createElement('div');
+      noSug.className = 'px-3 py-1.5 text-slate-400 italic text-[11px]';
+      noSug.innerText = 'Sin sugerencias disponibles';
+      suggContainer.appendChild(noSug);
+    }
+    menu.appendChild(suggContainer);
+
+    // Separador
+    const div1 = document.createElement('div');
+    div1.className = 'my-1 border-t border-slate-100';
+    menu.appendChild(div1);
+
+    // Acciones de Diccionario
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'px-1 space-y-0.5';
+
+    const btnIgnore = document.createElement('button');
+    btnIgnore.type = 'button';
+    btnIgnore.className = 'w-full text-left px-2.5 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition flex items-center gap-2 cursor-pointer text-[11px] font-medium';
+    btnIgnore.innerHTML = `<i class="fa-solid fa-forward-step text-[11px] text-slate-400 w-4 text-center"></i><span>Omitir "${escape(word)}"</span>`;
+    btnIgnore.onmousedown = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onIgnore();
+    };
+    actionsContainer.appendChild(btnIgnore);
+
+    const btnAddDict = document.createElement('button');
+    btnAddDict.type = 'button';
+    btnAddDict.className = 'w-full text-left px-2.5 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition flex items-center gap-2 cursor-pointer text-[11px] font-medium';
+    btnAddDict.innerHTML = `<i class="fa-solid fa-book-bookmark text-[11px] text-amber-500 w-4 text-center"></i><span>Agregar al diccionario</span>`;
+    btnAddDict.onmousedown = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onAddDict();
+    };
+    actionsContainer.appendChild(btnAddDict);
+
+    menu.appendChild(actionsContainer);
+
+    // Mostrar y posicionar evitando desbordamiento
+    menu.style.display = 'block';
+    menu.classList.remove('hidden');
+
+    const menuRect = menu.getBoundingClientRect();
+    const winWidth = window.innerWidth;
+    const winHeight = window.innerHeight;
+
+    let posX = x;
+    let posY = y;
+
+    if (posX + menuRect.width > winWidth - 10) {
+      posX = Math.max(10, winWidth - menuRect.width - 10);
+    }
+    if (posY + menuRect.height > winHeight - 10) {
+      posY = Math.max(10, posY - menuRect.height);
+    }
+
+    menu.style.left = `${posX}px`;
+    menu.style.top = `${posY}px`;
+  }
+
+  /**
+   * Inicializa el escucha del menú contextual (clic derecho) estilo Word.
+   */
+  initSpellContextMenu() {
+    let menu = document.getElementById('word-spell-context-menu');
+    if (!menu) {
+      menu = document.createElement('div');
+      menu.id = 'word-spell-context-menu';
+      menu.className = 'fixed hidden z-[100010] bg-white rounded-xl shadow-2xl border border-slate-200/90 py-1.5 min-w-[220px] max-w-[280px] text-xs font-sans select-none backdrop-blur-sm';
+      document.body.appendChild(menu);
+    }
+
+    let activeTarget = null;
+    let activeWordInfo = null;
+
+    document.addEventListener('contextmenu', (e) => {
+      const target = e.target;
+      if (!target) return;
+
+      const isInput = target.tagName === 'INPUT' && (target.type === 'text' || target.type === 'search' || !target.type);
+      const isTextarea = target.tagName === 'TEXTAREA';
+      const isContentEditable = target.isContentEditable;
+
+      if (!isInput && !isTextarea && !isContentEditable) {
+        this.hideContextMenu();
+        return;
+      }
+
+      if (target.readOnly || target.disabled) {
+        this.hideContextMenu();
+        return;
+      }
+
+      const text = isContentEditable ? target.innerText : target.value;
+      if (!text) {
+        this.hideContextMenu();
+        return;
+      }
+
+      // En Chromium, target.selectionStart ya refleja la posición del clic derecho
+      let pos = typeof target.selectionStart === 'number' ? target.selectionStart : -1;
+      
+      const wordInfo = this.getWordAtPosition(text, pos);
+      if (!wordInfo || !wordInfo.word) {
+        this.hideContextMenu();
+        return;
+      }
+
+      // Si la palabra es correcta, dejamos que el navegador muestre su menú normal (copiar, pegar, etc.)
+      if (this.isValidWord(wordInfo.word)) {
+        this.hideContextMenu();
+        return;
+      }
+
+      // ¡Palabra con error! Desplegar menú de Word
+      e.preventDefault();
+      e.stopPropagation();
+
+      activeTarget = target;
+      activeWordInfo = wordInfo;
+
+      const suggestions = this.getSuggestions(wordInfo.word);
+      this.renderContextMenu(
+        menu,
+        wordInfo.word,
+        suggestions,
+        e.clientX,
+        e.clientY,
+        (chosenWord) => {
+          this.replaceWord(activeTarget, activeWordInfo, chosenWord);
+          this.hideContextMenu();
+        },
+        () => {
+          this.ignoreWord(wordInfo.word);
+          this.hideContextMenu();
+        },
+        () => {
+          this.addToDictionary(wordInfo.word);
+          this.hideContextMenu();
+        }
+      );
+    }, true);
+
+    // Ocultar al hacer clic fuera o presionar Escape
+    document.addEventListener('mousedown', (e) => {
+      if (menu && !menu.contains(e.target)) {
+        this.hideContextMenu();
+      }
+    }, true);
+
+    window.addEventListener('scroll', () => this.hideContextMenu(), true);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this.hideContextMenu();
+    }, true);
+  }
+
+  /**
+   * Conecta y sincroniza el subrayado visual ondulado rojo para un textarea o input editable.
+   */
+  attachSpellHighlighter(element) {
+    if (!element || element.__spellHighlighterAttached) return;
+
+    // Solo soportamos textarea e input de texto
+    const isTextarea = element.tagName === 'TEXTAREA';
+    const isInput = element.tagName === 'INPUT' && (element.type === 'text' || !element.type);
+    if (!isTextarea && !isInput) return;
+
+    // Buscar si ya existe un backdrop hermano en su contenedor
+    let backdrop = element.parentElement ? element.parentElement.querySelector('.cubikar-spell-backdrop') : null;
+
+    // Si no tiene contenedor o backdrop, crearlo dinámicamente si es posible
+    if (!backdrop && element.parentElement) {
+      const parent = element.parentElement;
+      if (!parent.classList.contains('cubikar-spell-wrap')) {
+        parent.classList.add('cubikar-spell-wrap');
+      }
+      backdrop = document.createElement('div');
+      backdrop.className = 'cubikar-spell-backdrop';
+      parent.insertBefore(backdrop, element);
+    }
+
+    if (!backdrop) return;
+
+    element.__spellBackdrop = backdrop;
+    element.__spellHighlighterAttached = true;
+    this.highlightedElements.add(element);
+
+    const update = () => this.updateElementHighlight(element);
+
+    element.addEventListener('input', update);
+    element.addEventListener('change', update);
+    element.addEventListener('scroll', () => {
+      if (backdrop) {
+        backdrop.scrollTop = element.scrollTop;
+        backdrop.scrollLeft = element.scrollLeft;
+      }
+    });
+
+    // Actualización inicial
+    update();
+  }
+
+  /**
+   * Actualiza las marcas onduladas rojas en el backdrop de un elemento.
+   */
+  updateElementHighlight(element) {
+    if (!element || !element.__spellBackdrop) return;
+    const backdrop = element.__spellBackdrop;
+    const text = element.value || '';
+
+    if (!this.enabled || !text) {
+      backdrop.innerHTML = '';
+      return;
+    }
+
+    // Copiar estilos geométricos para alineación 1:1 exacta
+    const cs = window.getComputedStyle(element);
+    backdrop.style.fontFamily = cs.fontFamily;
+    backdrop.style.fontSize = cs.fontSize;
+    backdrop.style.fontWeight = cs.fontWeight;
+    backdrop.style.lineHeight = cs.lineHeight;
+    backdrop.style.letterSpacing = cs.letterSpacing;
+    backdrop.style.textAlign = cs.textAlign;
+    backdrop.style.paddingTop = cs.paddingTop;
+    backdrop.style.paddingRight = cs.paddingRight;
+    backdrop.style.paddingBottom = cs.paddingBottom;
+    backdrop.style.paddingLeft = cs.paddingLeft;
+    backdrop.style.borderTopWidth = cs.borderTopWidth;
+    backdrop.style.borderRightWidth = cs.borderRightWidth;
+    backdrop.style.borderBottomWidth = cs.borderBottomWidth;
+    backdrop.style.borderLeftWidth = cs.borderLeftWidth;
+    backdrop.style.boxSizing = cs.boxSizing;
+
+    const escape = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const errors = this.findSpellingErrorsInText(text);
+
+    let html = '';
+    let last = 0;
+    for (const err of errors) {
+      html += escape(text.slice(last, err.start));
+      html += `<span class="cubikar-spell-error">${escape(text.slice(err.start, err.end))}</span>`;
+      last = err.end;
+    }
+    html += escape(text.slice(last));
+
+    if (text.endsWith('\n')) html += ' ';
+    backdrop.innerHTML = html;
+    backdrop.scrollTop = element.scrollTop;
+    backdrop.scrollLeft = element.scrollLeft;
+  }
+
+  /**
+   * Refresca todos los elementos resaltados activos.
+   */
+  refreshHighlighters() {
+    this.highlightedElements.forEach(el => {
+      if (document.body.contains(el)) {
+        this.updateElementHighlight(el);
+      } else {
+        this.highlightedElements.delete(el);
+      }
+    });
+  }
+
+  /**
+   * Configura atributos nativos de spellcheck en un elemento.
    */
   enforceElementSpellcheck(el) {
     if (!el || el.dataset?.spellcheckConfigured === 'true') return;
@@ -674,27 +1200,35 @@ class WordAutocorrectService {
       el.setAttribute('autocapitalize', 'sentences');
       el.setAttribute('lang', 'es');
       el.dataset.spellcheckConfigured = 'true';
+
+      // Si es un textarea con clase desc-input o dentro de un wrap, adjuntar resaltador
+      if (el.tagName === 'TEXTAREA' || el.classList.contains('desc-input')) {
+        this.attachSpellHighlighter(el);
+      }
     }
   }
 
   /**
-   * Inicialización global del observador y escuchas de eventos
+   * Inicialización global del observador y escuchas de eventos.
    */
   initGlobalObserver() {
     // 1. Escuchar pulsaciones de teclas para autocorrección estilo Word
     document.addEventListener('keydown', (e) => this.handleKeydown(e), true);
 
-    // 2. Interceptar foco para asegurar atributos de ortografía
+    // 2. Inicializar menú contextual de clic derecho estilo Word
+    this.initSpellContextMenu();
+
+    // 3. Interceptar foco para asegurar atributos de ortografía y adjuntar resaltadores
     document.addEventListener('focusin', (e) => {
       if (e.target) this.enforceElementSpellcheck(e.target);
     }, true);
 
-    // 3. Aplicar de inmediato a todos los inputs existentes
+    // 4. Aplicar de inmediato a todos los inputs y textareas existentes
     document.querySelectorAll('input[type="text"], input:not([type]), textarea, [contenteditable="true"]').forEach(el => {
       this.enforceElementSpellcheck(el);
     });
 
-    // 4. Observar mutaciones dinámicas (al desplegar nodos, modales, etc.)
+    // 5. Observar mutaciones dinámicas (al desplegar nodos, modales, etc.)
     const observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
         if (m.type === 'childList') {
@@ -712,16 +1246,6 @@ class WordAutocorrectService {
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
-
-    // 5. Interceptar atajo de teclado F7 estilo Microsoft Word
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'F7') {
-        e.preventDefault();
-        if (typeof window.openSpellCheckModal === 'function') {
-          window.openSpellCheckModal();
-        }
-      }
-    });
   }
 }
 

@@ -858,12 +858,7 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
 /* ========================================================= */
 /* ESTILOS DE ORTOGRAFÍA Y AUTOCORRECCIÓN ESTILO MICROSOFT WORD */
 /* ========================================================= */
-.word-spell-target {
-  text-decoration: underline wavy #e11d48 !important;
-  text-decoration-thickness: 1.5px !important;
-  text-underline-offset: 3px !important;
-}
-
+.word-spell-target,
 .word-wavy-red {
   text-decoration: underline wavy #e11d48 !important;
   text-decoration-thickness: 1.5px !important;
@@ -876,4 +871,61 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
   text-decoration-thickness: 1.5px !important;
   text-underline-offset: 3px !important;
 }
+
+/* Contenedor y capa de resaltado en vivo en inputs/textareas */
+.cubikar-spell-wrap {
+  position: relative !important;
+  display: flex !important;
+  width: 100% !important;
+  align-items: stretch !important;
+}
+
+.cubikar-spell-backdrop {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  color: transparent !important;
+  z-index: 1 !important;
+  box-sizing: border-box !important;
+  background: transparent !important;
+}
+
+.desc-input,
+.cubikar-spell-input {
+  position: relative !important;
+  z-index: 2 !important;
+  background-color: transparent !important;
+}
+
+.cubikar-spell-error {
+  color: transparent !important;
+  text-decoration: underline wavy #e11d48 !important;
+  text-decoration-thickness: 1.8px !important;
+  text-underline-offset: 3px !important;
+}
+
+/* Menú contextual flotante de corrección (clic derecho) */
+#word-spell-context-menu {
+  position: fixed;
+  z-index: 100010;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  padding: 6px;
+  min-width: 220px;
+  max-width: 300px;
+  font-size: 12px;
+  font-family: inherit;
+  user-select: none;
+  backdrop-filter: blur(8px);
+}
+
 

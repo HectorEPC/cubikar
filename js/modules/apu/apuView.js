@@ -99,10 +99,13 @@ export function renderAPUInsumos(node) {
     };
     tr.innerHTML = `
       <td class="p-1 border-b border-slate-100 min-w-[200px] text-justify align-top">
-        <textarea ${isCatLocked ? 'disabled readonly' : ''} onchange="updateInsumo(${idx}, 'descripcion', this.value)" 
-                  spellcheck="true" autocorrect="on" autocapitalize="sentences" lang="es"
-                  class="desc-input w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white px-1 py-0.5 rounded text-[10px] font-sans text-justify leading-snug break-words whitespace-normal font-medium block" 
-                  placeholder="Descripción insumo">${ins.descripcion || ''}</textarea>
+        <div class="cubikar-spell-wrap relative w-full">
+          <div class="cubikar-spell-backdrop"></div>
+          <textarea ${isCatLocked ? 'disabled readonly' : ''} onchange="updateInsumo(${idx}, 'descripcion', this.value)" 
+                    spellcheck="true" autocorrect="on" autocapitalize="sentences" lang="es"
+                    class="desc-input w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 px-1 py-0.5 rounded text-[10px] font-sans text-justify leading-snug break-words whitespace-normal font-medium block" 
+                    placeholder="Descripción insumo">${ins.descripcion || ''}</textarea>
+        </div>
         <div class="flex items-center gap-2 mt-0.5">
           <input type="text" ${isCatLocked ? 'disabled readonly' : ''} value="${ins.clave || ''}" onchange="updateInsumo(${idx}, 'clave', this.value)" 
                  placeholder="Clave" title="Clave del insumo" 
