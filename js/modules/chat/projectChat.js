@@ -862,7 +862,7 @@ export function renderSidebarNotificationsUI() {
   const currentUser = getCurrentUser();
   const notifWrapper = document.getElementById('portal-notifications-wrapper');
 
-  // Si no hay sesiÃ³n iniciada, ocultar por completo la campana del portal y limpiar badges
+  // Si no hay sesión iniciada, ocultar por completo la campana del portal y limpiar badges
   if (!currentUser) {
     if (notifWrapper) notifWrapper.classList.add('hidden');
     if (portalBadgeEl) {

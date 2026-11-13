@@ -903,7 +903,7 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
     }
   } else {
     // Si no existe la cuenta ni localmente ni en nube
-    showToast('No se encontrÃ³ una cuenta con ese correo. Por favor regÃ­strate.', 'error');
+    showToast('No se encontró una cuenta con ese correo. Por favor regístrate.', 'error');
   }
 }
 
@@ -1054,7 +1054,7 @@ export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
     updateWorkspaceHeaderUser(user);
     addFeaturedProfile(user);
     markSessionOpen(user.email);
-    showToast(`SesiÃ³n iniciada como ${user.name}`);
+    showToast(`Sesión iniciada como ${user.name}`);
     const proceedNormal = () => {
       if (returnProjectId) {
         openProjectInWorkspace(returnProjectId);
@@ -1078,7 +1078,7 @@ export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
       proceedNormal();
     }
   } else {
-    showToast('No se encontrÃ³ el perfil seleccionado.', 'error');
+    showToast('No se encontró el perfil seleccionado.', 'error');
   }
 }
 
@@ -2449,6 +2449,16 @@ export function filterProjectCards(query) {
 // ACCIONES DE NAVEGACIÓN Y APERTURA DE OBRAS
 // ==========================================
 export function openProjectInWorkspace(projectId) {
+  try {
+    const raw = sessionStorage.getItem('cubikar_interactive_tour_session_v1');
+    if (raw || (typeof window !== 'undefined' && window.isInteractiveTourActive)) {
+      sessionStorage.setItem('cubikar_interactive_tour_session_v1', JSON.stringify({
+        tourId: 'master',
+        stepIndex: 3,
+        timestamp: Date.now()
+      }));
+    }
+  } catch (_) {}
   // Redirigir en la misma pestaña con parámetro ?project=ID
   const url = `${window.location.pathname}?project=${encodeURIComponent(projectId)}`;
   window.location.href = url;
@@ -3006,7 +3016,7 @@ export function saveProfileChanges() {
 export async function deleteCurrentUserAccountAction() {
   const user = getCurrentUser();
   if (!user || !user.email) {
-    showToast('No hay una sesiÃ³n activa para eliminar.', 'warning');
+    showToast('No hay una sesión activa para eliminar.', 'warning');
     closeProfileModal();
     return;
   }
@@ -3015,19 +3025,19 @@ export async function deleteCurrentUserAccountAction() {
   const userName = user.name || cleanEmail;
 
   const confirmMsg =
-    `âš ï¸ Â¿ELIMINAR TU CUENTA DEFINITIVAMENTE?\n\n` +
-    `EstÃ¡s a punto de eliminar permanentemente la cuenta de "${userName}" (${cleanEmail}).\n\n` +
-    `â€¢ Se ELIMINARÃN TODOS TUS ARCHIVOS, proyectos de obra, catÃ¡logos y matrices APU vinculados a este usuario.\n` +
-    `â€¢ Toda tu informaciÃ³n se borrarÃ¡ por completo de este equipo.\n` +
-    `â€¢ Si en el futuro te vuelves a registrar con este mismo correo (${cleanEmail}), la cuenta aparecerÃ¡ en blanco, totalmente nueva.\n\n` +
-    `Â¿Deseas confirmar la eliminaciÃ³n definitiva ahora?`;
+    `⚠️ ¿ELIMINAR TU CUENTA DEFINITIVAMENTE?\n\n` +
+    `Estás a punto de eliminar permanentemente la cuenta de "${userName}" (${cleanEmail}).\n\n` +
+    `• Se ELIMINARÁN TODOS TUS ARCHIVOS, proyectos de obra, catálogos y matrices APU vinculados a este usuario.\n` +
+    `• Toda tu información se borrará por completo de este equipo.\n` +
+    `• Si en el futuro te vuelves a registrar con este mismo correo (${cleanEmail}), la cuenta aparecerá en blanco, totalmente nueva.\n\n` +
+    `¿Deseas confirmar la eliminación definitiva ahora?`;
 
   if (!confirm(confirmMsg)) {
     return;
   }
 
   try {
-    // Si Supabase estÃ¡ activo, eliminar el registro de perfil y desloguear
+    // Si Supabase está activo, eliminar el registro de perfil y desloguear
     const sb = getSupabaseClient();
     if (sb) {
       try {

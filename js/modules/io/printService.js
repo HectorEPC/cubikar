@@ -2688,11 +2688,129 @@ export function printCalendarioObraFormat() {
 //   - Hoja 1: RESUMEN DE LA ESTIMACIÓN (solo conceptos con cantidad > 0 en "Esta Estimación (Actual) -> Cantidad Eje")
 //   - Hoja 2+ (Opcional en vista previa): CATÁLOGO GENERAL COMPLETO Y ESTADO DE CUENTA
 // -------------------------------------------------------------
+// Helper para la impresión de la Carátula de Estimación 0 (Anticipo Inicial)
+export function renderPrintEstimacionZeroHTML(data, companyLogo, companyName, projectName, projectLocation, currentDate, currencyCode, currencySymbol) {
+  const { activeEst, kpis } = data;
+  const anticipoKpi = kpis.anticipo;
+  const ivaKpi = kpis.iva;
+  const factura = activeEst.factura || {};
+  const isCobrada = factura.status === 'cobrada';
+
+  const subtotalAnticipo = anticipoKpi.totalContratado;
+  const ivaAnticipo = Math.round((subtotalAnticipo * (ivaKpi.pct / 100) + Number.EPSILON) * 100) / 100;
+  const totalConIva = Math.round((subtotalAnticipo + ivaAnticipo + Number.EPSILON) * 100) / 100;
+
+  return `
+    <div id="seccion-anticipo-cero" style="page-break-after: always; padding-bottom: 20px;">
+      <!-- Encabezado Institucional -->
+      <div class="doc-header">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          ${companyLogo ? `<img src="${companyLogo}" alt="Logo" style="height: 74px; width: 74px; min-width: 74px; aspect-ratio: 1/1; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; padding: 3px; background-color: #ffffff;">` : ''}
+          <div style="display: flex; flex-direction: column; justify-content: space-between; min-height: 74px;">
+            <div style="font-size: 11pt; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.2;">
+              ${escapeHtml(companyName)}
+            </div>
+            <h1 class="doc-title" style="font-size: 12pt; font-weight: 900; color: #b45309; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
+              FICHA EJECUTIVA DE COBRO DE ANTICIPO — ESTIMACIÓN 0
+            </h1>
+            <div style="font-size: 9.5pt; font-weight: 700; color: #475569; line-height: 1.2;">
+              <span style="color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 8.5pt;">Proyecto: </span>${escapeHtml(projectName)}
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-meta" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 74px; text-align: right; font-size: 8pt; line-height: 1.35;">
+          <div><strong>Fecha de emisión:</strong> ${escapeHtml(currentDate)}</div>
+          <div><strong>Fecha de cobro:</strong> <span class="meta-tag font-mono font-bold" style="font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.fechaCobro || activeEst.fechaInicio || currentDate)}</span></div>
+          <div><strong>Proyecto:</strong> <span class="meta-tag font-bold" style="color: #1d4ed8; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectName)}</span></div>
+          <div><strong>Estado de Cobro:</strong> <span class="meta-tag font-bold" style="color: ${isCobrada ? '#047857; background:#ecfdf5; border-color:#a7f3d0;' : '#b45309; background:#fffbeb; border-color:#fde68a;'} font-size: 7.5pt; padding: 1px 6px;">${isCobrada ? 'COBRADA / PAGADA' : 'PENDIENTE DE PAGO'}</span></div>
+        </div>
+      </div>
+
+      <!-- Tarjetas Financieras del Anticipo -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px;">
+        <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px;">
+          <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Monto Contratado Base</span>
+          <div style="font-size: 11pt; font-weight: 900; color: #0f172a; font-family: monospace; margin-top: 2px;">${formatMoney(kpis.grandTotalBase)}</div>
+          <span style="font-size: 6.5pt; color: #94a3b8;">Total a Costo Directo / Venta</span>
+        </div>
+        <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 10px;">
+          <span style="font-size: 7pt; font-weight: 700; color: #92400e; text-transform: uppercase; display: block;">Anticipo Pactado (${anticipoKpi.pct}%)</span>
+          <div style="font-size: 11pt; font-weight: 900; color: #b45309; font-family: monospace; margin-top: 2px;">${formatMoney(subtotalAnticipo)}</div>
+          <span style="font-size: 6.5pt; color: #b45309;">Subtotal de Anticipo sin IVA</span>
+        </div>
+        <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px;">
+          <span style="font-size: 7pt; font-weight: 700; color: #1e3a8a; text-transform: uppercase; display: block;">IVA (${ivaKpi.pct}%)</span>
+          <div style="font-size: 11pt; font-weight: 900; color: #1e3a8a; font-family: monospace; margin-top: 2px;">+${formatMoney(ivaAnticipo)}</div>
+          <span style="font-size: 6.5pt; color: #64748b;">Impuesto al Valor Agregado</span>
+        </div>
+        <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 8px 10px;">
+          <span style="font-size: 7pt; font-weight: 800; color: #047857; text-transform: uppercase; display: block;">Total Cobrado de Anticipo</span>
+          <div style="font-size: 11.5pt; font-weight: 900; color: #047857; font-family: monospace; margin-top: 2px;">${formatMoney(totalConIva)}</div>
+          <span style="font-size: 6.5pt; color: #059669;">Importe neto depositado con IVA</span>
+        </div>
+      </div>
+
+      <!-- Bloque de Datos Fiscales y Fianza de Garantía -->
+      <table style="width: 100%; border-collapse: collapse; font-size: 7.5pt; margin-bottom: 15px; border: 1px solid #cbd5e1;">
+        <thead>
+          <tr style="background-color: #0f172a; color: #ffffff;">
+            <th colspan="4" style="text-align: left; padding: 5px 8px; font-weight: 800; font-size: 7.5pt;">
+              DATOS FISCALES Y GARANTÍA DE ANTICIPO
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background-color: #ffffff; border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 6px 8px; font-weight: 700; color: #475569; width: 22%;">Folio de Factura / UUID:</td>
+            <td style="padding: 6px 8px; font-family: monospace; font-weight: 800; color: #0f172a; width: 28%;">${escapeHtml(factura.folio || 'No asignado')}</td>
+            <td style="padding: 6px 8px; font-weight: 700; color: #475569; width: 22%;">Póliza de Fianza:</td>
+            <td style="padding: 6px 8px; font-family: monospace; font-weight: 800; color: #0f172a; width: 28%;">${escapeHtml(activeEst.fianzaPoliza || 'Sin fianza registrada')}</td>
+          </tr>
+          <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 6px 8px; font-weight: 700; color: #475569;">Fecha de Emisión:</td>
+            <td style="padding: 6px 8px; font-family: monospace; color: #334155;">${escapeHtml(factura.fechaEmision || 'No especificada')}</td>
+            <td style="padding: 6px 8px; font-weight: 700; color: #475569;">Compañía Afianzadora:</td>
+            <td style="padding: 6px 8px; color: #334155;">${escapeHtml(activeEst.fianzaAfianzadora || 'No especificada')}</td>
+          </tr>
+          <tr style="background-color: #ffffff;">
+            <td style="padding: 6px 8px; font-weight: 700; color: #475569;">Estado del Comprobante:</td>
+            <td style="padding: 6px 8px;">
+              <strong style="color: ${isCobrada ? '#047857;' : '#b45309;'}">${isCobrada ? 'COBRADA / PAGADA' : 'PENDIENTE DE PAGO'}</strong>
+              ${factura.pdfFileName ? `<span style="font-size: 6.5pt; color: #64748b; margin-left: 6px;">(PDF: ${escapeHtml(factura.pdfFileName)})</span>` : ''}
+            </td>
+            <td style="padding: 6px 8px; font-weight: 700; color: #475569;">Observaciones / Notas:</td>
+            <td style="padding: 6px 8px; color: #475569;">${escapeHtml(activeEst.notas || 'Sin observaciones registradas.')}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Monitoreo Histórico de Amortización -->
+      <div style="background-color: #0f172a; color: #ffffff; border-radius: 6px; padding: 10px 14px; margin-bottom: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span style="font-weight: 800; font-size: 7.5pt; text-transform: uppercase; color: #fde68a;">
+            MONITOREO DE AMORTIZACIÓN PROGRESIVA DEL ANTICIPO
+          </span>
+          <span style="font-family: monospace; font-weight: 800; font-size: 8pt; color: #a7f3d0;">
+            ${anticipoKpi.pctAmortizado.toFixed(1)}% Amortizado
+          </span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 7pt; color: #cbd5e1; border-top: 1px solid #334155; padding-top: 6px;">
+          <span>Anticipo Total Recibido: <strong style="color: #ffffff; font-family: monospace;">${formatMoney(subtotalAnticipo)}</strong></span>
+          <span>Amortizado en Estimaciones de Obra: <strong style="color: #fde68a; font-family: monospace;">-${formatMoney(anticipoKpi.amortizadoTotalHistorico || 0)}</strong></span>
+          <span>Saldo Pendiente de Amortizar: <strong style="color: ${anticipoKpi.saldoPendiente <= 0 ? '#86efac' : '#f87171'}; font-family: monospace;">${formatMoney(anticipoKpi.saldoPendiente)}</strong></span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+
 export async function printEstimacionesFormat() {
   const data = getEstimacionesCalculatedData();
   const { activeEst, rows, kpis } = data;
 
-  if (!rows || rows.length === 0) {
+  if ((!rows || rows.length === 0) && activeEst.numero > 0) {
     showToast('No hay conceptos en el Catálogo Base para generar la Estimación de Obra.', 'warning');
     return;
   }
@@ -3368,19 +3486,25 @@ export async function printEstimacionesFormat() {
         </div>
       </div>
 
-      <!-- Banner Financiero de Estado del Anticipo y Alcance Líquido -->
+      <!-- Banner Financiero Oficial con Datos Fiscales y Estado del Anticipo -->
       <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #1e3a8a; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 8pt;">
         <div>
-          <span style="font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-right: 8px;">Estado del Anticipo (${kpis.anticipo.pct}%):</span>
-          <span style="color: #475569;">Total Contratado: <strong class="font-mono" style="color: #0f172a;">${formatMoney(kpis.anticipo.totalContratado)}</strong></span>
+          <span style="font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin-right: 8px;">
+            Anticipo Cobrado ${data.estZero?.factura?.folio ? `(Factura ${escapeHtml(data.estZero.factura.folio)})` : ''} [${kpis.anticipo.pct}%]:
+          </span>
+          <span style="color: #475569;">Anticipo Inicial: <strong class="font-mono" style="color: #0f172a;">${formatMoney(kpis.anticipo.totalContratado)}</strong></span>
           <span style="margin: 0 6px; color: #cbd5e1;">|</span>
-          <span style="color: #475569;">Amortizado Anterior: <strong class="font-mono" style="color: #1e3a8a;">${formatMoney(kpis.anticipo.amortizadoAnterior)}</strong></span>
+          <span style="color: #475569;">Amortizado Previo: <strong class="font-mono" style="color: #1e3a8a;">${formatMoney(kpis.anticipo.amortizadoAnterior)}</strong></span>
           <span style="margin: 0 6px; color: #cbd5e1;">|</span>
-          <span style="color: #475569;">Amortización Esta Est: <strong class="font-mono" style="color: #b91c1c;">-${formatMoney(kpis.anticipo.amortizacionEsta)}</strong></span>
+          <span style="color: #475569;">Amortización Esta: <strong class="font-mono" style="color: #b91c1c;">-${formatMoney(kpis.anticipo.amortizacionEsta)}</strong></span>
           <span style="margin: 0 6px; color: #cbd5e1;">|</span>
-          <span style="color: #475569;">Amortizado Total: <strong class="font-mono" style="color: #047857;">${formatMoney(kpis.anticipo.amortizadoAcumulado)}</strong> (${kpis.anticipo.pctAmortizado.toFixed(1)}%)</span>
+          <span style="color: #475569;">Total Amortizado: <strong class="font-mono" style="color: #047857;">${formatMoney(kpis.anticipo.amortizadoAcumulado)}</strong> (${kpis.anticipo.pctAmortizado.toFixed(1)}%)</span>
           <span style="margin: 0 6px; color: #cbd5e1;">|</span>
           <span style="color: #475569;">Saldo x Amortizar: <strong class="font-mono" style="color: #b45309;">${formatMoney(kpis.anticipo.saldoPendiente)}</strong></span>
+          ${activeEst.factura?.folio ? `
+            <span style="margin: 0 6px; color: #cbd5e1;">|</span>
+            <span style="color: #1e3a8a; font-weight: 700;">Factura Est: <strong class="font-mono text-slate-900">${escapeHtml(activeEst.factura.folio)}</strong> (${activeEst.factura.status === 'cobrada' ? 'COBRADA' : 'PENDIENTE'})</span>
+          ` : ''}
         </div>
         
         <div style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 12px; text-align: right;">

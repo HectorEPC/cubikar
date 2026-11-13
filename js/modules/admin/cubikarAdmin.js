@@ -540,7 +540,7 @@ let adminFilterCycle = 'all';
 
 
 // =========================================================================
-// SELECCIÃ“N Y ELIMINACIÃ“N DE USUARIOS
+// SELECCIÓN Y ELIMINACIÓN DE USUARIOS
 // =========================================================================
 
 export let selectedAdminUserEmails = new Set();
@@ -602,13 +602,13 @@ export function updateAdminDeleteButtonUI() {
 export function deleteSelectedAdminUsers() {
   const targets = Array.from(selectedAdminUserEmails).filter(e => !isUserMasterAdmin(e));
   if (targets.length === 0) {
-    showToast('Selecciona al menos un usuario para eliminar (el Administrador Maestro estÃ¡ protegido).', 'warning');
+    showToast('Selecciona al menos un usuario para eliminar (el Administrador Maestro está protegido).', 'warning');
     return;
   }
 
   const msg = targets.length === 1
-    ? `Â¿EstÃ¡s seguro de que deseas eliminar permanentemente al usuario "${targets[0]}"?\n\nEsta acciÃ³n eliminarÃ¡ su cuenta, proyectos y datos asociados.`
-    : `Â¿EstÃ¡s seguro de que deseas eliminar permanentemente a los ${targets.length} usuarios seleccionados?\n\nEsta acciÃ³n eliminarÃ¡ sus cuentas, proyectos y datos asociados.`;
+    ? `¿Estás seguro de que deseas eliminar permanentemente al usuario "${targets[0]}"?\n\nEsta acción eliminará su cuenta, proyectos y datos asociados.`
+    : `¿Estás seguro de que deseas eliminar permanentemente a los ${targets.length} usuarios seleccionados?\n\nEsta acción eliminará sus cuentas, proyectos y datos asociados.`;
 
   if (!confirm(msg)) {
     return;
@@ -1010,7 +1010,7 @@ export function renderCubikarAdminTable() {
 
     return `
       <tr class="transition-colors border-b border-slate-800 text-xs text-slate-200 select-text ${rowHighlightClass}">
-        <!-- 0. Casilla de SelecciÃ³n -->
+        <!-- 0. Casilla de Selección -->
         <td class="px-2.5 py-2.5 text-center border-r border-slate-800/80">
           ${isUserMasterAdmin(row.correo) ? `
             <span class="text-amber-400/50 text-xs" title="Administrador Maestro protegido (No eliminable)"><i class="fa-solid fa-lock"></i></span>

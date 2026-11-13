@@ -1,4 +1,4 @@
-// js/ui/interactiveTour.js
+﻿// js/ui/interactiveTour.js
 // Motor de Tour Guiado en Vivo (Onboarding Interactivo) para Cubikar (Alternativa 3)
 // Cobertura completa del 100% de la aplicación en todas las pestañas y los 15 módulos.
 // Incluye Foco de Luz (Spotlight), navegación automática entre pestañas y botón visible SALTAR TUTORIAL.
@@ -9,7 +9,7 @@ const STORAGE_KEY_TOUR_SESSION = 'cubikar_interactive_tour_session_v1';
 let currentTourId = null;
 let currentStepIndex = 0;
 let activeTourSteps = [];
-let isTourActive = false;
+let isTourActive = false; if (typeof window !== 'undefined') window.isInteractiveTourActive = false;
 let resizeObserver = null;
 
 function saveTourSessionState(tourId, stepIndex) {
@@ -42,7 +42,13 @@ export function checkAndResumeTourOnLoad() {
       if (Date.now() - (session.timestamp || 0) < 300000) {
         clearTourSessionState();
         setTimeout(() => {
-          startInteractiveTour(session.tourId || 'master', true, session.stepIndex);
+          let stepToStart = session.stepIndex;
+          // Si estamos dentro de una obra (?project=...) y el paso guardado era del portal (< 3),
+          // avanzar automáticamente al primer paso del workspace (Paso 4: Presupuesto, índice 3)
+          if (window.location.search.includes('project=') && stepToStart < 3) {
+            stepToStart = 3;
+          }
+          startInteractiveTour(session.tourId || 'master', true, stepToStart);
         }, 400);
         return true;
       }
@@ -63,13 +69,14 @@ export const TOUR_DEFINITIONS = {
     id: 'master',
     title: 'Tour Maestro • Los 16 Módulos de Cubikar',
     steps: [
+      // VENTANA 1: PORTAL DE INICIO (MIS PROYECTOS)
       {
         tab: 'portal',
         target: '#btn-portal-nuevo-proyecto',
         fallbackTarget: '#projectScopeModeSelect',
         moduleBadge: 'Módulo 1 • Inicio',
         title: '1. Creación de Proyectos e Identidad',
-        content: 'Desde aquí inicias el <strong>Asistente en 2 Pasos</strong>: asignas tu empresa, subes tu logotipo oficial con recorte 1:1 y configuras tu factor de sobrecosto (Indirectos y Utilidad).',
+        content: 'Desde aquí inicias el <strong>Asistente en 2 Pasos</strong>: asignas tu empresa, subes tu logotipo institucional con recorte 1:1 y configuras tu factor de sobrecosto (Indirectos y Utilidad).',
         position: 'bottom'
       },
       {
@@ -90,20 +97,13 @@ export const TOUR_DEFINITIONS = {
         content: 'Invita a tu equipo asignando roles de <strong>Editar</strong> (control total), <strong>Escribir</strong> (captura) o <strong>Leer</strong> (solo consulta). Puedes autorizar o restringir pestañas individualmente.',
         position: 'bottom'
       },
-      {
-        tab: 'presupuesto',
-        target: '#header-project-name',
-        fallbackTarget: '#header-company-name',
-        moduleBadge: 'Módulo 3 • Obra Activa',
-        title: '3. Encabezado y Membrete Institucional',
-        content: 'Al ingresar a una obra, el logotipo de tu empresa, nombre del proyecto, sobrecosto y divisa quedan permanentemente vinculados para generar reportes oficiales en PDF.',
-        position: 'bottom'
-      },
+
+      // VENTANA 2: PESTAÑA 1: PRESUPUESTO Y APU
       {
         tab: 'presupuesto',
         subtab: 'cat',
         target: '#subtab-btn-cat',
-        fallbackTarget: '#tb1-container',
+        fallbackTarget: '#header-project-name',
         moduleBadge: 'Módulo 4 • Presupuesto',
         title: '4. Catálogo de Conceptos y Presupuesto Base',
         content: 'Estructura partidas y conceptos con renumeración automática (1, 1.1). Edita directamente en celda y usa el atajo <strong>Alt + Flecha Arriba/Abajo</strong> para mover filas.',
@@ -113,7 +113,7 @@ export const TOUR_DEFINITIONS = {
         tab: 'presupuesto',
         subtab: 'cat',
         target: '#badge-sobrecosto',
-        fallbackTarget: '#btn-toolbar-google-ia',
+        fallbackTarget: '#header-factor-display',
         moduleBadge: 'Módulo 5 • Matrices',
         title: '5. Análisis de Precios Unitarios (APU)',
         content: 'Cada concepto cuenta con su matriz APU desglosada en 4 rubros: <strong>Materiales, Mano de Obra con FASAR, Maquinaria y Subcontratos</strong>, calculando el precio de venta final.',
@@ -121,21 +121,23 @@ export const TOUR_DEFINITIONS = {
       },
       {
         tab: 'presupuesto',
-        target: '#badge-sobrecosto',
-        fallbackTarget: '#header-factor-display',
-        moduleBadge: 'Módulo 6 • Sobrecosto',
-        title: '6. Factor de Sobrecosto y Moneda',
-        content: 'Fija los porcentajes oficiales de Indirectos (oficina y campo), Financiamiento, Utilidad y Fianzas. El sistema calcula el multiplicador en tiempo real.',
-        position: 'right'
+        subtab: 'cat',
+        target: '#toolbar-ai-split-wrapper',
+        fallbackTarget: '#btn-toolbar-google-ia',
+        moduleBadge: 'Módulo 6 • IA Gemini',
+        title: '6. Inteligencia Artificial y Google Search Grounding',
+        content: 'Consulta precios vigentes de mercado en tiempo real o describe un trabajo en lenguaje común para que la IA formule la matriz APU con cuadrillas y rendimientos.',
+        position: 'bottom'
       },
       {
         tab: 'presupuesto',
-        target: '#toolbar-ai-split-wrapper',
-        fallbackTarget: '#btn-toolbar-google-ia',
-        moduleBadge: 'Módulo 7 • IA Gemini',
-        title: '7. Inteligencia Artificial y Google Search Grounding',
-        content: 'Consulta precios vigentes de mercado en tiempo real o describe un trabajo en lenguaje común para que la IA formule la matriz APU con cuadrillas y rendimientos.',
-        position: 'bottom'
+        subtab: 'cat',
+        target: '#btn-sidebar-master-catalog',
+        fallbackTarget: '#workspace-sidebar',
+        moduleBadge: 'Módulo 7 • Referencia',
+        title: '7. Catálogos Maestros: BIMSA y Gobierno',
+        content: 'Explora más de <strong>61,000 conceptos precargados</strong> de BIMSA y Tabuladores oficiales con matrices completas listas para insertar en tu presupuesto.',
+        position: 'right'
       },
       {
         tab: 'presupuesto',
@@ -144,60 +146,80 @@ export const TOUR_DEFINITIONS = {
         fallbackTarget: '#view-insumos',
         moduleBadge: 'Módulo 8 • Insumos',
         title: '8. Explosión y Consolidado de Insumos',
-        content: 'Visualiza la suma global de todos los materiales y cuadrillas de la obra. Si cambias el precio de un insumo aquí, todas las matrices del presupuesto se actualizan en cascada.',
+        content: 'Visualiza la suma global de todos los materiales, cuadrillas y maquinaria de la obra. Al modificar el precio de un insumo aquí, todas las matrices del presupuesto se actualizan en cascada.',
         position: 'bottom'
       },
       {
         tab: 'presupuesto',
-        target: '#btn-sidebar-project-chat',
-        fallbackTarget: '#sidebar-chat-icon',
-        moduleBadge: 'Módulo 9 • Chat',
-        title: '9. Chat del Proyecto y Bitácora Contextual',
-        content: 'Comunícate con tu equipo en canales separados: <strong>Sección Técnica</strong> y <strong>Sección Financiera</strong>. Puedes mencionar a compañeros (@) y ligar notas a partidas de obra.',
-        position: 'right'
-      },
-      {
-        tab: 'compras',
-        target: '#tab-btn-compras',
-        fallbackTarget: '#view-compras',
-        moduleBadge: 'Módulo 10 • Egresos',
-        title: '10. Compras, Gastos y ERP Financiero',
-        content: 'Dashboard con Presupuesto vs Gasto Real en vivo, registro de facturas con PDF, órdenes de compra oficiales con folio y semáforos de alerta de sobrecosto.',
+        subtab: 'cat',
+        target: '#btn-print-presupuesto',
+        fallbackTarget: '#btn-export-excel',
+        moduleBadge: 'Módulo 9 • Reportes',
+        title: '9. Reportes e Impresión Oficial en PDF',
+        content: 'Configura las firmas responsables (Elaboró, Revisó, Autorizó) y descarga el <strong>Presupuesto Base, Matrices APU o Explosión de Insumos</strong> en formato PDF vectorial o Excel.',
         position: 'bottom'
       },
-      {
-        tab: 'bitacora',
-        target: '#tab-btn-bitacora',
-        fallbackTarget: '#view-bitacora',
-        moduleBadge: 'Módulo 11 • Bitácora',
-        title: '11. Bitácora Electrónica y Legal (LOPSRM / BESOP)',
-        content: 'Folios inalterables (#001, #002), registro de clima, firmas táctiles manuscritas y <strong>sellado criptográfico SHA</strong> para compilar el Libro Completo de Bitácora en PDF.',
-        position: 'bottom'
-      },
+
+      // VENTANA 3: PESTAÑA 2: CALENDARIO DE OBRA Y GANTT
       {
         tab: 'calendario',
         target: '#tab-btn-calendario',
         fallbackTarget: '#view-calendario',
-        moduleBadge: 'Módulo 12 • Tiempos',
-        title: '12. Calendario de Obra y Diagrama de Gantt',
+        moduleBadge: 'Módulo 10 • Tiempos',
+        title: '10. Calendario de Obra y Diagrama de Gantt',
         content: 'Cronograma visual ligado al presupuesto: ajusta duraciones, activa la <strong>Ruta Crítica</strong> para vigilar tareas clave y consulta el calendario financiero de cobros.',
         position: 'bottom'
       },
+
+      // VENTANA 4: PESTAÑA 3: ESTIMACIONES Y COBRO
       {
         tab: 'estimaciones',
         target: '#tab-btn-estimaciones',
         fallbackTarget: '#view-estimaciones',
-        moduleBadge: 'Módulo 13 • Cobros',
-        title: '13. Estimaciones y Números Generadores',
+        moduleBadge: 'Módulo 11 • Cobros',
+        title: '11. Estimaciones y Números Generadores',
         content: 'Genera cortes periódicos de cobro, captura volúmenes ejecutados, aplica amortización de anticipos y descarga la carátula oficial de estimación en PDF.',
         position: 'bottom'
+      },
+
+      // VENTANA 5: PESTAÑA 4: COMPRAS Y ERP
+      {
+        tab: 'compras',
+        target: '#tab-btn-compras',
+        fallbackTarget: '#view-compras',
+        moduleBadge: 'Módulo 12 • Egresos',
+        title: '12. Compras, Gastos y ERP Financiero',
+        content: 'Dashboard con Presupuesto vs Gasto Real en vivo, registro de facturas con PDF, órdenes de compra oficiales con folio y semáforos de alerta de sobrecosto.',
+        position: 'bottom'
+      },
+
+      // VENTANA 6: PESTAÑA 5: BITÁCORA DE OBRA
+      {
+        tab: 'bitacora',
+        target: '#tab-btn-bitacora',
+        fallbackTarget: '#view-bitacora',
+        moduleBadge: 'Módulo 13 • Bitácora',
+        title: '13. Bitácora Electrónica y Legal (LOPSRM / BESOP)',
+        content: 'Folios inalterables (#001, #002), registro de clima, firmas táctiles manuscritas y <strong>sellado criptográfico SHA</strong> para compilar el Libro Completo de Bitácora en PDF.',
+        position: 'bottom'
+      },
+
+      // VENTANA 7: HERRAMIENTAS GLOBALES Y SEGURIDAD
+      {
+        tab: 'presupuesto',
+        target: '#btn-sidebar-project-chat',
+        fallbackTarget: '#sidebar-chat-icon',
+        moduleBadge: 'Módulo 14 • Comunicación',
+        title: '14. Chat del Proyecto y Bitácora Contextual',
+        content: 'Comunícate con tu equipo en canales separados: <strong>Sección Técnica</strong> y <strong>Sección Financiera</strong>. Puedes mencionar a compañeros (@) y ligar notas a partidas de obra.',
+        position: 'right'
       },
       {
         tab: 'presupuesto',
         target: '#btn-sidebar-import-modal',
-        fallbackTarget: '#btn-sidebar-export-modal',
-        moduleBadge: 'Módulo 14 • Importar/Exportar',
-        title: '14. Importación Universal (Excel, Opus, Neodata)',
+        fallbackTarget: '#workspace-sidebar',
+        moduleBadge: 'Módulo 15 • Importar/Exportar',
+        title: '15. Importación Universal (Excel, Opus, Neodata)',
         content: 'Carga archivos de Excel (.xlsx, .xls), CSV o respaldos de Opus y Neodata con mapeo automático de columnas y procesamiento 100% offline.',
         position: 'right'
       },
@@ -205,9 +227,9 @@ export const TOUR_DEFINITIONS = {
         tab: 'presupuesto',
         target: '#btn-lock-cat',
         fallbackTarget: '#workspace-user-btn',
-        moduleBadge: 'Módulo 15 • Seguridad',
-        title: '15. Seguridad, Tab Lock y Respaldos',
-        content: 'Protege tu obra con el candado <strong>Tab Lock</strong> para impedir cambios involuntarios, descarga respaldos locales .JSON y alterna entre Modo Día y Modo Nocturno.',
+        moduleBadge: 'Módulo 16 • Seguridad',
+        title: '16. Seguridad, Tab Lock y Respaldos',
+        content: 'Protege tu obra con el candado <strong>Tab Lock</strong> para impedir cambios involuntarios, descarga respaldos locales .JSON y personaliza tu perfil profesional.',
         position: 'bottom'
       }
     ]
@@ -368,13 +390,13 @@ export function startInteractiveTour(tourId = 'master', forceStart = true, initi
     const workspaceContainer = document.getElementById('workspace-container');
     const isWorkspaceVisible = workspaceContainer && !workspaceContainer.classList.contains('hidden') && workspaceContainer.style.display !== 'none';
     if (isWorkspaceVisible) {
-      initialStepIndex = 2; // Índice 2 es el Paso 3 (Módulo 3: Encabezado y Membrete Institucional)
+      initialStepIndex = 3; // Índice 3 es el Paso 4 (Módulo 4: Catálogo de Conceptos y Presupuesto Base)
     }
   }
 
   currentStepIndex = Math.min(Math.max(0, initialStepIndex), activeTourSteps.length - 1);
 
-  isTourActive = true;
+  isTourActive = true; if (typeof window !== 'undefined') window.isInteractiveTourActive = true;
   saveTourSessionState(currentTourId, currentStepIndex);
   injectTourDomElements();
   executeCurrentStep();
@@ -423,20 +445,38 @@ function executeCurrentStep() {
       const workspace = document.getElementById('workspace-container');
       const isViewingPortal = viewPortal && !viewPortal.classList.contains('hidden') && viewPortal.style.display !== 'none';
 
-      if (isViewingPortal && workspace) {
-        // Conmutar instantáneamente al Workspace en memoria (SPA sin recarga forzada para no perder el tour)
-        viewPortal.classList.add('hidden');
-        viewPortal.style.display = 'none';
-        workspace.classList.remove('hidden');
-        workspace.style.display = 'flex';
-        if (document.documentElement?.classList) document.documentElement.classList.remove('portal-active');
-        if (document.body?.classList) document.body.classList.remove('portal-active');
-
-        if (typeof window.renderTAB1 === 'function') {
-          try { window.renderTAB1(); } catch (_) {}
+      if (isViewingPortal) {
+        // Si estamos en el portal y el paso pertenece al espacio de trabajo (Paso 4 en adelante):
+        const hasProjectInUrl = window.location.search.includes('project=');
+        if (!hasProjectInUrl) {
+          let targetPid = null;
+          try {
+            if (typeof window.getProjects === 'function') {
+              const projs = window.getProjects();
+              if (Array.isArray(projs) && projs.length > 0) targetPid = projs[0].id;
+            }
+          } catch (_) {}
+          if (targetPid && typeof window.openProjectInWorkspace === 'function') {
+            saveTourSessionState(currentTourId, currentStepIndex);
+            window.openProjectInWorkspace(targetPid);
+            return;
+          }
         }
-        if (typeof window.renderHeaderCollaborators === 'function') {
-          try { window.renderHeaderCollaborators(); } catch (_) {}
+
+        if (workspace) {
+          viewPortal.classList.add('hidden');
+          viewPortal.style.display = 'none';
+          workspace.classList.remove('hidden');
+          workspace.style.display = 'flex';
+          if (document.documentElement?.classList) document.documentElement.classList.remove('portal-active');
+          if (document.body?.classList) document.body.classList.remove('portal-active');
+
+          if (typeof window.renderTAB1 === 'function') {
+            try { window.renderTAB1(); } catch (_) {}
+          }
+          if (typeof window.renderHeaderCollaborators === 'function') {
+            try { window.renderHeaderCollaborators(); } catch (_) {}
+          }
         }
       }
 
@@ -700,7 +740,7 @@ export function skipInteractiveTour(persistDismissal = true) {
 }
 
 export function closeInteractiveTour(completed = false) {
-  isTourActive = false;
+  isTourActive = false; if (typeof window !== 'undefined') window.isInteractiveTourActive = false;
   currentTourId = null;
   activeTourSteps = [];
   currentStepIndex = 0;

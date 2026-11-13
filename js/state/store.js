@@ -57,6 +57,33 @@ export function initStore() {
     state.settings = Object.assign({}, defaultSettings);
   }
 
+  // Auto-sanitizar firmas del presupuesto si estuviesen corruptas en localStorage
+  if (Array.isArray(state.settings?.budgetSignatures)) {
+    const sanitizeMojibake = (str) => {
+      if (typeof str !== 'string' || !str) return str || '';
+      return str
+        .replace(/Ã“|Ã\u201c|Ã\u0093/g, 'Ó')
+        .replace(/Ã³/g, 'ó')
+        .replace(/Ã­|Ã\u00ad/g, 'í')
+        .replace(/Ã‰/g, 'É')
+        .replace(/Ã©/g, 'é')
+        .replace(/Ã |Ã\u0081/g, 'Á')
+        .replace(/Ã¡/g, 'á')
+        .replace(/Ãš/g, 'Ú')
+        .replace(/Ãº/g, 'ú')
+        .replace(/Ã‘/g, 'Ñ')
+        .replace(/Ã±/g, 'ñ')
+        .replace(/Ã(?=[a-zA-ZáéíóúñÁÉÍÓÚÑ])/g, 'í')
+        .replace(/Â¿/g, '¿')
+        .replace(/Â¡/g, '¡');
+    };
+    state.settings.budgetSignatures = state.settings.budgetSignatures.map(s => ({
+      rol: sanitizeMojibake(s.rol || 'FIRMA'),
+      nombre: sanitizeMojibake(s.nombre || ''),
+      cargo: sanitizeMojibake(s.cargo || '')
+    }));
+  }
+
   // Cargar árbol de catálogo
   try {
     const savedData = localStorage.getItem(getStorageKey());

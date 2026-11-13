@@ -419,18 +419,18 @@ import {
   isTourDismissed,
   resetTourDismissedStatus,
   checkAndResumeTourOnLoad
-} from './ui/interactiveTour.js?v=20261113_20';
+} from './ui/interactiveTour.js?v=20261113_23';
 
 import {
   openVideoSimulatorModal,
   closeVideoSimulatorModal,
   toggleVoiceNarration
-} from './ui/videoSimulatorModal.js?v=20261113_22';
+} from './ui/videoSimulatorModal.js?v=20261113_23';
 
 import {
   openTutorialHubModal,
   closeTutorialHubModal
-} from './ui/tutorialHubModal.js?v=20261113_22';
+} from './ui/tutorialHubModal.js?v=20261113_23';
 
 import {
   toggleProjectChatDock,
@@ -635,7 +635,16 @@ import {
   onEstimacionPhotoUrlPreviewInput,
   clearEstimacionConceptPhotoSlot,
   saveEstimacionConceptPhotosModal,
-  selectEstimacionRow
+  selectEstimacionRow,
+  toggleEstimacionFacturaCard,
+  toggleEstimacionCobroStatus,
+  onFacturaFieldChange,
+  onFacturaFileUpload,
+  viewFacturaFile,
+  removeFacturaFile,
+  onAnticipoZeroFieldChange,
+  openFacturaModal,
+  closeFacturaModal
 } from './modules/estimaciones/estimacionesView.js';
 
 // Exponer funciones públicas al objeto global window para compatibilidad total con eventos inline del HTML
@@ -1061,7 +1070,10 @@ Object.assign(window, {
   resetFilters,
   subscribeToProjectRealtime,
   unsubscribeFromProjectRealtime,
-  exportProjectToExcelAction
+  exportProjectToExcelAction,
+  toggleEstimacionCobroStatus,
+  openFacturaModal,
+  closeFacturaModal
 });
 
 // Atajos de teclado:
@@ -1426,6 +1438,15 @@ window.onEstimacionPhotoFileSelected = onEstimacionPhotoFileSelected;
 window.onEstimacionPhotoUrlPreviewInput = onEstimacionPhotoUrlPreviewInput;
 window.clearEstimacionConceptPhotoSlot = clearEstimacionConceptPhotoSlot;
 window.saveEstimacionConceptPhotosModal = saveEstimacionConceptPhotosModal;
+window.toggleEstimacionFacturaCard = toggleEstimacionFacturaCard;
+window.toggleEstimacionCobroStatus = toggleEstimacionCobroStatus;
+window.onFacturaFieldChange = onFacturaFieldChange;
+window.onFacturaFileUpload = onFacturaFileUpload;
+window.viewFacturaFile = viewFacturaFile;
+window.removeFacturaFile = removeFacturaFile;
+window.onAnticipoZeroFieldChange = onAnticipoZeroFieldChange;
+window.openFacturaModal = openFacturaModal;
+window.closeFacturaModal = closeFacturaModal;
 
 window.renderExpensesView = renderExpensesView;
 window.switchExpensesSubTab = switchExpensesSubTab;

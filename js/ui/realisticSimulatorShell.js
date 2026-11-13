@@ -76,7 +76,7 @@ export function getRealisticBudgetTableHtml(options = {}) {
             </button>
           </div>
 
-          <button id="mock-step15-btn-lock" class="bg-white text-slate-700 border border-slate-300 px-1.5 py-0.5 rounded shadow-2xs" title="Bloquear ediciÃ³n">
+          <button id="mock-step16-btn-lock" class="bg-white text-slate-700 border border-slate-300 px-1.5 py-0.5 rounded shadow-2xs" title="Bloquear ediciÃ³n">
             <i class="fa-solid fa-lock-open text-[9px] text-slate-600"></i>
           </button>
 
@@ -84,7 +84,7 @@ export function getRealisticBudgetTableHtml(options = {}) {
 
           <!-- Split AI Button Container y Menú Flotante -->
           <div class="relative inline-block">
-            <div id="mock-step7-btn-ai" class="inline-flex items-center rounded bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-2xs text-[10px] ${highlightApuBtn ? 'ring-2 ring-indigo-400 animate-pulse' : ''}">
+            <div id="mock-step6-btn-ai" class="inline-flex items-center rounded bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-2xs text-[10px] ${highlightApuBtn ? 'ring-2 ring-indigo-400 animate-pulse' : ''}">
               <span class="px-2 py-0.5 font-bold flex items-center gap-1 cursor-pointer">
                 <i class="fa-solid fa-wand-magic-sparkles text-[9px] text-amber-300"></i> Generar APU
               </span>
@@ -95,7 +95,7 @@ export function getRealisticBudgetTableHtml(options = {}) {
 
             ${showAiMenu ? `
               <!-- Menú Dividido de IA Flotante (Idéntico a aiSplitMenu.js) -->
-              <div id="mock-step7-ai-menu" class="absolute left-0 top-full mt-1.5 z-40 w-[290px] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden select-none animate-in fade-in zoom-in-95 duration-150 text-slate-800">
+              <div id="mock-step6-ai-menu" class="absolute left-0 top-full mt-1.5 z-40 w-[290px] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden select-none animate-in fade-in zoom-in-95 duration-150 text-slate-800">
                 <div class="px-3 py-1.5 text-[9.5px] font-bold uppercase tracking-wider flex items-center justify-between bg-slate-50 border-b border-slate-200 text-slate-500">
                   <span>Generar matrices seleccionadas</span>
                   <span class="text-[8.5px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">Plan Profesional</span>
@@ -130,7 +130,7 @@ export function getRealisticBudgetTableHtml(options = {}) {
                   </div>
 
                   <!-- Opción 3: Precios Web en Vivo (Google) -->
-                  <div id="mock-step7-menu-web" class="w-full text-left px-2.5 py-2 flex items-start gap-2 bg-amber-50 hover:bg-amber-100/80 transition cursor-pointer ring-2 ring-amber-400 rounded-lg">
+                  <div id="mock-step6-menu-web" class="w-full text-left px-2.5 py-2 flex items-start gap-2 bg-amber-50 hover:bg-amber-100/80 transition cursor-pointer ring-2 ring-amber-400 rounded-lg">
                     <span class="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 text-xs bg-amber-100 text-amber-700">
                       <i class="fa-solid fa-globe text-[10px]"></i>
                     </span>
@@ -147,7 +147,7 @@ export function getRealisticBudgetTableHtml(options = {}) {
             ` : ''}
           </div>
 
-          <button id="mock-step14-btn-print" class="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-2xs">
+          <button id="mock-step9-btn-print" class="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-2xs">
             <i class="fa-solid fa-print text-[9px]"></i> Imprimir
           </button>
         </div>
@@ -310,25 +310,25 @@ export function renderRealisticWorkspaceShell({
           </div>
 
           <!-- Chat de Obra -->
-          <div id="mock-step3-btn-chat" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-400 hover:bg-slate-900 cursor-pointer relative ${activeRail === 'chat' || showChatDock ? 'bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/40' : ''}" title="Chat Contextual de Obra">
+          <div id="mock-step14-btn-chat" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-400 hover:bg-slate-900 cursor-pointer relative ${activeRail === 'chat' || showChatDock ? 'bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/40' : ''}" title="Chat Contextual de Obra">
             <i class="fa-solid fa-comments text-xs"></i>
             <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
           </div>
 
           <!-- CatÃ¡logo Maestro BIMSA -->
-          <div id="mock-step6-rail-btn" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-900 cursor-pointer ${activeRail === 'master' ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40' : ''}" title="CatÃ¡logos Maestros (BIMSA / Tabuladores)">
+          <div id="mock-step7-rail-btn" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-900 cursor-pointer ${activeRail === 'master' ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40' : ''}" title="CatÃ¡logos Maestros (BIMSA / Tabuladores)">
             <i class="fa-solid fa-book-bookmark text-xs"></i>
           </div>
 
           <!-- Importar Archivo -->
-          <div id="mock-step13-rail-import" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-900 cursor-pointer ${activeRail === 'import' ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40' : ''}" title="Importar Opus, Neodata o Excel">
+          <div id="mock-step15-rail-import" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-900 cursor-pointer ${activeRail === 'import' ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40' : ''}" title="Importar Opus, Neodata o Excel">
             <i class="fa-solid fa-cloud-arrow-up text-xs"></i>
           </div>
         </div>
 
         <!-- Bottom Icons -->
         <div class="flex flex-col items-center gap-2 w-full">
-          <div id="mock-step15-btn-profile" class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white cursor-pointer" title="Perfil Profesional">
+          <div id="mock-step16-btn-profile" class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white cursor-pointer" title="Perfil Profesional">
             <i class="fa-solid fa-user-gear text-xs"></i>
           </div>
         </div>
@@ -362,7 +362,7 @@ export function renderRealisticWorkspaceShell({
                   <span class="w-4 h-4 rounded-full bg-amber-600 text-[8px] flex items-center justify-center text-white font-bold ring-1 ring-slate-950">J</span>
                 </div>
                 <span class="font-semibold text-slate-400 hidden sm:inline">Equipo</span>
-                <button id="mock-step2-btn-invite" class="ml-1 text-[9px] font-bold text-blue-400 hover:text-white bg-blue-600/30 hover:bg-blue-600 px-1.5 py-0.2 rounded transition cursor-pointer">
+                <button id="mock-step3-btn-invite" class="ml-1 text-[9px] font-bold text-blue-400 hover:text-white bg-blue-600/30 hover:bg-blue-600 px-1.5 py-0.2 rounded transition cursor-pointer">
                   + Invitar
                 </button>
               </div>
@@ -380,16 +380,16 @@ export function renderRealisticWorkspaceShell({
               <button class="px-2 py-1 rounded font-bold flex items-center gap-1 ${activeTab === 'presupuesto' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-300 hover:text-white'}">
                 <i class="fa-solid fa-calculator text-[9px]"></i> PRESUPUESTO
               </button>
-              <button id="mock-step11-tab-gantt" class="px-2 py-1 rounded font-bold flex items-center gap-1 ${activeTab === 'calendario' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-300 hover:text-white'}">
+              <button id="mock-step10-tab-cal" class="px-2 py-1 rounded font-bold flex items-center gap-1 ${activeTab === 'calendario' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-300 hover:text-white'}">
                 <i class="fa-solid fa-calendar-days text-[9px]"></i> CALENDARIO
               </button>
-              <button id="mock-step12-tab-estimaciones" class="px-2 py-1 rounded font-bold flex items-center gap-1 ${activeTab === 'estimaciones' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-300 hover:text-white'}">
+              <button id="mock-step11-tab-est" class="px-2 py-1 rounded font-bold flex items-center gap-1 ${activeTab === 'estimaciones' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-300 hover:text-white'}">
                 <i class="fa-solid fa-file-invoice-dollar text-[9px]"></i> ESTIMACIONES
               </button>
-              <button id="mock-step9-tab-compras" class="px-2 py-1 rounded font-bold flex items-center gap-1 ${activeTab === 'compras' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-300 hover:text-white'}">
+              <button id="mock-step12-tab-compras" class="px-2 py-1 rounded font-bold flex items-center gap-1 ${activeTab === 'compras' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-300 hover:text-white'}">
                 <i class="fa-solid fa-cart-shopping text-[9px]"></i> COMPRAS
               </button>
-              <button id="mock-step10-tab-bitacora" class="px-2 py-1 rounded font-bold flex items-center gap-1 ${activeTab === 'bitacora' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-300 hover:text-white'}">
+              <button id="mock-step13-tab-bitacora" class="px-2 py-1 rounded font-bold flex items-center gap-1 ${activeTab === 'bitacora' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-300 hover:text-white'}">
                 <i class="fa-solid fa-book-bookmark text-[9px]"></i> BITÃCORA
               </button>
             </nav>
@@ -426,13 +426,13 @@ export function renderRealisticWorkspaceShell({
                 <span class="font-bold flex items-center gap-1.5 text-blue-400">
                   <i class="fa-solid fa-comments"></i> Chat de Obra en Vivo
                 </span>
-                <button id="mock-step3-btn-print" class="px-1.5 py-0.5 rounded bg-blue-600 text-white font-bold text-[9px] flex items-center gap-1">
+                <button id="mock-step9-btn-print" class="px-1.5 py-0.5 rounded bg-blue-600 text-white font-bold text-[9px] flex items-center gap-1">
                   <i class="fa-solid fa-print text-[8px]"></i> Minuta PDF
                 </button>
               </div>
 
               <!-- Subtabs de Canal -->
-              <div id="mock-step3-tabs" class="grid grid-cols-2 p-1 gap-1 bg-slate-950/80 border-b border-slate-800 text-center font-bold">
+              <div id="mock-step14-tabs" class="grid grid-cols-2 p-1 gap-1 bg-slate-950/80 border-b border-slate-800 text-center font-bold">
                 <span class="py-1 rounded bg-blue-600 text-white">Canal TÃ©cnico</span>
                 <span class="py-1 rounded text-slate-400 hover:text-white">Canal Financiero</span>
               </div>
@@ -445,7 +445,7 @@ export function renderRealisticWorkspaceShell({
                     <span class="text-[8px] text-slate-400">10:14 AM</span>
                   </div>
                   <p class="text-slate-200 leading-tight">Se autorizÃ³ el colado del eje 4 al 8 para maÃ±ana a las 7:00 AM.</p>
-                  <div id="mock-step3-bitacora-note" class="mt-1.5 inline-block px-1.5 py-0.2 rounded bg-blue-950 text-blue-300 border border-blue-600/40 text-[8.5px] font-mono">
+                  <div id="mock-step14-bitacora-note" class="mt-1.5 inline-block px-1.5 py-0.2 rounded bg-blue-950 text-blue-300 border border-blue-600/40 text-[8.5px] font-mono">
                     Partida 02 â€¢ CIM-001
                   </div>
                 </div>
@@ -521,7 +521,7 @@ export function renderRealisticPortalShell({
         <div class="max-w-5xl mx-auto space-y-3.5">
 
           <!-- Barra Oficial de Modo de Trabajo (portalController.js) -->
-          <div id="mock-step16-mode-bar" class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 border border-slate-800 rounded-2xl p-2.5 sm:p-3 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 ${highlightModeBar ? 'ring-2 ring-blue-400' : ''}">
+          <div id="mock-step2-mode-bar" class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 border border-slate-800 rounded-2xl p-2.5 sm:p-3 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 ${highlightModeBar ? 'ring-2 ring-blue-400' : ''}">
             <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0">
               <div class="flex items-center gap-2 shrink-0">
                 <div class="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xs">
@@ -535,7 +535,7 @@ export function renderRealisticPortalShell({
               <div class="flex items-center gap-2 shrink-0">
                 <!-- Menú desplegable de Modo de Trabajo -->
                 <div class="relative w-48 sm:w-60 min-w-0">
-                  <select id="mock-step16-scope-select" class="w-full appearance-none bg-slate-950 border border-slate-700 hover:border-blue-500 text-white font-semibold text-xs rounded-xl pl-3 pr-8 py-2 transition outline-none cursor-pointer shadow-inner truncate">
+                  <select id="mock-step2-scope-select" class="w-full appearance-none bg-slate-950 border border-slate-700 hover:border-blue-500 text-white font-semibold text-xs rounded-xl pl-3 pr-8 py-2 transition outline-none cursor-pointer shadow-inner truncate">
                     <option value="owned" ${scopeMode === 'owned' ? 'selected' : ''}>📁 Mis proyectos (Obras Propias)</option>
                     <option value="invited" ${scopeMode === 'invited' ? 'selected' : ''}>👥 Arq. Carlos González (Invitado)</option>
                     <option value="all" ${scopeMode === 'all' ? 'selected' : ''}>🌐 Todos los proyectos</option>
@@ -546,7 +546,7 @@ export function renderRealisticPortalShell({
                 </div>
 
                 <!-- Botón de Invitaciones al Plan al lado derecho -->
-                <button type="button" id="mock-step16-btn-invite" class="shrink-0 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs px-3 py-2 rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer border border-blue-400/30">
+                <button type="button" id="mock-step2-btn-invite" class="shrink-0 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs px-3 py-2 rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer border border-blue-400/30">
                   <i class="fa-solid fa-user-plus text-[10px]"></i>
                   <span class="whitespace-nowrap">Invitaciones</span>
                 </button>
@@ -554,7 +554,7 @@ export function renderRealisticPortalShell({
             </div>
 
             <!-- Indicador visual del modo actual y membresía gobernante -->
-            <div id="mock-step16-status-badge" class="shrink-0 flex items-center gap-2 text-xs">
+            <div id="mock-step2-status-badge" class="shrink-0 flex items-center gap-2 text-xs">
               ${scopeMode === 'invited' ? `
                 <div class="flex items-center gap-2 bg-slate-900/90 border border-indigo-500/40 px-3 py-1.5 rounded-xl shadow-inner text-xs">
                   <i class="fa-solid fa-user-check text-indigo-400"></i>
@@ -582,7 +582,7 @@ export function renderRealisticPortalShell({
           </div>
 
           <!-- Project Cards Grid (Obras Propias) -->
-          <div id="mock-step16-cards-owned" class="grid grid-cols-1 md:grid-cols-3 gap-3" ${scopeMode === 'invited' ? 'style="display: none;"' : ''}>
+          <div id="mock-step2-cards-owned" class="grid grid-cols-1 md:grid-cols-3 gap-3" ${scopeMode === 'invited' ? 'style="display: none;"' : ''}>
             
             <!-- Tarjeta 1: Residencial Palmas Norte (Activo) -->
             <div class="bg-slate-850 border-2 border-blue-500/80 rounded-2xl p-3.5 shadow-xl flex flex-col justify-between relative overflow-hidden group">
@@ -606,9 +606,14 @@ export function renderRealisticPortalShell({
               </div>
 
               <div class="pt-3 mt-2 border-t border-slate-750 flex items-center justify-between gap-2">
-                <div class="flex -space-x-1.5">
-                  <span class="w-5 h-5 rounded-full bg-blue-600 text-[9px] flex items-center justify-center text-white font-bold">C</span>
-                  <span class="w-5 h-5 rounded-full bg-emerald-600 text-[9px] flex items-center justify-center text-white font-bold">S</span>
+                <div class="flex items-center gap-1.5">
+                  <div class="flex -space-x-1.5">
+                    <span class="w-5 h-5 rounded-full bg-blue-600 text-[9px] flex items-center justify-center text-white font-bold">C</span>
+                    <span class="w-5 h-5 rounded-full bg-emerald-600 text-[9px] flex items-center justify-center text-white font-bold">S</span>
+                  </div>
+                  <button id="mock-step3-btn-invite" class="text-[9.5px] font-bold text-blue-400 hover:text-white bg-blue-600/30 hover:bg-blue-600 px-2 py-0.5 rounded transition cursor-pointer">
+                    + Invitar
+                  </button>
                 </div>
                 <button class="bg-blue-600 text-white font-bold text-[10px] px-3 py-1 rounded-lg">Abrir Proyecto</button>
               </div>
@@ -657,7 +662,7 @@ export function renderRealisticPortalShell({
           </div>
 
           <!-- Project Cards Grid (Espacio Invitado) -->
-          <div id="mock-step16-cards-invited" class="grid grid-cols-1 md:grid-cols-3 gap-3" ${scopeMode === 'invited' ? '' : 'style="display: none;"'}>
+          <div id="mock-step2-cards-invited" class="grid grid-cols-1 md:grid-cols-3 gap-3" ${scopeMode === 'invited' ? '' : 'style="display: none;"'}>
             <!-- Tarjeta Invitada 1: Centro Comercial Plaza Mayor -->
             <div class="bg-slate-850 border-2 border-indigo-500/80 rounded-2xl p-3.5 shadow-xl flex flex-col justify-between relative overflow-hidden group">
               <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl pointer-events-none"></div>
@@ -727,7 +732,7 @@ export function renderModuleVisualScene(moduleId) {
   if (!container) return;
 
   switch (Number(moduleId)) {
-    case 1: { // Crear Proyecto (Modal AutÃ©ntico: modal-nuevo-proyecto)
+case 1: { // Crear Proyecto (Modal AutÃ©ntico: modal-nuevo-proyecto)
       const modalHtml = `
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Encabezado Real -->
@@ -832,7 +837,15 @@ export function renderModuleVisualScene(moduleId) {
       break;
     }
 
-    case 2: { // Invitar Colaboradores y Permisos Granulares (Modal: modal-invitaciones-plan)
+    case 2: { // Modo de Trabajo: Obras Propias vs. Invitaciones (portalController.js: projectScopeModeSelect)
+      container.innerHTML = renderRealisticPortalShell({
+        highlightModeBar: true,
+        scopeMode: 'owned'
+      });
+      break;
+    }
+
+case 3: { // Invitar Colaboradores y Permisos Granulares (Modal: modal-invitaciones-plan)
       const modalHtml = `
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Encabezado con Degradado Real -->
@@ -879,7 +892,7 @@ export function renderModuleVisualScene(moduleId) {
               <!-- Correo -->
               <div>
                 <label class="block font-bold text-slate-700 mb-1 text-[10.5px]">Correo ElectrÃ³nico del Invitado *</label>
-                <div id="mock-step2-email" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono font-semibold text-slate-900 shadow-2xs">
+                <div id="mock-step3-email" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono font-semibold text-slate-900 shadow-2xs">
                   <span class="mock-type-value">ing.torres@constructora.com</span>
                 </div>
               </div>
@@ -887,7 +900,7 @@ export function renderModuleVisualScene(moduleId) {
               <!-- Selector de Roles Reales -->
               <div>
                 <label class="block font-bold text-slate-700 mb-1 text-[10.5px]">Rol de Trabajo:</label>
-                <div id="mock-step2-roles" class="grid grid-cols-3 gap-2">
+                <div id="mock-step3-roles" class="grid grid-cols-3 gap-2">
                   <div class="p-2 rounded-xl bg-blue-50 border-2 border-blue-600 text-center shadow-xs cursor-pointer">
                     <strong class="text-blue-900 block text-[11px] font-bold">Editar</strong>
                     <span class="text-[8.5px] text-blue-700">Control Total</span>
@@ -904,7 +917,7 @@ export function renderModuleVisualScene(moduleId) {
               </div>
 
               <!-- Permisos por PestaÃ±a -->
-              <div id="mock-step2-tabs" class="pt-1">
+              <div id="mock-step3-tabs" class="pt-1">
                 <label class="block font-bold text-slate-700 mb-1 text-[10.5px]">Permisos de PestaÃ±as Habilitadas:</label>
                 <div class="flex flex-wrap gap-2 text-[10px]">
                   <span class="px-2 py-1 rounded bg-blue-100 text-blue-800 font-bold border border-blue-300 flex items-center gap-1 cursor-pointer">
@@ -924,7 +937,7 @@ export function renderModuleVisualScene(moduleId) {
           <!-- Footer Modal -->
           <div class="bg-slate-100 px-4 py-2.5 border-t border-slate-200 flex justify-end gap-2 shrink-0">
             <button class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">Cancelar</button>
-            <button id="mock-step2-btn-add" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5">
+            <button id="mock-step3-btn-add" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5">
               <i class="fa-solid fa-paper-plane text-[10px]"></i> Enviar InvitaciÃ³n
             </button>
           </div>
@@ -934,12 +947,7 @@ export function renderModuleVisualScene(moduleId) {
       break;
     }
 
-    case 3: { // Chat de Proyecto y BitÃ¡cora Contextual
-      container.innerHTML = renderRealisticWorkspaceShell({ activeRail: 'chat', showChatDock: true });
-      break;
-    }
-
-    case 4: { // CatÃ¡logo de Conceptos y Presupuesto Base
+case 4: { // CatÃ¡logo de Conceptos y Presupuesto Base
       container.innerHTML = renderRealisticWorkspaceShell({
         activeTab: 'presupuesto',
         mainContent: getRealisticBudgetTableHtml({ highlightPartidaBtn: true, highlightDesc: true, highlightCells: true, highlightReorder: true, highlightColor: true })
@@ -947,7 +955,7 @@ export function renderModuleVisualScene(moduleId) {
       break;
     }
 
-    case 5: { // AnÃ¡lisis de Precios Unitarios (APU Side Panel AutÃ©ntico)
+case 5: { // AnÃ¡lisis de Precios Unitarios (APU Side Panel AutÃ©ntico)
       const apuPanelHtml = `
         <div class="flex-1 flex overflow-hidden">
           <!-- Tabla a la izquierda -->
@@ -1095,108 +1103,11 @@ export function renderModuleVisualScene(moduleId) {
       break;
     }
 
-    case 6: { // CatÃ¡logos Maestros: BIMSA y Gobierno (Modal: master-catalog-modal)
-      const masterModalHtml = `
-        <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
-          <!-- Encabezado Real de index.html -->
-          <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center shrink-0">
-            <div class="flex items-center gap-2.5">
-              <div class="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center text-sm shadow-sm">
-                <i class="fa-solid fa-book-bookmark"></i>
-              </div>
-              <div>
-                <h2 class="font-bold text-xs sm:text-sm leading-tight text-white">CatÃ¡logo Maestro y Biblioteca de Referencia</h2>
-                <div class="flex items-center gap-2 text-[10px] text-slate-300 mt-0.5">
-                  <span><i class="fa-solid fa-database text-amber-400"></i> 61,420 registros</span>
-                  <span>â€¢</span>
-                  <span>BIMSA 2018</span>
-                  <span>â€¢</span>
-                  <span class="text-blue-300">Tabulador Gobierno</span>
-                </div>
-              </div>
-            </div>
-            <button class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
-          </div>
-
-          <!-- PestaÃ±a de NavegaciÃ³n -->
-          <div class="bg-slate-100 border-b border-slate-200 px-4 py-1.5 flex justify-between items-center text-xs shrink-0">
-            <div class="flex gap-1.5">
-              <button class="px-3 py-1 rounded-lg text-xs font-bold bg-white text-blue-700 shadow-xs border border-slate-200">
-                <i class="fa-solid fa-magnifying-glass mr-1"></i> BÃºsqueda de Conceptos
-              </button>
-              <button class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900">
-                Administrar CatÃ¡logos
-              </button>
-            </div>
-            <span class="text-[10px] text-slate-500 font-mono">BIMSA 2018 Oficial</span>
-          </div>
-
-          <!-- Cuerpo: Buscador y Vista Dividida de Especialidades -->
-          <div class="p-3 space-y-2.5 overflow-hidden flex-1 flex flex-col bg-white">
-            
-            <!-- Buscador -->
-            <div class="relative bg-slate-50 p-2 rounded-lg border border-slate-200 shrink-0">
-              <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-              <div id="mock-step6-search" class="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-mono text-slate-800 shadow-2xs">
-                <span class="mock-type-value">Zapata corrida concreto f'c=250</span>
-              </div>
-            </div>
-
-            <!-- Especialidades y Preview -->
-            <div class="flex-1 flex gap-2.5 overflow-hidden border border-slate-200 rounded-lg">
-              
-              <!-- Especialidades a la izquierda -->
-              <div id="mock-step6-specialties" class="w-36 bg-slate-50 border-r border-slate-200 p-2 space-y-1 text-[10px] shrink-0 font-medium">
-                <div class="p-1.5 rounded bg-blue-600 text-white font-bold flex justify-between cursor-pointer">
-                  <span>EdificaciÃ³n</span><span class="font-mono text-[9px] opacity-80">18.4k</span>
-                </div>
-                <div class="p-1.5 rounded hover:bg-slate-200 text-slate-700 flex justify-between cursor-pointer">
-                  <span>Instalaciones</span><span class="font-mono text-[9px] opacity-60">14.1k</span>
-                </div>
-                <div class="p-1.5 rounded hover:bg-slate-200 text-slate-700 flex justify-between cursor-pointer">
-                  <span>Infraestructura</span><span class="font-mono text-[9px] opacity-60">12.8k</span>
-                </div>
-              </div>
-
-              <!-- Vista Previa del Concepto BIMSA -->
-              <div id="mock-step6-preview" class="flex-1 p-2.5 space-y-2 overflow-y-auto bg-white text-[10.5px]">
-                <div class="p-2.5 border border-blue-200 rounded-xl bg-blue-50/50 space-y-1.5">
-                  <div class="flex justify-between items-center font-mono font-bold">
-                    <span class="text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">CIM-BIMSA-421</span>
-                    <span class="text-emerald-700 font-extrabold text-xs">$3,980.50 / m3</span>
-                  </div>
-                  <p class="font-sans font-medium text-slate-800 leading-snug">
-                    Zapata corrida de concreto premezclado f'c=250 kg/cm2, incluye cimbra acabado comÃºn, habilitado de acero, vibrado y curado.
-                  </p>
-                  <div class="grid grid-cols-3 gap-1.5 text-[9px] text-slate-600 font-mono pt-1.5 border-t border-blue-200/60">
-                    <div class="bg-white p-1 rounded border border-blue-100">Materiales: $2,420</div>
-                    <div class="bg-white p-1 rounded border border-blue-100">Mano Obra: $1,180</div>
-                    <div class="bg-white p-1 rounded border border-blue-100">Equipo: $380.50</div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- Footer del Modal -->
-          <div class="bg-slate-100 px-4 py-2 border-t border-slate-200 flex justify-end gap-2 shrink-0">
-            <button class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">Cerrar</button>
-            <button id="mock-step6-btn-insert" class="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow flex items-center gap-1.5">
-              <i class="fa-solid fa-plus text-[10px]"></i> Insertar al Presupuesto
-            </button>
-          </div>
-        </div>
-      `;
-      container.innerHTML = renderRealisticWorkspaceShell({ activeRail: 'master', overlayModal: masterModalHtml });
-      break;
-    }
-
-        case 7: { // Inteligencia Artificial y Google Search Grounding (Modal Oficial: modal-ai-generator y Menú Dividido)
+case 6: { // Inteligencia Artificial y Google Search Grounding (Modal Oficial: modal-ai-generator y Menú Dividido)
       const tableWithAiMenu = getRealisticBudgetTableHtml({ showAiMenu: true });
 
       const aiModalCardHtml = `
-        <div id="mock-step7-modal-card" class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col text-slate-800 text-xs animate-in zoom-in-95 duration-150">
+        <div id="mock-step6-modal-card" class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Modal Header Oficial de index.html #modal-ai-generator -->
           <div class="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white px-4 py-3 flex justify-between items-center shrink-0">
             <div class="flex items-center gap-2">
@@ -1214,7 +1125,7 @@ export function renderModuleVisualScene(moduleId) {
           <!-- Modal Body Oficial de index.html -->
           <div class="p-4 space-y-3 bg-white text-slate-800">
             <!-- Fila seleccionada en TAB1-CAT-BASE -->
-            <div id="mock-step7-concept-card" class="p-3 bg-blue-50/50 border border-blue-200/80 rounded-lg space-y-1.5 ring-2 ring-blue-400">
+            <div id="mock-step6-concept-card" class="p-3 bg-blue-50/50 border border-blue-200/80 rounded-lg space-y-1.5 ring-2 ring-blue-400">
               <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
                 <span class="truncate font-sans font-medium text-slate-600">Partida 02 Cimentación &gt; Zapatas</span>
                 <span class="bg-blue-600 text-white font-bold px-1.5 py-0.5 rounded text-[9px]">CIM-001</span>
@@ -1258,7 +1169,7 @@ export function renderModuleVisualScene(moduleId) {
               </div>
 
               <!-- Toggle explícito para Google Search Grounding -->
-              <div id="mock-step7-grounding-toggle" class="flex items-start gap-2 p-2.5 bg-amber-50/70 border border-amber-300 rounded-lg cursor-pointer ring-2 ring-amber-400">
+              <div id="mock-step6-grounding-toggle" class="flex items-start gap-2 p-2.5 bg-amber-50/70 border border-amber-300 rounded-lg cursor-pointer ring-2 ring-amber-400">
                 <input type="checkbox" checked readonly class="mt-0.5 w-3.5 h-3.5 rounded text-amber-600 border-amber-400">
                 <div class="flex-1">
                   <span class="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
@@ -1282,7 +1193,7 @@ export function renderModuleVisualScene(moduleId) {
             <button class="px-3 py-1.5 bg-white border border-slate-300 rounded text-slate-700 font-medium text-xs">
               Cancelar
             </button>
-            <button id="mock-step7-btn-run" class="px-4 py-1.5 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-500 hover:to-orange-500 text-white rounded font-medium shadow-sm transition text-xs flex items-center gap-1.5 ring-2 ring-amber-400 shadow-amber-500/20">
+            <button id="mock-step6-btn-run" class="px-4 py-1.5 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-500 hover:to-orange-500 text-white rounded font-medium shadow-sm transition text-xs flex items-center gap-1.5 ring-2 ring-amber-400 shadow-amber-500/20">
               <i class="fa-solid fa-globe text-[10px] text-amber-200"></i> Cotizar en Web y Llenar Matriz
             </button>
           </div>
@@ -1293,13 +1204,110 @@ export function renderModuleVisualScene(moduleId) {
         activeTab: 'presupuesto',
         mainContent: tableWithAiMenu,
         overlayModal: aiModalCardHtml,
-        overlayModalWrapperId: 'mock-step7-modal-overlay',
+        overlayModalWrapperId: 'mock-step6-modal-overlay',
         overlayModalHidden: true
       });
       break;
     }
 
-    case 8: { // ExplosiÃ³n y Consolidado de Insumos Generales
+case 7: { // CatÃ¡logos Maestros: BIMSA y Gobierno (Modal: master-catalog-modal)
+      const masterModalHtml = `
+        <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
+          <!-- Encabezado Real de index.html -->
+          <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center shrink-0">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center text-sm shadow-sm">
+                <i class="fa-solid fa-book-bookmark"></i>
+              </div>
+              <div>
+                <h2 class="font-bold text-xs sm:text-sm leading-tight text-white">CatÃ¡logo Maestro y Biblioteca de Referencia</h2>
+                <div class="flex items-center gap-2 text-[10px] text-slate-300 mt-0.5">
+                  <span><i class="fa-solid fa-database text-amber-400"></i> 61,420 registros</span>
+                  <span>â€¢</span>
+                  <span>BIMSA 2018</span>
+                  <span>â€¢</span>
+                  <span class="text-blue-300">Tabulador Gobierno</span>
+                </div>
+              </div>
+            </div>
+            <button class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
+          </div>
+
+          <!-- PestaÃ±a de NavegaciÃ³n -->
+          <div class="bg-slate-100 border-b border-slate-200 px-4 py-1.5 flex justify-between items-center text-xs shrink-0">
+            <div class="flex gap-1.5">
+              <button class="px-3 py-1 rounded-lg text-xs font-bold bg-white text-blue-700 shadow-xs border border-slate-200">
+                <i class="fa-solid fa-magnifying-glass mr-1"></i> BÃºsqueda de Conceptos
+              </button>
+              <button class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900">
+                Administrar CatÃ¡logos
+              </button>
+            </div>
+            <span class="text-[10px] text-slate-500 font-mono">BIMSA 2018 Oficial</span>
+          </div>
+
+          <!-- Cuerpo: Buscador y Vista Dividida de Especialidades -->
+          <div class="p-3 space-y-2.5 overflow-hidden flex-1 flex flex-col bg-white">
+            
+            <!-- Buscador -->
+            <div class="relative bg-slate-50 p-2 rounded-lg border border-slate-200 shrink-0">
+              <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <div id="mock-step7-search" class="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-mono text-slate-800 shadow-2xs">
+                <span class="mock-type-value">Zapata corrida concreto f'c=250</span>
+              </div>
+            </div>
+
+            <!-- Especialidades y Preview -->
+            <div class="flex-1 flex gap-2.5 overflow-hidden border border-slate-200 rounded-lg">
+              
+              <!-- Especialidades a la izquierda -->
+              <div id="mock-step7-specialties" class="w-36 bg-slate-50 border-r border-slate-200 p-2 space-y-1 text-[10px] shrink-0 font-medium">
+                <div class="p-1.5 rounded bg-blue-600 text-white font-bold flex justify-between cursor-pointer">
+                  <span>EdificaciÃ³n</span><span class="font-mono text-[9px] opacity-80">18.4k</span>
+                </div>
+                <div class="p-1.5 rounded hover:bg-slate-200 text-slate-700 flex justify-between cursor-pointer">
+                  <span>Instalaciones</span><span class="font-mono text-[9px] opacity-60">14.1k</span>
+                </div>
+                <div class="p-1.5 rounded hover:bg-slate-200 text-slate-700 flex justify-between cursor-pointer">
+                  <span>Infraestructura</span><span class="font-mono text-[9px] opacity-60">12.8k</span>
+                </div>
+              </div>
+
+              <!-- Vista Previa del Concepto BIMSA -->
+              <div id="mock-step7-preview" class="flex-1 p-2.5 space-y-2 overflow-y-auto bg-white text-[10.5px]">
+                <div class="p-2.5 border border-blue-200 rounded-xl bg-blue-50/50 space-y-1.5">
+                  <div class="flex justify-between items-center font-mono font-bold">
+                    <span class="text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">CIM-BIMSA-421</span>
+                    <span class="text-emerald-700 font-extrabold text-xs">$3,980.50 / m3</span>
+                  </div>
+                  <p class="font-sans font-medium text-slate-800 leading-snug">
+                    Zapata corrida de concreto premezclado f'c=250 kg/cm2, incluye cimbra acabado comÃºn, habilitado de acero, vibrado y curado.
+                  </p>
+                  <div class="grid grid-cols-3 gap-1.5 text-[9px] text-slate-600 font-mono pt-1.5 border-t border-blue-200/60">
+                    <div class="bg-white p-1 rounded border border-blue-100">Materiales: $2,420</div>
+                    <div class="bg-white p-1 rounded border border-blue-100">Mano Obra: $1,180</div>
+                    <div class="bg-white p-1 rounded border border-blue-100">Equipo: $380.50</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Footer del Modal -->
+          <div class="bg-slate-100 px-4 py-2 border-t border-slate-200 flex justify-end gap-2 shrink-0">
+            <button class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">Cerrar</button>
+            <button id="mock-step7-btn-insert" class="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow flex items-center gap-1.5">
+              <i class="fa-solid fa-plus text-[10px]"></i> Insertar al Presupuesto
+            </button>
+          </div>
+        </div>
+      `;
+      container.innerHTML = renderRealisticWorkspaceShell({ activeRail: 'master', overlayModal: masterModalHtml });
+      break;
+    }
+
+case 8: { // ExplosiÃ³n y Consolidado de Insumos Generales
       const insumosContentHtml = `
         <div class="flex-1 bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col overflow-hidden m-2 text-slate-800 text-[11px]">
           <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 shrink-0">
@@ -1380,7 +1388,188 @@ export function renderModuleVisualScene(moduleId) {
       break;
     }
 
-    case 9: { // Compras, Gastos y ERP Financiero (Modal: modal-nueva-compra)
+case 9: { // Reportes e ImpresiÃ³n Oficial en PDF (Modal: modal-presupuesto-firmas)
+      const printModalHtml = `
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
+          <!-- Encabezado Real de index.html -->
+          <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center shrink-0">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-blue-300 text-sm">
+                <i class="fa-solid fa-file-signature"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-xs sm:text-sm text-white">Responsables y Firmas del Presupuesto</h3>
+                <p class="text-[10px] text-slate-300">AparecerÃ¡n al pie del formato impreso oficial y reporte PDF</p>
+              </div>
+            </div>
+            <button class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
+          </div>
+
+          <!-- Cuerpo: Formatos y 4 Firmantes -->
+          <div class="p-4 space-y-3 bg-white text-slate-800">
+            <!-- Selector de Formato Oficial -->
+            <div id="mock-step9-formats" class="grid grid-cols-3 gap-2">
+              <div class="p-2 rounded-xl bg-blue-50 border-2 border-blue-600 text-center shadow-xs cursor-pointer">
+                <strong class="text-blue-900 block text-[10.5px]">Presupuesto Base</strong>
+                <span class="text-[8.5px] text-blue-700">Formato TAB1-CAT</span>
+              </div>
+              <div class="p-2 rounded-xl bg-slate-50 border border-slate-200 text-center cursor-pointer hover:bg-slate-100">
+                <strong class="text-slate-800 block text-[10.5px]">Fichas de APU</strong>
+                <span class="text-[8.5px] text-slate-500">Matrices Desglosadas</span>
+              </div>
+              <div class="p-2 rounded-xl bg-slate-50 border border-slate-200 text-center cursor-pointer hover:bg-slate-100">
+                <strong class="text-slate-800 block text-[10.5px]">Insumos</strong>
+                <span class="text-[8.5px] text-slate-500">ExplosiÃ³n General</span>
+              </div>
+            </div>
+
+            <!-- 4 Firmas Oficiales de Obra -->
+            <div id="mock-step9-signatures" class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+              <span class="text-slate-700 font-bold block text-[10.5px]">Firmas Oficiales Configuradas (Membrete 1:1):</span>
+              <div class="grid grid-cols-2 gap-2 text-[9.5px]">
+                <div class="p-1.5 rounded bg-white border border-slate-200">
+                  <strong class="text-slate-500 block text-[8.5px]">ElaborÃ³:</strong>
+                  <span class="font-bold text-slate-800">Ing. Residente de Obra</span>
+                </div>
+                <div class="p-1.5 rounded bg-white border border-slate-200">
+                  <strong class="text-slate-500 block text-[8.5px]">RevisÃ³:</strong>
+                  <span class="font-bold text-slate-800">Superintendente General</span>
+                </div>
+                <div class="p-1.5 rounded bg-white border border-slate-200">
+                  <strong class="text-slate-500 block text-[8.5px]">AprobÃ³:</strong>
+                  <span class="font-bold text-slate-800">Director DRO</span>
+                </div>
+                <div class="p-1.5 rounded bg-white border border-slate-200">
+                  <strong class="text-slate-500 block text-[8.5px]">AutorizÃ³:</strong>
+                  <span class="font-bold text-slate-800">Cliente / Dependencia</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Vista Previa Vectorial -->
+            <div id="mock-step9-preview" class="p-2 rounded-lg bg-slate-50 border border-slate-200 flex justify-between items-center text-[10px]">
+              <span class="text-slate-700 font-medium flex items-center gap-1.5">
+                <i class="fa-solid fa-file-pdf text-rose-600 text-xs"></i> Vista Previa Vectorial Lista (4 Hojas con Logotipo Oficial)
+              </span>
+              <span class="text-emerald-700 font-mono font-bold">$417,726.92 MXN</span>
+            </div>
+          </div>
+
+          <!-- Footer del Modal -->
+          <div class="bg-slate-100 px-4 py-2 border-t border-slate-200 flex justify-end gap-2 shrink-0">
+            <button class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">Cerrar</button>
+            <button id="mock-step9-btn-download" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow flex items-center gap-1.5">
+              <i class="fa-solid fa-download text-[10px]"></i> Descargar PDF Oficial
+            </button>
+          </div>
+        </div>
+      `;
+      container.innerHTML = renderRealisticWorkspaceShell({ activeTab: 'presupuesto', overlayModal: printModalHtml });
+      break;
+    }
+
+case 10: { // Calendario de Obra y Diagrama de Gantt
+      const calContentHtml = `
+        <div class="flex-1 bg-slate-900 text-slate-100 flex flex-col overflow-hidden p-3 gap-2.5 text-xs">
+          <!-- Toolbar Calendario -->
+          <div class="flex items-center justify-between pb-1 shrink-0 flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <button id="mock-step11-btn-jornada" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-xs shadow-sm flex items-center gap-1.5">
+                <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-[10px]"></i> Configurar Jornada & DÃ­as InhÃ¡biles
+              </button>
+              <button id="mock-step10-critical" class="px-3 py-1.5 rounded-xl bg-rose-600/20 text-rose-300 border border-rose-500/40 font-bold text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-route text-rose-400 text-[10px]"></i> Ruta CrÃ­tica Activa
+              </button>
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono">DuraciÃ³n Total: 180 DÃ­as Calendario</span>
+          </div>
+
+          <!-- Gantt Chart Bars -->
+          <div id="mock-step11-gantt-bars" class="flex-1 bg-slate-850 border border-slate-750 rounded-xl p-3 flex flex-col gap-2 overflow-hidden">
+            <div class="flex justify-between text-[9px] font-mono text-slate-400 border-b border-slate-750 pb-1">
+              <span class="w-36">Concepto / Partida</span>
+              <span class="flex-1 flex justify-around"><span>Sem 1</span><span>Sem 2</span><span>Sem 3</span><span>Sem 4</span><span>Sem 5</span><span>Sem 6</span></span>
+            </div>
+            <div class="space-y-2 text-[9.5px]">
+              <div class="flex items-center gap-2">
+                <span class="w-36 font-bold text-white truncate">01 Preliminares</span>
+                <div class="flex-1 bg-slate-800 h-5 rounded-lg relative overflow-hidden">
+                  <div class="absolute left-0 w-1/4 h-full bg-blue-500 rounded-lg flex items-center px-2 text-[9px] font-bold text-white">15 DÃ­as</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-36 font-bold text-rose-300 truncate">02 CimentaciÃ³n (CrÃ­tica)</span>
+                <div class="flex-1 bg-slate-800 h-5 rounded-lg relative overflow-hidden">
+                  <div class="absolute left-[20%] w-[35%] h-full bg-rose-600 rounded-lg flex items-center px-2 text-[9px] font-bold text-white shadow-sm ring-1 ring-rose-400">30 DÃ­as (CrÃ­tica)</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-36 font-bold text-white truncate">03 Estructura Concreto</span>
+                <div class="flex-1 bg-slate-800 h-5 rounded-lg relative overflow-hidden">
+                  <div class="absolute left-[50%] w-[45%] h-full bg-emerald-600 rounded-lg flex items-center px-2 text-[9px] font-bold text-white">45 DÃ­as</div>
+                </div>
+              </div>
+            </div>
+            <div id="mock-step11-progress" class="mt-auto pt-2 border-t border-slate-750 flex justify-between text-[10px]">
+              <span class="text-slate-400">Avance Programado vs Real</span>
+              <span class="font-bold text-emerald-400">En Tiempo (+2.1%)</span>
+            </div>
+          </div>
+        </div>
+      `;
+      container.innerHTML = renderRealisticWorkspaceShell({ activeTab: 'calendario', mainContent: calContentHtml });
+      break;
+    }
+
+case 11: { // Estimaciones y NÃºmeros Generadores de Cobro
+      const estContentHtml = `
+        <div class="flex-1 bg-slate-900 text-slate-100 flex flex-col overflow-hidden p-3 gap-2.5 text-xs">
+          <div class="flex items-center justify-between pb-1 shrink-0">
+            <div class="flex items-center gap-2">
+              <button id="mock-step12-btn-generate" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/30 flex items-center gap-1.5">
+                <i class="fa-solid fa-plus text-[10px]"></i> + Generar EstimaciÃ³n #01
+              </button>
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono">Corte: Quincena 01 â€¢ PerÃ­odo 01/Nov al 15/Nov</span>
+          </div>
+
+          <div class="flex-1 flex gap-3 overflow-hidden">
+            <div id="mock-step12-volumes" class="flex-1 bg-slate-850 border border-slate-750 rounded-xl p-3 flex flex-col">
+              <span class="font-bold text-white text-xs mb-2">Conceptos Estimados en el PerÃ­odo</span>
+              <div class="flex-1 overflow-auto">
+                <table class="w-full text-left text-[10px] font-mono">
+                  <thead class="bg-slate-900 text-slate-400 font-bold border-b border-slate-750">
+                    <tr><th class="p-1.5">Clave</th><th class="p-1.5">Volumen</th><th class="p-1.5 text-right">P.U.</th><th class="p-1.5 text-right">Importe</th></tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800">
+                    <tr><td class="p-1.5 font-bold text-blue-400">PRE-001</td><td class="p-1.5">450.00 m2</td><td class="p-1.5 text-right">$18.50</td><td class="p-1.5 text-right font-bold text-white">$8,325.00</td></tr>
+                    <tr><td class="p-1.5 font-bold text-blue-400">CIM-001</td><td class="p-1.5">9.20 m3</td><td class="p-1.5 text-right">$4,379.08</td><td class="p-1.5 text-right font-bold text-white">$40,287.54</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div id="mock-step12-finiquito" class="w-72 bg-slate-850 border border-slate-750 rounded-xl p-3 flex flex-col justify-between">
+              <div class="space-y-2">
+                <span class="font-bold text-xs text-white block border-b border-slate-750 pb-1">CarÃ¡tula de EstimaciÃ³n</span>
+                <div class="flex justify-between text-slate-300 font-mono text-[10px]"><span>Subtotal Estimado:</span><span>$48,612.54</span></div>
+                <div class="flex justify-between text-amber-400 font-mono text-[10px]"><span>(-) Fondo GarantÃ­a (5%):</span><span>-$2,430.63</span></div>
+                <div class="flex justify-between text-emerald-400 font-mono text-xs font-bold border-t border-slate-750 pt-1">
+                  <span>LÃQUIDO A PAGAR:</span><span>$46,181.91</span>
+                </div>
+              </div>
+              <button id="mock-step12-btn-download" class="w-full py-1.5 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-file-pdf"></i> Descargar CarÃ¡tula PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      container.innerHTML = renderRealisticWorkspaceShell({ activeTab: 'estimaciones', mainContent: estContentHtml });
+      break;
+    }
+
+case 12: { // Compras, Gastos y ERP Financiero (Modal: modal-nueva-compra)
       const compraModalHtml = `
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Encabezado Real de index.html -->
@@ -1431,7 +1620,7 @@ export function renderModuleVisualScene(moduleId) {
             <!-- DescripciÃ³n de Gasto -->
             <div>
               <label class="block font-bold text-slate-700 mb-0.5 text-[10.5px]">DescripciÃ³n del Insumo / Factura: *</label>
-              <div id="mock-step9-form" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-medium text-slate-900 shadow-2xs">
+              <div id="mock-step12-form" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-medium text-slate-900 shadow-2xs">
                 <span class="mock-type-value">Factura F-4892 â€¢ Concreto premezclado f'c=250 kg/cm2</span>
               </div>
             </div>
@@ -1451,7 +1640,7 @@ export function renderModuleVisualScene(moduleId) {
             <!-- Estatus -->
             <div class="flex items-center justify-between pt-1">
               <label class="font-bold text-slate-700 text-[10.5px]">Estatus de TesorerÃ­a:</label>
-              <div id="mock-step9-status" class="flex gap-1.5">
+              <div id="mock-step12-status" class="flex gap-1.5">
                 <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[10px] cursor-pointer">Pagado âœ“</span>
                 <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-medium text-[10px]">Pendiente â³</span>
               </div>
@@ -1462,7 +1651,7 @@ export function renderModuleVisualScene(moduleId) {
           <div class="bg-slate-100 px-4 py-2.5 border-t border-slate-200 flex justify-between items-center shrink-0">
             <button class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">Cancelar</button>
             <div class="flex gap-2">
-              <button id="mock-step9-btn-order" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center gap-1">
+              <button id="mock-step12-btn-order" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center gap-1">
                 <i class="fa-solid fa-file-invoice text-amber-500"></i> Orden de Compra
               </button>
               <button class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow flex items-center gap-1.5">
@@ -1494,7 +1683,7 @@ export function renderModuleVisualScene(moduleId) {
           <!-- Toolbar de Compras -->
           <div class="flex items-center justify-between pb-1 shrink-0">
             <div class="flex items-center gap-2">
-              <button id="mock-step9-btn-new" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/30 flex items-center gap-1.5">
+              <button id="mock-step12-btn-new" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/30 flex items-center gap-1.5">
                 <i class="fa-solid fa-plus text-[10px]"></i> + Registrar Gasto
               </button>
             </div>
@@ -1521,7 +1710,7 @@ export function renderModuleVisualScene(moduleId) {
       break;
     }
 
-    case 10: { // BitÃ¡cora ElectrÃ³nica y Legal de Obra (Modal: modal-nueva-nota-bitacora)
+case 13: { // BitÃ¡cora ElectrÃ³nica y Legal de Obra (Modal: modal-nueva-nota-bitacora)
       const bitacoraModalHtml = `
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Encabezado Legal Real -->
@@ -1545,7 +1734,7 @@ export function renderModuleVisualScene(moduleId) {
                 <span class="px-2 py-0.5 rounded bg-blue-600 text-white font-bold text-[10px]">Nota #001</span>
                 <span class="font-bold text-slate-800 text-xs">Colado de Zapatas Aisladas Ejes A-F</span>
               </div>
-              <div id="mock-step10-weather" class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-[10px]">
+              <div id="mock-step13-clima" class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-[10px]">
                 <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold border border-amber-300">â˜€ï¸ Soleado 24Â°C</span>
                 <span class="px-2 py-0.5 text-slate-500">ðŸŒ§ï¸ Lluvia</span>
               </div>
@@ -1569,7 +1758,7 @@ export function renderModuleVisualScene(moduleId) {
           <!-- Footer -->
           <div class="bg-slate-100 px-4 py-2 border-t border-slate-200 flex justify-between items-center shrink-0">
             <span class="text-[9px] text-slate-500 font-mono">Folio Inmutable #001</span>
-            <button id="mock-step10-btn-seal" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow flex items-center gap-1.5">
+            <button id="mock-step13-btn-save" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow flex items-center gap-1.5">
               <i class="fa-solid fa-stamp text-[10px]"></i> Sellar Nota Oficial (LOPSRM)
             </button>
           </div>
@@ -1601,108 +1790,12 @@ export function renderModuleVisualScene(moduleId) {
       break;
     }
 
-    case 11: { // Calendario de Obra y Diagrama de Gantt
-      const calContentHtml = `
-        <div class="flex-1 bg-slate-900 text-slate-100 flex flex-col overflow-hidden p-3 gap-2.5 text-xs">
-          <!-- Toolbar Calendario -->
-          <div class="flex items-center justify-between pb-1 shrink-0 flex-wrap gap-2">
-            <div class="flex items-center gap-2">
-              <button id="mock-step11-btn-jornada" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-xs shadow-sm flex items-center gap-1.5">
-                <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-[10px]"></i> Configurar Jornada & DÃ­as InhÃ¡biles
-              </button>
-              <button id="mock-step11-critical" class="px-3 py-1.5 rounded-xl bg-rose-600/20 text-rose-300 border border-rose-500/40 font-bold text-xs flex items-center gap-1.5">
-                <i class="fa-solid fa-route text-rose-400 text-[10px]"></i> Ruta CrÃ­tica Activa
-              </button>
-            </div>
-            <span class="text-[10px] text-slate-400 font-mono">DuraciÃ³n Total: 180 DÃ­as Calendario</span>
-          </div>
-
-          <!-- Gantt Chart Bars -->
-          <div id="mock-step11-gantt-bars" class="flex-1 bg-slate-850 border border-slate-750 rounded-xl p-3 flex flex-col gap-2 overflow-hidden">
-            <div class="flex justify-between text-[9px] font-mono text-slate-400 border-b border-slate-750 pb-1">
-              <span class="w-36">Concepto / Partida</span>
-              <span class="flex-1 flex justify-around"><span>Sem 1</span><span>Sem 2</span><span>Sem 3</span><span>Sem 4</span><span>Sem 5</span><span>Sem 6</span></span>
-            </div>
-            <div class="space-y-2 text-[9.5px]">
-              <div class="flex items-center gap-2">
-                <span class="w-36 font-bold text-white truncate">01 Preliminares</span>
-                <div class="flex-1 bg-slate-800 h-5 rounded-lg relative overflow-hidden">
-                  <div class="absolute left-0 w-1/4 h-full bg-blue-500 rounded-lg flex items-center px-2 text-[9px] font-bold text-white">15 DÃ­as</div>
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="w-36 font-bold text-rose-300 truncate">02 CimentaciÃ³n (CrÃ­tica)</span>
-                <div class="flex-1 bg-slate-800 h-5 rounded-lg relative overflow-hidden">
-                  <div class="absolute left-[20%] w-[35%] h-full bg-rose-600 rounded-lg flex items-center px-2 text-[9px] font-bold text-white shadow-sm ring-1 ring-rose-400">30 DÃ­as (CrÃ­tica)</div>
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="w-36 font-bold text-white truncate">03 Estructura Concreto</span>
-                <div class="flex-1 bg-slate-800 h-5 rounded-lg relative overflow-hidden">
-                  <div class="absolute left-[50%] w-[45%] h-full bg-emerald-600 rounded-lg flex items-center px-2 text-[9px] font-bold text-white">45 DÃ­as</div>
-                </div>
-              </div>
-            </div>
-            <div id="mock-step11-progress" class="mt-auto pt-2 border-t border-slate-750 flex justify-between text-[10px]">
-              <span class="text-slate-400">Avance Programado vs Real</span>
-              <span class="font-bold text-emerald-400">En Tiempo (+2.1%)</span>
-            </div>
-          </div>
-        </div>
-      `;
-      container.innerHTML = renderRealisticWorkspaceShell({ activeTab: 'calendario', mainContent: calContentHtml });
+    case 14: { // Chat de Proyecto y Bitácora Contextual
+      container.innerHTML = renderRealisticWorkspaceShell({ activeRail: 'chat', showChatDock: true });
       break;
     }
 
-    case 12: { // Estimaciones y NÃºmeros Generadores de Cobro
-      const estContentHtml = `
-        <div class="flex-1 bg-slate-900 text-slate-100 flex flex-col overflow-hidden p-3 gap-2.5 text-xs">
-          <div class="flex items-center justify-between pb-1 shrink-0">
-            <div class="flex items-center gap-2">
-              <button id="mock-step12-btn-generate" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/30 flex items-center gap-1.5">
-                <i class="fa-solid fa-plus text-[10px]"></i> + Generar EstimaciÃ³n #01
-              </button>
-            </div>
-            <span class="text-[10px] text-slate-400 font-mono">Corte: Quincena 01 â€¢ PerÃ­odo 01/Nov al 15/Nov</span>
-          </div>
-
-          <div class="flex-1 flex gap-3 overflow-hidden">
-            <div id="mock-step12-volumes" class="flex-1 bg-slate-850 border border-slate-750 rounded-xl p-3 flex flex-col">
-              <span class="font-bold text-white text-xs mb-2">Conceptos Estimados en el PerÃ­odo</span>
-              <div class="flex-1 overflow-auto">
-                <table class="w-full text-left text-[10px] font-mono">
-                  <thead class="bg-slate-900 text-slate-400 font-bold border-b border-slate-750">
-                    <tr><th class="p-1.5">Clave</th><th class="p-1.5">Volumen</th><th class="p-1.5 text-right">P.U.</th><th class="p-1.5 text-right">Importe</th></tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-800">
-                    <tr><td class="p-1.5 font-bold text-blue-400">PRE-001</td><td class="p-1.5">450.00 m2</td><td class="p-1.5 text-right">$18.50</td><td class="p-1.5 text-right font-bold text-white">$8,325.00</td></tr>
-                    <tr><td class="p-1.5 font-bold text-blue-400">CIM-001</td><td class="p-1.5">9.20 m3</td><td class="p-1.5 text-right">$4,379.08</td><td class="p-1.5 text-right font-bold text-white">$40,287.54</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div id="mock-step12-finiquito" class="w-72 bg-slate-850 border border-slate-750 rounded-xl p-3 flex flex-col justify-between">
-              <div class="space-y-2">
-                <span class="font-bold text-xs text-white block border-b border-slate-750 pb-1">CarÃ¡tula de EstimaciÃ³n</span>
-                <div class="flex justify-between text-slate-300 font-mono text-[10px]"><span>Subtotal Estimado:</span><span>$48,612.54</span></div>
-                <div class="flex justify-between text-amber-400 font-mono text-[10px]"><span>(-) Fondo GarantÃ­a (5%):</span><span>-$2,430.63</span></div>
-                <div class="flex justify-between text-emerald-400 font-mono text-xs font-bold border-t border-slate-750 pt-1">
-                  <span>LÃQUIDO A PAGAR:</span><span>$46,181.91</span>
-                </div>
-              </div>
-              <button id="mock-step12-btn-download" class="w-full py-1.5 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-1.5">
-                <i class="fa-solid fa-file-pdf"></i> Descargar CarÃ¡tula PDF
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-      container.innerHTML = renderRealisticWorkspaceShell({ activeTab: 'estimaciones', mainContent: estContentHtml });
-      break;
-    }
-
-    case 13: { // Importador Universal (Modal: universal-import-modal)
+case 15: { // Importador Universal (Modal: universal-import-modal)
       const importModalHtml = `
         <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Encabezado Real de index.html -->
@@ -1721,7 +1814,7 @@ export function renderModuleVisualScene(moduleId) {
 
           <!-- Cuerpo: Dropzone y Formatos Reales -->
           <div class="p-4 space-y-3 bg-white text-slate-800">
-            <div id="mock-step13-dropzone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl p-6 text-center bg-slate-50 transition cursor-pointer">
+            <div id="mock-step15-dropzone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl p-6 text-center bg-slate-50 transition cursor-pointer">
               <div class="w-10 h-10 mx-auto rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-lg mb-2">
                 <i class="fa-solid fa-cloud-arrow-up"></i>
               </div>
@@ -1737,7 +1830,7 @@ export function renderModuleVisualScene(moduleId) {
             </div>
 
             <!-- Vista Previa de DetecciÃ³n -->
-            <div id="mock-step13-preview" class="p-2.5 rounded-lg bg-blue-50/70 border border-blue-200 text-[10px] flex justify-between items-center">
+            <div id="mock-step15-preview" class="p-2.5 rounded-lg bg-blue-50/70 border border-blue-200 text-[10px] flex justify-between items-center">
               <span class="text-blue-900 font-bold flex items-center gap-1.5">
                 <i class="fa-solid fa-check-double text-blue-600"></i> Vista Previa: 2,450 Renglones y 12 Partidas Detectadas
               </span>
@@ -1758,87 +1851,7 @@ export function renderModuleVisualScene(moduleId) {
       break;
     }
 
-    case 14: { // Reportes e ImpresiÃ³n Oficial en PDF (Modal: modal-presupuesto-firmas)
-      const printModalHtml = `
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
-          <!-- Encabezado Real de index.html -->
-          <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center shrink-0">
-            <div class="flex items-center gap-2.5">
-              <div class="w-8 h-8 rounded-lg bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-blue-300 text-sm">
-                <i class="fa-solid fa-file-signature"></i>
-              </div>
-              <div>
-                <h3 class="font-bold text-xs sm:text-sm text-white">Responsables y Firmas del Presupuesto</h3>
-                <p class="text-[10px] text-slate-300">AparecerÃ¡n al pie del formato impreso oficial y reporte PDF</p>
-              </div>
-            </div>
-            <button class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
-          </div>
-
-          <!-- Cuerpo: Formatos y 4 Firmantes -->
-          <div class="p-4 space-y-3 bg-white text-slate-800">
-            <!-- Selector de Formato Oficial -->
-            <div id="mock-step14-formats" class="grid grid-cols-3 gap-2">
-              <div class="p-2 rounded-xl bg-blue-50 border-2 border-blue-600 text-center shadow-xs cursor-pointer">
-                <strong class="text-blue-900 block text-[10.5px]">Presupuesto Base</strong>
-                <span class="text-[8.5px] text-blue-700">Formato TAB1-CAT</span>
-              </div>
-              <div class="p-2 rounded-xl bg-slate-50 border border-slate-200 text-center cursor-pointer hover:bg-slate-100">
-                <strong class="text-slate-800 block text-[10.5px]">Fichas de APU</strong>
-                <span class="text-[8.5px] text-slate-500">Matrices Desglosadas</span>
-              </div>
-              <div class="p-2 rounded-xl bg-slate-50 border border-slate-200 text-center cursor-pointer hover:bg-slate-100">
-                <strong class="text-slate-800 block text-[10.5px]">Insumos</strong>
-                <span class="text-[8.5px] text-slate-500">ExplosiÃ³n General</span>
-              </div>
-            </div>
-
-            <!-- 4 Firmas Oficiales de Obra -->
-            <div id="mock-step14-signatures" class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-              <span class="text-slate-700 font-bold block text-[10.5px]">Firmas Oficiales Configuradas (Membrete 1:1):</span>
-              <div class="grid grid-cols-2 gap-2 text-[9.5px]">
-                <div class="p-1.5 rounded bg-white border border-slate-200">
-                  <strong class="text-slate-500 block text-[8.5px]">ElaborÃ³:</strong>
-                  <span class="font-bold text-slate-800">Ing. Residente de Obra</span>
-                </div>
-                <div class="p-1.5 rounded bg-white border border-slate-200">
-                  <strong class="text-slate-500 block text-[8.5px]">RevisÃ³:</strong>
-                  <span class="font-bold text-slate-800">Superintendente General</span>
-                </div>
-                <div class="p-1.5 rounded bg-white border border-slate-200">
-                  <strong class="text-slate-500 block text-[8.5px]">AprobÃ³:</strong>
-                  <span class="font-bold text-slate-800">Director DRO</span>
-                </div>
-                <div class="p-1.5 rounded bg-white border border-slate-200">
-                  <strong class="text-slate-500 block text-[8.5px]">AutorizÃ³:</strong>
-                  <span class="font-bold text-slate-800">Cliente / Dependencia</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Vista Previa Vectorial -->
-            <div id="mock-step14-preview" class="p-2 rounded-lg bg-slate-50 border border-slate-200 flex justify-between items-center text-[10px]">
-              <span class="text-slate-700 font-medium flex items-center gap-1.5">
-                <i class="fa-solid fa-file-pdf text-rose-600 text-xs"></i> Vista Previa Vectorial Lista (4 Hojas con Logotipo Oficial)
-              </span>
-              <span class="text-emerald-700 font-mono font-bold">$417,726.92 MXN</span>
-            </div>
-          </div>
-
-          <!-- Footer del Modal -->
-          <div class="bg-slate-100 px-4 py-2 border-t border-slate-200 flex justify-end gap-2 shrink-0">
-            <button class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">Cerrar</button>
-            <button id="mock-step14-btn-download" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow flex items-center gap-1.5">
-              <i class="fa-solid fa-download text-[10px]"></i> Descargar PDF Oficial
-            </button>
-          </div>
-        </div>
-      `;
-      container.innerHTML = renderRealisticWorkspaceShell({ activeTab: 'presupuesto', overlayModal: printModalHtml });
-      break;
-    }
-
-    case 15: { // Seguridad, Respaldos y Perfil Profesional (Modal: modal-perfil-usuario)
+case 16: { // Seguridad, Respaldos y Perfil Profesional (Modal: modal-perfil-usuario)
       const profileModalHtml = `
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden flex flex-col text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Encabezado Real de index.html -->
@@ -1852,7 +1865,7 @@ export function renderModuleVisualScene(moduleId) {
           <!-- Cuerpo: Avatar con Casco, Cuota y Seguridad -->
           <div class="p-4 space-y-3 bg-white text-slate-800">
             <!-- Foto y Perfil -->
-            <div id="mock-step15-profile" class="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+            <div id="mock-step16-profile" class="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
               <div class="w-12 h-12 rounded-full border-2 border-blue-500 bg-white flex items-center justify-center text-xl shadow-xs shrink-0">
                 ðŸ‘·â€â™‚ï¸
               </div>
@@ -1866,7 +1879,7 @@ export function renderModuleVisualScene(moduleId) {
             <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
               <div class="flex justify-between items-center text-[10px]">
                 <span class="text-slate-600 font-semibold">Almacenamiento en la Nube (AWS S3)</span>
-                <span id="mock-step15-quota" class="font-mono text-blue-700 font-bold">0.45 MB / 250 MB</span>
+                <span id="mock-step16-quota" class="font-mono text-blue-700 font-bold">0.45 MB / 250 MB</span>
               </div>
               <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
                 <div class="h-full bg-blue-600 rounded-full" style="width: 8%;"></div>
@@ -1888,10 +1901,10 @@ export function renderModuleVisualScene(moduleId) {
 
           <!-- Footer: BotÃ³n Respaldo .JSON -->
           <div class="bg-slate-100 px-4 py-2 border-t border-slate-200 flex justify-between items-center shrink-0">
-            <button id="mock-step15-btn-backup" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+            <button id="mock-step16-btn-backup" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
               <i class="fa-solid fa-cloud-arrow-down text-blue-600"></i> Descargar Respaldo .JSON
             </button>
-            <button id="mock-step15-logo" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow">
+            <button id="mock-step16-logo" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow">
               <i class="fa-solid fa-check text-[10px]"></i> Guardar Perfil
             </button>
           </div>
@@ -1901,17 +1914,8 @@ export function renderModuleVisualScene(moduleId) {
       break;
     }
 
-    case 16: { // Modo de Trabajo: Obras Propias vs. Invitaciones (portalController.js: projectScopeModeSelect)
-      container.innerHTML = renderRealisticPortalShell({
-        highlightModeBar: true,
-        scopeMode: 'owned'
-      });
-      break;
-    }
-
     default:
       container.innerHTML = renderRealisticWorkspaceShell();
       break;
   }
 }
-

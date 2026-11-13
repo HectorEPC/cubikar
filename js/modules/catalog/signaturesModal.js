@@ -5,6 +5,26 @@
 import { state, persistSettings } from '../../state/store.js';
 import { showToast } from '../../ui/notifications.js';
 
+// Sanitizar texto con posibles caracteres corruptos (mojibake)
+export function sanitizeSignatureText(str) {
+  if (typeof str !== 'string' || !str) return str || '';
+  return str
+    .replace(/Ã“|Ã\u201c|Ã\u0093/g, 'Ó')
+    .replace(/Ã³/g, 'ó')
+    .replace(/Ã­|Ã\u00ad/g, 'í')
+    .replace(/Ã‰/g, 'É')
+    .replace(/Ã©/g, 'é')
+    .replace(/Ã|Ã\u0081/g, 'Á')
+    .replace(/Ã¡/g, 'á')
+    .replace(/Ãš/g, 'Ú')
+    .replace(/Ãº/g, 'ú')
+    .replace(/Ã‘/g, 'Ñ')
+    .replace(/Ã±/g, 'ñ')
+    .replace(/Ã(?=[a-zA-ZáéíóúñÁÉÍÓÚÑ])/g, 'í')
+    .replace(/Â¿/g, '¿')
+    .replace(/Â¡/g, '¡');
+}
+
 export const DEFAULT_BUDGET_SIGNATURES = [
   { rol: 'ELABORÓ', nombre: '', cargo: 'Departamento de Precios Unitarios y Presupuestos' },
   { rol: 'REVISÓ', nombre: '', cargo: 'Coordinación de Costos e Ingeniería' },
@@ -17,13 +37,34 @@ let draftSignatures = [];
 export function getBudgetSignatures() {
   const custom = state.settings?.budgetSignatures;
   if (Array.isArray(custom) && custom.length > 0) {
-    return custom.map((s) => ({
-      rol: s.rol || 'FIRMA',
-      nombre: s.nombre || '',
-      cargo: s.cargo || ''
-    }));
+    let hadCorruptedText = false;
+    const sanitized = custom.map((s) => {
+      const cleanRol = sanitizeSignatureText(s.rol || 'FIRMA');
+      const cleanNombre = sanitizeSignatureText(s.nombre || '');
+      const cleanCargo = sanitizeSignatureText(s.cargo || '');
+      if (cleanRol !== s.rol || cleanNombre !== s.nombre || cleanCargo !== s.cargo) {
+        hadCorruptedText = true;
+      }
+      return {
+        rol: cleanRol,
+        nombre: cleanNombre,
+        cargo: cleanCargo
+      };
+    });
+
+    // Reparar automáticamente en el estado y almacenamiento persistente si venía corrupto
+    if (hadCorruptedText && state.settings) {
+      state.settings.budgetSignatures = sanitized;
+      try { persistSettings(); } catch (_) {}
+    }
+
+    return sanitized;
   }
-  return DEFAULT_BUDGET_SIGNATURES.map((s) => ({ ...s }));
+  return DEFAULT_BUDGET_SIGNATURES.map((s) => ({
+    rol: sanitizeSignatureText(s.rol),
+    nombre: sanitizeSignatureText(s.nombre),
+    cargo: sanitizeSignatureText(s.cargo)
+  }));
 }
 
 function escapeHtml(str) {
@@ -189,9 +230,9 @@ export function savePresupuestoSignatures() {
 
   // Limpiar y validar
   const cleaned = draftSignatures.map((s) => ({
-    rol: (s.rol || 'FIRMA').trim().toUpperCase(),
-    nombre: (s.nombre || '').trim(),
-    cargo: (s.cargo || '').trim()
+    rol: sanitizeSignatureText((s.rol || 'FIRMA').trim().toUpperCase()),
+    nombre: sanitizeSignatureText((s.nombre || '').trim()),
+    cargo: sanitizeSignatureText((s.cargo || '').trim())
   }));
 
   state.settings.budgetSignatures = cleaned;

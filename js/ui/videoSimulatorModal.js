@@ -4,7 +4,7 @@
 // cursor virtual animado con clic ripple, tipografía de texto en tiempo real,
 // barra de tiempo deslizable (scrubber), selector de velocidad y subtítulos sincronizados.
 
-import { renderModuleVisualScene } from './realisticSimulatorShell.js?v=20261113_22';
+import { renderModuleVisualScene } from './realisticSimulatorShell.js?v=20261113_23';
 
 let isVideoModalOpen = false;
 let currentModuleId = 1;
@@ -25,6 +25,7 @@ let audioCtx = null;
 // =========================================================================
 
 export const VIDEO_MODULES = [
+  // VENTANA 1: PORTAL DE INICIO (MIS PROYECTOS)
   {
     id: 1,
     title: 'Crear Proyecto e Identidad Corporativa',
@@ -42,34 +43,36 @@ export const VIDEO_MODULES = [
   },
   {
     id: 2,
-    title: 'Invitar Colaboradores y Permisos Granulares',
-    badge: 'Módulo 2 • Equipo',
-    duration: 25,
-    icon: 'fa-users',
-    description: 'Gestión de colaboradores, asignación de roles (Editar, Escribir, Leer) y permisos por pestaña.',
+    title: 'Modo de Trabajo: Obras Propias vs. Invitaciones',
+    badge: 'Módulo 2 • Modo de Trabajo',
+    duration: 26,
+    icon: 'fa-briefcase',
+    description: 'Filtro entre proyectos propios, obras compartidas por empresas colaboradoras y gobernanza de planes.',
     steps: [
-      { t: 0, text: 'En la tarjeta de tu obra, haz clic en "+ Invitar" para abrir el gestor de equipo.', targetId: 'mock-step2-btn-invite', action: 'click' },
-      { t: 5, text: 'Captura el correo del colaborador y asígnale su avatar temático con casco.', targetId: 'mock-step2-email', action: 'type', value: 'ing.torres@constructora.com' },
-      { t: 11, text: 'Selecciona el rol de trabajo: Editar (Control Total), Escribir (Captura) o Leer (Solo Consulta).', targetId: 'mock-step2-roles', action: 'highlight' },
-      { t: 17, text: 'Activa o restringe selectivamente las pestañas (Catálogo, Compras, Bitácora).', targetId: 'mock-step2-tabs', action: 'click' },
-      { t: 21, text: 'Presiona "Agregar Colaborador". El invitado recibirá la notificación para aceptar con 1 clic.', targetId: 'mock-step2-btn-add', action: 'click' }
+      { t: 0, text: 'En el portal principal, ubica la barra de "Modo de Trabajo" con su selector desplegable de ámbitos.', targetId: 'mock-step2-mode-bar', action: 'highlight' },
+      { t: 5, text: 'En "Mis proyectos", accedes a tus obras de autoría propia gobernadas por tu plan de suscripción activa.', targetId: 'mock-step2-scope-select', action: 'click' },
+      { t: 11, text: 'Selecciona una empresa invitadora para acceder como colaborador con permisos granulares (Editor o Lector).', targetId: 'mock-step2-scope-select', action: 'click' },
+      { t: 17, text: 'El indicador de membresía se adapta automáticamente al plan del anfitrión sin consumir tu cuota de obras.', targetId: 'mock-step2-status-badge', action: 'highlight' },
+      { t: 22, text: 'Presiona "Invitaciones" para sumar residentes, calculistas o auditores a tus propios proyectos de obra.', targetId: 'mock-step2-btn-invite', action: 'click' }
     ]
   },
   {
     id: 3,
-    title: 'Chat de Proyecto y Bitácora Contextual',
-    badge: 'Módulo 3 • Comunicación',
+    title: 'Invitar Colaboradores y Permisos Granulares',
+    badge: 'Módulo 3 • Equipo',
     duration: 25,
-    icon: 'fa-comments',
-    description: 'Canales Técnico y Financiero, menciones @Usuario y comentarios directos en partidas.',
+    icon: 'fa-users',
+    description: 'Gestión de colaboradores, asignación de roles (Editar, Escribir, Leer) y permisos por pestaña.',
     steps: [
-      { t: 0, text: 'Abre la ventana del chat desde el botón flotante inferior o la barra lateral izquierda.', targetId: 'mock-step3-btn-chat', action: 'click' },
-      { t: 5, text: 'Alterna entre la Sección Técnica (Catálogo/Calendario) y la Sección Financiera (Compras/Estimaciones).', targetId: 'mock-step3-tabs', action: 'click' },
-      { t: 11, text: 'Escribe un mensaje usando "@" para alertar a un compañero con notificación en tiempo real.', targetId: 'mock-step3-input', action: 'type', value: '@Carlos Revisar volumen de concreto en cimentación' },
-      { t: 17, text: 'Comenta directamente sobre cualquier partida haciendo clic en su icono de chat.', targetId: 'mock-step3-partida-tag', action: 'highlight' },
-      { t: 21, text: 'Exporta la Minuta Oficial de Acuerdos a PDF con membrete institucional y firmas.', targetId: 'mock-step3-btn-print', action: 'click' }
+      { t: 0, text: 'En la tarjeta de tu obra, haz clic en "+ Invitar" para abrir el gestor de equipo.', targetId: 'mock-step3-btn-invite', action: 'click' },
+      { t: 5, text: 'Captura el correo del colaborador y asígnale su avatar temático con casco.', targetId: 'mock-step3-email', action: 'type', value: 'ing.torres@constructora.com' },
+      { t: 11, text: 'Selecciona el rol de trabajo: Editar (Control Total), Escribir (Captura) o Leer (Solo Consulta).', targetId: 'mock-step3-roles', action: 'highlight' },
+      { t: 17, text: 'Activa o restringe selectivamente las pestañas (Catálogo, Compras, Bitácora).', targetId: 'mock-step3-tabs', action: 'click' },
+      { t: 21, text: 'Presiona "Agregar Colaborador". El invitado recibirá la notificación para aceptar con 1 clic.', targetId: 'mock-step3-btn-add', action: 'click' }
     ]
   },
+
+  // VENTANA 2: PESTAÑA 1: PRESUPUESTO Y APU
   {
     id: 4,
     title: 'Catálogo de Conceptos y Presupuesto Base',
@@ -102,32 +105,32 @@ export const VIDEO_MODULES = [
   },
   {
     id: 6,
-    title: 'Catálogos Maestros: BIMSA y Gobierno',
-    badge: 'Módulo 6 • Referencia',
-    duration: 25,
-    icon: 'fa-book-bookmark',
-    description: 'Exploración de más de 61,000 conceptos precargados de BIMSA 2018 y Tabuladores oficiales.',
-    steps: [
-      { t: 0, text: 'Abre el Catálogo Maestro desde la barra lateral izquierda para acceder a la biblioteca offline.', targetId: 'mock-step6-btn-master', action: 'click' },
-      { t: 6, text: 'Filtra por especialidad: Edificación, Instalaciones, Infraestructura o Climatización.', targetId: 'mock-step6-specialties', action: 'click' },
-      { t: 12, text: 'Busca palabras clave para localizar conceptos probados con sus matrices APU completas.', targetId: 'mock-step6-search', action: 'type', value: 'Zapata corrida concreto f\'c=250' },
-      { t: 17, text: 'Revisa la ficha técnica del concepto con claves oficiales y rendimientos probados.', targetId: 'mock-step6-preview', action: 'highlight' },
-      { t: 21, text: 'Haz clic en "Insertar al Presupuesto" para inyectarlo en tu obra activa con 1 solo clic.', targetId: 'mock-step6-btn-insert', action: 'click' }
-    ]
-  },
-  {
-    id: 7,
     title: 'Inteligencia Artificial y Google Search Grounding',
-    badge: 'Módulo 7 • IA Gemini',
+    badge: 'Módulo 6 • IA Gemini',
     duration: 26,
     icon: 'fa-brain',
     description: 'Cotizaciones en tiempo real con fuentes de mercado y estimación automática de matrices APU.',
     steps: [
-      { t: 0, text: 'Haz clic en el Menú Dividido de Inteligencia Artificial en la barra superior de herramientas.', targetId: 'mock-step7-btn-ai', action: 'click' },
-      { t: 5, text: 'Selecciona "Precios Web en Vivo (Google)" para cotizar costos reales de mercado hoy.', targetId: 'mock-step7-menu-web', action: 'click' },
-      { t: 10, text: 'Se despliega la ventana oficial de Google Search Grounding para la zapata seleccionada (CIM-001).', targetId: 'mock-step7-concept-card', action: 'highlight' },
-      { t: 16, text: 'Verifica la activación de Google Search Grounding conectado a Home Depot, Construrama y Cemex.', targetId: 'mock-step7-grounding-toggle', action: 'click' },
-      { t: 21, text: 'Presiona "Cotizar en Web y Llenar Matriz". Gemini calcula cuadrillas, materiales y rendimientos en vivo.', targetId: 'mock-step7-btn-run', action: 'click' }
+      { t: 0, text: 'Haz clic en el Menú Dividido de Inteligencia Artificial en la barra superior de herramientas.', targetId: 'mock-step6-btn-ai', action: 'click' },
+      { t: 5, text: 'Selecciona "Precios Web en Vivo (Google)" para cotizar costos reales de mercado hoy.', targetId: 'mock-step6-menu-web', action: 'click' },
+      { t: 10, text: 'Se despliega la ventana oficial de Google Search Grounding para la zapata seleccionada (CIM-001).', targetId: 'mock-step6-concept-card', action: 'highlight' },
+      { t: 16, text: 'Verifica la activación de Google Search Grounding conectado a Home Depot, Construrama y Cemex.', targetId: 'mock-step6-grounding-toggle', action: 'click' },
+      { t: 21, text: 'Presiona "Cotizar en Web y Llenar Matriz". Gemini calcula cuadrillas, materiales y rendimientos en vivo.', targetId: 'mock-step6-btn-run', action: 'click' }
+    ]
+  },
+  {
+    id: 7,
+    title: 'Catálogos Maestros: BIMSA y Gobierno',
+    badge: 'Módulo 7 • Referencia',
+    duration: 25,
+    icon: 'fa-book-bookmark',
+    description: 'Exploración de más de 61,000 conceptos precargados de BIMSA 2018 y Tabuladores oficiales.',
+    steps: [
+      { t: 0, text: 'Abre el Catálogo Maestro desde la barra lateral izquierda para acceder a la biblioteca offline.', targetId: 'mock-step7-btn-master', action: 'click' },
+      { t: 6, text: 'Filtra por especialidad: Edificación, Instalaciones, Infraestructura o Climatización.', targetId: 'mock-step7-specialties', action: 'click' },
+      { t: 12, text: 'Busca palabras clave para localizar conceptos probados con sus matrices APU completas.', targetId: 'mock-step7-search', action: 'type', value: 'Zapata corrida concreto f\'c=250' },
+      { t: 17, text: 'Revisa la ficha técnica del concepto con claves oficiales y rendimientos probados.', targetId: 'mock-step7-preview', action: 'highlight' },
+      { t: 21, text: 'Haz clic en "Insertar al Presupuesto" para inyectarlo en tu obra activa con 1 solo clic.', targetId: 'mock-step7-btn-insert', action: 'click' }
     ]
   },
   {
@@ -147,122 +150,132 @@ export const VIDEO_MODULES = [
   },
   {
     id: 9,
-    title: 'Compras, Gastos y ERP Financiero',
-    badge: 'Módulo 9 • Egresos',
-    duration: 26,
-    icon: 'fa-cart-shopping',
-    description: 'Dashboard financiero, registro de facturas, comparativa presupuesto vs real y órdenes de compra.',
-    steps: [
-      { t: 0, text: 'Accede a "Compras y Pagos" para revisar las métricas de Presupuesto vs Gasto Real.', targetId: 'mock-step9-tab-compras', action: 'click' },
-      { t: 6, text: 'Haz clic en "+ Registrar Gasto" para capturar una factura, ticket o remisión.', targetId: 'mock-step9-btn-new', action: 'click' },
-      { t: 12, text: 'Captura proveedor, concepto, tipo de egreso e importe con IVA. Adjunta la factura en PDF.', targetId: 'mock-step9-form', action: 'type', value: 'Factura F-4892 • Concreto f\'c=250' },
-      { t: 17, text: 'Cambia el estatus de pago con 1 clic: "Pagado", "Pendiente" o "Parcial" para control de tesorería.', targetId: 'mock-step9-status', action: 'click' },
-      { t: 22, text: 'Genera e imprime la Orden de Compra oficial con membrete corporativo y folio.', targetId: 'mock-step9-btn-order', action: 'click' }
-    ]
-  },
-  {
-    id: 10,
-    title: 'Bitácora Electrónica y Legal de Obra (LOPSRM / BESOP)',
-    badge: 'Módulo 10 • Bitácora',
-    duration: 26,
-    icon: 'fa-book',
-    description: 'Folios inalterables #001, registro de clima, firma digital táctil y sellado criptográfico.',
-    steps: [
-      { t: 0, text: 'Abre la pestaña "Bitácora de Obra" para gestionar el libro legal de notas conforme a ley.', targetId: 'mock-step10-tab-bitacora', action: 'click' },
-      { t: 6, text: 'Haz clic en "+ Nueva Nota" y selecciona el tipo (Apertura, Instrucción, Avance o Incidencia).', targetId: 'mock-step10-btn-new', action: 'click' },
-      { t: 12, text: 'Registra el estado del tiempo (Soleado, Lluvia, Viento) y vincula los conceptos ejecutados.', targetId: 'mock-step10-weather', action: 'click' },
-      { t: 17, text: 'Dibuja tu firma digital manuscrita en el panel táctil con mouse, stylus o dedo.', targetId: 'mock-step10-canvas', action: 'highlight' },
-      { t: 22, text: 'Presiona "Sellar Nota Oficial". Se genera un Hash SHA inmutable y se compila al Libro PDF.', targetId: 'mock-step10-btn-seal', action: 'click' }
-    ]
-  },
-  {
-    id: 11,
-    title: 'Calendario de Obra y Diagrama de Gantt',
-    badge: 'Módulo 11 • Tiempos',
-    duration: 24,
-    icon: 'fa-calendar-days',
-    description: 'Cronograma interactivo ligado al catálogo, ruta crítica y calendario financiero.',
-    steps: [
-      { t: 0, text: 'Entra a "Calendario de Obra" para ver el cronograma de actividades de la obra.', targetId: 'mock-step11-tab-cal', action: 'click' },
-      { t: 6, text: 'Arrastra las barras del Gantt o edita las duraciones para programar las fechas de ejecución.', targetId: 'mock-step11-bars', action: 'highlight' },
-      { t: 12, text: 'Usa el "Asistente AI" para sugerir duraciones lógicas según los rendimientos de la matriz APU.', targetId: 'mock-step11-btn-ai', action: 'click' },
-      { t: 17, text: 'Activa la "Ruta Crítica" para vigilar las tareas que no admiten holgura en el tiempo de entrega.', targetId: 'mock-step11-critical', action: 'click' },
-      { t: 21, text: 'Consulta el Calendario Financiero de erogaciones semanales o mensuales programadas.', targetId: 'mock-step11-financial', action: 'highlight' }
-    ]
-  },
-  {
-    id: 12,
-    title: 'Estimaciones y Números Generadores de Cobro',
-    badge: 'Módulo 12 • Cobros',
-    duration: 24,
-    icon: 'fa-file-invoice-dollar',
-    description: 'Periodos de corte, captura de generadores de obra, amortización de anticipos y estados de cuenta.',
-    steps: [
-      { t: 0, text: 'Abre la pestaña "Estimaciones" para generar tus cortes de cobro de obra periódicos.', targetId: 'mock-step12-tab-est', action: 'click' },
-      { t: 6, text: 'Crea una "Nueva Estimación" definiendo las fechas del periodo de corte.', targetId: 'mock-step12-btn-new', action: 'click' },
-      { t: 12, text: 'Captura los volúmenes de obra efectivamente ejecutados (números generadores).', targetId: 'mock-step12-inputs', action: 'type', value: '145.00 m2 ejecutados' },
-      { t: 17, text: 'Revisa el cálculo automático de amortización de anticipo (30%) y retención de fondo de garantía.', targetId: 'mock-step12-summary', action: 'highlight' },
-      { t: 21, text: 'Descarga la Carátula Oficial de Estimación en PDF lista para cobro con firmas.', targetId: 'mock-step12-btn-pdf', action: 'click' }
-    ]
-  },
-  {
-    id: 13,
-    title: 'Importador Universal (Excel, Opus y Neodata)',
-    badge: 'Módulo 13 • Importación',
-    duration: 24,
-    icon: 'fa-cloud-arrow-up',
-    description: 'Carga de archivos .xlsx, .csv y .json con mapeo inteligente de columnas y vista previa.',
-    steps: [
-      { t: 0, text: 'Haz clic en "Importar Archivo" en la barra lateral izquierda.', targetId: 'mock-step13-btn-import', action: 'click' },
-      { t: 6, text: 'Arrastra tu archivo Excel (.xlsx, .xls) o respaldo de Opus / Neodata.', targetId: 'mock-step13-dropzone', action: 'highlight' },
-      { t: 12, text: 'El Asistente detecta automáticamente las columnas: Clave, Descripción, Unidad, Cantidad y Precio.', targetId: 'mock-step13-mapping', action: 'highlight' },
-      { t: 17, text: 'Revisa la vista previa de renglones y selecciona si importar al Presupuesto o al Catálogo Maestro.', targetId: 'mock-step13-preview', action: 'click' },
-      { t: 21, text: 'Presiona "Iniciar Importación". Miles de conceptos se procesan en segundos 100% offline.', targetId: 'mock-step13-btn-start', action: 'click' }
-    ]
-  },
-  {
-    id: 14,
     title: 'Reportes e Impresión Oficial en PDF',
-    badge: 'Módulo 14 • Reportes',
+    badge: 'Módulo 9 • Reportes',
     duration: 24,
     icon: 'fa-print',
     description: 'Formatos oficiales de Presupuesto Base, Matrices APU e Insumos con membrete y firmas.',
     steps: [
-      { t: 0, text: 'Abre el menú de Impresión desde la barra de herramientas.', targetId: 'mock-step14-btn-print', action: 'click' },
-      { t: 6, text: 'Configura las Firmas Oficiales: Elaboró, Revisó, Aprobó y Autorizó.', targetId: 'mock-step14-signatures', action: 'highlight' },
-      { t: 12, text: 'Selecciona el formato: Presupuesto Base, Ficha de Precio Unitario (APU) o Explosión de Insumos.', targetId: 'mock-step14-formats', action: 'click' },
-      { t: 17, text: 'El reporte se genera con tu Logotipo institucional 1:1, sobrecosto y totales en letra oficiales.', targetId: 'mock-step14-preview', action: 'highlight' },
-      { t: 21, text: 'Descarga el archivo PDF vectorial listo para entrega técnica o licitación.', targetId: 'mock-step14-btn-download', action: 'click' }
+      { t: 0, text: 'Abre el menú de Impresión desde la barra de herramientas del presupuesto.', targetId: 'mock-step9-btn-print', action: 'click' },
+      { t: 6, text: 'Configura las Firmas Oficiales: Elaboró, Revisó, Aprobó y Autorizó.', targetId: 'mock-step9-signatures', action: 'highlight' },
+      { t: 12, text: 'Selecciona el formato: Presupuesto Base, Ficha de Precio Unitario (APU) o Explosión de Insumos.', targetId: 'mock-step9-formats', action: 'click' },
+      { t: 17, text: 'El reporte se genera con tu Logotipo institucional 1:1, sobrecosto y totales en letra oficiales.', targetId: 'mock-step9-preview', action: 'highlight' },
+      { t: 21, text: 'Descarga el archivo PDF vectorial listo para entrega técnica o licitación.', targetId: 'mock-step9-btn-download', action: 'click' }
+    ]
+  },
+
+  // VENTANA 3: PESTAÑA 2: CALENDARIO DE OBRA Y GANTT
+  {
+    id: 10,
+    title: 'Calendario de Obra y Diagrama de Gantt',
+    badge: 'Módulo 10 • Tiempos',
+    duration: 25,
+    icon: 'fa-calendar-days',
+    description: 'Cronograma interactivo ligado al catálogo, ruta crítica y calendario financiero.',
+    steps: [
+      { t: 0, text: 'Pasa a la pestaña "Calendario de Obra" para planificar la ejecución en el tiempo.', targetId: 'mock-step10-tab-cal', action: 'click' },
+      { t: 6, text: 'Arrastra las barras del Gantt o edita las duraciones para programar las fechas de ejecución.', targetId: 'mock-step10-gantt-bars', action: 'highlight' },
+      { t: 11, text: 'Usa el "Asistente AI" para sugerir duraciones lógicas según los rendimientos de la matriz APU.', targetId: 'mock-step10-btn-ai', action: 'click' },
+      { t: 17, text: 'Activa la "Ruta Crítica" para vigilar las tareas que no admiten holgura en el tiempo de entrega.', targetId: 'mock-step10-critical', action: 'click' },
+      { t: 21, text: 'Consulta el Calendario Financiero de erogaciones semanales o mensuales programadas.', targetId: 'mock-step10-financial', action: 'highlight' }
+    ]
+  },
+
+  // VENTANA 4: PESTAÑA 3: ESTIMACIONES Y COBRO
+  {
+    id: 11,
+    title: 'Estimaciones y Números Generadores de Cobro',
+    badge: 'Módulo 11 • Cobros',
+    duration: 24,
+    icon: 'fa-file-invoice-dollar',
+    description: 'Periodos de corte, captura de generadores de obra, amortización de anticipos y estados de cuenta.',
+    steps: [
+      { t: 0, text: 'Abre la pestaña "Estimaciones" para generar tus cortes de cobro de obra periódicos.', targetId: 'mock-step11-tab-est', action: 'click' },
+      { t: 6, text: 'Crea una "Nueva Estimación" definiendo las fechas del periodo de corte.', targetId: 'mock-step11-btn-new', action: 'click' },
+      { t: 12, text: 'Captura los volúmenes de obra efectivamente ejecutados (números generadores).', targetId: 'mock-step11-inputs', action: 'type', value: '145.00 m2 ejecutados' },
+      { t: 17, text: 'Revisa el cálculo automático de amortización de anticipo (30%) y retención de fondo de garantía.', targetId: 'mock-step11-summary', action: 'highlight' },
+      { t: 21, text: 'Descarga la Carátula Oficial de Estimación en PDF lista para cobro con firmas.', targetId: 'mock-step11-btn-pdf', action: 'click' }
+    ]
+  },
+
+  // VENTANA 5: PESTAÑA 4: COMPRAS Y ERP
+  {
+    id: 12,
+    title: 'Compras, Gastos y ERP Financiero',
+    badge: 'Módulo 12 • Egresos',
+    duration: 26,
+    icon: 'fa-cart-shopping',
+    description: 'Dashboard financiero, registro de facturas, comparativa presupuesto vs real y órdenes de compra.',
+    steps: [
+      { t: 0, text: 'Accede a "Compras y Pagos" para revisar las métricas de Presupuesto vs Gasto Real.', targetId: 'mock-step12-tab-compras', action: 'click' },
+      { t: 6, text: 'Haz clic en "+ Registrar Gasto" para capturar una factura, ticket o remisión.', targetId: 'mock-step12-btn-new', action: 'click' },
+      { t: 12, text: 'Captura proveedor, concepto, tipo de egreso e importe con IVA. Adjunta la factura en PDF.', targetId: 'mock-step12-form', action: 'type', value: 'Factura F-4892 • Concreto f\'c=250' },
+      { t: 17, text: 'Cambia el estatus de pago con 1 clic: "Pagado", "Pendiente" o "Parcial" para control de tesorería.', targetId: 'mock-step12-status', action: 'click' },
+      { t: 22, text: 'Genera e imprime la Orden de Compra oficial con membrete corporativo y folio.', targetId: 'mock-step12-btn-order', action: 'click' }
+    ]
+  },
+
+  // VENTANA 6: PESTAÑA 5: BITÁCORA DE OBRA
+  {
+    id: 13,
+    title: 'Bitácora Electrónica y Legal de Obra (LOPSRM / BESOP)',
+    badge: 'Módulo 13 • Bitácora',
+    duration: 26,
+    icon: 'fa-book',
+    description: 'Folios inalterables #001, registro de clima, firma digital táctil y sellado criptográfico.',
+    steps: [
+      { t: 0, text: 'Abre la pestaña "Bitácora de Obra" para gestionar el libro legal de notas conforme a ley.', targetId: 'mock-step13-tab-bitacora', action: 'click' },
+      { t: 6, text: 'Haz clic en "+ Nueva Nota" y selecciona el tipo (Apertura, Instrucción, Avance o Incidencia).', targetId: 'mock-step13-btn-new', action: 'click' },
+      { t: 12, text: 'Registra el estado del tiempo (Soleado, Lluvia, Viento) y vincula los conceptos ejecutados.', targetId: 'mock-step13-clima', action: 'click' },
+      { t: 17, text: 'Dibuja tu firma digital manuscrita en el panel táctil con mouse, stylus o dedo.', targetId: 'mock-step13-firma', action: 'highlight' },
+      { t: 22, text: 'Presiona "Sellar Nota Oficial". Se genera un Hash SHA inmutable y se compila al Libro PDF.', targetId: 'mock-step13-btn-save', action: 'click' }
+    ]
+  },
+
+  // VENTANA 7: HERRAMIENTAS GLOBALES Y SEGURIDAD
+  {
+    id: 14,
+    title: 'Chat de Proyecto y Bitácora Contextual',
+    badge: 'Módulo 14 • Comunicación',
+    duration: 25,
+    icon: 'fa-comments',
+    description: 'Canales Técnico y Financiero, menciones @Usuario y comentarios directos en partidas.',
+    steps: [
+      { t: 0, text: 'Abre la ventana del chat desde el botón flotante inferior o la barra lateral izquierda.', targetId: 'mock-step14-btn-chat', action: 'click' },
+      { t: 5, text: 'Alterna entre la Sección Técnica (Catálogo/Calendario) y la Sección Financiera (Compras/Estimaciones).', targetId: 'mock-step14-tabs', action: 'click' },
+      { t: 11, text: 'Escribe un mensaje usando "@" para alertar a un compañero con notificación en tiempo real.', targetId: 'mock-step14-input', action: 'type', value: '@Carlos Revisar volumen de concreto en cimentación' },
+      { t: 17, text: 'Comenta directamente sobre cualquier partida haciendo clic en su icono de chat.', targetId: 'mock-step14-partida-tag', action: 'highlight' },
+      { t: 21, text: 'Exporta la Minuta Oficial de Acuerdos a PDF con membrete institucional y firmas.', targetId: 'mock-step14-btn-print', action: 'click' }
     ]
   },
   {
     id: 15,
-    title: 'Seguridad, Respaldos y Perfil Profesional',
-    badge: 'Módulo 15 • Ajustes',
+    title: 'Importador Universal (Excel, Opus y Neodata)',
+    badge: 'Módulo 15 • Importación',
     duration: 24,
-    icon: 'fa-shield-halved',
-    description: 'Candado de bloqueo de pestañas (Tab Lock), respaldo de seguridad .json y temas día/noche.',
+    icon: 'fa-cloud-arrow-up',
+    description: 'Carga de archivos .xlsx, .csv y .json con mapeo inteligente de columnas y vista previa.',
     steps: [
-      { t: 0, text: 'Usa el botón de candado "Tab Lock" para congelar la edición contra cambios accidentales.', targetId: 'mock-step15-btn-lock', action: 'click' },
-      { t: 6, text: 'Descarga un Respaldo Completo (.json) de tu obra para tener copia de seguridad local.', targetId: 'mock-step15-btn-backup', action: 'click' },
-      { t: 12, text: 'En tu Perfil de Usuario, personaliza tus datos y cambia entre Modo Día y Modo Nocturno.', targetId: 'mock-step15-profile', action: 'highlight' },
-      { t: 17, text: 'Monitorea tu cuota de almacenamiento en la nube y estado de sincronización.', targetId: 'mock-step15-quota', action: 'highlight' },
-      { t: 21, text: '¡Listo! Cubikar mantiene tu información blindada, organizada y accesible desde cualquier lugar.', targetId: 'mock-step15-logo', action: 'click' }
+      { t: 0, text: 'Haz clic en "Importar Archivo" en la barra lateral izquierda.', targetId: 'mock-step15-btn-import', action: 'click' },
+      { t: 6, text: 'Arrastra tu archivo Excel (.xlsx, .xls) o respaldo de Opus / Neodata.', targetId: 'mock-step15-dropzone', action: 'highlight' },
+      { t: 12, text: 'El Asistente detecta automáticamente las columnas: Clave, Descripción, Unidad, Cantidad y Precio.', targetId: 'mock-step15-mapping', action: 'highlight' },
+      { t: 17, text: 'Revisa la vista previa de renglones y selecciona si importar al Presupuesto o al Catálogo Maestro.', targetId: 'mock-step15-preview', action: 'click' },
+      { t: 21, text: 'Presiona "Iniciar Importación". Miles de conceptos se procesan en segundos 100% offline.', targetId: 'mock-step15-btn-start', action: 'click' }
     ]
   },
   {
     id: 16,
-    title: 'Modo de Trabajo: Obras Propias vs. Invitaciones',
-    badge: 'Módulo 16 • Colaboración',
-    duration: 26,
-    icon: 'fa-briefcase',
-    description: 'Filtro entre proyectos propios, obras compartidas por empresas colaboradoras y gobernanza de planes.',
+    title: 'Seguridad, Respaldos y Perfil Profesional',
+    badge: 'Módulo 16 • Ajustes',
+    duration: 24,
+    icon: 'fa-shield-halved',
+    description: 'Candado de bloqueo de pestañas (Tab Lock), respaldo de seguridad .json y temas día/noche.',
     steps: [
-      { t: 0, text: 'En el portal principal, ubica la barra de "Modo de Trabajo" con su selector desplegable de ámbitos.', targetId: 'mock-step16-mode-bar', action: 'highlight' },
-      { t: 5, text: 'En "Mis proyectos", accedes a tus obras de autoría propia gobernadas por tu plan de suscripción activa.', targetId: 'mock-step16-scope-select', action: 'click' },
-      { t: 11, text: 'Selecciona una empresa invitadora para acceder como colaborador con permisos granulares (Editor o Lector).', targetId: 'mock-step16-scope-select', action: 'click' },
-      { t: 17, text: 'El indicador de membresía se adapta automáticamente al plan del anfitrión sin consumir tu cuota de obras.', targetId: 'mock-step16-status-badge', action: 'highlight' },
-      { t: 22, text: 'Presiona "Invitaciones" para sumar residentes, calculistas o auditores a tus propios proyectos de obra.', targetId: 'mock-step16-btn-invite', action: 'click' }
+      { t: 0, text: 'Usa el botón de candado "Tab Lock" para congelar la edición contra cambios accidentales.', targetId: 'mock-step16-btn-lock', action: 'click' },
+      { t: 6, text: 'Descarga un Respaldo Completo (.json) de tu obra para tener copia de seguridad local.', targetId: 'mock-step16-btn-backup', action: 'click' },
+      { t: 12, text: 'En tu Perfil de Usuario, personaliza tus datos y cambia entre Modo Día y Modo Nocturno.', targetId: 'mock-step16-profile', action: 'highlight' },
+      { t: 17, text: 'Monitorea tu cuota de almacenamiento en la nube y estado de sincronización.', targetId: 'mock-step16-quota', action: 'highlight' },
+      { t: 21, text: '¡Listo! Cubikar mantiene tu información blindada, organizada y accesible desde cualquier lugar.', targetId: 'mock-step16-logo', action: 'click' }
     ]
   }
 ];
@@ -729,10 +742,10 @@ function renderSimulationStageFrame(seconds) {
     speakNarration(currentStep.text);
   }
 
-  // Control Dinámico de Vistas y Ventanas Flotantes para Módulo 7 (Menú Dividido vs Modal Grounding)
-  if (currentModuleId === 7) {
-    const aiMenu = document.getElementById('mock-step7-ai-menu');
-    const aiOverlay = document.getElementById('mock-step7-modal-overlay');
+    // Control Dinámico de Vistas y Ventanas Flotantes para Módulo 6 (IA Gemini Grounding)
+  if (currentModuleId === 6) {
+    const aiMenu = document.getElementById('mock-step6-ai-menu');
+    const aiOverlay = document.getElementById('mock-step6-modal-overlay');
     if (aiMenu && aiOverlay) {
       if (seconds < 10) {
         aiMenu.style.display = 'block';
@@ -746,12 +759,12 @@ function renderSimulationStageFrame(seconds) {
     }
   }
 
-  // Control Dinámico para Módulo 16 (Modo de Trabajo: Obras Propias vs Invitaciones)
-  if (currentModuleId === 16) {
-    const scopeSelect = document.getElementById('mock-step16-scope-select');
-    const statusBadge = document.getElementById('mock-step16-status-badge');
-    const ownCards = document.getElementById('mock-step16-cards-owned');
-    const invitedCards = document.getElementById('mock-step16-cards-invited');
+  // Control Dinámico para Módulo 2 (Modo de Trabajo: Obras Propias vs Invitaciones)
+  if (currentModuleId === 2) {
+    const scopeSelect = document.getElementById('mock-step2-scope-select');
+    const statusBadge = document.getElementById('mock-step2-status-badge');
+    const ownCards = document.getElementById('mock-step2-cards-owned');
+    const invitedCards = document.getElementById('mock-step2-cards-invited');
 
     if (scopeSelect && statusBadge && ownCards && invitedCards) {
       if (seconds < 11) {

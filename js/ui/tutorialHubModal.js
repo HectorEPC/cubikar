@@ -3,8 +3,8 @@
 // Permite al usuario elegir entre el Tour Guiado en Vivo (Alternativa 3) con botón de Saltar,
 // o el Reproductor Web de Video-Simulación Animada (Alternativa 1).
 
-import { startInteractiveTour, isTourDismissed, resetTourDismissedStatus } from './interactiveTour.js?v=20261113_20';
-import { openVideoSimulatorModal, VIDEO_MODULES } from './videoSimulatorModal.js?v=20261113_22';
+import { startInteractiveTour, isTourDismissed, resetTourDismissedStatus } from './interactiveTour.js?v=20261113_23';
+import { openVideoSimulatorModal, VIDEO_MODULES } from './videoSimulatorModal.js?v=20261113_23';
 
 let isTutorialHubOpen = false;
 

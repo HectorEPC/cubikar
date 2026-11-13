@@ -249,13 +249,13 @@ export function getFeaturedProfilesList() {
       });
     };
 
-    // 1. Usuario actualmente activo en sesiÃ³n
+    // 1. Usuario actualmente activo en sesión
     const curr = getCurrentUser();
     if (curr) {
       addProfileCandidate(curr);
     }
 
-    // 2. Perfiles explÃ­citamente guardados en STORAGE_KEY_FEATURED_PROFILES
+    // 2. Perfiles explícitamente guardados en STORAGE_KEY_FEATURED_PROFILES
     const rawFeatured = localStorage.getItem(STORAGE_KEY_FEATURED_PROFILES);
     if (rawFeatured) {
       try {
@@ -389,7 +389,7 @@ export function purgeAllRegisteredAccountsAndUsers() {
 }
 
 // ==========================================
-// ELIMINACIÃ“N DEFINITIVA DE CUENTA Y ARCHIVOS
+// ELIMINACIÓN DEFINITIVA DE CUENTA Y ARCHIVOS
 // ==========================================
 export function deleteUserAccountAndData(email) {
   if (!email) return false;
@@ -415,7 +415,7 @@ export function deleteUserAccountAndData(email) {
       } catch (_) {}
     });
 
-    // 2. Guardar lista de proyectos restantes (excluyendo los del usuario y quitÃ¡ndolo de colaboradores de otros proyectos)
+    // 2. Guardar lista de proyectos restantes (excluyendo los del usuario y quitándolo de colaboradores de otros proyectos)
     const remainingProjects = allProjects.filter(p => {
       const oEmail = (p.ownerEmail || '').toLowerCase().trim();
       return oEmail !== cleanEmail;
@@ -461,12 +461,12 @@ export function deleteUserAccountAndData(email) {
       localStorage.setItem(STORAGE_KEY_CLOSED_SESSIONS, JSON.stringify(closed));
     } catch (_) {}
 
-    // 7. Limpiar suscripciones o datos locales especÃ­ficos del correo
+    // 7. Limpiar suscripciones o datos locales específicos del correo
     try {
       localStorage.removeItem(`adm_const_subscription_${cleanEmail}`);
     } catch (_) {}
 
-    // 8. Si es el usuario activo actual, limpiar sesiÃ³n activa y espacio de trabajo
+    // 8. Si es el usuario activo actual, limpiar sesión activa y espacio de trabajo
     const current = getCurrentUser();
     if (current && (current.email || '').toLowerCase().trim() === cleanEmail) {
       saveCurrentUser(null);

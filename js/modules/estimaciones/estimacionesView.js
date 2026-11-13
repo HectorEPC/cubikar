@@ -22,12 +22,17 @@ import {
   isEstimacionLocked,
   normalizeCloudImageUrl,
   getConceptoFotosEstimacion,
-  setConceptoFotosEstimacion
+  setConceptoFotosEstimacion,
+  updateEstimacionAnticipoZero,
+  updateEstimacionFactura,
+  loadEstimacionesData,
+  saveEstimacionesData,
+  createDefaultFacturaData
 } from './estimacionesModel.js';
 import { guardTabUnlocked, applyTabLocksToDOM, toggleTabLock } from '../../ui/tabLockController.js';
 import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js';
 import { getActiveProjectId } from '../../config/constants.js';
-import { uploadManagedFile, resolveManagedFileUrl, deleteManagedFile } from '../../services/s3StorageService.js';
+import { uploadManagedFile, resolveManagedFileUrl, deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js';
 import { mountStorageMeter } from '../../services/storageQuotaService.js';
 
 let estimacionesSearchTerm = '';
@@ -290,7 +295,663 @@ function renderEstimacionesTfootContentHTML(kpis, currencySymbol) {
   `;
 }
 
+// =========================================================================
+// VENTANA MODAL FLOTANTE DE GESTIÓN Y VISTA DE FACTURA
+// =========================================================================
+export function openFacturaModal(estId = null) {
+  const data = getEstimacionesCalculatedData();
+  const targetId = estId || data.activeEst.id;
+  const est = data.estimacionesList.find(e => e.id === targetId) || data.activeEst;
+  if (!est) return;
+
+  const modal = document.getElementById('modal-factura-estimacion');
+  const titleEl = document.getElementById('modal-factura-title');
+  const subtitleEl = document.getElementById('modal-factura-subtitle');
+  const bodyEl = document.getElementById('modal-factura-body');
+  if (!modal || !bodyEl) return;
+
+  const factura = est.factura || {
+    folio: '',
+    fechaEmision: '',
+    fechaPago: '',
+    status: 'pendiente',
+    pdfUrl: '',
+    pdfFileName: '',
+    xmlUrl: '',
+    xmlFileName: ''
+  };
+
+  const hasPdf = Boolean(factura.pdfUrl || factura.pdfFileRef || factura.pdfFileName);
+  const hasXml = Boolean(factura.xmlUrl || factura.xmlFileRef || factura.xmlFileName);
+  const isCobrada = factura.status === 'cobrada';
+
+  if (titleEl) {
+    titleEl.textContent = `Comprobante Fiscal — ${est.numero === 0 ? 'Est. 0 (Anticipo)' : est.nombre}`;
+  }
+  if (subtitleEl) {
+    subtitleEl.textContent = hasPdf ? `Factura adjunta: ${factura.pdfFileName || 'Factura.pdf'}` : 'Sin factura cargada actualmente';
+  }
+
+  bodyEl.innerHTML = `
+    <!-- Barra de Estado de Cobro -->
+    <div class="p-3 rounded-xl ${isCobrada ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'} flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="w-8 h-8 rounded-lg ${isCobrada ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'} flex items-center justify-center font-bold text-sm">
+          <i class="fa-solid ${isCobrada ? 'fa-circle-check' : 'fa-clock'}"></i>
+        </span>
+        <div>
+          <span class="font-bold text-xs ${isCobrada ? 'text-emerald-900' : 'text-amber-900'} block">
+            Estado: ${isCobrada ? 'COBRADA / PAGADA' : 'PENDIENTE DE PAGO'}
+          </span>
+          <span class="text-[11px] text-slate-500">
+            ${isCobrada ? 'Esta estimación ya fue liquidada' : 'Pendiente de cobro'}
+          </span>
+        </div>
+      </div>
+
+      <button type="button" onclick="toggleEstimacionCobroStatus('${est.id}'); openFacturaModal('${est.id}')"
+              class="px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer ${isCobrada ? 'bg-amber-100 hover:bg-amber-200 text-amber-800' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}">
+        ${isCobrada ? 'Marcar como Pendiente' : 'Marcar como Cobrada'}
+      </button>
+    </div>
+
+    <!-- Metadatos de la Factura -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+      <div>
+        <label class="block font-bold text-slate-700 text-[11px] mb-1">
+          <i class="fa-solid fa-hashtag text-indigo-600 mr-1"></i> Folio / UUID:
+        </label>
+        <input type="text" value="${factura.folio || ''}" placeholder="Ej: F-1025..."
+               onchange="onFacturaFieldChange('${est.id}', 'folio', this.value.trim())"
+               class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-800 focus:outline-none focus:border-indigo-500">
+      </div>
+      <div>
+        <label class="block font-bold text-slate-700 text-[11px] mb-1">
+          <i class="fa-regular fa-calendar text-indigo-600 mr-1"></i> Fecha de Emisión:
+        </label>
+        <input type="date" value="${factura.fechaEmision || ''}"
+               onchange="onFacturaFieldChange('${est.id}', 'fechaEmision', this.value)"
+               class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-indigo-500">
+      </div>
+      <div>
+        <label class="block font-bold text-slate-700 text-[11px] mb-1">
+          <i class="fa-solid fa-calendar-check text-emerald-600 mr-1"></i> Fecha de Pago:
+        </label>
+        <input type="date" value="${factura.fechaPago || ''}"
+               onchange="onFacturaFieldChange('${est.id}', 'fechaPago', this.value)"
+               class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-indigo-500">
+      </div>
+    </div>
+
+    <!-- Gestión de Archivos (Factura PDF y XML SAT) -->
+    <div class="space-y-3">
+      <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wide flex items-center gap-1.5">
+        <i class="fa-solid fa-folder-open text-indigo-600"></i> Archivos Adjuntos del Comprobante
+      </h4>
+
+      <!-- Tarjeta FACTURA PDF -->
+      <div class="p-4 rounded-xl border ${hasPdf ? 'bg-rose-50/40 border-rose-200' : 'bg-slate-50 border-dashed border-slate-300'} flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-10 h-10 rounded-xl ${hasPdf ? 'bg-rose-100 text-rose-600' : 'bg-slate-200 text-slate-400'} flex items-center justify-center text-lg font-bold shrink-0">
+              <i class="fa-solid fa-file-pdf"></i>
+            </span>
+            <div class="min-w-0">
+              <span class="font-bold text-slate-800 text-xs block">Factura en Formato PDF</span>
+              <span class="text-[11px] text-slate-500 truncate block font-mono">
+                ${factura.pdfFileName || 'Sin archivo PDF adjunto'}
+              </span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0">
+            ${hasPdf ? `
+              <button type="button" onclick="viewFacturaFile('${est.id}', 'pdf')"
+                      class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                      title="Ver y abrir PDF en pantalla completa">
+                <i class="fa-solid fa-eye"></i> <span>Ver Factura</span>
+              </button>
+
+              <button type="button" onclick="removeFacturaFile('${est.id}', 'pdf'); openFacturaModal('${est.id}')"
+                      class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-bold text-xs flex items-center gap-1 transition cursor-pointer"
+                      title="Eliminar este archivo PDF">
+                <i class="fa-solid fa-trash-can"></i> <span>Eliminar</span>
+              </button>
+            ` : ''}
+
+            <label class="px-3 py-1.5 rounded-lg ${hasPdf ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs'} font-bold text-xs flex items-center gap-1.5 transition cursor-pointer">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span>${hasPdf ? 'Sustituir / Subir Otra' : 'Subir Factura PDF'}</span>
+              <input type="file" accept="application/pdf" class="hidden"
+                     onchange="if(this.files[0]) {
+                       onFacturaFileUpload('${est.id}', 'pdf', this.files[0]).then(() => openFacturaModal('${est.id}'));
+                     }">
+            </label>
+          </div>
+        </div>
+
+        ${hasPdf && factura.pdfUrl ? `
+          <!-- Visor / Enlace directo embebido -->
+          <div class="bg-white rounded-lg border border-rose-200 p-2.5 flex items-center justify-between gap-2 text-[11px]">
+            <span class="text-slate-600 truncate flex items-center gap-1.5">
+              <i class="fa-solid fa-link text-rose-500"></i> Enlace listo para consulta o auditoría fiscal
+            </span>
+            <button type="button" onclick="viewFacturaFile('${est.id}', 'pdf')" class="text-rose-600 hover:text-rose-800 font-bold underline cursor-pointer shrink-0">
+              Abrir visor externo ↗
+            </button>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- Tarjeta ARCHIVO XML DEL SAT -->
+      <div class="p-4 rounded-xl border ${hasXml ? 'bg-blue-50/40 border-blue-200' : 'bg-slate-50 border-dashed border-slate-300'} flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-10 h-10 rounded-xl ${hasXml ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-400'} flex items-center justify-center text-lg font-bold shrink-0">
+              <i class="fa-solid fa-file-code"></i>
+            </span>
+            <div class="min-w-0">
+              <span class="font-bold text-slate-800 text-xs block">Comprobante Fiscal SAT (XML)</span>
+              <span class="text-[11px] text-slate-500 truncate block font-mono">
+                ${factura.xmlFileName || 'Sin archivo XML adjunto'}
+              </span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0">
+            ${hasXml ? `
+              <button type="button" onclick="viewFacturaFile('${est.id}', 'xml')"
+                      class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                      title="Descargar archivo XML oficial del SAT">
+                <i class="fa-solid fa-download"></i> <span>Descargar XML</span>
+              </button>
+
+              <button type="button" onclick="removeFacturaFile('${est.id}', 'xml'); openFacturaModal('${est.id}')"
+                      class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-bold text-xs flex items-center gap-1 transition cursor-pointer"
+                      title="Eliminar este archivo XML">
+                <i class="fa-solid fa-trash-can"></i> <span>Eliminar</span>
+              </button>
+            ` : ''}
+
+            <label class="px-3 py-1.5 rounded-lg ${hasXml ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-xs'} font-bold text-xs flex items-center gap-1.5 transition cursor-pointer">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span>${hasXml ? 'Sustituir XML' : 'Subir Archivo XML'}</span>
+              <input type="file" accept=".xml,text/xml,application/xml" class="hidden"
+                     onchange="if(this.files[0]) {
+                       onFacturaFileUpload('${est.id}', 'xml', this.files[0]).then(() => openFacturaModal('${est.id}'));
+                     }">
+            </label>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+export function closeFacturaModal() {
+  const modal = document.getElementById('modal-factura-estimacion');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+}
+
 // Renderizado principal de la pestaña ESTIMACIONES
+// =========================================================================
+// RENDERIZADO: COMPONENTE DE FACTURACIÓN Y COMPROBANTE FISCAL POR ESTIMACIÓN
+// =========================================================================
+let estimacionesFacturaExpandedMap = {}; // { [estId]: boolean }
+
+export function toggleEstimacionCobroStatus(estId) {
+  try {
+    const data = loadEstimacionesData();
+    const targetId = estId || data.activeEstimacionId;
+    const est = data.estimaciones.find(e => e.id === targetId) || data.estimaciones[0];
+    if (!est) return;
+
+    if (!est.factura || typeof est.factura !== 'object') {
+      est.factura = createDefaultFacturaData();
+    }
+
+    const currentStatus = est.factura.status || 'pendiente';
+    const newStatus = currentStatus === 'cobrada' ? 'pendiente' : 'cobrada';
+    
+    est.factura.status = newStatus;
+    est.factura.fechaPago = newStatus === 'cobrada' ? (est.factura.fechaPago || new Date().toISOString().split('T')[0]) : '';
+
+    saveEstimacionesData(data);
+    renderEstimacionesView();
+    showToast(newStatus === 'cobrada' ? '✅ Estimación marcada como COBRADA / PAGADA' : '⏳ Estimación marcada como PENDIENTE DE PAGO', newStatus === 'cobrada' ? 'success' : 'info');
+  } catch (err) {
+    console.error('Error al alternar estado de cobro:', err);
+    showToast('Error al cambiar estado de cobro', 'error');
+  }
+}
+
+export function toggleEstimacionFacturaCard(estId) {
+  toggleEstimacionCobroStatus(estId);
+}
+
+function renderFacturaCardHTML(est, isLocked) {
+  const factura = est.factura || {
+    folio: '',
+    fechaEmision: '',
+    fechaPago: '',
+    status: 'pendiente',
+    pdfUrl: '',
+    pdfFileName: '',
+    xmlUrl: '',
+    xmlFileName: ''
+  };
+
+  const isExpanded = Boolean(estimacionesFacturaExpandedMap[est.id]);
+  const isCobrada = factura.status === 'cobrada';
+  const hasPdf = Boolean(factura.pdfUrl || factura.pdfFileRef || factura.pdfFileName);
+  const hasXml = Boolean(factura.xmlUrl || factura.xmlFileRef || factura.xmlFileName);
+
+  if (!isExpanded) {
+    return ''; // Completamente oculto si no está desplegado, no genera tarjeta duplicada
+  }
+
+  return `
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-200 mb-2">
+      <!-- Barra Cabecera Colapsable -->
+      <div class="px-3 py-2 bg-gradient-to-r from-slate-50 via-blue-50/40 to-slate-50 flex items-center justify-between gap-2 cursor-pointer select-none border-b border-slate-200/80"
+           onclick="toggleEstimacionFacturaCard('${est.id}')">
+        
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="w-6 h-6 rounded-lg ${isCobrada ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'} flex items-center justify-center text-xs shrink-0 font-bold shadow-2xs">
+            <i class="fa-solid fa-file-invoice"></i>
+          </span>
+          <div class="min-w-0">
+            <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5 truncate">
+              Detalle Fiscal de Factura y SAT
+              ${factura.folio ? `<span class="px-2 py-0.2 rounded font-mono text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">Folio: ${factura.folio}</span>` : ''}
+            </span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- Botón cerrar colapsar -->
+          <button type="button" onclick="toggleEstimacionFacturaCard('${est.id}')" class="text-slate-400 hover:text-slate-700 text-xs p-1" title="Cerrar detalles fiscales">
+            <i class="fa-solid fa-chevron-up"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Contenido Desplegable -->
+      <div class="p-3.5 bg-slate-50/50 space-y-3 border-t border-slate-100 text-xs">
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <!-- Folio de Factura -->
+          <div>
+            <label class="block font-semibold text-slate-700 text-[11px] mb-1">
+              <i class="fa-solid fa-hashtag text-blue-600 mr-1"></i> Folio / UUID Fiscal:
+            </label>
+            <input type="text"
+                   ${isLocked ? 'disabled readonly' : ''}
+                   value="${factura.folio || ''}"
+                   onchange="onFacturaFieldChange('${est.id}', 'folio', this.value.trim())"
+                   placeholder="Ej: F-1025 o UUID..."
+                   class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-800 focus:outline-none focus:border-blue-500 disabled:bg-slate-100">
+          </div>
+
+          <!-- Fecha de Emisión -->
+          <div>
+            <label class="block font-semibold text-slate-700 text-[11px] mb-1">
+              <i class="fa-regular fa-calendar text-blue-600 mr-1"></i> Fecha de Emisión:
+            </label>
+            <input type="date"
+                   ${isLocked ? 'disabled readonly' : ''}
+                   value="${factura.fechaEmision || ''}"
+                   onchange="onFacturaFieldChange('${est.id}', 'fechaEmision', this.value)"
+                   class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-blue-500 disabled:bg-slate-100">
+          </div>
+
+          <!-- Fecha de Pago -->
+          <div>
+            <label class="block font-semibold text-slate-700 text-[11px] mb-1">
+              <i class="fa-solid fa-calendar-check text-emerald-600 mr-1"></i> Fecha de Pago / Cobro:
+            </label>
+            <input type="date"
+                   ${isLocked ? 'disabled readonly' : ''}
+                   value="${factura.fechaPago || ''}"
+                   onchange="onFacturaFieldChange('${est.id}', 'fechaPago', this.value)"
+                   class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-blue-500 disabled:bg-slate-100">
+          </div>
+
+          <!-- Estado de Cobro -->
+          <div>
+            <label class="block font-semibold text-slate-700 text-[11px] mb-1">
+              <i class="fa-solid fa-coins text-amber-500 mr-1"></i> Estado de Cobro:
+            </label>
+            <select ${isLocked ? 'disabled' : ''}
+                    onchange="onFacturaFieldChange('${est.id}', 'status', this.value)"
+                    class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500 disabled:bg-slate-100">
+              <option value="pendiente" ${!isCobrada ? 'selected' : ''}>⏳ Pendiente de Pago</option>
+              <option value="cobrada" ${isCobrada ? 'selected' : ''}>✅ Cobrada / Pagada</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Área de Archivos Adjuntos: Factura PDF y Archivo XML SAT -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+          
+          <!-- TARJETA FACTURA PDF -->
+          <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between gap-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-sm shrink-0">
+                  <i class="fa-solid fa-file-pdf"></i>
+                </span>
+                <div class="min-w-0">
+                  <span class="font-bold text-slate-800 block text-xs">Factura PDF Oficial</span>
+                  <span class="text-[10px] text-slate-500 block truncate" title="${factura.pdfFileName || 'Sin archivo PDF adjunto'}">
+                    ${factura.pdfFileName || 'Sin archivo adjunto'}
+                  </span>
+                </div>
+              </div>
+
+              ${hasPdf ? `
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="viewFacturaFile('${est.id}', 'pdf')"
+                          class="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10.5px] shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                          title="Abrir y ver la factura en PDF">
+                    <i class="fa-solid fa-eye"></i> Ver PDF
+                  </button>
+                  ${!isLocked ? `
+                    <button type="button" onclick="removeFacturaFile('${est.id}', 'pdf')"
+                            class="text-rose-500 hover:text-rose-700 p-1 text-xs cursor-pointer"
+                            title="Eliminar PDF">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  ` : ''}
+                </div>
+              ` : ''}
+            </div>
+
+            ${!hasPdf && !isLocked ? `
+              <label class="w-full border-2 border-dashed border-rose-300 hover:border-rose-500 bg-rose-50/50 hover:bg-rose-50 rounded-lg p-2 text-center text-[11px] text-rose-700 font-bold cursor-pointer transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-cloud-arrow-up text-sm"></i>
+                <span>Adjuntar Factura PDF</span>
+                <input type="file" accept="application/pdf" class="hidden"
+                       onchange="if(this.files[0]) onFacturaFileUpload('${est.id}', 'pdf', this.files[0])">
+              </label>
+            ` : ''}
+          </div>
+
+          <!-- TARJETA ARCHIVO XML (SAT) -->
+          <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between gap-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
+                  <i class="fa-solid fa-file-code"></i>
+                </span>
+                <div class="min-w-0">
+                  <span class="font-bold text-slate-800 block text-xs">Comprobante Fiscal Digital (XML)</span>
+                  <span class="text-[10px] text-slate-500 block truncate" title="${factura.xmlFileName || 'Sin archivo XML adjunto'}">
+                    ${factura.xmlFileName || 'Sin archivo adjunto'}
+                  </span>
+                </div>
+              </div>
+
+              ${hasXml ? `
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="viewFacturaFile('${est.id}', 'xml')"
+                          class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10.5px] shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                          title="Descargar o ver archivo XML del SAT">
+                    <i class="fa-solid fa-download"></i> Descargar XML
+                  </button>
+                  ${!isLocked ? `
+                    <button type="button" onclick="removeFacturaFile('${est.id}', 'xml')"
+                            class="text-rose-500 hover:text-rose-700 p-1 text-xs cursor-pointer"
+                            title="Eliminar XML">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  ` : ''}
+                </div>
+              ` : ''}
+            </div>
+
+            ${!hasXml && !isLocked ? `
+              <label class="w-full border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/50 hover:bg-blue-50 rounded-lg p-2 text-center text-[11px] text-blue-700 font-bold cursor-pointer transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-cloud-arrow-up text-sm"></i>
+                <span>Adjuntar Archivo XML</span>
+                <input type="file" accept=".xml,text/xml,application/xml" class="hidden"
+                       onchange="if(this.files[0]) onFacturaFileUpload('${est.id}', 'xml', this.files[0])">
+              </label>
+            ` : ''}
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  `;
+}
+
+// =========================================================================
+// RENDERIZADO: FICHA EJECUTIVA DE COBRO DE ANTICIPO (ESTIMACIÓN 0)
+// =========================================================================
+function renderEstimacionZeroViewHTML(data, currencySymbol) {
+  const { activeEst, kpis } = data;
+  const isLocked = Boolean(activeEst.locked);
+  const anticipoKpi = kpis.anticipo;
+  const ivaKpi = kpis.iva;
+
+  // Cálculos monetarios del anticipo pactado
+  const montoBase = kpis.grandTotalBase;
+  const subtotalAnticipo = anticipoKpi.totalContratado;
+  const ivaAnticipo = Math.round((subtotalAnticipo * (ivaKpi.pct / 100) + Number.EPSILON) * 100) / 100;
+  const totalCobradoAnticipo = Math.round((subtotalAnticipo + ivaAnticipo + Number.EPSILON) * 100) / 100;
+
+  // Métricas de amortización
+  const totalRecibido = subtotalAnticipo;
+  const amortizadoEnAvance = anticipoKpi.amortizadoTotalHistorico || 0;
+  const saldoPendiente = anticipoKpi.saldoPendiente || 0;
+  const pctAmortizado = anticipoKpi.pctAmortizado || 0;
+
+  return `
+    <div class="flex-1 overflow-y-auto p-3 sm:p-4 bg-slate-100 custom-scroll space-y-3">
+      
+      <!-- Componente de Facturación Fiscal de la Est. 0 -->
+      ${renderFacturaCardHTML(activeEst, isLocked)}
+
+      <!-- Tarjeta Principal de la Ficha Ejecutiva -->
+      <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+        
+        <!-- Cuerpo de Datos y Campos Ejecutivos -->
+        <div class="p-4 space-y-4">
+          
+          <!-- Grid de Métricas Principales -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            
+            <!-- Monto Contratado Base -->
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Monto Contratado Base (Obra)
+              </span>
+              <div class="text-xl font-black text-slate-800 font-mono">
+                ${formatCurrency(montoBase, currencySymbol)}
+              </div>
+              <span class="text-[10px] text-slate-400 block">
+                Total a Costo Directo / Venta del Catálogo Base
+              </span>
+            </div>
+
+            <!-- Porcentaje y Subtotal de Anticipo -->
+            <div class="p-4 rounded-xl bg-amber-50/80 border border-amber-200 space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-amber-900 uppercase tracking-wider block">
+                  Anticipo Pactado
+                </span>
+                <span class="text-xs font-black text-amber-700 bg-amber-200/80 px-2 py-0.5 rounded-full font-mono">
+                  ${anticipoKpi.pct}%
+                </span>
+              </div>
+              <div class="text-xl font-black text-amber-800 font-mono">
+                ${formatCurrency(subtotalAnticipo, currencySymbol)}
+              </div>
+              <span class="text-[10px] text-amber-700 block">
+                Subtotal antes de IVA
+              </span>
+            </div>
+
+            <!-- Importe Total con IVA -->
+            <div class="p-4 rounded-xl bg-emerald-50/80 border border-emerald-200 space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-emerald-900 uppercase tracking-wider block">
+                  Total Cobrado con IVA (${ivaKpi.pct}%)
+                </span>
+                <span class="text-[10px] font-bold text-emerald-700 bg-emerald-200/80 px-1.5 py-0.5 rounded">
+                  IVA: +${formatCurrency(ivaAnticipo, currencySymbol)}
+                </span>
+              </div>
+              <div class="text-xl font-black text-emerald-800 font-mono">
+                ${formatCurrency(totalCobradoAnticipo, currencySymbol)}
+              </div>
+              <span class="text-[10px] text-emerald-700 block">
+                Importe Bruto Depositado por el Cliente
+              </span>
+            </div>
+
+          </div>
+
+          <!-- Formulario de Configuración del Cobro de Anticipo -->
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-sliders text-amber-600"></i> Parámetros y Fianza del Anticipo
+            </h3>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              
+              <!-- Porcentaje de Anticipo Editable -->
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                  % Anticipo Pactado:
+                </label>
+                <div class="relative">
+                  <input type="number" min="0" max="100" step="any"
+                         ${isLocked ? 'disabled readonly' : ''}
+                         value="${activeEst.anticipoPct !== undefined ? activeEst.anticipoPct : anticipoKpi.pct}"
+                         onchange="onAnticipoZeroFieldChange('anticipoPct', this.value)"
+                         class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-amber-500 disabled:bg-slate-100">
+                  <span class="absolute right-2.5 top-1.5 text-xs font-bold text-slate-400">%</span>
+                </div>
+              </div>
+
+              <!-- Fecha de Cobro / Pago -->
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                  Fecha de Cobro / Pago:
+                </label>
+                <input type="date"
+                       ${isLocked ? 'disabled readonly' : ''}
+                       value="${activeEst.fechaCobro || activeEst.fechaInicio || ''}"
+                       onchange="onAnticipoZeroFieldChange('fechaCobro', this.value)"
+                       class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:border-amber-500 disabled:bg-slate-100">
+              </div>
+
+              <!-- Póliza de Fianza -->
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                  Póliza de Fianza de Anticipo (Opcional):
+                </label>
+                <input type="text"
+                       ${isLocked ? 'disabled readonly' : ''}
+                       value="${activeEst.fianzaPoliza || ''}"
+                       onchange="onAnticipoZeroFieldChange('fianzaPoliza', this.value.trim())"
+                       placeholder="Ej: FIAN-88912-A"
+                       class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:border-amber-500 disabled:bg-slate-100">
+              </div>
+
+              <!-- Afianzadora -->
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                  Compañía Afianzadora:
+                </label>
+                <input type="text"
+                       ${isLocked ? 'disabled readonly' : ''}
+                       value="${activeEst.fianzaAfianzadora || ''}"
+                       onchange="onAnticipoZeroFieldChange('fianzaAfianzadora', this.value.trim())"
+                       placeholder="Ej: Afianzadora Aserta..."
+                       class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-amber-500 disabled:bg-slate-100">
+              </div>
+
+            </div>
+
+            <!-- Notas de la Estimación 0 -->
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                Notas / Observaciones del Anticipo:
+              </label>
+              <textarea ${isLocked ? 'disabled readonly' : ''}
+                        rows="2"
+                        onchange="onAnticipoZeroFieldChange('notas', this.value.trim())"
+                        placeholder="Observaciones de contrato, condiciones del anticipo o entrega de fianza..."
+                        class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-amber-500 disabled:bg-slate-100">${activeEst.notas || ''}</textarea>
+            </div>
+          </div>
+
+          <!-- MONITOREO EN TIEMPO REAL: BARRA VISUAL DE AMORTIZACIÓN PROGRESIVA -->
+          <div class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white space-y-3.5 shadow-md">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-sm">
+                  <i class="fa-solid fa-chart-pie"></i>
+                </span>
+                <div>
+                  <h4 class="text-sm font-black text-white">Monitoreo de Amortización del Anticipo</h4>
+                  <span class="text-[11px] text-slate-300">Progreso acumulado a lo largo de las estimaciones de avance físico (Est. 1 a N)</span>
+                </div>
+              </div>
+
+              <div class="text-right">
+                <span class="text-xs text-slate-300 block">Amortizado Total</span>
+                <span class="text-lg font-black text-amber-400 font-mono">${pctAmortizado.toFixed(2)}%</span>
+              </div>
+            </div>
+
+            <!-- Barra de Progreso -->
+            <div class="w-full h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-700 p-0.5">
+              <div class="h-full bg-gradient-to-r from-amber-400 via-amber-300 to-emerald-400 rounded-full transition-all duration-500"
+                   style="width: ${Math.min(100, Math.max(0, pctAmortizado))}%;"></div>
+            </div>
+
+            <!-- Desglose de los 3 valores clave -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-800 text-xs">
+              <div class="space-y-0.5">
+                <span class="text-[10.5px] text-slate-400 block font-bold">1. ANTICIPO TOTAL RECIBIDO:</span>
+                <span class="text-sm font-black font-mono text-white">${formatCurrency(totalRecibido, currencySymbol)}</span>
+              </div>
+
+              <div class="space-y-0.5">
+                <span class="text-[10.5px] text-amber-300 block font-bold">2. AMORTIZADO EN ESTIMACIONES:</span>
+                <span class="text-sm font-black font-mono text-amber-400">-${formatCurrency(amortizadoEnAvance, currencySymbol)}</span>
+              </div>
+
+              <div class="space-y-0.5">
+                <span class="text-[10.5px] text-emerald-300 block font-bold">3. SALDO PENDIENTE POR AMORTIZAR:</span>
+                <span class="text-sm font-black font-mono ${saldoPendiente <= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                  ${formatCurrency(saldoPendiente, currencySymbol)} ${saldoPendiente <= 0 ? '🎉 (100% Cubierto)' : ''}
+                </span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  `;
+}
+
+
 export function renderEstimacionesView() {
   const container = document.getElementById('view-estimaciones');
   if (!container) return;
@@ -329,6 +990,9 @@ export function renderEstimacionesView() {
 
   const isEstLocked = Boolean(activeEst.locked);
   applyTabLocksToDOM();
+
+  // Renderizado condicional si la estimación activa es la Est. 0 (Anticipo)
+  const isEstZero = activeEst.numero === 0 || activeEst.tipo === 'anticipo';
 
   container.innerHTML = `
     <div id="estimaciones-container" class="flex-1 bg-white rounded-lg shadow border border-slate-200 flex flex-col overflow-hidden transition-all duration-300">
@@ -432,79 +1096,91 @@ export function renderEstimacionesView() {
             </div>
           </div>
 
-          <!-- Bloque 3 (Derecha): Grid 2x2 perfectamente alineado -->
-          <!-- Columna 1 (Estimación y Anticipo) con el mismo ancho exacto -->
-          <!-- Columna 2 (Nueva Estimación/Eliminar y % IVA) con el mismo ancho exacto -->
-          <div class="grid grid-cols-2 gap-2 w-auto shrink-0">
+          <!-- Bloque 3 (Derecha): 2 Filas de Botones Limpios y Perfectamente Alineados -->
+          <div class="flex flex-col gap-2 w-auto shrink-0">
             
-            <!-- Fila 1, Col 1: Botón desplegable de Estimación -->
-            <div class="w-full bg-white px-2.5 py-1 rounded-lg border border-slate-300 shadow-2xs flex items-center justify-between gap-1.5 min-w-[210px]">
-              <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                <i class="fa-solid fa-file-invoice-dollar text-blue-600 text-xs shrink-0"></i>
-                <span class="text-[11px] font-bold text-slate-700 shrink-0">Estimación:</span>
-                <select onchange="onSwitchActiveEstimacion(this.value)" class="w-full bg-transparent text-slate-800 font-bold text-xs outline-none cursor-pointer font-mono truncate">
-                  ${estimacionesList.map(est => `
-                    <option value="${est.id}" ${est.id === activeEst.id ? 'selected' : ''}>
-                      ${est.locked ? '🔒 ' : ''}${est.nombre}
-                    </option>
-                  `).join('')}
-                </select>
+            <!-- Fila 1: Estimación + + Nueva Estimación + Asignar -->
+            <div class="flex items-center gap-2 justify-end">
+              <!-- Selector Desplegable de Estimación -->
+              <div class="bg-white px-2.5 py-1 rounded-lg border border-slate-300 shadow-2xs flex items-center justify-between gap-1.5 min-w-[210px]">
+                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                  <i class="fa-solid fa-file-invoice-dollar text-blue-600 text-xs shrink-0"></i>
+                  <span class="text-[11px] font-bold text-slate-700 shrink-0">Estimación:</span>
+                  <select onchange="onSwitchActiveEstimacion(this.value)" class="w-full bg-transparent text-slate-800 font-bold text-xs outline-none cursor-pointer font-mono truncate">
+                    ${estimacionesList.map(est => `
+                      <option value="${est.id}" ${est.id === activeEst.id ? 'selected' : ''}>
+                        ${est.locked ? '🔒 ' : ''}${est.numero === 0 ? '💰 ' : ''}${est.nombre}
+                      </option>
+                    `).join('')}
+                  </select>
+                </div>
               </div>
-            </div>
 
-            <!-- Fila 1, Col 2: Botón Nueva Estimación y Eliminar (Cubre el mismo largo que % IVA) -->
-            <div class="w-full flex items-center gap-1.5 min-w-[210px]">
-              <button type="button" onclick="promptCreateNewEstimacion()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center justify-center gap-1 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap" title="Crear nueva estimación consecutiva (Estimación No. ${estimacionesList.length + 1})">
-                <i class="fa-solid fa-plus text-[10px]"></i> <span>+ Nueva Estimación</span>
-              </button>
-
-              ${estimacionesList.length > 1 ? `
-                <button type="button" ${isEstLocked ? 'disabled' : ''} onclick="confirmDeleteCurrentEstimacion('${activeEst.id}', '${activeEst.nombre}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs p-1.5 rounded-lg transition active:scale-95 cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed" title="${isEstLocked ? 'Estimación bloqueada: desbloquee el candado para poder eliminarla' : `Eliminar ${activeEst.nombre}`}">
-                  <i class="fa-solid fa-trash text-xs"></i>
+              <!-- Botón Nueva Estimación y Eliminar -->
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button type="button" onclick="promptCreateNewEstimacion()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center justify-center gap-1 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap" title="Crear nueva estimación consecutiva">
+                  <i class="fa-solid fa-plus text-[10px]"></i> <span>+ Nueva Estimación</span>
                 </button>
-              ` : ''}
-            </div>
 
-            <!-- Fila 2, Col 1: Recuadro % Anticipo (Mismo largo que el dropdown de Estimación) -->
-            <div class="w-full flex items-center justify-between gap-1.5 bg-white border border-slate-300 hover:border-amber-400 px-2.5 py-1 rounded-lg shadow-2xs text-xs transition min-w-[210px]">
-              <div class="flex items-center gap-1 text-amber-600 font-bold shrink-0">
-                <i class="fa-solid fa-hand-holding-dollar text-xs"></i>
-                <span class="text-[11px] uppercase tracking-wider text-slate-700">% Anticipo:</span>
+                ${(activeEst.numero > 0 && estimacionesList.filter(e => e.numero > 0).length > 1) ? `
+                  <button type="button" ${isEstLocked ? 'disabled' : ''} onclick="confirmDeleteCurrentEstimacion('${activeEst.id}', '${activeEst.nombre}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs p-1.5 rounded-lg transition active:scale-95 cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed" title="${isEstLocked ? 'Estimación bloqueada: desbloquee el candado para poder eliminarla' : `Eliminar ${activeEst.nombre}`}">
+                    <i class="fa-solid fa-trash text-xs"></i>
+                  </button>
+                ` : ''}
               </div>
-              <div class="flex items-center gap-1 shrink-0">
-                <input type="number" ${isEstLocked ? 'disabled readonly' : ''}
-                       min="0" 
-                       max="100" 
-                       step="any" 
-                       value="${kpis.anticipo.pct}" 
-                       onchange="onEstimacionesAnticipoInput(this.value)" 
-                       class="w-14 text-center font-mono font-bold text-xs text-amber-800 bg-slate-50 border border-slate-200 hover:border-amber-400 focus:bg-white focus:border-amber-500 rounded px-1 py-0.5 outline-none cursor-text transition disabled:opacity-60 disabled:cursor-not-allowed">
-                <span class="font-bold text-slate-600">%</span>
-                <span class="text-[10px] text-slate-500 font-mono font-bold ml-0.5">
-                  (${formatCurrency(kpis.anticipo.totalContratado, currencySymbol)})
-                </span>
+
+              <!-- Botón Asignar (Al lado de + Nueva Estimación) -->
+              <div id="tab-members-estimaciones" class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs shrink-0">
+                <div id="tab-avatars-estimaciones" class="flex -space-x-1.5 overflow-hidden items-center cursor-pointer" onclick="openTabMembersAssignModal('estimaciones')" title="Ver colaboradores con acceso a Estimaciones"></div>
+                <button type="button" onclick="openTabMembersAssignModal('estimaciones')" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded px-2 py-1 transition flex items-center gap-1.5 cursor-pointer" title="Asignar miembros invitados a la pestaña Estimaciones">
+                  <i class="fa-solid fa-user-gear text-[10px]"></i> Asignar
+                </button>
               </div>
             </div>
 
-            <!-- Fila 2, Col 2: Recuadro % IVA (Mismo largo que los botones de Nueva Estimación + Eliminar) -->
-            <div class="w-full flex items-center justify-between gap-1.5 bg-white border border-slate-300 hover:border-blue-400 px-2.5 py-1 rounded-lg shadow-2xs text-xs transition min-w-[210px]">
-              <div class="flex items-center gap-1 text-blue-600 font-bold shrink-0">
-                <i class="fa-solid fa-receipt text-xs"></i>
-                <span class="text-[11px] uppercase tracking-wider text-slate-700">% IVA:</span>
+            <!-- Fila 2: % Anticipo + % IVA (alineados con Fila 1) -->
+            <div class="flex items-center gap-2 justify-end">
+              <!-- Recuadro % Anticipo -->
+              <div class="bg-white border border-slate-300 hover:border-amber-400 px-2.5 py-1 rounded-lg shadow-2xs text-xs transition flex items-center justify-between gap-1.5 min-w-[210px]">
+                <div class="flex items-center gap-1 text-amber-600 font-bold shrink-0">
+                  <i class="fa-solid fa-hand-holding-dollar text-xs"></i>
+                  <span class="text-[11px] uppercase tracking-wider text-slate-700">% Anticipo:</span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <input type="number" ${isEstLocked ? 'disabled readonly' : ''}
+                         min="0" 
+                         max="100" 
+                         step="any" 
+                         value="${kpis.anticipo.pct}" 
+                         onchange="onEstimacionesAnticipoInput(this.value)" 
+                         class="w-14 text-center font-mono font-bold text-xs text-amber-800 bg-slate-50 border border-slate-200 hover:border-amber-400 focus:bg-white focus:border-amber-500 rounded px-1 py-0.5 outline-none cursor-text transition disabled:opacity-60 disabled:cursor-not-allowed">
+                  <span class="font-bold text-slate-600">%</span>
+                  <span class="text-[10px] text-slate-500 font-mono font-bold ml-0.5">
+                    (${formatCurrency(kpis.anticipo.totalContratado, currencySymbol)})
+                  </span>
+                </div>
               </div>
-              <div class="flex items-center gap-1 shrink-0">
-                <input type="number" ${isEstLocked ? 'disabled readonly' : ''}
-                       min="0" 
-                       max="100" 
-                       step="any" 
-                       value="${kpis.iva.pct}" 
-                       onchange="onEstimacionesIvaInput(this.value)" 
-                       class="w-14 text-center font-mono font-bold text-xs text-blue-800 bg-slate-50 border border-slate-200 hover:border-blue-400 focus:bg-white focus:border-blue-500 rounded px-1 py-0.5 outline-none cursor-text transition disabled:opacity-60 disabled:cursor-not-allowed"
-                       title="Porcentaje de IVA aplicable a la estimación">
-                <span class="font-bold text-slate-600">%</span>
-                <span class="text-[10px] text-slate-500 font-mono font-bold ml-0.5" title="IVA del presupuesto base: ${formatCurrency(kpis.iva.totalContratado, currencySymbol)}">
-                  (${formatCurrency(kpis.iva.totalContratado, currencySymbol)})
-                </span>
+
+              <!-- Recuadro % IVA -->
+              <div class="bg-white border border-slate-300 hover:border-blue-400 px-2.5 py-1 rounded-lg shadow-2xs text-xs transition flex items-center justify-between gap-1.5 min-w-[210px]">
+                <div class="flex items-center gap-1 text-blue-600 font-bold shrink-0">
+                  <i class="fa-solid fa-receipt text-xs"></i>
+                  <span class="text-[11px] uppercase tracking-wider text-slate-700">% IVA:</span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <input type="number" ${isEstLocked ? 'disabled readonly' : ''}
+                         min="0" 
+                         max="100" 
+                         step="any" 
+                         value="${kpis.iva.pct}" 
+                         onchange="onEstimacionesIvaInput(this.value)" 
+                         class="w-14 text-center font-mono font-bold text-xs text-blue-800 bg-slate-50 border border-slate-200 hover:border-blue-400 focus:bg-white focus:border-blue-500 rounded px-1 py-0.5 outline-none cursor-text transition disabled:opacity-60 disabled:cursor-not-allowed"
+                         title="Porcentaje de IVA aplicable">
+                  <span class="font-bold text-slate-600">%</span>
+                  <span class="text-[10px] text-slate-500 font-mono font-bold ml-0.5">
+                    (${formatCurrency(kpis.iva.totalContratado, currencySymbol)})
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -512,16 +1188,22 @@ export function renderEstimacionesView() {
 
         </div>
 
-        <!-- Fila 2: Sub-encabezado limpio (Sin totales superiores para evitar duplicación con el pie) -->
-        <div class="flex items-center justify-between gap-3 pt-1 border-t border-slate-200/80 flex-wrap">
-          <!-- Izquierda: Título y Conteo -->
+        <!-- Fila 2: Sub-encabezado limpio con Título a la izquierda y Botones de Factura / Estado a la derecha -->
+        <div class="flex items-center justify-between gap-3 pt-1 border-t border-slate-200/60 flex-wrap">
+          <!-- Izquierda: Título de Estimación Activa -->
           <div class="flex items-center gap-2 flex-wrap">
             <span class="font-extrabold text-slate-800 text-xs uppercase tracking-wide">
-              ESTIMACIÓN DE OBRA: ${activeEst.nombre.toUpperCase()}
+              ${activeEst.numero === 0 ? 'FICHA DE COBRO: ANTICIPO INICIAL' : `ESTIMACIÓN DE OBRA: ${activeEst.nombre.toUpperCase()}`}
             </span>
-            <span class="bg-slate-200 text-slate-700 text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold">
-              ${visibleRows.length} items
-            </span>
+            ${activeEst.numero > 0 ? `
+              <span class="bg-slate-200 text-slate-700 text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold">
+                ${visibleRows.length} items
+              </span>
+            ` : `
+              <span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold font-mono">
+                Anticipo ${kpis.anticipo.pct}%
+              </span>
+            `}
             ${isEstLocked ? `
               <span class="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1" title="Esta estimación tiene activado el candado: solo se puede consultar e imprimir">
                 <i class="fa-solid fa-lock text-[9px]"></i> Bloqueada (Solo consulta e impresión)
@@ -529,30 +1211,57 @@ export function renderEstimacionesView() {
             ` : ''}
           </div>
 
-          <!-- Derecha: Nota informativa limpia y Widget de Asignados hasta el extremo derecho -->
-          <div class="ml-auto flex items-center gap-3 flex-wrap justify-end">
-            <div class="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
-              <i class="fa-solid fa-calculator text-blue-500"></i>
-              <span>Totales y liquidación consolidada en la barra inferior</span>
-            </div>
-
-            <!-- Widget: Miembros Asignados a Estimaciones -->
-            <div id="tab-members-estimaciones" class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs shrink-0">
-              <span class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                <i class="fa-solid fa-users text-emerald-600 text-[10px]"></i> Asignados:
-              </span>
-              <div id="tab-avatars-estimaciones" class="flex -space-x-1.5 overflow-hidden items-center cursor-pointer" onclick="openTabMembersAssignModal('estimaciones')" title="Ver colaboradores con acceso a Estimaciones"></div>
-              <button type="button" onclick="openTabMembersAssignModal('estimaciones')" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded px-1.5 py-0.5 transition flex items-center gap-1 cursor-pointer" title="Asignar miembros invitados a la pestaña Estimaciones">
-                <i class="fa-solid fa-user-gear text-[9px]"></i> Asignar
+          <!-- Derecha: Botón Factura / Subir Factura + PENDIENTE DE PAGO (Exactamente como en el diseño) -->
+          <div class="ml-auto flex items-center gap-2 flex-wrap justify-end">
+            ${(activeEst.factura?.pdfUrl || activeEst.factura?.pdfFileRef || activeEst.factura?.xmlUrl || activeEst.factura?.xmlFileRef) ? `
+              <!-- Si ya se subió la factura: Botón que abre el modal flotante para verla, sustituirla o eliminarla -->
+              <button type="button" onclick="openFacturaModal('${activeEst.id}')"
+                      class="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white shadow-2xs transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      title="Ver factura, cambiarla o eliminarla">
+                <i class="fa-solid fa-file-invoice text-xs"></i>
+                <span>Ver / Gestionar Factura</span>
               </button>
-            </div>
+            ` : `
+              <!-- Si NO se ha subido factura: Botón directo para subirla -->
+              <label class="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white shadow-2xs transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                     title="Subir Factura PDF o XML de esta ${activeEst.numero === 0 ? 'apertura de anticipo' : 'estimación'}">
+                <i class="fa-solid fa-cloud-arrow-up text-xs"></i>
+                <span>Subir Factura</span>
+                <input type="file" accept="application/pdf,.xml,text/xml" class="hidden"
+                       onchange="if(this.files[0]) {
+                         const f = this.files[0];
+                         const type = f.name.toLowerCase().endsWith('.xml') ? 'xml' : 'pdf';
+                         onFacturaFileUpload('${activeEst.id}', type, f).then(() => openFacturaModal('${activeEst.id}'));
+                       }">
+              </label>
+            `}
+
+            <!-- Botón Estado de Cobro (Alterna entre Pendiente y Cobrada con un solo clic) -->
+            <button type="button" onclick="toggleEstimacionCobroStatus('${activeEst.id}')"
+                    class="px-3 py-1 rounded-lg text-xs font-bold tracking-wide flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer whitespace-nowrap ${activeEst.factura?.status === 'cobrada' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200'}"
+                    title="Haz clic para alternar entre Pendiente de Pago y Cobrada / Pagada">
+              <i class="fa-solid ${activeEst.factura?.status === 'cobrada' ? 'fa-circle-check text-emerald-600' : 'fa-clock text-amber-600'}"></i>
+              <span>${activeEst.factura?.status === 'cobrada' ? 'COBRADA / PAGADA' : 'PENDIENTE DE PAGO'}</span>
+            </button>
           </div>
         </div>
 
       </div>
 
-      <!-- TABLA DE GENERADORES Y ESTIMACIONES CON ENCABEZADOS EN COLORES FUERTES Y LETRAS BLANCAS -->
-      <div class="flex-1 overflow-auto bg-white custom-scroll calendario-premiere-scroll relative" id="estimaciones-table-container">
+      ${isEstZero ? `
+        <!-- VISTA EXCLUSIVA: FICHA EJECUTIVA DE COBRO DE ANTICIPO (EST. 0) -->
+        ${renderEstimacionZeroViewHTML(data, currencySymbol)}
+      ` : `
+        <!-- VISTA DE ESTIMACIÓN DE AVANCE FÍSICO (EST. 1 A N) -->
+        <div class="flex-1 flex flex-col overflow-hidden bg-slate-50">
+          
+          <!-- Bloque de Comprobantes Fiscales por Estimación -->
+          <div class="p-2 sm:px-3.5 sm:pt-2.5 sm:pb-1">
+            ${renderFacturaCardHTML(activeEst, isEstLocked)}
+          </div>
+
+          <!-- TABLA DE GENERADORES Y ESTIMACIONES CON ENCABEZADOS EN COLORES FUERTES Y LETRAS BLANCAS -->
+          <div class="flex-1 overflow-auto bg-white custom-scroll calendario-premiere-scroll relative" id="estimaciones-table-container">
         <!-- Línea guía vertical interactiva a todo lo largo de la columna al redimensionar -->
         <div id="estimaciones-resizer-guide-line" class="hidden absolute top-0 bottom-0 w-0.5 bg-blue-500 shadow-md z-40 pointer-events-none transition-opacity"></div>
 
@@ -831,6 +1540,8 @@ export function renderEstimacionesView() {
           </button>
         </div>
       </div>
+      </div>
+      `}
 
     </div>`;
 
@@ -1514,4 +2225,129 @@ export function saveEstimacionConceptPhotosModal() {
   closeEstimacionConceptPhotosModal(false);
   renderEstimacionesView();
   showToast(list.length > 0 ? `${list.length} foto(s) guardada(s) en el concepto` : 'Fotos eliminadas del concepto', 'success');
+}
+
+
+// ==========================================
+// CONTROLADORES DE EVENTOS DE COMPROBANTES FISCALES Y ANTICIPO 0
+// ==========================================
+export function onFacturaFieldChange(estId, field, val) {
+  updateEstimacionFactura(estId, { [field]: val });
+  if (field === 'status') {
+    renderEstimacionesView();
+    showToast('Estado de cobro: ' + (val === 'cobrada' ? 'Cobrada / Pagada' : 'Pendiente'));
+  }
+}
+
+export async function onFacturaFileUpload(estId, fileType, file) {
+  if (!file) return;
+
+  showToast('Subiendo ' + fileType.toUpperCase() + ' de factura a la nube...', 'info');
+  try {
+    const res = await uploadManagedFile({
+      file,
+      modulo: 'estimaciones',
+      categoria: 'project_files',
+      proyectoId: getActiveProjectId(),
+      entidadId: `${estId}_factura_${fileType}`,
+      preset: 'document',
+      showFeedback: true,
+      includeDataUrl: false
+    });
+
+    if (!res.ok) {
+      showToast(res.reason || ('No se pudo subir el archivo ' + fileType.toUpperCase()), 'error');
+      return;
+    }
+
+    const updates = {};
+    if (fileType === 'pdf') {
+      updates.pdfFileName = res.fileName;
+      updates.pdfFileRef = res;
+      updates.pdfUrl = await resolveManagedFileUrl(res, { cacheRemote: true });
+    } else if (fileType === 'xml') {
+      updates.xmlFileName = res.fileName;
+      updates.xmlFileRef = res;
+      updates.xmlUrl = await resolveManagedFileUrl(res, { cacheRemote: true });
+    }
+
+    updateEstimacionFactura(estId, updates);
+    renderEstimacionesView();
+    showToast('¡' + fileType.toUpperCase() + ' guardado exitosamente!', 'success');
+  } catch (err) {
+    console.error('Error al subir comprobante fiscal:', err);
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+export async function viewFacturaFile(estId, fileType) {
+  const data = getEstimacionesCalculatedData();
+  const est = data.estimacionesList.find(e => e.id === estId);
+  const factura = est?.factura;
+  if (!factura) {
+    showToast('No hay factura registrada en esta estimación', 'warning');
+    return;
+  }
+
+  const fileRef = fileType === 'pdf' ? factura.pdfFileRef : factura.xmlFileRef;
+  const directUrl = fileType === 'pdf' ? factura.pdfUrl : factura.xmlUrl;
+  const fileName = fileType === 'pdf' ? factura.pdfFileName : factura.xmlFileName;
+
+  let finalUrl = directUrl;
+  if (fileRef) {
+    finalUrl = await resolveManagedFileUrl(fileRef, { cacheRemote: true }) || directUrl;
+  }
+
+  if (!finalUrl) {
+    showToast('No hay archivo ' + fileType.toUpperCase() + ' adjunto', 'warning');
+    return;
+  }
+
+  if (fileType === 'pdf') {
+    window.open(finalUrl, '_blank', 'noopener,noreferrer');
+  } else {
+    const a = document.createElement('a');
+    a.href = finalUrl;
+    a.download = fileName || ('Factura_' + estId + '.xml');
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+}
+
+export async function removeFacturaFile(estId, fileType) {
+  if (!confirm('¿Deseas eliminar el archivo ' + fileType.toUpperCase() + ' de esta estimación?')) return;
+
+  const data = getEstimacionesCalculatedData();
+  const est = data.estimacionesList.find(e => e.id === estId);
+  const factura = est?.factura;
+  if (!factura) return;
+
+  const fileRef = fileType === 'pdf' ? factura.pdfFileRef : factura.xmlFileRef;
+  if (fileRef) {
+    deleteManagedFile(fileRef).catch(() => {});
+  }
+
+  const updates = {};
+  if (fileType === 'pdf') {
+    updates.pdfUrl = '';
+    updates.pdfFileName = '';
+    updates.pdfFileRef = null;
+  } else {
+    updates.xmlUrl = '';
+    updates.xmlFileName = '';
+    updates.xmlFileRef = null;
+  }
+
+  updateEstimacionFactura(estId, updates);
+  renderEstimacionesView();
+  showToast('Archivo ' + fileType.toUpperCase() + ' eliminado');
+}
+
+export function onAnticipoZeroFieldChange(field, val) {
+  if (isEstimacionLocked('est_0')) return;
+  updateEstimacionAnticipoZero({ [field]: val });
+  renderEstimacionesView();
 }

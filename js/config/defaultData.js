@@ -5751,8 +5751,8 @@ export const defaultSettings = {
   projectName: 'Proyecto Residencial Muestra',
   projectLocation: 'Fraccionamiento Residencial, Puebla, Pue.',
   budgetSignatures: [
-    { rol: 'ELABORÃ“', nombre: '', cargo: 'Departamento de Precios Unitarios y Presupuestos' },
-    { rol: 'REVISÃ“', nombre: '', cargo: 'CoordinaciÃ³n de Costos e IngenierÃ­a' },
-    { rol: 'AUTORIZÃ“ / CLIENTE', nombre: '', cargo: 'DirecciÃ³n de Obra y SupervisiÃ³n' }
+    { rol: 'ELABORÓ', nombre: '', cargo: 'Departamento de Precios Unitarios y Presupuestos' },
+    { rol: 'REVISÓ', nombre: '', cargo: 'Coordinación de Costos e Ingeniería' },
+    { rol: 'AUTORIZÓ / CLIENTE', nombre: '', cargo: 'Dirección de Obra y Supervisión' }
   ]
 };
