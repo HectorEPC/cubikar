@@ -102,7 +102,7 @@ export function renderAPUInsumos(node) {
         <div class="cubikar-spell-wrap relative w-full">
           <div class="cubikar-spell-backdrop"></div>
           <textarea ${isCatLocked ? 'disabled readonly' : ''} onchange="updateInsumo(${idx}, 'descripcion', this.value)" 
-                    spellcheck="true" autocorrect="on" autocapitalize="sentences" lang="es"
+                    spellcheck="false" autocorrect="off" autocapitalize="sentences" lang="es"
                     class="desc-input w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 px-1 py-0.5 rounded text-[10px] font-sans text-justify leading-snug break-words whitespace-normal font-medium block" 
                     placeholder="Descripción insumo">${ins.descripcion || ''}</textarea>
         </div>

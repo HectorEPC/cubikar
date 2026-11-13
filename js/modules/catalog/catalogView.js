@@ -101,7 +101,7 @@ export function renderTAB1() {
             <div class="cubikar-spell-wrap relative w-full flex-1">
               <div class="cubikar-spell-backdrop"></div>
               <textarea ${isCatLocked ? 'disabled readonly' : ''} onchange="updateNode('${node.id}', 'descripcion', this.value)" 
-                        spellcheck="true" autocorrect="on" autocapitalize="sentences" lang="es"
+                        spellcheck="false" autocorrect="off" autocapitalize="sentences" lang="es"
                         class="desc-input w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 px-1 py-0.5 rounded text-xs font-sans ${isLevel1 ? 'font-bold text-slate-900' : 'text-slate-700'} text-justify leading-snug break-words whitespace-normal disabled:cursor-default">${node.descripcion || ''}</textarea>
             </div>
             <div class="ml-1.5 mt-0.5 shrink-0">${renderPartidaNivel1ChatButton(node.id, node.clave, node.descripcion)}</div>
