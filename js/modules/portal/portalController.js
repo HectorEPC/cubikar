@@ -2571,6 +2571,12 @@ export function openNuevoProyectoModal() {
   }
   updateTemplateSelection();
 
+  const applySobrecostoEl = document.getElementById('wiz-apply-sobrecosto');
+  if (applySobrecostoEl) {
+    applySobrecostoEl.checked = true;
+  }
+  updateWizardFactorPreview();
+
   goToWizardStep(1);
   const modal = document.getElementById('modal-nuevo-proyecto');
   if (modal) {
@@ -2679,6 +2685,16 @@ export function onWizardCurrencyChange(val) {
 export function updateWizardFactorPreview() {
   const applyEl = document.getElementById('wiz-apply-sobrecosto');
   const apply = applyEl ? applyEl.checked : true;
+
+  const gridInputs = document.getElementById('wiz-sobrecosto-inputs-grid');
+  if (gridInputs) {
+    if (apply) {
+      gridInputs.classList.remove('opacity-40', 'pointer-events-none');
+    } else {
+      gridInputs.classList.add('opacity-40', 'pointer-events-none');
+    }
+  }
+
   const ind = parseFloat(document.getElementById('wiz-indirectos')?.value || 0);
   const fin = parseFloat(document.getElementById('wiz-financiamiento')?.value || 0);
   const uti = parseFloat(document.getElementById('wiz-utilidad')?.value || 0);
@@ -2688,7 +2704,15 @@ export function updateWizardFactorPreview() {
   const f = apply ? (1 + ind/100) * (1 + fin/100) * (1 + uti/100) * (1 + adi/100) * (1 + seg/100) : 1.0;
   const pct = ((f - 1) * 100).toFixed(2);
   const previewEl = document.getElementById('wiz-factor-preview');
-  if (previewEl) previewEl.innerText = `${f.toFixed(4)} (+${pct}%)`;
+  if (previewEl) {
+    if (apply) {
+      previewEl.innerText = `${f.toFixed(4)} (+${pct}%)`;
+      previewEl.className = "text-[11px] text-blue-700 font-mono font-bold";
+    } else {
+      previewEl.innerText = `1.0000 (Sin sobrecosto)`;
+      previewEl.className = "text-[11px] text-slate-400 font-mono font-bold";
+    }
+  }
 }
 
 export function updateTemplateSelection() {
