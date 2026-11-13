@@ -413,6 +413,24 @@ import {
 } from './ui/tabLockController.js';
 
 import {
+  startInteractiveTour,
+  skipInteractiveTour,
+  closeInteractiveTour,
+  isTourDismissed,
+  resetTourDismissedStatus
+} from './ui/interactiveTour.js';
+
+import {
+  openVideoSimulatorModal,
+  closeVideoSimulatorModal
+} from './ui/videoSimulatorModal.js';
+
+import {
+  openTutorialHubModal,
+  closeTutorialHubModal
+} from './ui/tutorialHubModal.js';
+
+import {
   toggleProjectChatDock,
   toggleProjectChatMaximize,
   printProjectChatReport,
@@ -571,7 +589,12 @@ import {
   setAdminFilterCycle,
   isUserAdmin,
   isUserMasterAdmin,
-  showAdminDualLoginModal
+  showAdminDualLoginModal,
+  syncAdminUsersFromCloud,
+  openCloudConfigModal,
+  closeCloudConfigModal,
+  saveCloudConfigFromModal,
+  copySupabaseSqlScript
 } from './modules/admin/cubikarAdmin.js';
 import {
   openSubscriptionModal,
@@ -1497,6 +1520,14 @@ window.toggleBitacoraSortOrder = toggleBitacoraSortOrder;
 window.clearBitacoraFilters = clearBitacoraFilters;
 window.scrollToBitacoraNote = scrollToBitacoraNote;
 window.openBitacoraPhotoLightbox = openBitacoraPhotoLightbox;
+
+// Tutorial Hub & Modales de Aprendizaje
+window.openTutorialHubModal = openTutorialHubModal;
+window.closeTutorialHubModal = closeTutorialHubModal;
+window.startInteractiveTour = startInteractiveTour;
+window.skipInteractiveTour = skipInteractiveTour;
+window.closeInteractiveTour = closeInteractiveTour;
+window.openVideoSimulatorModal = openVideoSimulatorModal;
 
 setProjectChatRefreshCallback(() => {
   renderTAB1();

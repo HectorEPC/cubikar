@@ -1308,7 +1308,7 @@ export function renderHeaderCreateButtonHTML(user, scope) {
   if (check.allowed) {
     const btnTooltip = check.isHostContext ? `Crear proyecto en la organización de ${check.hostName} consumiendo su membresía Plan ${getPlanLimits(check.planId).name}` : 'Crear un nuevo proyecto propio';
     return `
-      <button onclick="openNuevoProyectoModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer" title="${btnTooltip.replace(/"/g, '&quot;')}">
+      <button id="btn-portal-nuevo-proyecto" onclick="openNuevoProyectoModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer" title="${btnTooltip.replace(/"/g, '&quot;')}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>

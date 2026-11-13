@@ -49,6 +49,14 @@
 
         <!-- Navigation & Action Links -->
         <div class="flex items-center space-x-3">
+          <!-- Botón de Tutoriales & Guías (Video e Interactivo) -->
+          <button type="button" id="btn-portal-tutorial-hub" onclick="openTutorialHubModal()"
+                  class="relative px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-400 hover:text-white border border-slate-800 hover:border-amber-400/50 rounded-xl transition cursor-pointer group flex items-center gap-1.5 shadow-xs"
+                  title="Centro de Tutoriales: Video-Simulador y Tour Guiado en Vivo">
+            <i class="fa-solid fa-graduation-cap text-sm text-amber-400 group-hover:scale-110 transition"></i>
+            <span class="text-xs font-bold hidden sm:inline text-slate-200 group-hover:text-white">Tutoriales</span>
+          </button>
+
           <!-- Botón de Información de la Plataforma (a la izquierda de la campana) -->
           <button type="button" id="btn-portal-info" onclick="openPlatformInfoModal()"
                   class="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition cursor-pointer group"
@@ -135,7 +143,14 @@
           </button>
         </div>
 
-        <!-- 4. CAMBIAR VISTA: MODO DÍA / MODO NOCTURNO -->
+        <!-- 4. TUTORIALES & GUÍAS (VIDEO E INTERACTIVO) -->
+        <button type="button" id="btn-sidebar-tutorial-hub" onclick="openTutorialHubModal()"
+                class="w-11 h-11 rounded-xl flex items-center justify-center bg-slate-900/80 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-slate-800 hover:border-amber-400/50 transition active:scale-95 cursor-pointer group relative shadow-2xs"
+                title="Centro de Tutoriales: Video-Simulador y Tour Guiado en Vivo">
+          <i class="fa-solid fa-graduation-cap text-base group-hover:scale-110 transition"></i>
+        </button>
+
+        <!-- 5. CAMBIAR VISTA: MODO DÍA / MODO NOCTURNO -->
         <button type="button" id="btn-theme-toggle" onclick="toggleThemeMode()"
                 class="w-11 h-11 rounded-xl flex items-center justify-center bg-slate-900/80 hover:bg-indigo-500/20 text-indigo-300 hover:text-amber-300 border border-slate-800 hover:border-indigo-400/50 transition active:scale-95 cursor-pointer group relative shadow-2xs"
                 title="Modo Actual: Vista de Día — Clic para cambiar a Modo Nocturno"
@@ -4613,6 +4628,13 @@
 
         <!-- Botones de Acción de la Cabecera -->
         <div class="flex items-center gap-2 flex-wrap">
+          <button type="button" onclick="openCloudConfigModal()" 
+                  class="px-3 py-1.5 rounded-xl bg-sky-950/70 hover:bg-sky-900/80 text-sky-200 border border-sky-800/60 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Configuración de sincronización en la nube y claves de Supabase">
+            <i class="fa-solid fa-cloud text-sky-300"></i>
+            <span>Conexión Nube</span>
+          </button>
+
           <button type="button" onclick="openCoAdminsModal()" 
                   class="px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs">
             <i class="fa-solid fa-user-shield text-amber-300"></i>
@@ -4634,14 +4656,20 @@
 
           <button type="button" id="btn-admin-delete-selected" onclick="deleteSelectedAdminUsers()" 
                   class="px-3.5 py-1.5 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs transition flex items-center gap-1.5 cursor-not-allowed shadow-md opacity-60"
-                  disabled title="Selecciona una o mÃ¡s casillas de usuarios para eliminar">
+                  disabled title="Selecciona una o más casillas de usuarios para eliminar">
             <i class="fa-solid fa-trash-can"></i>
             <span id="btn-admin-delete-text">Eliminar</span>
           </button>
 
+          <button type="button" id="btn-admin-sync-cloud" onclick="syncAdminUsersFromCloud(true)" 
+                  class="p-2 rounded-xl bg-sky-600/80 hover:bg-sky-500 text-white transition cursor-pointer"
+                  title="Sincronizar usuarios de la nube en tiempo real">
+            <i class="fa-solid fa-cloud-arrow-down"></i>
+          </button>
+
           <button type="button" onclick="renderCubikarAdminTable()" 
                   class="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
-                  title="Actualizar datos">
+                  title="Actualizar datos locales">
             <i class="fa-solid fa-rotate"></i>
           </button>
 
@@ -4951,6 +4979,100 @@
         </button>
         <button type="button" onclick="saveMarketRatesFromModal()" class="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition cursor-pointer shadow-md">
           Guardar Tarifas
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ========================================================================= -->
+  <!-- SUB-MODAL: CONFIGURACIÓN DE CONEXIÓN NUBE Y SUPABASE -->
+  <!-- ========================================================================= -->
+  <div id="modal-admin-cloud-config" style="z-index: 100003;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100003] hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="bg-gradient-to-r from-sky-900 via-slate-900 to-indigo-950 p-5 text-white flex items-center justify-between border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center text-sm shadow-inner">
+            <i class="fa-solid fa-cloud-arrow-down"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-sm text-white">Sincronización en la Nube y Supabase</h3>
+            <p class="text-[11px] text-slate-400">Visualiza en tiempo real los registros creados desde cualquier dispositivo</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeCloudConfigModal()" class="text-slate-400 hover:text-white cursor-pointer p-1.5 rounded-lg transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs">
+        <!-- Tarjetas de Estado de Conectividad -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-1">
+            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>API Vercel</span>
+              <span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle text-[7px] mr-1"></i>Conectada</span>
+            </div>
+            <div class="font-mono text-slate-300 text-[11px]">/api/admin-users</div>
+          </div>
+          <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-1">
+            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>Supabase Auth</span>
+              <span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle text-[7px] mr-1"></i>Activo</span>
+            </div>
+            <div class="font-mono text-slate-300 text-[11px] truncate">hxyzvxueoqvvjyehfpym</div>
+          </div>
+        </div>
+
+        <!-- Clave Service Role de Supabase -->
+        <div class="p-3.5 bg-slate-950 border border-slate-800 rounded-2xl space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="font-bold text-white flex items-center gap-1.5">
+              <i class="fa-solid fa-key text-amber-400"></i>
+              <span>Clave Secreta Service Role de Supabase</span>
+            </label>
+            <span id="admin-cloud-service-key-status" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-bold">Verificando...</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Permite consultar directamente las cuentas registradas en <span class="font-mono text-sky-300">auth.users</span> incluso si tus contactos aún no han confirmado su correo.
+          </p>
+          <div class="relative">
+            <input type="password" id="admin-cloud-service-key-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                   class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-hidden focus:border-sky-500">
+          </div>
+          <p class="text-[10px] text-slate-500 flex items-center gap-1">
+            <i class="fa-solid fa-circle-info text-sky-400"></i>
+            <span>Encuéntrala en: <b>supabase.com</b> &gt; Tu Proyecto &gt; <b>Project Settings</b> &gt; <b>API</b> &gt; <b>service_role (secret)</b>.</span>
+          </p>
+        </div>
+
+        <!-- Activación de Tablas con 1-Click -->
+        <div class="p-3.5 bg-sky-950/40 border border-sky-800/40 rounded-2xl space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="font-bold text-sky-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-database text-sky-400"></i>
+              <span>Activar Tablas en Supabase (SQL Editor)</span>
+            </div>
+            <button type="button" onclick="copySupabaseSqlScript()" class="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold text-[11px] transition flex items-center gap-1 cursor-pointer shadow-sm">
+              <i class="fa-solid fa-copy"></i>
+              <span>Copiar Script SQL</span>
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Copia el script y pégalo en el <b>SQL Editor</b> de tu panel de Supabase y presiona <b>Run</b>. Esto crea la tabla de registros y activa las políticas de SuperAdmin para <span class="text-sky-300 font-mono">hepc.90@gmail.com</span>.
+          </p>
+        </div>
+      </div>
+
+      <div class="bg-slate-950 px-5 py-3 border-t border-slate-800 flex items-center justify-between">
+        <button type="button" onclick="closeCloudConfigModal()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition cursor-pointer">
+          Cerrar
+        </button>
+        <button type="button" onclick="saveCloudConfigFromModal()" class="px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs transition cursor-pointer shadow-md flex items-center gap-1.5">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span>Guardar y Sincronizar Ahora</span>
         </button>
       </div>
 

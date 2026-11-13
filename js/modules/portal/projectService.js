@@ -126,6 +126,33 @@ export function getRegisteredUsersList() {
   return [];
 }
 
+export async function syncUserToCloudAdmin(userObj) {
+  if (!userObj || !userObj.email) return;
+  try {
+    const cleanEmail = userObj.email.toLowerCase().trim();
+    const payload = {
+      action: 'sync_user',
+      user: {
+        id: userObj.id || null,
+        name: userObj.name || cleanEmail.split('@')[0],
+        email: cleanEmail,
+        sexo: userObj.sexo || 'Masculino',
+        dob: userObj.dob || '',
+        avatar: userObj.avatar || '',
+        registeredAt: userObj.registeredAt || userObj.createdAt || new Date().toISOString(),
+        subscription: userObj.subscription || { planId: 'free', billingCycle: 'monthly' }
+      }
+    };
+    if (typeof fetch === 'function') {
+      fetch('/api/admin-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+    }
+  } catch (_) {}
+}
+
 export function saveRegisteredUserAccount(userObj) {
   if (!userObj || !userObj.email) return;
   try {
@@ -155,6 +182,9 @@ export function saveRegisteredUserAccount(userObj) {
     localStorage.setItem(STORAGE_KEY_REGISTERED_USERS, JSON.stringify(filtered));
     markSessionOpen(cleanEmail);
     addFeaturedProfile(userObj);
+
+    // Enviar sincronización transparente a la API central en la nube
+    syncUserToCloudAdmin(userObj);
   } catch (e) {}
 }
 
@@ -2833,7 +2863,8 @@ function calculateTreeTotal(nodes) {
 }
 
 function calculateNodeTotal(node) {
-  if (!node.children || node.children.length === 0) {
+  if (!node || typeof node !== 'object') return 0;
+  if (!Array.isArray(node.children) || node.children.length === 0) {
     const cant = Number(node.cantidad) || 0;
     const pu = Number(node.precioUnitario) || 0;
     return cant * pu;
@@ -2845,8 +2876,10 @@ export function countTreeConcepts(nodes) {
   if (!Array.isArray(nodes)) return 0;
   let count = 0;
   function traverse(list) {
+    if (!Array.isArray(list)) return;
     list.forEach(n => {
-      if (!n.children || n.children.length === 0) count++;
+      if (!n || typeof n !== 'object') return;
+      if (!Array.isArray(n.children) || n.children.length === 0) count++;
       else traverse(n.children);
     });
   }
@@ -2858,8 +2891,10 @@ function countTreePartidas(nodes) {
   if (!Array.isArray(nodes)) return 0;
   let count = 0;
   function traverse(list) {
+    if (!Array.isArray(list)) return;
     list.forEach(n => {
-      if (n.children && n.children.length > 0) {
+      if (!n || typeof n !== 'object') return;
+      if (Array.isArray(n.children) && n.children.length > 0) {
         count++;
         traverse(n.children);
       }

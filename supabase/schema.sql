@@ -254,23 +254,35 @@ ALTER TABLE public.cronograma_actividades ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Los usuarios solo ven su empresa" ON public.empresas;
 CREATE POLICY "Los usuarios solo ven su empresa" 
     ON public.empresas FOR SELECT 
-    USING (id = public.obtener_mi_empresa_id());
+    USING (
+        LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+        OR id = public.obtener_mi_empresa_id()
+    );
 
 DROP POLICY IF EXISTS "Los dueños pueden editar su empresa" ON public.empresas;
 CREATE POLICY "Los dueños pueden editar su empresa" 
     ON public.empresas FOR UPDATE 
-    USING (id = public.obtener_mi_empresa_id());
+    USING (
+        LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+        OR id = public.obtener_mi_empresa_id()
+    );
 
 -- Políticas para PERFILES
 DROP POLICY IF EXISTS "Los usuarios ven perfiles de su misma empresa" ON public.perfiles;
 CREATE POLICY "Los usuarios ven perfiles de su misma empresa" 
     ON public.perfiles FOR SELECT 
-    USING (empresa_id = public.obtener_mi_empresa_id());
+    USING (
+        LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+        OR empresa_id = public.obtener_mi_empresa_id()
+    );
 
 DROP POLICY IF EXISTS "Los usuarios pueden actualizar su propio perfil" ON public.perfiles;
 CREATE POLICY "Los usuarios pueden actualizar su propio perfil" 
     ON public.perfiles FOR UPDATE 
-    USING (id = auth.uid());
+    USING (
+        LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+        OR id = auth.uid()
+    );
 
 -- Políticas para PROYECTOS
 DROP POLICY IF EXISTS "Ver proyectos de mi empresa" ON public.proyectos;
@@ -899,3 +911,75 @@ BEGIN
     );
 END;
 $$;
+
+-- ==============================================================================
+-- 15. TABLA DE REGISTROS DE USUARIOS DE CUBIKAR (Sincronización Multi-Dispositivo)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.cubikar_registros (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    nombre VARCHAR(255) NOT NULL,
+    sexo VARCHAR(20) DEFAULT 'Masculino',
+    dob VARCHAR(30) DEFAULT '',
+    avatar TEXT DEFAULT '',
+    plan VARCHAR(50) DEFAULT 'free',
+    billing_cycle VARCHAR(50) DEFAULT 'monthly',
+    registered_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    last_activity TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    metadata JSONB DEFAULT '{}'::jsonb
+);
+
+ALTER TABLE public.cubikar_registros ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permitir insercion publica de registros" ON public.cubikar_registros;
+CREATE POLICY "Permitir insercion publica de registros" 
+    ON public.cubikar_registros FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir actualizacion publica de registros" ON public.cubikar_registros;
+CREATE POLICY "Permitir actualizacion publica de registros" 
+    ON public.cubikar_registros FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Permitir lectura de registros" ON public.cubikar_registros;
+CREATE POLICY "Permitir lectura de registros" 
+    ON public.cubikar_registros FOR SELECT USING (true);
+
+-- Función RPC para el panel de administración de Cubikar
+CREATE OR REPLACE FUNCTION public.obtener_usuarios_admin()
+RETURNS TABLE (
+    id UUID,
+    email VARCHAR,
+    nombre_completo VARCHAR,
+    avatar_url TEXT,
+    sexo VARCHAR,
+    rol VARCHAR,
+    empresa_id UUID,
+    empresa_nombre VARCHAR,
+    plan VARCHAR,
+    estado_suscripcion VARCHAR,
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        p.id,
+        p.email,
+        p.nombre_completo,
+        p.avatar_url,
+        p.sexo,
+        p.rol,
+        p.empresa_id,
+        COALESCE(e.nombre, 'Mi Empresa')::VARCHAR AS empresa_nombre,
+        COALESCE(e.plan, 'free')::VARCHAR AS plan,
+        COALESCE(e.estado_suscripcion, 'active')::VARCHAR AS estado_suscripcion,
+        p.created_at,
+        p.updated_at
+    FROM public.perfiles p
+    LEFT JOIN public.empresas e ON p.empresa_id = e.id
+    ORDER BY p.created_at DESC;
+END;
+$$;
+

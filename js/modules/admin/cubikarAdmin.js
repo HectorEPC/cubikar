@@ -10,8 +10,10 @@ import {
   deleteUserAccountAndData,
   getPlanLimits,
   countAccountUsersForOwner,
-  resolveWorkspacePlanContext
+  resolveWorkspacePlanContext,
+  STORAGE_KEY_REGISTERED_USERS
 } from '../portal/projectService.js';
+import { getSupabaseClient } from '../../core/supabaseClient.js';
 import { SUBSCRIPTION_PLANS, openSubscriptionModal } from '../portal/subscriptionModal.js';
 import { showToast } from '../../ui/notifications.js';
 
@@ -23,6 +25,7 @@ export const STORAGE_KEY_CO_ADMINS = 'cubikar_co_administrators_v2';
 export const STORAGE_KEY_MARKET_RATES = 'cubikar_market_rates_v2';
 export const STORAGE_KEY_CONSUMPTION = 'cubikar_user_consumption_v2';
 export const STORAGE_KEY_ADMIN_SESSION_MODE = 'cubikar_admin_session_mode';
+export const STORAGE_KEY_SERVICE_ROLE_KEY = 'cubikar_supabase_service_role_key';
 
 // Tarifas de Mercado Base (en Pesos Mexicanos - MXN) actualizables
 export const DEFAULT_MARKET_RATES = {
@@ -81,6 +84,20 @@ export function getCoAdminsList() {
 export function saveCoAdminsList(list) {
   try {
     localStorage.setItem(STORAGE_KEY_CO_ADMINS, JSON.stringify(list));
+  } catch (_) {}
+}
+
+export function getSavedServiceRoleKey() {
+  try {
+    return localStorage.getItem(STORAGE_KEY_SERVICE_ROLE_KEY) || '';
+  } catch (_) {
+    return '';
+  }
+}
+
+export function saveServiceRoleKey(key) {
+  try {
+    localStorage.setItem(STORAGE_KEY_SERVICE_ROLE_KEY, (key || '').trim());
   } catch (_) {}
 }
 
@@ -177,8 +194,8 @@ export function getUserConsumptionData(userEmail) {
     if (raw) return normalizeConsumptionPayload(JSON.parse(raw));
   } catch (_) {}
 
-  // Cuentas nuevas o sin actividad previa inician en 0 real (sin consumos ficticios)
-  return normalizeConsumptionPayload({ lastActivity: new Date().toISOString() });
+  // Cuentas nuevas o sin consumos inician en 0 real; la última actividad se hereda de su login/registro
+  return normalizeConsumptionPayload({ lastActivity: null });
 }
 
 export function getMonthlyAiQuotaUsage(userEmail) {
@@ -609,6 +626,20 @@ export function deleteSelectedAdminUsers() {
     }
   });
 
+  // Notificar a la nube / Supabase para eliminar registros remotos
+  try {
+    const serviceKey = getSavedServiceRoleKey();
+    fetch('/api/admin-users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-supabase-service-key': serviceKey,
+        'x-admin-email': MASTER_ADMIN_EMAIL
+      },
+      body: JSON.stringify({ action: 'delete', emails: targets })
+    }).catch(err => console.warn('[Cloud Delete Sync Error]:', err));
+  } catch (_) {}
+
   selectedAdminUserEmails.clear();
   const selectAll = document.getElementById('admin-select-all-checkbox');
   if (selectAll) selectAll.checked = false;
@@ -624,7 +655,11 @@ export function openCubikarAdminModal() {
   modal.classList.remove('hidden');
   modal.style.display = 'flex';
   renderCubikarAdminTable();
+  // Sincronizar en segundo plano con la nube para traer registros de otros dispositivos
+  syncAdminUsersFromCloud(false);
+  return;
 }
+
 
 export function closeCubikarAdminModal() {
   const modal = document.getElementById('modal-admin-cubikar');
@@ -632,6 +667,208 @@ export function closeCubikarAdminModal() {
     modal.classList.add('hidden');
     modal.style.display = 'none';
   }
+}
+
+let isSyncingCloudUsers = false;
+
+export async function syncAdminUsersFromCloud(isUserTriggered = false) {
+  if (isSyncingCloudUsers) return;
+  isSyncingCloudUsers = true;
+
+  const syncBtn = document.getElementById('btn-admin-sync-cloud');
+  const syncStatusText = document.getElementById('admin-cloud-status-text');
+  if (syncBtn) {
+    syncBtn.innerHTML = '<i class="fa-solid fa-rotate fa-spin text-sky-300"></i>';
+    syncBtn.disabled = true;
+  }
+  if (syncStatusText) {
+    syncStatusText.textContent = 'Sincronizando...';
+  }
+
+  try {
+    const serviceKey = getSavedServiceRoleKey();
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-admin-email': MASTER_ADMIN_EMAIL
+    };
+    if (serviceKey) {
+      headers['x-supabase-service-key'] = serviceKey;
+    }
+
+    // Si hay token de usuario en Supabase, adjuntarlo
+    try {
+      const sb = getSupabaseClient();
+      if (sb && typeof sb.auth?.getSession === 'function') {
+        const { data } = await sb.auth.getSession();
+        if (data?.session?.access_token) {
+          headers['Authorization'] = `Bearer ${data.session.access_token}`;
+        }
+      }
+    } catch (_) {}
+
+    const res = await fetch('/api/admin-users', {
+      method: 'GET',
+      headers
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const cloudUsers = Array.isArray(data.users) ? data.users : [];
+
+      if (cloudUsers.length > 0) {
+        // Mergear usuarios remotos en el listado registrado local
+        const localList = getRegisteredUsersList();
+        const map = new Map();
+
+        // Cargar los locales primero
+        localList.forEach(u => {
+          if (u && u.email) map.set(u.email.toLowerCase().trim(), u);
+        });
+
+        // Mergear los de la nube
+        cloudUsers.forEach(cu => {
+          if (!cu || !cu.email) return;
+          const cleanEmail = cu.email.toLowerCase().trim();
+          const existing = map.get(cleanEmail) || {};
+
+          map.set(cleanEmail, {
+            id: cu.id || existing.id,
+            name: cu.name || existing.name || cleanEmail.split('@')[0],
+            email: cleanEmail,
+            sexo: cu.sexo || existing.sexo || 'Masculino',
+            dob: cu.dob || existing.dob || '',
+            avatar: cu.avatar || existing.avatar || '',
+            createdAt: cu.createdAt || existing.createdAt || new Date().toISOString(),
+            lastLogin: cu.lastLogin || existing.lastLogin || new Date().toISOString(),
+            subscription: cu.subscription || existing.subscription || { planId: 'free', billingCycle: 'monthly' }
+          });
+        });
+
+        const merged = Array.from(map.values());
+        try {
+          localStorage.setItem(STORAGE_KEY_REGISTERED_USERS, JSON.stringify(merged));
+        } catch (_) {}
+
+        renderCubikarAdminTable();
+
+        if (syncStatusText) {
+          syncStatusText.textContent = `Nube: ${merged.length} usuarios`;
+        }
+
+        if (isUserTriggered) {
+          const detail = data.pulledFromAuth > 0 ? ` (${data.pulledFromAuth} en Supabase Auth)` : '';
+          showToast(`¡Sincronización completada! ${merged.length} usuario(s) disponibles en la base de datos${detail}.`, 'success');
+        }
+      } else {
+        if (isUserTriggered) {
+          showToast('Sincronización completada. No se encontraron usuarios adicionales.', 'info');
+        }
+      }
+    } else {
+      if (isUserTriggered) {
+        showToast('No se pudo sincronizar con la API en la nube.', 'warning');
+      }
+    }
+  } catch (err) {
+    console.warn('[Cloud Sync Error]:', err);
+    if (isUserTriggered) {
+      showToast('Error de conexión al sincronizar con la nube.', 'error');
+    }
+  } finally {
+    isSyncingCloudUsers = false;
+    if (syncBtn) {
+      syncBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i>';
+      syncBtn.disabled = false;
+    }
+  }
+}
+
+export function openCloudConfigModal() {
+  const modal = document.getElementById('modal-admin-cloud-config');
+  if (!modal) return;
+
+  const keyInput = document.getElementById('admin-cloud-service-key-input');
+  if (keyInput) {
+    keyInput.value = getSavedServiceRoleKey();
+  }
+
+  const badgeService = document.getElementById('admin-cloud-service-key-status');
+  if (badgeService) {
+    const hasKey = Boolean(getSavedServiceRoleKey());
+    badgeService.textContent = hasKey ? 'Configurada' : 'No configurada';
+    badgeService.className = hasKey
+      ? 'text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold'
+      : 'text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold';
+  }
+
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+}
+
+export function closeCloudConfigModal() {
+  const modal = document.getElementById('modal-admin-cloud-config');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+}
+
+export function saveCloudConfigFromModal() {
+  const keyInput = document.getElementById('admin-cloud-service-key-input');
+  const val = (keyInput?.value || '').trim();
+  saveServiceRoleKey(val);
+  showToast('Clave de servicio Supabase guardada. Sincronizando usuarios...', 'success');
+  closeCloudConfigModal();
+  syncAdminUsersFromCloud(true);
+}
+
+export function copySupabaseSqlScript() {
+  const sql = `-- SCRIPT DE ACTIVACIÓN RLS Y TABLAS PARA CUBIKAR EN SUPABASE
+-- Pega este código en el SQL Editor de tu proyecto Supabase y haz clic en RUN:
+
+CREATE TABLE IF NOT EXISTS public.cubikar_registros (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    nombre VARCHAR(255) NOT NULL,
+    sexo VARCHAR(20) DEFAULT 'Masculino',
+    dob VARCHAR(30) DEFAULT '',
+    avatar TEXT DEFAULT '',
+    plan VARCHAR(50) DEFAULT 'free',
+    billing_cycle VARCHAR(50) DEFAULT 'monthly',
+    registered_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    last_activity TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    metadata JSONB DEFAULT '{}'::jsonb
+);
+
+ALTER TABLE public.cubikar_registros ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir insercion publica de registros" ON public.cubikar_registros;
+CREATE POLICY "Permitir insercion publica de registros" ON public.cubikar_registros FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Permitir actualizacion publica de registros" ON public.cubikar_registros;
+CREATE POLICY "Permitir actualizacion publica de registros" ON public.cubikar_registros FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Permitir lectura de registros" ON public.cubikar_registros;
+CREATE POLICY "Permitir lectura de registros" ON public.cubikar_registros FOR SELECT USING (true);
+
+-- Permisos SuperAdmin para hepc.90@gmail.com
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'perfiles') THEN
+        DROP POLICY IF EXISTS "SuperAdmin ve todos los perfiles" ON public.perfiles;
+        CREATE POLICY "SuperAdmin ve todos los perfiles" ON public.perfiles FOR SELECT 
+        USING (LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com' OR empresa_id = public.obtener_mi_empresa_id());
+    END IF;
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'empresas') THEN
+        DROP POLICY IF EXISTS "SuperAdmin ve todas las empresas" ON public.empresas;
+        CREATE POLICY "SuperAdmin ve todas las empresas" ON public.empresas FOR SELECT 
+        USING (LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com' OR id = public.obtener_mi_empresa_id());
+    END IF;
+END $$;
+`;
+
+  navigator.clipboard.writeText(sql).then(() => {
+    showToast('¡Script SQL copiado al portapapeles! Pégalo en el SQL Editor de Supabase.', 'success');
+  }).catch(() => {
+    showToast('No se pudo copiar automáticamente. Puedes copiarlo desde supabase/schema.sql.', 'warning');
+  });
 }
 
 export function getFullAdminUsersDataset() {
@@ -1183,6 +1420,11 @@ if (typeof window !== 'undefined') {
       if (document.getElementById('coadmin-name-input')) document.getElementById('coadmin-name-input').value = '';
     }
   };
+  window.syncAdminUsersFromCloud = syncAdminUsersFromCloud;
+  window.openCloudConfigModal = openCloudConfigModal;
+  window.closeCloudConfigModal = closeCloudConfigModal;
+  window.saveCloudConfigFromModal = saveCloudConfigFromModal;
+  window.copySupabaseSqlScript = copySupabaseSqlScript;
   window.handleRemoveCoAdminClick = (email) => {
     if (confirm(`¿Estás seguro de revocar los permisos de administrador a "${email}"?`)) {
       removeCoAdmin(email);
