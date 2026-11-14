@@ -423,8 +423,8 @@ export async function mountGoogleSignInButton({
     googleId.renderButton(container, {
       type: 'standard',
       theme: 'outline',
-      size: 'large',
-      text: 'continue_with',
+      size: 'medium',
+      text: 'signin_with',
       shape: 'rectangular',
       logo_alignment: 'left',
       locale: 'es',
