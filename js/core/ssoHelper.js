@@ -68,9 +68,19 @@ export function clearSharedSsoCookie({ markSignOut = true } = {}) {
   if (typeof document === 'undefined') return;
   try {
     const expired = 'expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0';
-    document.cookie = `${CUBIKAR_SSO_COOKIE_NAME}=; ${expired}${getSsoCookieAttributes({ includeDomain: false })}`;
+    // 1. Variantes host-only
+    document.cookie = `${CUBIKAR_SSO_COOKIE_NAME}=; ${expired}; path=/; SameSite=Lax`;
+    document.cookie = `${CUBIKAR_SSO_COOKIE_NAME}=; ${expired}; path=/; SameSite=Lax; Secure`;
+    document.cookie = `${CUBIKAR_SSO_COOKIE_NAME}=; ${expired}; path=/`;
+
+    // 2. Variantes de dominio (.cubikar.app y cubikar.app)
     if (isCubikarDomainHost()) {
-      document.cookie = `${CUBIKAR_SSO_COOKIE_NAME}=; ${expired}${getSsoCookieAttributes({ includeDomain: true })}`;
+      document.cookie = `${CUBIKAR_SSO_COOKIE_NAME}=; ${expired}; domain=.cubikar.app; path=/; SameSite=Lax`;
+      document.cookie = `${CUBIKAR_SSO_COOKIE_NAME}=; ${expired}; domain=.cubikar.app; path=/; SameSite=Lax; Secure`;
+      document.cookie = `${CUBIKAR_SSO_COOKIE_NAME}=; ${expired}; domain=cubikar.app; path=/; SameSite=Lax`;
+      document.cookie = `${CUBIKAR_SSO_COOKIE_NAME}=; ${expired}; domain=cubikar.app; path=/; SameSite=Lax; Secure`;
+      document.cookie = `${CUBIKAR_SSO_COOKIE_NAME}=; ${expired}; domain=.cubikar.app; path=/`;
+      document.cookie = `${CUBIKAR_SSO_COOKIE_NAME}=; ${expired}; domain=cubikar.app; path=/`;
     }
   } catch (_) {}
 }

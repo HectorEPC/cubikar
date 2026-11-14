@@ -13,7 +13,7 @@ import {
   scrubSsoHashParams,
   hasPendingIncomingSso,
   getLastSignOutTimestamp
-} from './ssoHelper.js?v=20261114_07';
+} from './ssoHelper.js?v=20261114_08';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -465,6 +465,9 @@ export async function signOut() {
   } catch (_) {}
   const sb = getSupabaseClient();
   if (sb) {
+    try {
+      await sb.auth.signOut({ scope: 'local' });
+    } catch (_) {}
     try {
       await sb.auth.signOut({ scope: 'global' });
     } catch (_) {}
