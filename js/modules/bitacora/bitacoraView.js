@@ -57,6 +57,11 @@ let dateFromFilter = '';
 let dateToFilter = '';
 let sortOrder = 'desc'; // 'desc' (más recientes) | 'asc' (orden correlativo #001)
 
+// Estado del modal de descargas de bitácoras
+let downloadsSearchFilter = '';
+let downloadsStatusFilter = 'all'; // 'all' | 'sealed' | 'draft'
+let downloadsTypeFilter = 'all';
+
 // Estado temporal del modal de creación/edición de nota
 let activeDraftId = null;
 let tempSelectedConcepts = [];
@@ -325,6 +330,11 @@ export function renderBitacoraView() {
             <button type="button" onclick="openBitacoraNoteModal()" class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-98 text-white text-xs font-extrabold shadow-sm transition flex items-center gap-1.5 cursor-pointer">
               <i class="fa-solid fa-plus"></i>
               <span>Nueva Nota</span>
+            </button>
+
+            <button type="button" onclick="openBitacoraDownloadsModal()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white text-xs font-extrabold shadow-sm transition flex items-center gap-1.5 cursor-pointer" title="Ver notas cargadas y descargar individuales o libro completo">
+              <i class="fa-solid fa-folder-arrow-down"></i>
+              <span>Bitácoras</span>
             </button>
 
             <button type="button" onclick="downloadFullBitacoraBookAction()" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-98 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer" title="${isLegalBitacoraAllowed() ? 'Compilar todas las notas asentadas en un libro oficial PDF' : 'Disponible desde Plan Plus'}">
@@ -755,8 +765,8 @@ export function openBitacoraNoteModal(noteId = null, options = {}) {
   if (!root) return;
 
   root.innerHTML = `
-    <div id="modal-bitacora-note" style="z-index: 100000;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
-      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden animate-fade-in">
+    <div id="modal-bitacora-note" style="z-index: 100050;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4" onclick="if(event.target===this) closeBitacoraModal()">
+      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden animate-fade-in" onclick="event.stopPropagation()">
         
         <!-- Header Modal -->
         <div class="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
@@ -1204,7 +1214,7 @@ export function openSignBitacoraNoteModal(noteId) {
   if (!root) return;
 
   root.innerHTML = `
-    <div id="modal-bitacora-sign" style="z-index: 100001;" class="fixed inset-0 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+    <div id="modal-bitacora-sign" style="z-index: 100060;" class="fixed inset-0 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
       <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[94vh] flex flex-col overflow-hidden animate-fade-in">
         
         <!-- Header -->
@@ -1590,8 +1600,8 @@ export function openBitacoraConfigModal() {
   if (!root) return;
 
   root.innerHTML = `
-    <div id="modal-bitacora-config" style="z-index: 100000;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
-      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-fade-in">
+    <div id="modal-bitacora-config" style="z-index: 100050;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4" onclick="if(event.target===this) closeBitacoraModal()">
+      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-fade-in" onclick="event.stopPropagation()">
         
         <div class="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
           <div class="flex items-center gap-2.5">
@@ -1748,3 +1758,394 @@ export function openBitacoraPhotoLightbox(noteId, photoIdx) {
 
   hydrateBitacoraMediaImages(root).catch(() => {});
 }
+
+// ============================================================================
+// MODAL 5: CENTRO DE DESCARGAS DE BITÁCORA DE OBRA
+// ============================================================================
+
+function getFilteredDownloadsNotes() {
+  const all = getBitacoraNotes();
+  const q = downloadsSearchFilter.trim().toLowerCase();
+
+  return all.filter(n => {
+    if (downloadsStatusFilter === 'sealed' && n.estado !== 'sealed') return false;
+    if (downloadsStatusFilter === 'draft' && n.estado !== 'draft') return false;
+    if (downloadsTypeFilter !== 'all' && n.tipo !== downloadsTypeFilter) return false;
+
+    if (q) {
+      const conceptsText = (n.conceptosVinculados || []).map(c => `${c.clave} ${c.descripcion}`).join(' ');
+      const haystack = [
+        n.folioCode,
+        n.tipo,
+        n.fecha,
+        n.hora,
+        n.ubicacion,
+        n.descripcion,
+        conceptsText,
+        n.firma?.autorNombre,
+        n.firma?.autorCargo,
+        n.firma?.autorCedula
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  }).sort((a, b) => {
+    if (a.estado === 'sealed' && b.estado === 'sealed') {
+      return (b.folioNumber || 0) - (a.folioNumber || 0);
+    }
+    if (a.estado === 'sealed') return -1;
+    if (b.estado === 'sealed') return 1;
+    return (b.fecha || '').localeCompare(a.fecha || '');
+  });
+}
+
+function renderBitacoraDownloadsItemsHtml(notes) {
+  if (!notes || notes.length === 0) {
+    const totalAll = getBitacoraNotes().length;
+    return `
+      <div class="p-8 text-center bg-white rounded-2xl border border-slate-200">
+        <div class="w-12 h-12 mx-auto rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-500 mb-3 text-lg">
+          <i class="fa-solid fa-folder-open"></i>
+        </div>
+        <h4 class="font-extrabold text-sm text-slate-800">
+          ${totalAll > 0 ? 'Ninguna bitácora coincide con los filtros' : 'No hay notas de bitácora cargadas aún'}
+        </h4>
+        <p class="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
+          ${totalAll > 0
+            ? 'Prueba modificando el texto de búsqueda o los selectores de estatus y tipo.'
+            : 'Comienza redactando notas en la bitácora para visualizarlas en este panel y poder descargarlas de forma individual o en libro completo.'}
+        </p>
+        ${totalAll > 0 ? `
+          <button type="button" onclick="onBitacoraDownloadsSearchChange(''); onBitacoraDownloadsStatusFilterChange('all'); onBitacoraDownloadsTypeFilterChange('all');" class="mt-4 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition cursor-pointer">
+            Limpiar Filtros
+          </button>
+        ` : `
+          <button type="button" onclick="closeBitacoraModal(); openBitacoraNoteModal(null, { defaultTipo: 'Apertura' })" class="mt-4 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs shadow-sm transition inline-flex items-center gap-1.5 cursor-pointer">
+            <i class="fa-solid fa-plus"></i> Redactar Primera Nota
+          </button>
+        `}
+      </div>
+    `;
+  }
+
+  return notes.map(note => {
+    const isSealed = note.estado === 'sealed';
+    const typeMeta = getNoteTypeMeta(note.tipo);
+    const weatherMeta = getWeatherMeta(note.clima);
+    const evidencias = Array.isArray(note.evidencias) ? note.evidencias : [];
+    const conceptos = Array.isArray(note.conceptosVinculados) ? note.conceptosVinculados : [];
+
+    const folioHtml = isSealed
+      ? `<span class="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-mono text-xs font-black tracking-wide shadow-2xs">${escapeHtml(note.folioCode)}</span>`
+      : `<span class="px-2.5 py-1 rounded-lg bg-amber-500 text-white font-mono text-[11px] font-extrabold tracking-wide">BORRADOR</span>`;
+
+    const statusBadge = isSealed
+      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+           <i class="fa-solid fa-lock text-[9px]"></i> Asentada
+         </span>`
+      : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
+           <i class="fa-solid fa-pen text-[9px]"></i> Borrador
+         </span>`;
+
+    const errataBadge = note.esFeDeErratas && note.notaReferenciaFolio
+      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+           <i class="fa-solid fa-rotate-left text-[9px]"></i> Fe de Erratas a ${escapeHtml(note.notaReferenciaFolio)}
+         </span>`
+      : '';
+
+    const borderStyle = isSealed
+      ? `border-l-4 ${typeMeta.accentBorder} bg-white border-slate-200`
+      : 'border-l-4 border-l-amber-400 bg-amber-50/30 border-amber-200';
+
+    return `
+      <div class="rounded-xl border ${borderStyle} p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition bg-white flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+        
+        <!-- Info Principal -->
+        <div class="space-y-2 flex-1 min-w-0">
+          <!-- Línea 1: Folio, Tipo, Estatus, Fecha -->
+          <div class="flex items-center gap-2 flex-wrap text-xs">
+            ${folioHtml}
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${typeMeta.badgeClass}">
+              <i class="fa-solid ${typeMeta.icon} text-[9px]"></i>
+              <span>${escapeHtml(note.tipo)}</span>
+            </span>
+            ${statusBadge}
+            ${errataBadge}
+            <span class="text-slate-400 font-medium text-[11px]">&bull;</span>
+            <span class="text-slate-600 font-semibold text-[11px]">
+              <i class="fa-regular fa-calendar text-[10px] text-slate-400 mr-1"></i>${escapeHtml(note.fecha || '')}
+              ${note.hora ? `<span class="text-slate-400 font-mono">(${escapeHtml(note.hora)} hrs)</span>` : ''}
+            </span>
+            <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md font-medium" title="${weatherMeta.label}">
+              <span>${weatherMeta.emoji}</span>
+              <span>${weatherMeta.label}</span>
+            </span>
+          </div>
+
+          <!-- Línea 2: Ubicación / Frente -->
+          <div class="text-xs text-slate-700 font-medium flex items-center gap-1.5 truncate">
+            <i class="fa-solid fa-location-dot text-[11px] text-teal-600 shrink-0"></i>
+            <span class="font-bold text-slate-800">Frente / Ubicación:</span>
+            <span class="text-slate-600 truncate">${escapeHtml(note.ubicacion || 'Frente general de obra')}</span>
+          </div>
+
+          <!-- Línea 3: Resumen descriptivo -->
+          <p class="text-xs text-slate-600 line-clamp-2 leading-relaxed bg-slate-50/80 p-2 rounded-lg border border-slate-100">
+            ${escapeHtml(note.descripcion || 'Sin descripción técnica capturada.')}
+          </p>
+
+          <!-- Línea 4: Metadatos adicionales (Conceptos, Evidencias, Firmante) -->
+          <div class="flex items-center gap-3 flex-wrap text-[11px] text-slate-500 pt-0.5">
+            ${conceptos.length > 0 ? `
+              <span class="inline-flex items-center gap-1 text-slate-600 font-medium">
+                <i class="fa-solid fa-layer-group text-indigo-500 text-[10px]"></i>
+                <strong>${conceptos.length}</strong> concepto(s) de catálogo
+              </span>
+            ` : ''}
+
+            ${evidencias.length > 0 ? `
+              <span class="inline-flex items-center gap-1 text-slate-600 font-medium">
+                <i class="fa-solid fa-camera text-teal-500 text-[10px]"></i>
+                <strong>${evidencias.length}</strong> fotografía(s) de evidencia
+              </span>
+            ` : ''}
+
+            ${isSealed && note.firma ? `
+              <span class="inline-flex items-center gap-1 text-emerald-800 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/80">
+                <i class="fa-solid fa-signature text-emerald-600 text-[10px]"></i>
+                Firmado: <strong>${escapeHtml(note.firma.autorNombre || '')}</strong>
+                ${note.firma.autorCedula ? `&bull; Céd. ${escapeHtml(note.firma.autorCedula)}` : ''}
+              </span>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Botones de Acción de Descarga -->
+        <div class="flex flex-row md:flex-col items-stretch sm:items-end justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+          <button type="button" onclick="downloadSingleNotePdfAction('${note.id}')" class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-98 text-white font-extrabold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" title="${isSealed ? 'Descargar documento PDF foliado oficial' : 'Descargar PDF de vista previa'}">
+            <i class="fa-solid fa-file-arrow-down text-sm"></i>
+            <span>Descargar PDF</span>
+          </button>
+
+          ${isSealed ? `
+            <button type="button" onclick="openBitacoraPdfAction('${note.id}')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-300 transition flex items-center justify-center gap-1.5 cursor-pointer" title="Ver / Abrir documento PDF">
+              <i class="fa-solid fa-eye text-slate-500 text-[11px]"></i>
+              <span>Ver PDF</span>
+            </button>
+          ` : `
+            <button type="button" onclick="closeBitacoraModal(); openBitacoraNoteModal('${note.id}')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-300 transition flex items-center justify-center gap-1.5 cursor-pointer" title="Editar este borrador para completarlo o firmarlo">
+              <i class="fa-solid fa-pencil text-amber-600 text-[11px]"></i>
+              <span>Editar Borrador</span>
+            </button>
+          `}
+        </div>
+
+      </div>
+    `;
+  }).join('');
+}
+
+export function renderBitacoraDownloadsList() {
+  const container = document.getElementById('bitacora-downloads-list-container');
+  const footerSummary = document.getElementById('bitacora-downloads-footer-summary');
+  if (!container) return;
+
+  const filtered = getFilteredDownloadsNotes();
+  const allNotes = getBitacoraNotes();
+  const sealedCount = allNotes.filter(n => n.estado === 'sealed').length;
+
+  container.innerHTML = renderBitacoraDownloadsItemsHtml(filtered);
+
+  if (footerSummary) {
+    footerSummary.textContent = `Mostrando ${filtered.length} de ${allNotes.length} nota(s) registrada(s) (${sealedCount} oficial(es) asentada(s)).`;
+  }
+
+  hydrateBitacoraMediaImages(container).catch(() => {});
+}
+
+export function onBitacoraDownloadsSearchChange(val) {
+  downloadsSearchFilter = val || '';
+  renderBitacoraDownloadsList();
+}
+
+export function onBitacoraDownloadsStatusFilterChange(val) {
+  downloadsStatusFilter = val || 'all';
+  renderBitacoraDownloadsList();
+}
+
+export function onBitacoraDownloadsTypeFilterChange(val) {
+  downloadsTypeFilter = val || 'all';
+  renderBitacoraDownloadsList();
+}
+
+export function openBitacoraDownloadsModal() {
+  const allNotes = getBitacoraNotes();
+  const sealedNotes = allNotes.filter(n => n.estado === 'sealed');
+  const draftNotes = allNotes.filter(n => n.estado === 'draft');
+  const summary = getBitacoraWorkSummary();
+
+  downloadsSearchFilter = '';
+  downloadsStatusFilter = 'all';
+  downloadsTypeFilter = 'all';
+
+  const root = ensureBitacoraModalsRoot();
+  if (!root) return;
+
+  root.innerHTML = `
+    <div id="modal-bitacora-downloads" style="z-index: 100050;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-fade-in" onclick="if(event.target===this) closeBitacoraModal()">
+      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden" onclick="event.stopPropagation()">
+        
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-5 py-3.5 flex items-center justify-between shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shadow-sm">
+              <i class="fa-solid fa-folder-arrow-down text-base"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-extrabold text-sm sm:text-base text-white tracking-tight">
+                  Centro de Descargas de Bitácora de Obra
+                </h3>
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 uppercase tracking-wide">
+                  Expediente PDF
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-300 truncate">
+                Obra: <strong class="text-white">${escapeHtml(summary.projectName)}</strong>
+                ${summary.projectLocation ? ` &bull; ${escapeHtml(summary.projectLocation)}` : ''}
+                &bull; <span id="bitacora-downloads-count-badge" class="font-semibold text-indigo-200">${allNotes.length} nota(s) registrada(s) (${sealedNotes.length} asentada(s))</span>
+              </p>
+            </div>
+          </div>
+          <button type="button" onclick="closeBitacoraModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center justify-center cursor-pointer" title="Cerrar">
+            <i class="fa-solid fa-xmark text-base"></i>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-4 sm:p-5 overflow-y-auto custom-scroll space-y-4 text-xs flex-1 bg-slate-50/60">
+
+          <!-- 1. Tarjeta Destacada: Descargar Libro Completo -->
+          <div class="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-sm border border-slate-700/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400 shrink-0 mt-0.5 sm:mt-0">
+                <i class="fa-solid fa-book-bookmark text-lg"></i>
+              </div>
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h4 class="font-extrabold text-sm text-white">Libro Completo de Bitácora (PDF Compilado)</h4>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                    ${sealedNotes.length} nota(s) oficial(es)
+                  </span>
+                </div>
+                <p class="text-[11px] text-slate-300 max-w-xl leading-relaxed">
+                  Compila la carátula institucional de obra, índice foliado, firmas digitales y todas las evidencias en un solo expediente PDF oficial inmutable.
+                </p>
+              </div>
+            </div>
+            <button type="button" onclick="downloadFullBitacoraBookAction()" class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-98 text-slate-950 font-black text-xs shadow-md transition flex items-center gap-2 cursor-pointer shrink-0" title="${isLegalBitacoraAllowed() ? 'Compilar y descargar libro completo en PDF' : 'Disponible desde Plan Plus'}">
+              <i class="fa-solid fa-file-pdf text-sm"></i>
+              <span>Descargar Libro Completo</span>
+              ${!isLegalBitacoraAllowed() ? '<i class="fa-solid fa-lock text-[10px] ml-1"></i>' : ''}
+            </button>
+          </div>
+
+          <!-- 2. Barra de Búsqueda y Filtros de la Lista -->
+          <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center gap-2.5">
+            <div class="relative flex-1 min-w-[220px]">
+              <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs absolute left-3 top-1/2 -translate-y-1/2"></i>
+              <input type="text" id="bitacora-downloads-search" value="${escapeHtml(downloadsSearchFilter)}" oninput="onBitacoraDownloadsSearchChange(this.value)" placeholder="Buscar por folio (#001), tipo, ubicación, responsable o texto..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition">
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              <select id="bitacora-downloads-filter-status" onchange="onBitacoraDownloadsStatusFilterChange(this.value)" class="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                <option value="all" ${downloadsStatusFilter === 'all' ? 'selected' : ''}>Todas las notas (${allNotes.length})</option>
+                <option value="sealed" ${downloadsStatusFilter === 'sealed' ? 'selected' : ''}>Solo Asentadas (${sealedNotes.length})</option>
+                <option value="draft" ${downloadsStatusFilter === 'draft' ? 'selected' : ''}>Solo Borradores (${draftNotes.length})</option>
+              </select>
+
+              <select id="bitacora-downloads-filter-type" onchange="onBitacoraDownloadsTypeFilterChange(this.value)" class="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                <option value="all" ${downloadsTypeFilter === 'all' ? 'selected' : ''}>Todos los tipos</option>
+                ${BITACORA_NOTE_TYPES.map(t => `<option value="${t.id}" ${downloadsTypeFilter === t.id ? 'selected' : ''}>${t.label}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <!-- 3. Contenedor de la lista de bitácoras cargadas -->
+          <div id="bitacora-downloads-list-container" class="space-y-2.5">
+            ${renderBitacoraDownloadsItemsHtml(getFilteredDownloadsNotes())}
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-slate-100 px-5 py-3 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
+          <span id="bitacora-downloads-footer-summary" class="text-[11px] text-slate-500 font-medium truncate">
+            Mostrando ${allNotes.length} nota(s) registrada(s) (${sealedNotes.length} asentada(s)).
+          </span>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeBitacoraModal()" class="px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer">
+              Cerrar
+            </button>
+            <button type="button" onclick="downloadFullBitacoraBookAction()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+              <i class="fa-solid fa-book-open text-amber-400"></i>
+              <span>Descargar Libro Completo</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  const listContainer = document.getElementById('bitacora-downloads-list-container');
+  if (listContainer) {
+    hydrateBitacoraMediaImages(listContainer).catch(() => {});
+  }
+}
+
+// Auto-registro directo en window para máxima resiliencia contra caché del navegador
+if (typeof window !== 'undefined') {
+  Object.assign(window, {
+    renderBitacoraView,
+    openBitacoraConfigModal,
+    saveBitacoraConfigModalAction,
+    onBitacoraTodayWeatherChange,
+    openBitacoraNoteModal,
+    closeBitacoraModal,
+    insertBitacoraTemplate,
+    onBitacoraConceptSearch,
+    toggleBitacoraConceptLink,
+    onBitacoraPhotosSelected,
+    updateTempEvidenceCaption,
+    removeTempBitacoraEvidence,
+    saveBitacoraNoteFormAction,
+    deleteBitacoraDraftAction,
+    createFeDeErratasAction,
+    openSignBitacoraNoteModal,
+    clearBitacoraSignatureCanvas,
+    confirmAndSealBitacoraNoteAction,
+    downloadSingleNotePdfAction,
+    openBitacoraPdfAction,
+    downloadFullBitacoraBookAction,
+    syncPendingBitacoraCloudAction,
+    downloadBitacoraLightboxEvidenceAction,
+    onBitacoraSearchChange,
+    onBitacoraTypeFilterChange,
+    onBitacoraStatusFilterChange,
+    onBitacoraDateFromChange,
+    onBitacoraDateToChange,
+    toggleBitacoraSortOrder,
+    clearBitacoraFilters,
+    scrollToBitacoraNote,
+    openBitacoraPhotoLightbox,
+    openBitacoraDownloadsModal,
+    renderBitacoraDownloadsList,
+    onBitacoraDownloadsSearchChange,
+    onBitacoraDownloadsStatusFilterChange,
+    onBitacoraDownloadsTypeFilterChange
+  });
+}
+
+

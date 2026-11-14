@@ -1,6 +1,6 @@
 // js/core/matrixGenerator.js
 // Generador y calibrador de Matrices Integradas de APU para conceptos importados
-// Asegura que cada concepto importado (ej. Opus, BIMSA, catálogos externos)
+// Asegura que cada concepto importado (ej. Opus, Neodata, catálogos externos)
 // ya contenga su desglose completo de Materiales, Mano de Obra y Equipo/Herramienta,
 // con consumos estrictamente unitarios y suma exacta igual al Costo Unitario del concepto.
 

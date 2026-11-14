@@ -38,6 +38,25 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+// Renderizar bloque de firmas institucionales configuradas dinámicamente en el proyecto
+export function renderInstitutionalSignaturesHtml(marginTop = 14) {
+  const budgetSignatures = getBudgetSignatures();
+  const sigCols = Math.min(Math.max(budgetSignatures.length, 1), 5);
+  const signaturesHtml = budgetSignatures.map(sig => `
+    <div class="signature-box" style="padding-top: 6px;">
+      <strong>${escapeHtml(sig.rol || 'FIRMA')}</strong>
+      ${sig.nombre ? `<div style="font-weight: 700; color: #0f172a; font-size: 8.5pt; margin: 3px 0 2px 0;">${escapeHtml(sig.nombre)}</div>` : '<div style="height: 14px;"></div>'}
+      <span>${escapeHtml(sig.cargo || '')}</span>
+    </div>
+  `).join('');
+  return `
+    <div class="signatures-grid" style="grid-template-columns: repeat(${sigCols}, 1fr); margin-top: ${marginTop}px;">
+      ${signaturesHtml}
+    </div>
+  `;
+}
+
+
 // Estilos CSS compartidos optimizados para impresión estándar (Carta / A4)
 const PRINT_BASE_STYLES = `
   @page {
@@ -290,28 +309,60 @@ const PRINT_BASE_STYLES = `
 export function buildPrintableHtmlDocument(docTitle, bodyContent, orientation = 'portrait', options = {}) {
   const extraToolbarHtml = options.extraToolbarHtml || '';
   const extraScripts = options.extraScripts || '';
+  const extraHeadHtml = options.extraHeadHtml || '';
+  const extraStyles = options.extraStyles || '';
+  const isDark = options.theme === 'dark';
   const shouldAutoPrint = options.autoPrint !== false;
   const branding = options.branding || resolveActivePrintBranding(state?.settings, options.projectId || null);
+
+  const darkThemeCss = isDark ? `
+    body {
+      background-color: #0b1329 !important;
+      color: #f1f5f9 !important;
+    }
+    .page-container {
+      background-color: #0b1329 !important;
+      color: #f1f5f9 !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      max-width: 100% !important;
+    }
+    @media print {
+      body {
+        background-color: #0b1329 !important;
+      }
+      .page-container {
+        background-color: #0b1329 !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+    }
+  ` : '';
 
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <title>${escapeHtml(docTitle)}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  ${isDark ? '<script src="https://cdn.tailwindcss.com"></script>' : ''}
+  ${extraHeadHtml}
   <style>
     ${PRINT_BASE_STYLES}
     ${branding.watermarkCss || ''}
+    ${darkThemeCss}
     ${orientation === 'landscape' 
-      ? '@page { size: letter landscape !important; margin: 5mm 6mm 6mm 6mm !important; } .page-container { max-width: 100% !important; padding: 10px 14px !important; margin: 0 auto !important; } @media print { .page-container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; } }'
+      ? '@page { size: letter landscape !important; margin: 4mm 5mm 4mm 5mm !important; } .page-container { max-width: 100% !important; padding: 10px 14px !important; margin: 0 auto !important; } @media print { .page-container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; } }'
       : '@page { size: letter portrait !important; margin: 12mm 12mm 15mm 12mm !important; } .page-container { max-width: 960px !important; padding: 30px 35px !important; }'}
+    ${extraStyles}
   </style>
 </head>
 <body>
   ${branding.watermarkLayerHtml || ''}
   <!-- Barra de Acciones Flotante (Oculta al Imprimir) -->
-  <div class="no-print" style="flex-wrap: wrap; gap: 10px;">
+  <div class="no-print" style="flex-wrap: wrap; gap: 10px; ${isDark ? 'background-color: #070d1e; border-bottom: 1px solid #1e293b;' : ''}">
     <div style="font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-      <span>📄 ${escapeHtml(docTitle)}</span>
+      <span>📑 ${escapeHtml(docTitle)}</span>
     </div>
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
       ${extraToolbarHtml}
@@ -334,13 +385,23 @@ export function buildPrintableHtmlDocument(docTitle, bodyContent, orientation = 
   <script>
     ${extraScripts}
     ${shouldAutoPrint ? `
-    // Auto-disparar diálogo de impresión tras breve render
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
+    // Auto-disparar diálogo de impresión exactamente UNA SOLA VEZ tras completar la carga
+    let __printedOnce = false;
+    function autoTriggerNativePrint() {
+      if (__printedOnce) return;
+      __printedOnce = true;
+      try {
         window.focus();
         window.print();
-      }, 350);
-    });
+      } catch (err) {
+        console.warn('Error al ejecutar window.print():', err);
+      }
+    }
+    if (document.readyState === 'complete') {
+      setTimeout(autoTriggerNativePrint, 400);
+    } else {
+      window.addEventListener('load', () => setTimeout(autoTriggerNativePrint, 400), { once: true });
+    }
     ` : `
     window.addEventListener('DOMContentLoaded', () => {
       window.focus();
@@ -351,19 +412,80 @@ export function buildPrintableHtmlDocument(docTitle, bodyContent, orientation = 
 </html>`;
 }
 
-// Abrir documento e invocar diálogo de impresión
+// Bandera de guardia para evitar aperturas o disparos múltiples simultáneos
+let isPrintWindowBusy = false;
+
+// Abrir documento e invocar diálogo de impresión (una sola ventana y un solo diálogo)
 export function openPrintWindow(docTitle, bodyContent, orientation = 'portrait', options = {}) {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    showToast('El navegador bloqueó la ventana de impresión. Por favor permite ventanas emergentes en esta página.', 'warning');
+  if (isPrintWindowBusy) {
+    console.warn('[PrintService] Impresión en curso, ignorando clic repetido.');
     return;
   }
+  isPrintWindowBusy = true;
+  setTimeout(() => { isPrintWindowBusy = false; }, 1500);
 
   const html = buildPrintableHtmlDocument(docTitle, bodyContent, orientation, options);
+  
+  let printWindow = null;
+  try {
+    printWindow = window.open('', '_blank');
+  } catch (err) {
+    printWindow = null;
+  }
 
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
+  // Si el navegador permitió abrir la ventana emergente única
+  if (printWindow && !printWindow.closed) {
+    try {
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      return;
+    } catch (writeErr) {
+      console.warn('[PrintService] Error al escribir en printWindow, recurriendo a iframe:', writeErr);
+    }
+  }
+
+  // Fallback 100% infalible si el navegador bloqueó las ventanas emergentes (Pop-up Blocker)
+  try {
+    let iframe = document.getElementById('global-print-fallback-iframe');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'global-print-fallback-iframe';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '1px';
+      iframe.style.height = '1px';
+      iframe.style.opacity = '0.01';
+      iframe.style.border = '0';
+      iframe.style.pointerEvents = 'none';
+      document.body.appendChild(iframe);
+    }
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (iframeDoc) {
+      iframeDoc.open();
+      iframeDoc.write(html);
+      iframeDoc.close();
+      showToast('Generando formato de impresión...', 'info');
+      setTimeout(() => {
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } catch (printErr) {
+          console.warn('[PrintService] Fallback iframe.print() error, usando window.print():', printErr);
+          window.print();
+        }
+      }, 400);
+      return;
+    }
+  } catch (iframeErr) {
+    console.warn('[PrintService] Error en fallback iframe:', iframeErr);
+  }
+
+  // Último recurso: avisar al usuario
+  showToast('Por favor permite ventanas emergentes en tu navegador para ver la impresión completa.', 'warning');
 }
 
 // -------------------------------------------------------------
@@ -545,22 +667,7 @@ export function printTab1Catalog() {
     </div>
 
     <!-- Área de Firmas Institucionales y Responsables de Obra -->
-    ${(() => {
-      const budgetSignatures = getBudgetSignatures();
-      const sigCols = Math.min(Math.max(budgetSignatures.length, 1), 5);
-      const signaturesHtml = budgetSignatures.map(sig => `
-        <div class="signature-box">
-          <strong>${escapeHtml(sig.rol || 'FIRMA')}</strong>
-          ${sig.nombre ? `<div style="font-weight: 700; color: #0f172a; font-size: 8.5pt; margin: 3px 0 2px 0;">${escapeHtml(sig.nombre)}</div>` : '<div style="height: 14px;"></div>'}
-          <span>${escapeHtml(sig.cargo || '')}</span>
-        </div>
-      `).join('');
-      return `
-        <div class="signatures-grid" style="grid-template-columns: repeat(${sigCols}, 1fr);">
-          ${signaturesHtml}
-        </div>
-      `;
-    })()}
+    ${renderInstitutionalSignaturesHtml(14)}
   `;
 
   openPrintWindow('Presupuesto de Obra - TAB1-CAT-BASE', bodyContent);
@@ -877,21 +984,8 @@ export function printApuMatrix() {
       </tfoot>
     </table>
 
-    <!-- Área de Firmas Técnicas -->
-    <div class="signatures-grid">
-      <div class="signature-box">
-        <strong>ANALIZÓ Y CALCULÓ</strong>
-        <span>Especialista en Costos y Precios Unitarios</span>
-      </div>
-      <div class="signature-box">
-        <strong>REVISÓ</strong>
-        <span>Coordinador de Presupuestos e Ingeniería</span>
-      </div>
-      <div class="signature-box">
-        <strong>AUTORIZÓ</strong>
-        <span>Dirección Técnica / Contratista</span>
-      </div>
-    </div>
+    <!-- Área de Firmas Institucionales y Responsables -->
+    ${renderInstitutionalSignaturesHtml(14)}
   `;
 
   const docTitle = `APU_${node.clave || 'Concepto'}_Matriz_e_Insumos`;
@@ -1101,21 +1195,8 @@ export function printInsumosGenerales() {
       </div>
     </div>
 
-    <!-- Área de Firmas Institucionales -->
-    <div class="signatures-grid">
-      <div class="signature-box">
-        <strong>CUANTIFICÓ Y ANALIZÓ</strong>
-        <span>Departamento de Costos y Presupuestos</span>
-      </div>
-      <div class="signature-box">
-        <strong>REVISÓ</strong>
-        <span>Coordinador de Obra y Compras</span>
-      </div>
-      <div class="signature-box">
-        <strong>AUTORIZÓ</strong>
-        <span>Dirección de Operaciones / Residencia</span>
-      </div>
-    </div>
+    <!-- Área de Firmas Institucionales y Responsables -->
+    ${renderInstitutionalSignaturesHtml(14)}
   `;
 
   openPrintWindow('Explosion_Insumos_Generales_Obra', bodyContent);
@@ -1663,21 +1744,8 @@ function buildGanttPrintHtml({
             </div>
           </div>
 
-          <!-- Área de Firmas Institucionales -->
-          <div class="signatures-grid">
-            <div class="signature-box">
-              <strong>PROGRAMÓ Y CONTROLÓ</strong>
-              <span>Departamento de Programación y Control de Obra</span>
-            </div>
-            <div class="signature-box">
-              <strong>REVISÓ</strong>
-              <span>Coordinación de Costos e Ingeniería de Obra</span>
-            </div>
-            <div class="signature-box">
-              <strong>AUTORIZÓ / RESIDENCIA</strong>
-              <span>Dirección General de Obra y Supervisión</span>
-            </div>
-          </div>
+          <!-- Área de Firmas Institucionales y Responsables -->
+          ${renderInstitutionalSignaturesHtml(14)}
         ` : `
           <div class="gantt-page-break" style="page-break-after: always; break-after: page; height: 0; margin: 0; padding: 0;"></div>
         `}
@@ -2134,21 +2202,8 @@ function buildFinancialPrintHtml({
             </div>
           </div>
 
-          <!-- Área de Firmas Institucionales -->
-          <div class="signatures-grid" style="margin-top: 14px;">
-            <div class="signature-box" style="padding-top: 6px;">
-              <strong>PROGRAMÓ Y CONTROLÓ</strong>
-              <span>Departamento de Programación y Control de Obra</span>
-            </div>
-            <div class="signature-box" style="padding-top: 6px;">
-              <strong>REVISÓ</strong>
-              <span>Coordinación de Costos e Ingeniería de Obra</span>
-            </div>
-            <div class="signature-box" style="padding-top: 6px;">
-              <strong>AUTORIZÓ / RESIDENCIA</strong>
-              <span>Dirección General de Obra y Supervisión</span>
-            </div>
-          </div>
+          <!-- Área de Firmas Institucionales y Responsables -->
+          ${renderInstitutionalSignaturesHtml(14)}
         ` : ''}
 
         ${!isLastSheet ? `
@@ -2555,21 +2610,8 @@ function buildCurvaSPrintHtml({
       </div>
     </div>
 
-    <!-- Área de Firmas Institucionales -->
-    <div class="signatures-grid">
-      <div class="signature-box">
-        <strong>PROGRAMÓ Y CONTROLÓ</strong>
-        <span>Departamento de Programación y Control de Obra</span>
-      </div>
-      <div class="signature-box">
-        <strong>REVISÓ</strong>
-        <span>Coordinación de Costos e Ingeniería de Obra</span>
-      </div>
-      <div class="signature-box">
-        <strong>AUTORIZÓ / RESIDENCIA</strong>
-        <span>Dirección General de Obra y Supervisión</span>
-      </div>
-    </div>
+    <!-- Área de Firmas Institucionales y Responsables -->
+    ${renderInstitutionalSignaturesHtml(14)}
   `;
 }
 

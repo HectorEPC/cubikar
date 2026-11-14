@@ -2,14 +2,42 @@
 // Exportación a Excel (.xlsx) y generación de formatos imprimibles oficiales de Orden de Compra y Reportes
 
 import { state } from '../../state/store.js';
-import { formatCurrency, formatNumber } from '../../core/formatters.js';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js';
 import { showToast } from '../../ui/notifications.js';
 import { openPrintWindow } from '../io/printService.js';
-import { getExpensesRecords, getExpensesSuppliers, getSupplierById } from './expensesModel.js';
+import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesSignatures } from './expensesModel.js';
 import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js';
 import { getActiveProjectId } from '../../config/constants.js';
 import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js';
 import { resolveActivePrintBranding } from '../io/printBrandingService.js';
+
+/**
+ * Renderizar bloque dinámico de firmas configuradas para los reportes de Compras y Pagos
+ */
+export function renderExpensesPrintSignaturesBlock(customSignatures = null, isDarkTheme = false) {
+  const sigs = customSignatures || getExpensesSignatures();
+  if (!Array.isArray(sigs) || sigs.length === 0) return '';
+
+  const cols = Math.min(Math.max(sigs.length, 1), 5);
+  const borderColor = isDarkTheme ? '#334155' : '#0f172a';
+  const roleColor = isDarkTheme ? '#38bdf8' : '#0f172a';
+  const nameColor = isDarkTheme ? '#ffffff' : '#1e293b';
+  const cargoColor = isDarkTheme ? '#94a3b8' : '#64748b';
+
+  const itemsHtml = sigs.map(s => `
+    <div style="border-top: 1.5px solid ${borderColor}; padding-top: 6px; min-width: 0; text-align: center;">
+      <div style="font-size: 10px; font-weight: 800; color: ${roleColor}; text-transform: uppercase; letter-spacing: 0.3px;">${s.rol || 'FIRMA'}</div>
+      ${s.nombre ? `<div style="font-size: 11px; font-weight: bold; color: ${nameColor}; margin-top: 3px;">${s.nombre}</div>` : '<div style="height: 14px;"></div>'}
+      <div style="font-size: 9px; color: ${cargoColor}; margin-top: 2px;">${s.cargo || ''}</div>
+    </div>
+  `).join('');
+
+  return `
+    <div style="display: grid; grid-template-columns: repeat(${cols}, 1fr); gap: 20px; text-align: center; margin-top: 24px; page-break-inside: avoid;">
+      ${itemsHtml}
+    </div>
+  `;
+}
 
 function renderExpensesBrandHeaderBlock(companyName, companyLogo, projectName, projectLocation, compact = false) {
   const logoHtml = companyLogo
@@ -319,20 +347,7 @@ export function printSingleOrdenCompra(record) {
     </div>
 
     <!-- Firmas Oficiales de Control y Autorización -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; text-align: center; margin-top: 40px; page-break-inside: avoid;">
-      <div style="border-top: 1.5px solid #0f172a; padding-top: 6px;">
-        <div style="font-size: 11px; font-weight: 800; color: #0f172a;">ELABORÓ</div>
-        <div style="font-size: 10px; color: #64748b;">Depto. de Compras / Costos</div>
-      </div>
-      <div style="border-top: 1.5px solid #0f172a; padding-top: 6px;">
-        <div style="font-size: 11px; font-weight: 800; color: #0f172a;">AUTORIZÓ</div>
-        <div style="font-size: 10px; color: #64748b;">Residente de Obra / Dirección</div>
-      </div>
-      <div style="border-top: 1.5px solid #0f172a; padding-top: 6px;">
-        <div style="font-size: 11px; font-weight: 800; color: #0f172a;">RECIBIÓ PROVEEDOR</div>
-        <div style="font-size: 10px; color: #64748b;">Nombre, Firma y Fecha</div>
-      </div>
-    </div>
+    ${renderExpensesPrintSignaturesBlock()}
   `;
 
   openPrintWindow(docTitle, bodyContent, 'portrait');
@@ -341,142 +356,507 @@ export function printSingleOrdenCompra(record) {
 /**
  * Imprimir Reporte General según la vista activa de Compras y Pagos
  */
+
+/**
+ * Renderizar el Tablero Resumen Financiero ERP en formato imprimible idéntico al Dashboard
+ */
+export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
+  const sem = kpis?.semaforo || { color: 'emerald', badgeText: 'Saludable / En Presupuesto', icon: 'fa-circle-check', description: '' };
+  const isHealthy = sem.color === 'emerald';
+  const isWarning = sem.color === 'amber';
+
+  const pctCobrado = (kpis?.presupuestoContratado || 0) > 0 
+    ? round2(((kpis?.totalFacturadoEstimado || 0) / kpis.presupuestoContratado) * 100) 
+    : 0;
+  const pctGastado = sem.pctGastado || 0;
+
+  const comp = getInsumosBudgetVsActualComparison();
+  const categories = comp?.categories || [];
+  const records = getExpensesRecords() || [];
+  const suppliers = getExpensesSuppliers() || [];
+
+  const rubroMeta = {
+    'Material': { label: 'Materiales', color: '#06b6d4', grad: 'from-cyan-500 to-blue-500', icon: 'fa-box', textColor: 'text-cyan-400' },
+    'Mano de Obra': { label: 'Mano de Obra', color: '#a855f7', grad: 'from-purple-500 to-pink-500', icon: 'fa-user-group', textColor: 'text-purple-400' },
+    'Herramienta': { label: 'Herramienta', color: '#f59e0b', grad: 'from-amber-500 to-orange-500', icon: 'fa-screwdriver-wrench', textColor: 'text-amber-400' },
+    'Equipo': { label: 'Equipo / Fletes', color: '#6366f1', grad: 'from-indigo-500 to-blue-500', icon: 'fa-truck', textColor: 'text-indigo-400' },
+    'Maquinaria': { label: 'Maquinaria', color: '#ec4899', grad: 'from-pink-500 to-rose-500', icon: 'fa-tractor', textColor: 'text-rose-400' },
+    'Subcontrato': { label: 'Subcontratos', color: '#10b981', grad: 'from-emerald-500 to-teal-500', icon: 'fa-handshake', textColor: 'text-emerald-400' },
+    'Indirecto': { label: 'Indirectos', color: '#94a3b8', grad: 'from-slate-500 to-slate-600', icon: 'fa-file-lines', textColor: 'text-slate-400' }
+  };
+
+  const totalSpendComprometido = categories.reduce((sum, c) => sum + (c.totalComprado || 0), 0);
+  const totalBudgetDirecto = categories.reduce((sum, c) => sum + (c.totalPresupuestado || 0), 0);
+  const chartBasis = totalSpendComprometido > 0 ? totalSpendComprometido : (totalBudgetDirecto > 0 ? totalBudgetDirecto : 1);
+
+  // Generar SVG Donut
+  const donutR = 52;
+  const donutC = 2 * Math.PI * donutR;
+  let accumulatedDonutLen = 0;
+
+  const donutSlicesSvg = categories.map(cat => {
+    const val = totalSpendComprometido > 0 ? cat.totalComprado : cat.totalPresupuestado;
+    const share = chartBasis > 0 ? (val / chartBasis) : 0;
+    const arcLen = round2(share * donutC);
+    const gap = round2(donutC - arcLen);
+    const meta = rubroMeta[cat.key] || rubroMeta['Material'];
+    const strokeDash = `${arcLen} ${gap}`;
+    const strokeOffset = -accumulatedDonutLen;
+    accumulatedDonutLen += arcLen;
+
+    if (arcLen <= 0.5) return '';
+    return `
+      <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="${meta.color}" stroke-width="18"
+              stroke-dasharray="${strokeDash}" stroke-dashoffset="${strokeOffset}" stroke-linecap="butt">
+      </circle>
+    `;
+  }).join('');
+
+  // Velocímetro SVG
+  const gaugeR = 68;
+  const gaugeLen = Math.PI * gaugeR;
+  const clampedGaugePct = Math.min(100, Math.max(0, pctGastado));
+  const gaugeDashOffset = round2(gaugeLen * (1 - clampedGaugePct / 100));
+  const needleAngle = round2(-90 + (clampedGaugePct / 100) * 180);
+
+  const semBadgeClass = isHealthy 
+    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+    : isWarning 
+      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' 
+      : 'bg-rose-500/15 text-rose-400 border border-rose-500/30';
+
+  const semPulseColor = isHealthy ? 'bg-emerald-400' : isWarning ? 'bg-amber-400' : 'bg-rose-400';
+
+  // Top 4 Proveedores
+  const supplierSpendMap = new Map();
+  records.forEach(r => {
+    if (r.paymentStatus === 'cancelled') return;
+    const supId = r.supplierId || 'general';
+    const supName = r.supplierName || (getSupplierById(r.supplierId)?.name) || 'Proveedor General';
+    if (!supplierSpendMap.has(supId)) {
+      supplierSpendMap.set(supId, { id: supId, name: supName, count: 0, total: 0, paid: 0, pending: 0 });
+    }
+    const item = supplierSpendMap.get(supId);
+    item.count++;
+    item.total = round2(item.total + (parseFloat(r.total) || 0));
+    if (r.paymentStatus === 'paid') {
+      item.paid = round2(item.paid + (parseFloat(r.total) || 0));
+    } else {
+      item.pending = round2(item.pending + (parseFloat(r.total) || 0));
+    }
+  });
+
+  let topSuppliers = Array.from(supplierSpendMap.values())
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 4);
+
+  if (topSuppliers.length === 0 && suppliers.length > 0) {
+    topSuppliers = suppliers.slice(0, 3).map(s => ({
+      id: s.id,
+      name: s.name,
+      count: 0,
+      total: 0,
+      paid: 0,
+      pending: 0,
+      contactPerson: s.contactPerson || s.phone || 'Registrado'
+    }));
+  }
+
+  const companyLogo = branding?.companyLogo || '';
+  const companyName = branding?.companyName || 'Constructora';
+  const projectName = state?.settings?.projectName || 'Obra Principal';
+  const projectLocation = state?.settings?.projectLocation || 'En sitio';
+  const todayStr = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  return `
+    <div class="space-y-3.5 max-w-full mx-auto bg-[#0b1329] text-slate-100 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl" style="font-family: system-ui, -apple-system, sans-serif;">
+      
+      <!-- ENCABEZADO INSTITUCIONAL Y DEL DASHBOARD EJECUTIVO -->
+      <div class="flex items-center justify-between gap-4 pb-3 border-b border-slate-800/80">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
+            <i class="fa-solid fa-chart-pie text-white text-base"></i>
+          </div>
+          <div>
+            <h1 class="text-base font-black text-white tracking-wide flex items-center gap-2">
+              <span>TABLERO RESUMEN FINANCIERO ERP</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">En Tiempo Real</span>
+            </h1>
+            <p class="text-[11px] text-slate-400 font-medium">Control ejecutivo de costos, presupuesto contratado, ingresos por estimación y egresos por rubro</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 text-right shrink-0">
+          <div>
+            <div class="text-xs font-black uppercase tracking-wider text-white">${companyName}</div>
+            <div class="text-[11px] font-bold text-cyan-400">${projectName}</div>
+            <div class="text-[9.5px] text-slate-400">Ubicación: ${projectLocation} | Fecha: ${todayStr}</div>
+          </div>
+          ${companyLogo ? `
+            <img src="${companyLogo}" alt="Logo" class="h-10 w-10 object-contain rounded-lg border border-slate-700 bg-white/5 p-1 shrink-0">
+          ` : ''}
+        </div>
+      </div>
+
+      <!-- FILA 1: 5 TARJETAS KPI SUPERIORES CON DEGRADADOS NEÓN -->
+      <div class="grid grid-cols-5 gap-3">
+        
+        <!-- Tarjeta 1: Presupuesto Obra -->
+        <div class="bg-[#121c38] border border-slate-800 rounded-xl p-3 space-y-1 relative overflow-hidden shadow-md">
+          <div class="flex items-center justify-between text-slate-400">
+            <span class="text-[9.5px] font-bold uppercase tracking-wider">Presupuesto Obra</span>
+            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">BASE VENTA</span>
+          </div>
+          <div class="text-base font-black font-mono text-white tracking-tight">
+            ${formatCurrency(kpis?.presupuestoContratado || 0)}
+          </div>
+          <div class="text-[9.5px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+            <span>Directo: <strong class="text-slate-300 font-mono">${formatCurrency(kpis?.costoDirectoPresupuestado || 0)}</strong></span>
+            <i class="fa-solid fa-file-contract text-cyan-400 text-[10px]"></i>
+          </div>
+        </div>
+
+        <!-- Tarjeta 2: Cobrado / Estimado -->
+        <div class="bg-[#121c38] border border-slate-800 rounded-xl p-3 space-y-1 relative overflow-hidden shadow-md">
+          <div class="flex items-center justify-between text-slate-400">
+            <span class="text-[9.5px] font-bold uppercase tracking-wider">Cobrado / Estimado</span>
+            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 flex items-center gap-0.5">
+              <i class="fa-solid fa-arrow-up text-[7px]"></i> ${pctCobrado}%
+            </span>
+          </div>
+          <div class="text-base font-black font-mono text-cyan-300 tracking-tight">
+            ${formatCurrency(kpis?.totalFacturadoEstimado || 0)}
+          </div>
+          <div class="text-[9.5px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+            <span>Avance acumulado</span>
+            <i class="fa-solid fa-hand-holding-dollar text-cyan-400 text-[10px]"></i>
+          </div>
+        </div>
+
+        <!-- Tarjeta 3: Egresos Pagados -->
+        <div class="bg-[#121c38] border border-slate-800 rounded-xl p-3 space-y-1 relative overflow-hidden shadow-md">
+          <div class="flex items-center justify-between text-slate-400">
+            <span class="text-[9.5px] font-bold uppercase tracking-wider">Egresos Pagados</span>
+            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-rose-500/10 text-rose-300 border border-rose-500/30">
+              ${kpis?.totalRegistros || 0} ÓRDENES
+            </span>
+          </div>
+          <div class="text-base font-black font-mono text-rose-400 tracking-tight">
+            ${formatCurrency(kpis?.totalEgresosReales || 0)}
+          </div>
+          <div class="text-[9.5px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+            <span>Por Pagar: <strong class="text-amber-400 font-mono">${formatCurrency(kpis?.totalEgresosPorPagar || 0)}</strong></span>
+            <i class="fa-solid fa-money-bill-wave text-rose-400 text-[10px]"></i>
+          </div>
+        </div>
+
+        <!-- Tarjeta 4: Utilidad en Caja -->
+        <div class="bg-[#121c38] border border-slate-800 rounded-xl p-3 space-y-1 relative overflow-hidden shadow-md">
+          <div class="flex items-center justify-between text-slate-400">
+            <span class="text-[9.5px] font-bold uppercase tracking-wider">Utilidad en Caja</span>
+            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${(kpis?.utilidadEnCaja || 0) >= 0 ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-300 border border-rose-500/30'}">
+              FLUJO NETO
+            </span>
+          </div>
+          <div class="text-base font-black font-mono ${(kpis?.utilidadEnCaja || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'} tracking-tight">
+            ${formatCurrency(kpis?.utilidadEnCaja || 0)}
+          </div>
+          <div class="text-[9.5px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+            <span>Cobrado - Egresos</span>
+            <i class="fa-solid fa-piggy-bank text-emerald-400 text-[10px]"></i>
+          </div>
+        </div>
+
+        <!-- Tarjeta 5: Utilidad Proyectada -->
+        <div class="bg-[#121c38] border border-slate-800 rounded-xl p-3 space-y-1 relative overflow-hidden shadow-md">
+          <div class="flex items-center justify-between text-slate-400">
+            <span class="text-[9.5px] font-bold uppercase tracking-wider">Utilidad Proyectada</span>
+            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${(kpis?.margenUtilidadProyectado || 0) >= 10 ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-300 border border-amber-500/30'}">
+              ${kpis?.margenUtilidadProyectado || 0}% MARGEN
+            </span>
+          </div>
+          <div class="text-base font-black font-mono ${(kpis?.proyeccionUtilidadCierre || 0) >= 0 ? 'text-amber-300' : 'text-rose-400'} tracking-tight">
+            ${formatCurrency(kpis?.proyeccionUtilidadCierre || 0)}
+          </div>
+          <div class="text-[9.5px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+            <span>Presupuesto - Gasto</span>
+            <i class="fa-solid fa-chart-line text-amber-400 text-[10px]"></i>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FILA 2: VELOCÍMETRO (GAUGE) Y DONUT CHART DE 6 RUBROS -->
+      <div class="grid grid-cols-12 gap-3.5">
+        
+        <!-- Panel Izquierdo: Velocímetro / Gauge Radial del Semáforo (cols 5/12) -->
+        <div class="col-span-5 bg-[#121c38] border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-md relative overflow-hidden">
+          <div class="flex items-center justify-between pb-1.5 border-b border-slate-800/70">
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-black uppercase tracking-wider text-white">Semáforo Presupuestal</span>
+              <span class="w-2 h-2 rounded-full ${semPulseColor}"></span>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[9.5px] font-bold ${semBadgeClass} flex items-center gap-1">
+              <i class="fa-solid ${sem.icon}"></i>
+              <span>${sem.badgeText}</span>
+            </span>
+          </div>
+
+          <!-- Velocímetro SVG -->
+          <div class="py-1.5 flex flex-col items-center justify-center">
+            <svg viewBox="0 0 200 120" class="w-full max-w-[240px] mx-auto overflow-visible">
+              <defs>
+                <linearGradient id="print-gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#06b6d4"/>
+                  <stop offset="50%" stop-color="#10b981"/>
+                  <stop offset="75%" stop-color="#f59e0b"/>
+                  <stop offset="100%" stop-color="#ef4444"/>
+                </linearGradient>
+              </defs>
+              <path d="M 32 95 A 68 68 0 0 1 168 95" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="round"/>
+              <path d="M 32 95 A 68 68 0 0 1 168 95" fill="none" stroke="url(#print-gauge-gradient)" stroke-width="12" stroke-linecap="round"
+                    stroke-dasharray="213.63" stroke-dashoffset="${gaugeDashOffset}"/>
+              <g transform="rotate(${needleAngle} 100 95)">
+                <polygon points="98,95 100,32 102,95" fill="#f8fafc"/>
+              </g>
+              <circle cx="100" cy="95" r="7" fill="#06b6d4" stroke="#0b1329" stroke-width="2.5"/>
+              <circle cx="100" cy="95" r="2.5" fill="#ffffff"/>
+              <text x="28" y="112" font-size="8.5" font-weight="700" fill="#64748b" text-anchor="middle">0%</text>
+              <text x="100" y="20" font-size="8.5" font-weight="700" fill="#64748b" text-anchor="middle">50%</text>
+              <text x="172" y="112" font-size="8.5" font-weight="700" fill="#64748b" text-anchor="middle">100%</text>
+            </svg>
+
+            <div class="text-center space-y-0.5 mt-0.5">
+              <div class="text-2xl font-black font-mono text-white tracking-tight">${pctGastado}%</div>
+              <p class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Del Presupuesto Total Ejercido</p>
+            </div>
+          </div>
+
+          <!-- Barra de Detalles -->
+          <div class="p-2 bg-[#0e162e] rounded-lg border border-slate-800 space-y-1 text-xs">
+            <div class="flex items-center justify-between text-[10.5px]">
+              <span class="text-slate-400 font-semibold">Total Comprometido:</span>
+              <span class="font-mono font-bold text-white">${formatCurrency(kpis?.totalEgresosComprometidos || 0)}</span>
+            </div>
+            <div class="flex items-center justify-between text-[10.5px]">
+              <span class="text-slate-400 font-semibold">Límite Contratado:</span>
+              <span class="font-mono font-bold text-cyan-300">${formatCurrency(kpis?.presupuestoContratado || 0)}</span>
+            </div>
+            <p class="text-[9px] text-slate-400 leading-tight pt-1 border-t border-slate-800/80">${sem.description || 'Monitoreo de gasto activo.'}</p>
+          </div>
+        </div>
+
+        <!-- Panel Derecho: Donut Chart & Distribución de los 6 Rubros (cols 7/12) -->
+        <div class="col-span-7 bg-[#121c38] border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-md">
+          <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-800/70">
+            <div>
+              <h3 class="text-xs font-black uppercase tracking-wider text-white">Distribución por Rubro</h3>
+              <p class="text-[9.5px] text-slate-400">Proporción de gasto en los 6 rubros constructivos</p>
+            </div>
+            <span class="text-[10px] font-mono font-bold px-2 py-0.5 bg-slate-800 text-cyan-300 rounded-md border border-slate-700">
+              ${totalSpendComprometido > 0 ? 'Gasto: ' + formatCurrency(totalSpendComprometido) : 'Base: ' + formatCurrency(totalBudgetDirecto)}
+            </span>
+          </div>
+
+          <div class="grid grid-cols-12 gap-3 items-center py-1.5">
+            <!-- Donut SVG (cols 5/12) -->
+            <div class="col-span-5 flex flex-col items-center justify-center relative">
+              <svg viewBox="0 0 180 180" class="w-36 h-36 transform -rotate-90">
+                <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="#1e293b" stroke-width="18"/>
+                ${donutSlicesSvg}
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span class="text-[11px] font-black font-mono text-white leading-tight">
+                  ${totalSpendComprometido > 0 ? formatCurrency(totalSpendComprometido) : formatCurrency(totalBudgetDirecto)}
+                </span>
+                <span class="text-[8.5px] font-bold uppercase tracking-wider text-cyan-400">
+                  ${comp?.resumen?.totalInsumos || 0} INSUMOS
+                </span>
+              </div>
+            </div>
+
+            <!-- Leyenda de 6 Rubros (cols 7/12) -->
+            <div class="col-span-7 grid grid-cols-2 gap-1.5 text-xs">
+              ${categories.map(cat => {
+                const meta = rubroMeta[cat.key] || rubroMeta['Material'];
+                const val = totalSpendComprometido > 0 ? cat.totalComprado : cat.totalPresupuestado;
+                const pct = chartBasis > 0 ? round2((val / chartBasis) * 100) : 0;
+                return `
+                  <div class="p-1.5 bg-[#0e162e] rounded-lg border border-slate-800 space-y-0.5">
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-xs shrink-0" style="background-color: ${meta.color};"></span>
+                      <span class="text-[9.5px] font-bold text-slate-300 truncate">${meta.label}</span>
+                    </div>
+                    <div class="font-mono font-bold text-[10px] text-white">${formatCurrency(val)}</div>
+                    <div class="text-[8.5px] text-slate-400 flex items-center justify-between">
+                      <span>${cat.items.length} insumos</span>
+                      <strong class="font-mono ${meta.textColor}">${pct}%</strong>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
+          <div class="pt-1.5 border-t border-slate-800/70 text-[9.5px] text-slate-400 flex justify-between">
+            <span>6 rubros consolidados calculados desde la explosión de insumos</span>
+            <span class="text-cyan-400 font-bold font-mono">Total: ${formatCurrency(totalSpendComprometido > 0 ? totalSpendComprometido : totalBudgetDirecto)}</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FILA 3: AVANCE PRESUPUESTAL POR RUBRO & FLUJO DE CAJA / TOP PROVEEDORES -->
+      <div class="grid grid-cols-12 gap-3.5">
+        
+        <!-- Panel Izquierdo: Barras de Avance Presupuestal por Rubro (cols 6/12) -->
+        <div class="col-span-6 bg-[#121c38] border border-slate-800 rounded-xl p-3.5 space-y-2.5 shadow-md">
+          <div class="flex items-center justify-between pb-1 border-b border-slate-800/70">
+            <div>
+              <h3 class="text-xs font-black uppercase tracking-wider text-white">Avance Presupuestal por Rubro</h3>
+              <p class="text-[9px] text-slate-400">Comparativa del gasto comprometido contra el presupuesto asignado</p>
+            </div>
+            <span class="text-[9px] font-bold uppercase text-slate-400 tracking-wider">Gasto / Base</span>
+          </div>
+
+          <div class="space-y-1.5">
+            ${categories.map(cat => {
+              const meta = rubroMeta[cat.key] || rubroMeta['Material'];
+              const compVal = cat.totalComprado || 0;
+              const presup = cat.totalPresupuestado || 0;
+              const pctUsed = presup > 0 ? round2((compVal / presup) * 100) : (compVal > 0 ? 100 : 0);
+              const isOver = pctUsed > 100;
+              return `
+                <div class="space-y-0.5">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-[10px] font-bold text-slate-200 flex items-center gap-1.5">
+                      <i class="fa-solid ${meta.icon} ${meta.textColor} text-[9px]"></i>
+                      <span>${meta.label}</span>
+                    </span>
+                    <div class="flex items-center gap-2 font-mono text-[9px]">
+                      <span class="text-white font-bold">${formatCurrency(compVal)}</span>
+                      <span class="text-slate-500">/</span>
+                      <span class="text-slate-400">${formatCurrency(presup)}</span>
+                      <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${isOver ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-cyan-300'}">
+                        ${pctUsed}%
+                      </span>
+                    </div>
+                  </div>
+                  <div class="w-full bg-[#0e162e] h-1.5 rounded-full overflow-hidden p-0.2 border border-slate-800">
+                    <div class="h-full rounded-full bg-gradient-to-r ${meta.grad}" style="width: ${Math.min(100, pctUsed)}%"></div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Panel Derecho: Flujo de Caja & Top Proveedores (cols 6/12) -->
+        <div class="col-span-6 bg-[#121c38] border border-slate-800 rounded-xl p-3.5 space-y-2.5 shadow-md flex flex-col justify-between">
+          
+          <!-- Flujo de Caja y Liquidez -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between pb-1 border-b border-slate-800/70">
+              <h3 class="text-xs font-black uppercase tracking-wider text-white">Flujo de Caja y Liquidez</h3>
+              <span class="text-[9.5px] font-bold uppercase tracking-wider text-cyan-400 font-mono">
+                Caja Neta: ${formatCurrency(kpis?.utilidadEnCaja || 0)}
+              </span>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-center">
+              <div class="p-1.5 bg-[#0e162e] rounded-lg border border-slate-800">
+                <span class="text-[8.5px] font-bold text-slate-400 uppercase block">Ingreso Cobrado</span>
+                <span class="font-mono font-bold text-[11px] text-cyan-300">${formatCurrency(kpis?.totalFacturadoEstimado || 0)}</span>
+              </div>
+              <div class="p-1.5 bg-[#0e162e] rounded-lg border border-slate-800">
+                <span class="text-[8.5px] font-bold text-slate-400 uppercase block">Egresos Pagados</span>
+                <span class="font-mono font-bold text-[11px] text-rose-400">${formatCurrency(kpis?.totalEgresosReales || 0)}</span>
+              </div>
+              <div class="p-1.5 bg-[#0e162e] rounded-lg border border-slate-800">
+                <span class="text-[8.5px] font-bold text-slate-400 uppercase block">Cuentas por Pagar</span>
+                <span class="font-mono font-bold text-[11px] text-amber-400">${formatCurrency(kpis?.totalEgresosPorPagar || 0)}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Proveedores -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between pb-0.5 border-b border-slate-800/70">
+              <h4 class="text-xs font-black uppercase tracking-wider text-white">Top Proveedores & Contratistas</h4>
+              <span class="text-[9px] text-slate-400">Mayor volumen de compra</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-1.5">
+              ${topSuppliers.slice(0, 4).map(sup => `
+                <div class="p-1.5 bg-[#0e162e] rounded-lg border border-slate-800 flex items-center justify-between text-xs">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <div class="w-5 h-5 rounded bg-blue-600/20 text-cyan-400 flex items-center justify-center shrink-0 text-[9px] font-bold">
+                      <i class="fa-solid fa-truck-field"></i>
+                    </div>
+                    <div class="min-w-0">
+                      <p class="font-bold text-slate-200 truncate text-[10px]">${sup.name}</p>
+                      <p class="text-[8.5px] text-slate-400 truncate">${sup.count} órdenes</p>
+                    </div>
+                  </div>
+                  <div class="text-right shrink-0">
+                    <div class="font-mono font-bold text-white text-[10px]">${formatCurrency(sup.total)}</div>
+                    <span class="px-1 py-0.2 rounded text-[7.5px] font-bold ${sup.pending > 0 ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}">
+                      ${sup.pending > 0 ? 'Pendiente' : 'Al Corriente'}
+                    </span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- BLOQUE DE FIRMAS OFICIALES DE CONTROL Y RESPONSABLES (ESTILO EJECUTIVO OSCURO) -->
+      ${renderExpensesPrintSignaturesBlock(null, true)}
+
+    </div>
+  `;
+}
+
 export function printExpensesActiveReport(activeSubTab = 'tablero') {
-  const branding = resolveActivePrintBranding(state.settings);
+  try {
+  const branding = resolveActivePrintBranding(state?.settings);
   const companyName = branding.companyName;
   const companyLogo = branding.companyLogo;
-  const projectName = state.settings?.projectName || 'Obra Principal';
-  const projectLocation = state.settings?.projectLocation || 'En sitio';
+  const projectName = state?.settings?.projectName || 'Obra Principal';
+  const projectLocation = state?.settings?.projectLocation || 'En sitio';
   const todayStr = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
 
   if (activeSubTab === 'tablero') {
     const kpis = getExpensesKpiMetrics();
-    const docTitle = `Reporte Financiero ERP - ${projectName}`;
-    const sem = kpis.semaforo;
+    const docTitle = `Tablero Resumen Financiero ERP - ${projectName}`;
+    const bodyContent = renderPrintableExecutiveDashboardHTML(kpis, branding);
 
-    const bodyContent = `
-      <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start;">
-        ${renderExpensesBrandHeaderBlock(companyName, companyLogo, projectName, projectLocation, false)}
-        <div style="text-align: right;">
-          <div style="font-size: 14px; font-weight: 900; color: #0f172a;">DASHBOARD FINANCIERO ERP</div>
-          <div style="font-size: 11px; color: #475569; margin-top: 2px;">FECHA: <strong>${todayStr}</strong></div>
-          <div style="font-size: 11px; font-weight: bold; color: ${sem.color === 'emerald' ? '#059669' : sem.color === 'amber' ? '#d97706' : '#dc2626'}; margin-top: 3px;">
-            SEMÁFORO: ${sem.badgeText.toUpperCase()}
-          </div>
-        </div>
-      </div>
-
-      <!-- Resumen Ejecutivo KPI -->
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px;">
-        <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #f8fafc;">
-          <div style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Presupuesto Obra</div>
-          <div style="font-size: 16px; font-weight: 900; color: #0f172a; font-family: monospace; margin-top: 4px;">${formatCurrency(kpis.presupuestoContratado)}</div>
-          <div style="font-size: 9.5px; color: #64748b;">Monto contratado base</div>
-        </div>
-        <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #f8fafc;">
-          <div style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Facturado / Cobrado</div>
-          <div style="font-size: 16px; font-weight: 900; color: #059669; font-family: monospace; margin-top: 4px;">${formatCurrency(kpis.totalFacturadoEstimado)}</div>
-          <div style="font-size: 9.5px; color: #64748b;">Avance en estimaciones</div>
-        </div>
-        <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #f8fafc;">
-          <div style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Egresos Pagados</div>
-          <div style="font-size: 16px; font-weight: 900; color: #dc2626; font-family: monospace; margin-top: 4px;">${formatCurrency(kpis.totalEgresosReales)}</div>
-          <div style="font-size: 9.5px; color: #64748b;">Compras y nóminas liquidadas</div>
-        </div>
-        <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #f8fafc;">
-          <div style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Cuentas por Pagar</div>
-          <div style="font-size: 16px; font-weight: 900; color: #d97706; font-family: monospace; margin-top: 4px;">${formatCurrency(kpis.totalEgresosPorPagar)}</div>
-          <div style="font-size: 9.5px; color: #64748b;">Pendientes de liquidar</div>
-        </div>
-        <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #f8fafc;">
-          <div style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Utilidad en Caja</div>
-          <div style="font-size: 16px; font-weight: 900; color: ${kpis.utilidadEnCaja >= 0 ? '#4338ca' : '#dc2626'}; font-family: monospace; margin-top: 4px;">${formatCurrency(kpis.utilidadEnCaja)}</div>
-          <div style="font-size: 9.5px; color: #64748b;">Cobrado − Egresos</div>
-        </div>
-        <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #f8fafc;">
-          <div style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Utilidad Proyectada</div>
-          <div style="font-size: 16px; font-weight: 900; color: #0f172a; font-family: monospace; margin-top: 4px;">${formatCurrency(kpis.proyeccionUtilidadCierre)}</div>
-          <div style="font-size: 9.5px; color: #64748b;">Margen estimado: ${kpis.margenUtilidadProyectado}%</div>
-        </div>
-      </div>
-
-      <!-- Tabla de Egresos por Rubro -->
-      <div style="font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 6px; text-transform: uppercase;">
-        DISTRIBUCIÓN DE EGRESOS POR RUBRO DE COSTO
-      </div>
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 11px;">
-        <thead>
-          <tr style="background: #0f172a; color: #ffffff;">
-            <th style="padding: 7px 10px; border: 1px solid #0f172a; text-align: left;">Rubro de Gasto</th>
-            <th style="padding: 7px 10px; border: 1px solid #0f172a; text-align: center; width: 80px;">Registros</th>
-            <th style="padding: 7px 10px; border: 1px solid #0f172a; text-align: right; width: 110px;">Subtotal</th>
-            <th style="padding: 7px 10px; border: 1px solid #0f172a; text-align: right; width: 100px;">IVA (16%)</th>
-            <th style="padding: 7px 10px; border: 1px solid #0f172a; text-align: right; width: 120px;">Total Egresos</th>
-            <th style="padding: 7px 10px; border: 1px solid #0f172a; text-align: right; width: 120px;">Pagado</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">📦 Materiales de Construcción</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: center;">${kpis.byType.material.count}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatCurrency(kpis.byType.material.subtotal)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatCurrency(kpis.byType.material.tax)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-weight: bold;">${formatCurrency(kpis.byType.material.total)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">${formatCurrency(kpis.byType.material.paid)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">👷 Mano de Obra / Raya de Cuadrillas</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: center;">${kpis.byType.labor.count}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatCurrency(kpis.byType.labor.subtotal)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatCurrency(kpis.byType.labor.tax)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-weight: bold;">${formatCurrency(kpis.byType.labor.total)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">${formatCurrency(kpis.byType.labor.paid)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">🚜 Equipos, Fletes y Maquinaria</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: center;">${kpis.byType.equipment.count}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatCurrency(kpis.byType.equipment.subtotal)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatCurrency(kpis.byType.equipment.tax)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-weight: bold;">${formatCurrency(kpis.byType.equipment.total)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">${formatCurrency(kpis.byType.equipment.paid)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; font-weight: bold;">📑 Gastos Indirectos y Administración</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: center;">${kpis.byType.indirect.count}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatCurrency(kpis.byType.indirect.subtotal)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatCurrency(kpis.byType.indirect.tax)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-weight: bold;">${formatCurrency(kpis.byType.indirect.total)}</td>
-            <td style="padding: 6px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">${formatCurrency(kpis.byType.indirect.paid)}</td>
-          </tr>
-          <tr style="background: #f1f5f9; font-weight: bold;">
-            <td style="padding: 7px 10px; border: 1px solid #cbd5e1;">TOTAL CONSOLIDADO:</td>
-            <td style="padding: 7px 10px; border: 1px solid #cbd5e1; text-align: center;">${kpis.totalRegistros}</td>
-            <td style="padding: 7px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatCurrency(kpis.totalEgresosComprometidos - (kpis.byType.material.tax + kpis.byType.labor.tax + kpis.byType.equipment.tax + kpis.byType.indirect.tax))}</td>
-            <td style="padding: 7px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatCurrency(kpis.byType.material.tax + kpis.byType.labor.tax + kpis.byType.equipment.tax + kpis.byType.indirect.tax)}</td>
-            <td style="padding: 7px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-size: 12px; color: #0f172a;">${formatCurrency(kpis.totalEgresosComprometidos)}</td>
-            <td style="padding: 7px 10px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-size: 12px; color: #059669;">${formatCurrency(kpis.totalEgresosReales)}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- Firmas Oficiales -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; text-align: center; margin-top: 40px; page-break-inside: avoid;">
-        <div style="border-top: 1.5px solid #0f172a; padding-top: 6px;">
-          <div style="font-size: 11px; font-weight: 800; color: #0f172a;">CONTROL DE COSTOS</div>
-          <div style="font-size: 10px; color: #64748b;">Elaboró</div>
-        </div>
-        <div style="border-top: 1.5px solid #0f172a; padding-top: 6px;">
-          <div style="font-size: 11px; font-weight: 800; color: #0f172a;">RESIDENTE DE OBRA</div>
-          <div style="font-size: 10px; color: #64748b;">Revisó</div>
-        </div>
-        <div style="border-top: 1.5px solid #0f172a; padding-top: 6px;">
-          <div style="font-size: 11px; font-weight: 800; color: #0f172a;">DIRECCIÓN GENERAL</div>
-          <div style="font-size: 10px; color: #64748b;">Autorizó</div>
-        </div>
-      </div>
-    `;
-
-    openPrintWindow(docTitle, bodyContent, 'portrait');
+    openPrintWindow(docTitle, bodyContent, 'landscape', {
+      theme: 'dark',
+      extraStyles: `
+        @media print {
+          @page {
+            size: letter landscape !important;
+            margin: 4mm 5mm 4mm 5mm !important;
+          }
+          body {
+            background-color: #0b1329 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .page-container {
+            background-color: #0b1329 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            box-shadow: none !important;
+          }
+        }
+      `
+    });
   } else if (activeSubTab === 'bitacora') {
     const records = getExpensesRecords();
     const docTitle = `Bitácora de Egresos y Compras - ${projectName}`;
@@ -545,18 +925,8 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
         </tbody>
       </table>
 
-      <!-- Firmas -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; text-align: center; margin-top: 30px; page-break-inside: avoid;">
-        <div style="border-top: 1px solid #0f172a; padding-top: 4px; font-size: 10px;">
-          <strong>ELABORÓ</strong><br><span style="color:#64748b;">Compras</span>
-        </div>
-        <div style="border-top: 1px solid #0f172a; padding-top: 4px; font-size: 10px;">
-          <strong>REVISÓ</strong><br><span style="color:#64748b;">Control de Costos</span>
-        </div>
-        <div style="border-top: 1px solid #0f172a; padding-top: 4px; font-size: 10px;">
-          <strong>AUTORIZÓ</strong><br><span style="color:#64748b;">Residente de Obra</span>
-        </div>
-      </div>
+      <!-- Firmas Oficiales -->
+      ${renderExpensesPrintSignaturesBlock()}
     `;
 
     openPrintWindow(docTitle, bodyContent, 'landscape');
@@ -642,20 +1012,20 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
         </tr>
       </table>
 
-      <!-- Firmas -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; text-align: center; margin-top: 30px; page-break-inside: avoid;">
-        <div style="border-top: 1px solid #0f172a; padding-top: 4px; font-size: 10px;">
-          <strong>CONTROL DE COSTOS</strong>
-        </div>
-        <div style="border-top: 1px solid #0f172a; padding-top: 4px; font-size: 10px;">
-          <strong>RESIDENTE DE OBRA</strong>
-        </div>
-        <div style="border-top: 1px solid #0f172a; padding-top: 4px; font-size: 10px;">
-          <strong>DIRECCIÓN GENERAL</strong>
-        </div>
-      </div>
+      <!-- Firmas Oficiales -->
+      ${renderExpensesPrintSignaturesBlock()}
     `;
 
     openPrintWindow(docTitle, bodyContent, 'landscape');
   }
+
+  } catch (err) {
+    console.error('[printExpensesActiveReport] Error al generar reporte de compras:', err);
+    showToast('Error al preparar impresión de Compras: ' + (err.message || 'Error desconocido'), 'error');
+  }
+}
+
+// Exponer función de impresiÃ³n de compras globalmente
+if (typeof window !== 'undefined') {
+  window.printExpensesActiveReport = printExpensesActiveReport;
 }

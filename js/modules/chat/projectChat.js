@@ -859,26 +859,18 @@ export function renderSidebarNotificationsUI() {
 
   if (!badgeEl && !portalBadgeEl) return;
 
-  const currentUser = getCurrentUser();
+  const sessionUser = getCurrentUser();
+  const currentUser = sessionUser || getLastKnownUser() || { name: 'Administrador de Obra', email: 'admin@constructora.com' };
   const notifWrapper = document.getElementById('portal-notifications-wrapper');
 
-  // Si no hay sesión iniciada, ocultar por completo la campana del portal y limpiar badges
-  if (!currentUser) {
-    if (notifWrapper) notifWrapper.classList.add('hidden');
-    if (portalBadgeEl) {
-      portalBadgeEl.classList.add('hidden');
-      portalBadgeEl.textContent = '0';
+  // Control de visibilidad del contenedor de campana en el portal
+  if (notifWrapper) {
+    if (!sessionUser && !getLastKnownUser()) {
+      notifWrapper.classList.add('hidden');
+    } else {
+      notifWrapper.classList.remove('hidden');
     }
-    if (portalPopoverEl) portalPopoverEl.classList.add('hidden');
-    if (badgeEl) {
-      badgeEl.classList.add('hidden');
-      badgeEl.textContent = '0';
-    }
-    if (popoverEl) popoverEl.classList.add('hidden');
-    return;
   }
-
-  if (notifWrapper) notifWrapper.classList.remove('hidden');
 
   const filterHandle = selectedNotificationsHandle || 'all';
 
@@ -888,7 +880,7 @@ export function renderSidebarNotificationsUI() {
   const consumptionAlert = (currentUser && currentUser.email) ? getActiveUserConsumptionAlert(currentUser.email) : null;
   const consumptionAlertCount = consumptionAlert ? 1 : 0;
 
-  // 1) Campana en el Área de Proyectos (barra lateral izquierda): notificaciones donde mencionaron usuarios en el proyecto activo
+  // 1) Campana en el Ãrea de Proyectos (barra lateral izquierda): notificaciones donde mencionaron usuarios en el proyecto activo
   const projectMentions = getUserMentionsNotifications(filterHandle, 'current');
   const projectUnreadCount = projectMentions.filter(item => !item.isRead).length + pendingInvsCount + consumptionAlertCount;
   const projectBadgeText = projectUnreadCount > 99 ? '99+' : String(projectUnreadCount);
@@ -930,34 +922,48 @@ export function renderSidebarNotificationsUI() {
 
   const partidas = getAllCatalogNodes();
 
-  if (popoverEl) {
-    const projectUsers = getAllNotificationsUsers('current');
-    popoverEl.classList.remove('hidden');
-    popoverEl.innerHTML = buildNotificationsPopoverHTML(
-      projectMentions,
-      projectUnreadCount,
-      projectUsers,
-      filterHandle,
-      partidas,
-      'current',
-      pendingInvitations,
-      consumptionAlert
-    );
-  }
+  // Determinar si estamos en el portal ("Mis Proyectos de Obra") o en el espacio de trabajo del proyecto
+  const portalEl = document.getElementById('view-portal');
+  const workspaceEl = document.getElementById('workspace-container');
+  const isPortalVisible = Boolean(
+    portalEl &&
+    !portalEl.classList.contains('hidden') &&
+    portalEl.style.display !== 'none' &&
+    (!workspaceEl || workspaceEl.classList.contains('hidden'))
+  );
 
-  if (portalPopoverEl) {
-    const allUsers = getAllNotificationsUsers('all');
-    portalPopoverEl.classList.remove('hidden');
-    portalPopoverEl.innerHTML = buildNotificationsPopoverHTML(
-      allProjectsMentions,
-      allProjectsUnreadCount,
-      allUsers,
-      filterHandle,
-      partidas,
-      'all',
-      pendingInvitations,
-      consumptionAlert
-    );
+  if (isPortalVisible) {
+    if (popoverEl) popoverEl.classList.add('hidden');
+    if (portalPopoverEl) {
+      const allUsers = getAllNotificationsUsers('all');
+      portalPopoverEl.classList.remove('hidden');
+      portalPopoverEl.innerHTML = buildNotificationsPopoverHTML(
+        allProjectsMentions,
+        allProjectsUnreadCount,
+        allUsers,
+        filterHandle,
+        partidas,
+        'all',
+        pendingInvitations,
+        consumptionAlert
+      );
+    }
+  } else {
+    if (portalPopoverEl) portalPopoverEl.classList.add('hidden');
+    if (popoverEl) {
+      const projectUsers = getAllNotificationsUsers('current');
+      popoverEl.classList.remove('hidden');
+      popoverEl.innerHTML = buildNotificationsPopoverHTML(
+        projectMentions,
+        projectUnreadCount,
+        projectUsers,
+        filterHandle,
+        partidas,
+        'current',
+        pendingInvitations,
+        consumptionAlert
+      );
+    }
   }
 }
 
@@ -2039,4 +2045,33 @@ export function clearAllChatHistory() {
       }
     }
   } catch (e) {}
+}
+
+
+// Exponer funciones globales de notificaciones y chat para eventos HTML inline
+if (typeof window !== 'undefined') {
+  window.toggleMentionNotificationsPopover = toggleMentionNotificationsPopover;
+  window.closeMentionNotificationsPopover = closeMentionNotificationsPopover;
+  window.onNotificationsUserFilterChange = onNotificationsUserFilterChange;
+  window.markAllMentionsAsRead = markAllMentionsAsRead;
+  window.openMentionNotification = openMentionNotification;
+  window.renderSidebarNotificationsUI = renderSidebarNotificationsUI;
+  window.toggleProjectChatDock = toggleProjectChatDock;
+  window.toggleProjectChatMaximize = toggleProjectChatMaximize;
+  window.printProjectChatReport = printProjectChatReport;
+  window.openProjectChatForPartida = openProjectChatForPartida;
+  window.clearProjectChatPartidaFilter = clearProjectChatPartidaFilter;
+  window.setProjectChatFilter = setProjectChatFilter;
+  window.onProjectChatAuthorChange = onProjectChatAuthorChange;
+  window.toggleProjectChatTagPicker = toggleProjectChatTagPicker;
+  window.addProjectChatPendingTag = addProjectChatPendingTag;
+  window.removeProjectChatPendingTag = removeProjectChatPendingTag;
+  window.sendProjectChatMessage = sendProjectChatMessage;
+  window.deleteProjectChatMessage = deleteProjectChatMessage;
+  window.jumpToProjectChatTag = jumpToProjectChatTag;
+  window.switchProjectChatSection = switchProjectChatSection;
+  window.autoSwitchChatSectionFromTab = autoSwitchChatSectionFromTab;
+  window.renderProjectChatDock = renderProjectChatDock;
+  window.handleAcceptInvitationAction = handleAcceptInvitationAction;
+  window.handleRejectInvitationAction = handleRejectInvitationAction;
 }

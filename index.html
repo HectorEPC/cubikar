@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
-  <title>cubikar — Control de Obra & Precios Unitarios (APU)</title>
+  <title>cubikar Construcción — Control de Obra & Precios Unitarios (APU)</title>
   <link rel="icon" type="image/png" href="assets/branding/cubikar_icon_transparent.png?v=4">
   <link rel="shortcut icon" href="favicon.ico?v=4">
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
@@ -38,10 +38,11 @@
         
         <!-- Logo & App Name -->
         <div class="flex items-center space-x-3.5">
-          <img src="assets/branding/cubikar_icon_transparent.png?v=4" alt="cubikar" class="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain drop-shadow-xl shrink-0">
+          <img src="assets/branding/cubikar_icon_transparent.png?v=4" alt="cubikar Construcción" class="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain drop-shadow-xl shrink-0">
           <div>
             <div class="flex items-center gap-2">
-              <span class="font-extrabold text-2xl sm:text-3xl tracking-tight text-white font-sans">cubikar<span class="text-rose-500 font-black">.</span></span>
+              <span class="font-extrabold text-2xl sm:text-3xl tracking-tight text-white font-sans">cubikar<span class="text-rose-500 font-black">.</span> Construcción</span>
+
             </div>
             <p class="text-xs text-slate-300">Presupuestos Base &bull; Matrices APU &bull; Insumos Generales</p>
           </div>
@@ -60,7 +61,7 @@
           <!-- Botón de Información de la Plataforma (a la izquierda de la campana) -->
           <button type="button" id="btn-portal-info" onclick="openPlatformInfoModal()"
                   class="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-lg transition cursor-pointer group"
-                  title="Conoce cubikar: Funciones estrella, APU con IA, cronogramas y ventajas">
+                  title="Conoce cubikar Construcción: Funciones estrella, APU con IA, cronogramas y ventajas">
             <i class="fa-solid fa-circle-info text-lg group-hover:text-blue-400 transition"></i>
           </button>
 
@@ -107,7 +108,7 @@
         <!-- 1. LOGO DEL PROGRAMA -->
         <div onclick="goToProjectsDashboard()"
              class="w-11 h-11 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-blue-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 ring-1 ring-white/20 transition hover:scale-105 active:scale-95 cursor-pointer group"
-             title="cubikar - Volver al Portal de Proyectos">
+             title="cubikar Construcción - Volver al Portal de Proyectos">
           <img src="assets/branding/cubikar_icon_transparent.png?v=4" alt="cubikar" class="w-8 h-8 object-contain drop-shadow group-hover:scale-110 transition duration-200">
         </div>
 
@@ -425,7 +426,11 @@
               </button>
             </div>
 
-            <!-- Botón Responsables / Firmantes del Presupuesto al lado de Ubicación -->
+          </div>
+
+          <!-- Controles del lado derecho: Firmas / Responsables pegado al lado izquierdo de Asignados -->
+          <div class="flex items-center gap-2 shrink-0">
+            <!-- Botón Responsables / Firmantes del Presupuesto pegado al lado izquierdo de Asignados -->
             <button type="button" 
                     id="btn-open-signatures-modal" 
                     onclick="openPresupuestoSignaturesModal()" 
@@ -434,17 +439,17 @@
               <i class="fa-solid fa-file-signature text-blue-600 text-xs"></i>
               <span>Firmas / Responsables</span>
             </button>
-          </div>
 
-          <!-- Widget: Miembros Asignados a Catálogo Base -->
-          <div id="tab-members-cat" class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs shrink-0">
-            <span class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-              <i class="fa-solid fa-users text-blue-600 text-[10px]"></i> Asignados:
-            </span>
-            <div id="tab-avatars-cat" class="flex -space-x-1.5 overflow-hidden items-center cursor-pointer" onclick="openTabMembersAssignModal('cat')" title="Ver colaboradores con acceso a Catálogo Base"></div>
-            <button type="button" onclick="openTabMembersAssignModal('cat')" class="text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded px-1.5 py-0.5 transition flex items-center gap-1 cursor-pointer" title="Asignar miembros invitados a la pestaña Catálogo Base">
-              <i class="fa-solid fa-user-gear text-[9px]"></i> Asignar
-            </button>
+            <!-- Widget: Miembros Asignados a Catálogo Base -->
+            <div id="tab-members-cat" class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs shrink-0">
+              <span class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                <i class="fa-solid fa-users text-blue-600 text-[10px]"></i> Asignados:
+              </span>
+              <div id="tab-avatars-cat" class="flex -space-x-1.5 overflow-hidden items-center cursor-pointer" onclick="openTabMembersAssignModal('cat')" title="Ver colaboradores con acceso a Catálogo Base"></div>
+              <button type="button" onclick="openTabMembersAssignModal('cat')" class="text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded px-1.5 py-0.5 transition flex items-center gap-1 cursor-pointer" title="Asignar miembros invitados a la pestaña Catálogo Base">
+                <i class="fa-solid fa-user-gear text-[9px]"></i> Asignar
+              </button>
+            </div>
           </div>
         </div>
 
@@ -672,7 +677,7 @@
                 <i class="fa-solid fa-chevron-down text-[8px] text-sky-100"></i>
               </button>
             </div>
-            <button onclick="openApuReferenceModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Buscar insumos en catálogos de referencia (BIMSA, Gobierno, etc.)">
+            <button onclick="openApuReferenceModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[9px] px-2 py-1 rounded flex items-center gap-1 shadow-sm font-sans font-semibold transition hover:scale-105 active:scale-95 cursor-pointer" title="Buscar insumos en catálogos de referencia (Opus, Neodata, Gobierno, etc.)">
               <i class="fa-solid fa-book-bookmark text-[9px]"></i> + Catálogo
             </button>
             <button onclick="addInsumo()" class="bg-slate-800 hover:bg-slate-700 text-white text-[9px] px-1.5 py-1 rounded flex items-center gap-1 shadow-sm font-semibold cursor-pointer" title="Agregar un nuevo insumo a la matriz">
@@ -2981,7 +2986,7 @@
           </div>
           <div>
             <h3 class="font-bold text-sm tracking-wide">Crear Nuevo Proyecto</h3>
-            <p class="text-[11px] text-slate-300">Asistente de configuración inicial en 2 pasos</p>
+            <p id="wiz-subtitle-text" class="text-[11px] text-slate-300">Asistente de configuración inicial en 3 pasos</p>
           </div>
         </div>
         <button onclick="closeNuevoProyectoModal()" class="text-slate-400 hover:text-white p-1 rounded transition cursor-pointer">
@@ -2990,16 +2995,21 @@
       </div>
 
       <!-- Indicador de Pasos -->
-      <div class="bg-slate-100 border-b border-slate-200 px-6 py-2.5 flex items-center justify-between text-xs font-semibold">
-        <div class="flex items-center gap-2" id="step-indicator-1">
-          <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold">1</span>
-          <span class="text-blue-900 font-bold">1. Información del Proyecto</span>
-        </div>
-        <i class="fa-solid fa-arrow-right text-slate-400 text-xs"></i>
-        <div class="flex items-center gap-2 opacity-50" id="step-indicator-2">
-          <span class="w-6 h-6 rounded-full bg-slate-400 text-white flex items-center justify-center text-[11px] font-bold">2</span>
-          <span class="text-slate-600">2. Sobrecosto y Moneda</span>
-        </div>
+      <div class="bg-slate-100 border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center justify-between text-xs font-semibold overflow-x-auto">
+        <button type="button" onclick="goToWizardStep(1)" class="flex items-center gap-1.5 sm:gap-2 cursor-pointer transition shrink-0" id="step-indicator-1">
+          <span id="step-badge-1" class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold">1</span>
+          <span id="step-text-1" class="text-blue-900 font-bold">1. Información</span>
+        </button>
+        <i class="fa-solid fa-arrow-right text-slate-400 text-xs shrink-0 mx-1"></i>
+        <button type="button" onclick="goToWizardStep(2)" class="flex items-center gap-1.5 sm:gap-2 opacity-50 cursor-pointer transition shrink-0" id="step-indicator-2">
+          <span id="step-badge-2" class="w-6 h-6 rounded-full bg-slate-400 text-white flex items-center justify-center text-[11px] font-bold">2</span>
+          <span id="step-text-2" class="text-slate-600">2. Sobrecosto y Moneda</span>
+        </button>
+        <i class="fa-solid fa-arrow-right text-slate-400 text-xs shrink-0 mx-1"></i>
+        <button type="button" onclick="goToWizardStep(3)" class="flex items-center gap-1.5 sm:gap-2 opacity-50 cursor-pointer transition shrink-0" id="step-indicator-3">
+          <span id="step-badge-3" class="w-6 h-6 rounded-full bg-slate-400 text-white flex items-center justify-center text-[11px] font-bold">3</span>
+          <span id="step-text-3" class="text-slate-600">3. Responsables y Firmas</span>
+        </button>
       </div>
 
       <!-- Contenido del Asistente -->
@@ -3177,6 +3187,40 @@
           </div>
         </div>
 
+        <!-- PASO 3: RESPONSABLES Y FIRMAS -->
+        <div id="wizard-step-3" class="space-y-4 hidden">
+          <div class="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 flex items-start gap-2.5">
+            <i class="fa-solid fa-signature text-blue-600 mt-0.5"></i>
+            <div>
+              <strong class="font-semibold">Responsables y Firmas del Presupuesto</strong>
+              <p class="text-[11px] text-blue-700">Aparecerán al pie del formato impreso de Catálogo y Presupuesto.</p>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-700">Configura hasta 5 firmantes oficiales:</span>
+            <button type="button" 
+                    id="btn-wiz-add-signature" 
+                    onclick="addWizardSignature()" 
+                    class="px-2.5 py-1.5 bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer">
+              <i class="fa-solid fa-plus text-[11px]"></i> Agregar Firmante
+            </button>
+          </div>
+
+          <!-- Contenedor dinámico de tarjetas de firmantes -->
+          <div id="wiz-signatures-list" class="space-y-3">
+            <!-- Se llena dinámicamente mediante renderWizardSignaturesForm() -->
+          </div>
+
+          <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+            <button type="button" 
+                    onclick="resetWizardDefaultSignatures()" 
+                    class="text-xs text-slate-500 hover:text-blue-700 flex items-center gap-1.5 transition cursor-pointer font-medium">
+              <i class="fa-solid fa-rotate-left"></i> Restablecer Firmas Predeterminadas
+            </button>
+          </div>
+        </div>
+
       </div>
 
       <!-- Pie del Modal con Navegación -->
@@ -3196,6 +3240,130 @@
             <i class="fa-solid fa-check mr-1"></i> Crear Proyecto
           </button>
         </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: EDITAR DATOS DEL PROYECTO -->
+  <!-- ========================================== -->
+  <div id="modal-editar-proyecto" style="z-index: 99999;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-[99999] hidden items-center justify-center p-3 sm:p-5">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Encabezado Modal -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white p-4 flex justify-between items-center shrink-0 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
+            <i class="fa-solid fa-pen-to-square text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm tracking-wide">Editar Datos del Proyecto</h3>
+            <p class="text-[11px] text-slate-300">Modifica el nombre, ubicación, empresa y tipo de obra</p>
+          </div>
+        </div>
+        <button onclick="closeEditarProyectoModal()" class="text-slate-400 hover:text-white p-1 rounded transition cursor-pointer" title="Cerrar ventana">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Contenido del Formulario -->
+      <div class="p-5 flex-1 overflow-y-auto space-y-4 custom-scroll text-xs">
+        <input type="hidden" id="edit-project-id" value="">
+
+        <!-- Logotipo -->
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Logotipo de la Empresa / Obra</label>
+          <div class="flex items-center gap-3">
+            <div class="w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+              <img id="edit-project-logo-img" src="" alt="Logo" class="w-full h-full object-contain p-1 hidden">
+              <i id="edit-project-logo-fallback" class="fa-solid fa-image text-slate-400 text-xl"></i>
+            </div>
+            <div class="space-y-1.5 flex-1">
+              <div class="flex flex-wrap gap-2">
+                <label class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold px-2.5 py-1.5 rounded-lg cursor-pointer transition flex items-center gap-1.5 shadow-xs">
+                  <i class="fa-solid fa-upload text-blue-600"></i> Cambiar Logo
+                  <input type="file" accept="image/*" class="hidden" onchange="handleEditProjectLogoFile(event)">
+                </label>
+                <button type="button" onclick="clearEditProjectLogo()" class="text-slate-400 hover:text-rose-500 text-[11px] px-2 py-1.5 border border-slate-200 rounded-lg hover:bg-rose-50 transition cursor-pointer">
+                  <i class="fa-solid fa-trash-can mr-1"></i>Quitar
+                </button>
+              </div>
+              <p class="text-[10px] text-slate-500">Formatos recomendados: PNG o JPG transparentes.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nombre del Proyecto -->
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Nombre del Proyecto *</label>
+          <input type="text" id="edit-project-name" placeholder="Ej. Construcción de Complejo Residencial Palmas" 
+                 class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <!-- Ubicación -->
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Ubicación de la Obra *</label>
+          <input type="text" id="edit-project-location" placeholder="Ej. Av. Insurgentes Sur 1450, Benito Juárez, CDMX" 
+                 class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <!-- Nombre Empresa -->
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Nombre de la Empresa o Contratista *</label>
+          <input type="text" id="edit-project-company" placeholder="Ej. Constructora del Valle S.A. de C.V." 
+                 class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <!-- Tipo de Proyecto -->
+        <div>
+          <label class="block font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-tag text-blue-600 text-[11px]"></i>
+            <span>Tipo de Proyecto *</span>
+          </label>
+          <select id="edit-project-tipo" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+            <option value="Edificación">Edificación (Torres, Corporativos, Departamentos)</option>
+            <option value="Vivienda">Vivienda (Residencial, Casas, Fraccionamientos)</option>
+            <option value="Obra Civil">Obra Civil (Puentes, Cimentaciones, Pavimentaciones)</option>
+            <option value="Infraestructura">Infraestructura (Vialidades, Redes, Servicios)</option>
+            <option value="Remodelación">Remodelación y Acabados</option>
+            <option value="Industrial">Industrial / Comercial (Naves, Bodegas, Centros)</option>
+          </select>
+        </div>
+
+        <!-- Moneda y Fecha -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Moneda / Divisa</label>
+            <select id="edit-project-currency" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+              <option value="MXN|$">MXN - Peso Mexicano ($)</option>
+              <option value="USD|$">USD - Dólar Estadounidense ($)</option>
+              <option value="EUR|€">EUR - Euro (€)</option>
+              <option value="COP|$">COP - Peso Colombiano ($)</option>
+              <option value="CLP|$">CLP - Peso Chileno ($)</option>
+              <option value="PEN|S/">PEN - Sol Peruano (S/)</option>
+              <option value="ARS|$">ARS - Peso Argentino ($)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Fecha de Creación</label>
+            <input type="date" id="edit-project-created-at" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Pie del Modal -->
+      <div class="bg-slate-100 p-3.5 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <button type="button" onclick="closeEditarProyectoModal()" class="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-semibold transition cursor-pointer">
+          Cancelar
+        </button>
+
+        <button type="button" onclick="saveEditedProjectAction()" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-2 transition cursor-pointer">
+          <i class="fa-solid fa-floppy-disk text-xs"></i>
+          <span>Guardar Cambios</span>
+        </button>
       </div>
 
     </div>
@@ -3422,6 +3590,68 @@
             Cancelar
           </button>
           <button type="button" onclick="savePresupuestoSignatures()" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow cursor-pointer transition flex items-center gap-1.5">
+            <i class="fa-solid fa-check text-[10px]"></i> Guardar Firmas
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: CONFIGURACIÓN DE FIRMAS Y RESPONSABLES DE COMPRAS Y PAGOS -->
+  <!-- ============================================================ -->
+  <div id="modal-compras-firmas" style="z-index: 100000;" class="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-5" onclick="if(event.target === this) closeExpensesSignaturesModal()">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Encabezado del Modal -->
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2.5 min-w-0 pr-3">
+          <div class="w-8 h-8 rounded-lg bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-blue-300 text-sm shrink-0">
+            <i class="fa-solid fa-file-signature"></i>
+          </div>
+          <div class="min-w-0">
+            <h3 class="font-bold text-sm text-white flex items-center gap-1.5 truncate">
+              Firmas y Responsables de Compras y Pagos
+            </h3>
+            <p class="text-[11px] text-slate-300 truncate mt-0.5">
+              Aparecerán al pie de todos los formatos de impresión de Compras y Pagos
+            </p>
+          </div>
+        </div>
+        <button type="button" onclick="closeExpensesSignaturesModal()" class="text-slate-400 hover:text-white cursor-pointer p-1" title="Cerrar ventana">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Barra informativa y botón de agregar firmante -->
+      <div class="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between gap-2 shrink-0">
+        <span class="text-[11px] text-slate-600 font-medium">
+          Configura hasta 5 firmantes oficiales:
+        </span>
+        <button type="button" 
+                id="btn-add-compras-signature" 
+                onclick="addExpensesSignatureRow()" 
+                class="text-[10.5px] font-bold text-blue-600 hover:text-blue-800 bg-white hover:bg-blue-50 border border-blue-200 rounded px-2.5 py-1 transition flex items-center gap-1 cursor-pointer shadow-2xs">
+          <i class="fa-solid fa-plus text-[9px]"></i> Agregar Firmante
+        </button>
+      </div>
+
+      <!-- Contenedor dinámico de firmantes -->
+      <div id="modal-compras-firmas-list" class="p-4 overflow-y-auto custom-scroll space-y-3 flex-1 bg-slate-100/50">
+        <!-- Renderizado dinámicamente con renderExpensesSignaturesListForm() -->
+      </div>
+
+      <!-- Footer del Modal -->
+      <div class="bg-slate-100 p-3 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <button type="button" onclick="resetDefaultExpensesSignatures()" class="text-xs text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1 cursor-pointer" title="Restablecer los 3 firmantes estándar">
+          <i class="fa-solid fa-rotate-left text-[10px]"></i> Predeterminados
+        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeExpensesSignaturesModal()" class="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg cursor-pointer transition">
+            Cancelar
+          </button>
+          <button type="button" onclick="saveExpensesSignaturesModal()" class="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow cursor-pointer transition flex items-center gap-1.5">
             <i class="fa-solid fa-check text-[10px]"></i> Guardar Firmas
           </button>
         </div>
@@ -4187,7 +4417,9 @@
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <span class="font-black text-base text-white tracking-tight">cubikar<span class="text-rose-500">.</span></span>
+              <span class="font-black text-base text-white tracking-tight">cubikar<span class="text-rose-500">.</span> Construcción</span>
+
+
               <span class="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
                 Plataforma Integral de Obra
               </span>
@@ -4579,7 +4811,7 @@
               <i class="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition"></i>
             </h4>
             <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
-              Ingresa al entorno habitual de Cubikar para crear obras, presupuestos base, matrices APU y calendarios Gantt.
+              Ingresa al entorno habitual de Cubikar Construcción para crear obras, presupuestos base, matrices APU y calendarios Gantt.
             </p>
             <ul class="mt-3 space-y-1.5 text-[10.5px] text-slate-300">
               <li class="flex items-center gap-1.5"><i class="fa-solid fa-check text-blue-400 text-[10px]"></i> Portal de proyectos y presupuestos</li>
@@ -5589,7 +5821,10 @@
   <!-- MENÚ CONTEXTUAL FLOTANTE ESTILO MICROSOFT WORD PARA CORRECCIÓN ORTOGRÁFICA (CLIC DERECHO) -->
   <div id="word-spell-context-menu" class="fixed hidden z-[100010] bg-white rounded-xl shadow-2xl border border-slate-200/90 py-1.5 min-w-[220px] max-w-[290px] text-xs font-sans select-none backdrop-blur-sm" style="display: none;"></div>
 
+  <!-- CONTENEDOR RAÍZ DE MODALES DE BITÁCORA DE OBRA -->
+  <div id="bitacora-modals-root"></div>
+
   <!-- Entrada Modular Principal ES6 -->
-  <script type="module" src="js/app.js?v=20261113_35"></script>
+  <script type="module" src="js/app.js?v=20261114_01"></script>
 </body>
 </html>

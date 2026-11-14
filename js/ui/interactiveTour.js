@@ -1,4 +1,4 @@
-﻿// js/ui/interactiveTour.js
+// js/ui/interactiveTour.js
 // Motor de Tour Guiado en Vivo (Onboarding Interactivo) para Cubikar (Alternativa 3)
 // Cobertura completa del 100% de la aplicación en todas las pestañas y los 15 módulos.
 // Incluye Foco de Luz (Spotlight), navegación automática entre pestañas y botón visible SALTAR TUTORIAL.
@@ -135,8 +135,8 @@ export const TOUR_DEFINITIONS = {
         target: '#btn-sidebar-master-catalog',
         fallbackTarget: '#workspace-sidebar',
         moduleBadge: 'Módulo 7 • Referencia',
-        title: '7. Catálogos Maestros: BIMSA y Gobierno',
-        content: 'Explora más de <strong>61,000 conceptos precargados</strong> de BIMSA y Tabuladores oficiales con matrices completas listas para insertar en tu presupuesto.',
+        title: '7. Catálogos Maestros y de Referencia',
+        content: 'Explora miles de conceptos precargados y Tabuladores oficiales con matrices APU completas listas para insertar en tu presupuesto.',
         position: 'right'
       },
       {

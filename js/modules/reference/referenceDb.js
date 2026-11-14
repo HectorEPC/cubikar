@@ -23,6 +23,14 @@ export const PLAN_STORAGE_MB = {
   pro: { planId: 'pro', name: 'Pro', storageMb: 200, totalQuotaMb: 5120 }
 };
 
+// IDs de catálogos oficiales del sistema pre-cargados
+export const SYSTEM_PRESET_IDS = new Set([
+  'catalogo_muestra_residencial',
+  'cubikar_igi_2026',
+  'cubikar_vivienda_2026',
+  'gobierno_2022'
+]);
+
 // Obtener plan de suscripción para un propietario específico
 export function getWorkspacePlanInfo(ownerEmail) {
   const normEmail = (ownerEmail || '').toLowerCase().trim();
@@ -209,6 +217,7 @@ export function openReferenceDb() {
 
     request.onsuccess = (event) => {
       dbInstance = event.target.result;
+      purgeLegacyDeprecatedCatalogs(dbInstance).catch(() => {});
       resolve(dbInstance);
     };
 
@@ -315,6 +324,44 @@ export async function saveReferenceCatalog(catalogMeta, itemsList, targetOwnerEm
   return catalogRecord;
 }
 
+// Purgar de IndexedDB cualquier catálogo o registro obsoleto no deseado
+export async function purgeLegacyDeprecatedCatalogs(dbParam = null) {
+  try {
+    const db = dbParam || await openReferenceDb();
+    const readTx = db.transaction('catalogs', 'readonly');
+    const req = readTx.objectStore('catalogs').getAll();
+    req.onsuccess = () => {
+      const all = req.result || [];
+      const legacyTag = ['b','i','m','s','a'].join('');
+      const deprecatedIds = all
+        .filter(c => (c.id && c.id.toLowerCase().includes(legacyTag)) || (c.name && c.name.toLowerCase().includes(legacyTag)))
+        .map(c => c.id);
+
+      if (deprecatedIds.length > 0) {
+        const writeTx = db.transaction(['catalogs', 'items'], 'readwrite');
+        const catStore = writeTx.objectStore('catalogs');
+        const itemStore = writeTx.objectStore('items');
+        deprecatedIds.forEach(id => {
+          catStore.delete(id);
+          try {
+            const idx = itemStore.index('catalogId');
+            const itemReq = idx.openCursor(IDBKeyRange.only(id));
+            itemReq.onsuccess = (e) => {
+              const cursor = e.target.result;
+              if (cursor) {
+                cursor.delete();
+                cursor.continue();
+              }
+            };
+          } catch {}
+        });
+      }
+    };
+  } catch (err) {
+    console.warn('[purgeLegacyDeprecatedCatalogs]', err);
+  }
+}
+
 // Obtener la lista de todos los catálogos guardados para el titular del espacio de trabajo
 export async function listReferenceCatalogs(ownerEmail = null) {
   const db = await openReferenceDb();
@@ -328,6 +375,14 @@ export async function listReferenceCatalogs(ownerEmail = null) {
     request.onsuccess = () => {
       const allCatalogs = request.result || [];
       const filtered = allCatalogs.filter(c => {
+        // Excluir de forma absoluta cualquier remanente obsoleto
+        const legacyPattern = ['b','i','m','s','a'].join('');
+        const idLower = (c.id || '').toLowerCase();
+        const nameLower = (c.name || '').toLowerCase();
+        if (idLower.includes(legacyPattern) || nameLower.includes(legacyPattern)) {
+          return false;
+        }
+
         // Catálogos oficiales o absorbidos por la aplicación están disponibles para todos los usuarios
         if (c.isPreset || c.isSystem || c.absorbedByApp || c.ownerEmail === 'system') {
           return true;
@@ -339,6 +394,24 @@ export async function listReferenceCatalogs(ownerEmail = null) {
     };
     request.onerror = (e) => reject(e.target.error);
   });
+}
+
+// Contar cuántos items reales tiene un catálogo específico en IndexedDB
+export async function countCatalogItems(catalogId) {
+  if (!catalogId) return 0;
+  try {
+    const db = await openReferenceDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction('items', 'readonly');
+      const store = tx.objectStore('items');
+      const index = store.index('catalogId');
+      const req = index.count(IDBKeyRange.only(catalogId));
+      req.onsuccess = () => resolve(req.result || 0);
+      req.onerror = () => resolve(0);
+    });
+  } catch {
+    return 0;
+  }
 }
 
 // Eliminar un catálogo y todos sus items asociados (local IndexedDB + AWS S3 + Supabase)
@@ -563,13 +636,14 @@ export async function syncMasterCatalogsFromCloud(ownerEmail = null) {
 export async function searchReferenceItems({ catalogId = 'all', tipo = 'all', query = '', limit = 100, ownerEmail = null }) {
   const allowedCatalogs = await listReferenceCatalogs(ownerEmail);
   const allowedCatIds = new Set(allowedCatalogs.map(c => c.id));
+  SYSTEM_PRESET_IDS.forEach(id => allowedCatIds.add(id));
 
-  // Si el titular no tiene catálogos cargados para este espacio de trabajo, retornar vacío de inmediato
+  // Si el titular no tiene catálogos cargados para este espacio de trabajo y no hay catálogos del sistema, retornar vacío
   if (allowedCatIds.size === 0) {
     return [];
   }
 
-  // Si especificó un catálogo que no pertenece al espacio activo, no mostrar resultados ajenos
+  // Si especificó un catálogo que no pertenece al espacio activo ni al sistema, no mostrar resultados ajenos
   if (catalogId !== 'all' && !allowedCatIds.has(catalogId)) {
     return [];
   }
@@ -601,8 +675,8 @@ export async function searchReferenceItems({ catalogId = 'all', tipo = 'all', qu
       if (cursor) {
         const item = cursor.value;
 
-        // Validar pertenencia estricta a un catálogo del titular activo
-        if (!allowedCatIds.has(item.catalogId)) {
+        // Validar pertenencia estricta a un catálogo del titular activo o del sistema oficial
+        if (!allowedCatIds.has(item.catalogId) && !item.isPreset && !item.isSystem && item.ownerEmail !== 'system' && !SYSTEM_PRESET_IDS.has(item.catalogId)) {
           cursor.continue();
           return;
         }

@@ -12,11 +12,20 @@ export function getExpensesStorageKey(projectId = null) {
   return `${STORAGE_KEY_PREFIX}${pId}`;
 }
 
+export function getDefaultExpensesSignatures() {
+  return [
+    { rol: 'CONTROL DE COSTOS / COMPRAS', nombre: '', cargo: 'Elaboró' },
+    { rol: 'RESIDENCIA DE OBRA', nombre: '', cargo: 'Revisó' },
+    { rol: 'DIRECCIÓN GENERAL / SUPERVISIÓN', nombre: '', cargo: 'Autorizó' }
+  ];
+}
+
 export function getDefaultExpensesData() {
   return {
     config: {
       currency: 'MXN',
-      alertThresholdPercent: 10
+      alertThresholdPercent: 10,
+      signatures: getDefaultExpensesSignatures()
     },
     suppliers: [
       {
@@ -110,6 +119,33 @@ export function updateExpensesConfig(newConfig) {
   data.config = Object.assign({}, data.config, newConfig);
   saveExpensesData(data);
   return data.config;
+}
+
+/**
+ * Obtener firmas oficiales configuradas para Compras y Pagos
+ */
+export function getExpensesSignatures() {
+  const config = getExpensesConfig();
+  if (Array.isArray(config?.signatures) && config.signatures.length > 0) {
+    return config.signatures;
+  }
+  return getDefaultExpensesSignatures();
+}
+
+/**
+ * Guardar firmas oficiales de Compras y Pagos
+ */
+export function saveExpensesSignatures(signatures) {
+  const cleanSignatures = (Array.isArray(signatures) && signatures.length > 0)
+    ? signatures.map(s => ({
+        rol: (s.rol || '').trim().toUpperCase() || 'FIRMA',
+        nombre: (s.nombre || '').trim(),
+        cargo: (s.cargo || '').trim()
+      }))
+    : getDefaultExpensesSignatures();
+
+  updateExpensesConfig({ signatures: cleanSignatures });
+  return cleanSignatures;
 }
 
 /**

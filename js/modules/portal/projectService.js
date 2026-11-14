@@ -820,10 +820,11 @@ export function getProjectsList() {
               // Garantizar que el dueño de la obra siempre conserve las 6 pestañas completas
               m.role = 'editar';
               m.allowedTabs = [...fullTabs];
+            } else if (m.role === 'editar') {
+              m.allowedTabs = [...fullTabs];
+              changed = true;
             } else if (!Array.isArray(m.allowedTabs)) {
-              if (m.role === 'editar') {
-                m.allowedTabs = [...fullTabs];
-              } else if (m.email && m.email.includes('mariana')) {
+              if (m.email && m.email.includes('mariana')) {
                 m.allowedTabs = ['insumos', 'estimaciones'];
               } else if (m.email && m.email.includes('roberto')) {
                 m.allowedTabs = ['cat', 'calendario'];
@@ -1199,7 +1200,14 @@ export function createNewProject(params) {
     pctUtilidad: params.pctUtilidad ?? 10.00,
     pctAdicionales: params.pctAdicionales ?? 0.50,
     pctSegurosFianzas: params.pctSegurosFianzas ?? 1.00,
-    pctFasar: params.pctFasar ?? 70.00
+    pctFasar: params.pctFasar ?? 70.00,
+    budgetSignatures: (Array.isArray(params.budgetSignatures) && params.budgetSignatures.length > 0)
+      ? params.budgetSignatures
+      : (defaultSettings.budgetSignatures || [
+          { rol: 'ELABORÓ', nombre: '', cargo: 'Departamento de Precios Unitarios y Presupuestos' },
+          { rol: 'REVISÓ', nombre: '', cargo: 'Coordinación de Costos e Ingeniería' },
+          { rol: 'AUTORIZÓ / CLIENTE', nombre: '', cargo: 'Dirección de Obra y Supervisión' }
+        ])
   });
 
   const projTree = params.treeData && Array.isArray(params.treeData) && params.treeData.length > 0

@@ -31,16 +31,29 @@ export async function openMasterCatalogModal() {
   modal.classList.add('flex');
 
   switchMasterCatalogTab('search');
-  await refreshMasterCatalogList();
-  triggerMasterCatalogSearch();
 
-  // Carga e indexación automática de catálogos por defecto (espacio absorbido por la app)
-  ensureDefaultMasterCatalogs().then(async (added) => {
-    if (added > 0) {
-      await refreshMasterCatalogList();
-      triggerMasterCatalogSearch();
-    }
-  }).catch(() => {});
+  // Mostrar spinner en la tabla mientras se verifican e indexan los catálogos base
+  const tbody = document.getElementById('master-cat-results-body');
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="p-8 text-center text-slate-400">
+          <i class="fa-solid fa-spinner fa-spin text-xl text-blue-600 mb-2"></i>
+          <p class="text-xs font-semibold text-slate-700">Verificando Catálogo Maestro y Biblioteca de Referencia...</p>
+        </td>
+      </tr>
+    `;
+  }
+
+  // Asegurar catálogos por defecto si aún no han sido indexados en IndexedDB
+  try {
+    await ensureDefaultMasterCatalogs();
+  } catch (err) {
+    console.warn('[MasterCatalog] Aviso al verificar catálogos base:', err);
+  }
+
+  await refreshMasterCatalogList();
+  await triggerMasterCatalogSearch();
 
   syncMasterCatalogsFromCloud().then(async (res) => {
     if (res?.restored > 0) {
@@ -197,7 +210,7 @@ async function renderCatalogsManageList(catalogs, stats = null) {
       <div class="p-6 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
         <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300"></i>
         <p class="font-medium text-xs text-slate-600">No hay catálogos maestros cargados ${ownerNameTxt}.</p>
-        <p class="text-[11px] text-slate-400 mt-1">Usa el botón "Importar Archivo" para agregar tus archivos de BIMSA, Gobierno, Excel, CSV u Opus.</p>
+        <p class="text-[11px] text-slate-400 mt-1">Usa el botón "Importar Archivo" para agregar tus archivos de Opus, Neodata, Gobierno, Excel o CSV.</p>
       </div>
     `;
     return;

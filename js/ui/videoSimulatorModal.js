@@ -120,11 +120,11 @@ export const VIDEO_MODULES = [
   },
   {
     id: 7,
-    title: 'Catálogos Maestros: BIMSA y Gobierno',
+    title: 'Catálogos Maestros y de Referencia',
     badge: 'Módulo 7 • Referencia',
     duration: 25,
     icon: 'fa-book-bookmark',
-    description: 'Exploración de más de 61,000 conceptos precargados de BIMSA 2018 y Tabuladores oficiales.',
+    description: 'Exploración de miles de conceptos precargados en Catálogos Maestros y Tabuladores oficiales.',
     steps: [
       { t: 0, text: 'Abre el Catálogo Maestro desde la barra lateral izquierda para acceder a la biblioteca offline.', targetId: 'mock-step7-btn-master', action: 'click' },
       { t: 6, text: 'Filtra por especialidad: Edificación, Instalaciones, Infraestructura o Climatización.', targetId: 'mock-step7-specialties', action: 'click' },
@@ -327,7 +327,6 @@ function cleanNarrationText(text) {
   clean = clean.replace(/\bFASAR\b/g, 'Fasar');
   clean = clean.replace(/\bLOPSRM\b/g, 'Ley de Obra Pública');
   clean = clean.replace(/\bBESOP\b/g, 'Besop');
-  clean = clean.replace(/\bBIMSA\b/g, 'Bimsa');
   clean = clean.replace(/\bSHA\b/g, 'Sha');
   clean = clean.replace(/\bMXN\b/g, 'pesos');
   clean = clean.replace(/\bAlt\s*\+\s*Flechas?\b/gi, 'Alt más flechas');

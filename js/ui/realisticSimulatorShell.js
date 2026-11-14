@@ -1,4 +1,4 @@
-﻿// js/ui/realisticSimulatorShell.js
+// js/ui/realisticSimulatorShell.js
 // Motor de Renderizado Fotorrealista para el Video-Simulador de Cubikar (Alternativa 1)
 // Reproduce fielmente al 100% la interfaz real de Cubikar: Barra Lateral (Rail Monday),
 // Encabezado Superior con Logotipo, 5 PestaÃ±as Maestras, Toolbar de Acciones, Tablas
@@ -111,7 +111,7 @@ export function getRealisticBudgetTableHtml(options = {}) {
                         <span class="font-bold text-[11px] leading-tight truncate">Solo Catálogo Local</span>
                         <span class="text-[9px] font-bold px-1.5 py-0.2 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 shrink-0">Gratis ($0)</span>
                       </span>
-                      <span class="block text-[9.5px] leading-snug mt-0.5 text-slate-500">Usa tus catálogos importados o BIMSA.</span>
+                      <span class="block text-[9.5px] leading-snug mt-0.5 text-slate-500">Usa tus catálogos importados o de referencia.</span>
                     </span>
                   </div>
 
@@ -315,8 +315,8 @@ export function renderRealisticWorkspaceShell({
             <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
           </div>
 
-          <!-- CatÃ¡logo Maestro BIMSA -->
-          <div id="mock-step7-rail-btn" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-900 cursor-pointer ${activeRail === 'master' ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40' : ''}" title="CatÃ¡logos Maestros (BIMSA / Tabuladores)">
+          <!-- CatÃ¡logo Maestro de Referencia -->
+          <div id="mock-step7-rail-btn" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-900 cursor-pointer ${activeRail === 'master' ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40' : ''}" title="CatÃ¡logos Maestros y Tabuladores">
             <i class="fa-solid fa-book-bookmark text-xs"></i>
           </div>
 
@@ -1210,7 +1210,7 @@ case 6: { // Inteligencia Artificial y Google Search Grounding (Modal Oficial: m
       break;
     }
 
-case 7: { // CatÃ¡logos Maestros: BIMSA y Gobierno (Modal: master-catalog-modal)
+case 7: { // CatÃ¡logos Maestros y Biblioteca de Referencia (Modal: master-catalog-modal)
       const masterModalHtml = `
         <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Encabezado Real de index.html -->
@@ -1224,7 +1224,7 @@ case 7: { // CatÃ¡logos Maestros: BIMSA y Gobierno (Modal: master-catalog-moda
                 <div class="flex items-center gap-2 text-[10px] text-slate-300 mt-0.5">
                   <span><i class="fa-solid fa-database text-amber-400"></i> 61,420 registros</span>
                   <span>â€¢</span>
-                  <span>BIMSA 2018</span>
+                  <span>CatÃ¡logo de Referencia</span>
                   <span>â€¢</span>
                   <span class="text-blue-300">Tabulador Gobierno</span>
                 </div>
@@ -1243,7 +1243,7 @@ case 7: { // CatÃ¡logos Maestros: BIMSA y Gobierno (Modal: master-catalog-moda
                 Administrar CatÃ¡logos
               </button>
             </div>
-            <span class="text-[10px] text-slate-500 font-mono">BIMSA 2018 Oficial</span>
+            <span class="text-[10px] text-slate-500 font-mono">CatÃ¡logo Oficial</span>
           </div>
 
           <!-- Cuerpo: Buscador y Vista Dividida de Especialidades -->
@@ -1273,11 +1273,11 @@ case 7: { // CatÃ¡logos Maestros: BIMSA y Gobierno (Modal: master-catalog-moda
                 </div>
               </div>
 
-              <!-- Vista Previa del Concepto BIMSA -->
+              <!-- Vista Previa del Concepto -->
               <div id="mock-step7-preview" class="flex-1 p-2.5 space-y-2 overflow-y-auto bg-white text-[10.5px]">
                 <div class="p-2.5 border border-blue-200 rounded-xl bg-blue-50/50 space-y-1.5">
                   <div class="flex justify-between items-center font-mono font-bold">
-                    <span class="text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">CIM-BIMSA-421</span>
+                    <span class="text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">CIM-REF-421</span>
                     <span class="text-emerald-700 font-extrabold text-xs">$3,980.50 / m3</span>
                   </div>
                   <p class="font-sans font-medium text-slate-800 leading-snug">

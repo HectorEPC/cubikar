@@ -135,7 +135,7 @@ function renderMenuContent(menu, scope) {
       icon: 'fa-solid fa-database',
       iconWrap: night ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-100 text-emerald-700',
       title: 'Solo Catálogo Local',
-      desc: 'Usa únicamente tus catálogos importados o BIMSA.',
+      desc: 'Usa únicamente tus catálogos importados o de referencia.',
       badgeText: 'Gratis ($0)',
       badgeCls: night
         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30'

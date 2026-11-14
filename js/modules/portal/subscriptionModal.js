@@ -150,7 +150,7 @@ export const SUBSCRIPTION_PLANS = [
       'Hasta 3,500 líneas/conceptos por proyecto (ideal para licitaciones y obra grande)',
       'Hasta 30 usuarios incluidos bajo la misma suscripción con control granular de permisos por proyecto y rol',
       'Almacenamiento en Nube de 5 GB de alta velocidad para toda la constructora',
-      'Espacio de 200 MB para importar grandes catálogos maestros (Opus, Neodata, BIMSA, Excel)',
+      'Espacio de 200 MB para importar grandes catálogos maestros (Opus, Neodata, Gobierno, Excel)',
       'Catálogo Base, Matrices APU y Explosión de Insumos empresarial + copiado entre obras',
       'Asistente IA completo para precios unitarios, insumos, optimización de Ruta Crítica y Gantt',
       'Calendario Gantt avanzado con Ruta Crítica, Flujo Financiero y Curva "S"',

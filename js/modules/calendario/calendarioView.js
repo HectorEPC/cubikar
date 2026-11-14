@@ -300,6 +300,16 @@ export function renderCalendarioObra() {
             </button>
           </div>
 
+          <!-- 14.5 Firmas / Responsables pegado al lado izquierdo de Asignados -->
+          <button type="button" 
+                  id="btn-calendario-signatures-modal"
+                  onclick="openPresupuestoSignaturesModal()" 
+                  class="bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-300 hover:border-blue-400 text-xs font-semibold px-2.5 py-1 rounded-md shadow-2xs transition flex items-center gap-1.5 shrink-0 cursor-pointer" 
+                  title="Configurar los nombres de los responsables que firmarán el formato impreso del calendario de obra y presupuesto">
+            <i class="fa-solid fa-file-signature text-blue-600 text-xs"></i>
+            <span>Firmas / Responsables</span>
+          </button>
+
           <!-- 15. Asignados (Miembros Asignados a Calendario de Obra, al extremo derecho del mismo renglón) -->
           <div id="tab-members-calendario" class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2 py-0.5 shadow-2xs shrink-0">
             <i class="fa-solid fa-users text-blue-600 text-[10px]" title="Colaboradores con acceso a Calendario de Obra"></i>

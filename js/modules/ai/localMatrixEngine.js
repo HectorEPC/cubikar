@@ -1245,12 +1245,31 @@ export function flattenPresetData(data) {
       if (Array.isArray(n.children) && n.children.length) { walk(n.children); continue; }
       if (n.tipo === 'Partida') continue;
       const pu = n.costoDirecto ?? n.precioUnitario ?? 0;
-      items.push({ clave: n.clave, descripcion: n.descripcion, unidad: n.unidad, tipo: 'Concepto', costoUnitario: pu, precioUnitario: pu, insumos: Array.isArray(n.insumos) && n.insumos.length ? n.insumos : null });
-      (n.insumos || []).forEach(i => {
-        const k = `${i.tipo}|${i.clave}|${i.descripcion}`;
+      const insumosList = Array.isArray(n.insumos)
+        ? n.insumos
+        : (n.insumos && typeof n.insumos === 'object' ? [n.insumos] : []);
+      items.push({
+        clave: n.clave,
+        descripcion: n.descripcion,
+        unidad: n.unidad,
+        tipo: 'Concepto',
+        costoUnitario: pu,
+        precioUnitario: pu,
+        insumos: insumosList.length ? insumosList : null
+      });
+      insumosList.forEach(i => {
+        if (!i || typeof i !== 'object') return;
+        const k = `${i.tipo || ''}|${i.clave || ''}|${i.descripcion || ''}`;
         if (seenIns.has(k)) return;
         seenIns.add(k);
-        items.push({ clave: i.clave, descripcion: i.descripcion, unidad: i.unidad, tipo: i.tipo, costoUnitario: i.costoUnitario, precioUnitario: i.costoUnitario });
+        items.push({
+          clave: i.clave || '',
+          descripcion: i.descripcion || '',
+          unidad: i.unidad || 'pza',
+          tipo: i.tipo || 'Material',
+          costoUnitario: i.costoUnitario ?? i.precioUnitario ?? 0,
+          precioUnitario: i.costoUnitario ?? i.precioUnitario ?? 0
+        });
       });
     }
   })(data);

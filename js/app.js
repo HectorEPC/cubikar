@@ -105,7 +105,15 @@ import {
   agruparComprasAction,
   desagruparComprasAction,
   toggleComparativaCategoryCollapse,
-  toggleAllComparativaCategories
+  toggleAllComparativaCategories,
+  openExpensesSignaturesModal,
+  closeExpensesSignaturesModal,
+  renderExpensesSignaturesListForm,
+  addExpensesSignatureRow,
+  removeExpensesSignatureRow,
+  updateDraftExpensesSignature,
+  resetDefaultExpensesSignatures,
+  saveExpensesSignaturesModal
 } from './modules/compras/expensesView.js';
 import {
   exportExpensesToExcel,
@@ -147,8 +155,13 @@ import {
   toggleBitacoraSortOrder,
   clearBitacoraFilters,
   scrollToBitacoraNote,
-  openBitacoraPhotoLightbox
-} from './modules/bitacora/bitacoraView.js';
+  openBitacoraPhotoLightbox,
+  openBitacoraDownloadsModal,
+  renderBitacoraDownloadsList,
+  onBitacoraDownloadsSearchChange,
+  onBitacoraDownloadsStatusFilterChange,
+  onBitacoraDownloadsTypeFilterChange
+} from './modules/bitacora/bitacoraView.js?v=20261113_38';
 
 import {
   findNodeById,
@@ -319,7 +332,7 @@ import {
   switchMasterCatalogTab,
   handleDeleteCatalog,
   refreshMasterCatalogList
-} from './modules/reference/masterCatalogModal.js?v=20261113_02';
+} from './modules/reference/masterCatalogModal.js?v=20261114_01';
 
 import {
   openApuReferenceModal,
@@ -503,6 +516,11 @@ import {
   openNuevoProyectoModal,
   openNewProjectModal,
   closeNuevoProyectoModal,
+  openEditarProyectoModal,
+  closeEditarProyectoModal,
+  handleEditProjectLogoFile,
+  clearEditProjectLogo,
+  saveEditedProjectAction,
   goToWizardStep,
   handleWizardLogoFile,
   setSampleLogo,
@@ -511,6 +529,11 @@ import {
   updateWizardFactorPreview,
   updateTemplateSelection,
   finalizeCreateProject,
+  renderWizardSignaturesForm,
+  addWizardSignature,
+  removeWizardSignature,
+  onWizardSignatureChange,
+  resetWizardDefaultSignatures,
   openProfileModal,
   closeProfileModal,
   onProfileEditSexoChange,
@@ -1000,6 +1023,11 @@ Object.assign(window, {
   openNuevoProyectoModal,
   openNewProjectModal,
   closeNuevoProyectoModal,
+  openEditarProyectoModal,
+  closeEditarProyectoModal,
+  handleEditProjectLogoFile,
+  clearEditProjectLogo,
+  saveEditedProjectAction,
   goToWizardStep,
   handleWizardLogoFile,
   setSampleLogo,
@@ -1008,6 +1036,11 @@ Object.assign(window, {
   updateWizardFactorPreview,
   updateTemplateSelection,
   finalizeCreateProject,
+  renderWizardSignaturesForm,
+  addWizardSignature,
+  removeWizardSignature,
+  onWizardSignatureChange,
+  resetWizardDefaultSignatures,
   openProfileModal,
   closeProfileModal,
   onProfileEditSexoChange,
@@ -1073,7 +1106,147 @@ Object.assign(window, {
   exportProjectToExcelAction,
   toggleEstimacionCobroStatus,
   openFacturaModal,
-  closeFacturaModal
+  closeFacturaModal,
+  closeFacturaEstimacionModal: closeFacturaModal,
+
+  // Notificaciones & Menciones
+  toggleMentionNotificationsPopover,
+  closeMentionNotificationsPopover,
+  onNotificationsUserFilterChange,
+  markAllMentionsAsRead,
+  openMentionNotification,
+  renderSidebarNotificationsUI,
+
+  // Chat del Proyecto
+  handleAcceptInvitationAction,
+  handleRejectInvitationAction,
+  toggleProjectChatDock,
+  toggleProjectChatMaximize,
+  printProjectChatReport,
+  openProjectChatForPartida,
+  clearProjectChatPartidaFilter,
+  setProjectChatFilter,
+  onProjectChatAuthorChange,
+  toggleProjectChatTagPicker,
+  addProjectChatPendingTag,
+  removeProjectChatPendingTag,
+  sendProjectChatMessage,
+  deleteProjectChatMessage,
+  jumpToProjectChatTag,
+  switchProjectChatSection,
+  autoSwitchChatSectionFromTab,
+  renderProjectChatDock,
+
+  // Estimaciones Fotos & Facturas
+  openEstimacionConceptPhotosModal,
+  closeEstimacionConceptPhotosModal,
+  onEstimacionPhotoFileSelected,
+  onEstimacionPhotoUrlPreviewInput,
+  clearEstimacionConceptPhotoSlot,
+  saveEstimacionConceptPhotosModal,
+  toggleEstimacionFacturaCard,
+  onFacturaFieldChange,
+  onFacturaFileUpload,
+  viewFacturaFile,
+  removeFacturaFile,
+  onAnticipoZeroFieldChange,
+
+  // Compras y Pagos (Expenses ERP)
+  renderExpensesView,
+  switchExpensesSubTab,
+  openNewExpenseModal,
+  closeNewExpenseModal,
+  saveExpenseModalForm,
+  calculateExpenseModalTotals,
+  onExpenseInsumoSelectChange,
+  onEvidenceFileInputChange,
+  removeTempEvidence,
+  toggleExpenseStatusAction,
+  deleteExpenseAction,
+  printExpensePurchaseOrder,
+  exportExpensesExcelAction,
+  openEvidenceAction,
+  onExpensesSearchChange,
+  onExpensesTypeFilterChange,
+  onExpensesStatusFilterChange,
+  clearExpensesFilters,
+  onComparativaSearchChange,
+  onComparativaTypeFilterChange,
+  onComparativaAlertFilterChange,
+  openSuppliersListModal,
+  closeSuppliersListModal,
+  openSupplierModal,
+  closeSupplierModal,
+  saveSupplierModalForm,
+  deleteSupplierAction,
+  populateInsumosDropdown,
+  filterInsumosDropdown,
+  clearInsumoSearch,
+  updateProjectQtyDisplay,
+  copyProjectQtyToInput,
+  printExpensesActiveReportAction,
+  printExpensesActiveReport,
+  agruparComprasAction,
+  desagruparComprasAction,
+  toggleComparativaCategoryCollapse,
+  toggleAllComparativaCategories,
+  openExpensesSignaturesModal,
+  closeExpensesSignaturesModal,
+  renderExpensesSignaturesListForm,
+  addExpensesSignatureRow,
+  removeExpensesSignatureRow,
+  updateDraftExpensesSignature,
+  resetDefaultExpensesSignatures,
+  saveExpensesSignaturesModal,
+
+  // BitÃ¡cora de Obra
+  renderBitacoraView,
+  openBitacoraConfigModal,
+  saveBitacoraConfigModalAction,
+  onBitacoraTodayWeatherChange,
+  openBitacoraNoteModal,
+  closeBitacoraModal,
+  insertBitacoraTemplate,
+  onBitacoraConceptSearch,
+  toggleBitacoraConceptLink,
+  onBitacoraPhotosSelected,
+  updateTempEvidenceCaption,
+  removeTempBitacoraEvidence,
+  saveBitacoraNoteFormAction,
+  deleteBitacoraDraftAction,
+  createFeDeErratasAction,
+  openSignBitacoraNoteModal,
+  clearBitacoraSignatureCanvas,
+  confirmAndSealBitacoraNoteAction,
+  downloadSingleNotePdfAction,
+  openBitacoraPdfAction,
+  downloadFullBitacoraBookAction,
+  syncPendingBitacoraCloudAction,
+  downloadBitacoraLightboxEvidenceAction,
+  onBitacoraSearchChange,
+  onBitacoraTypeFilterChange,
+  onBitacoraStatusFilterChange,
+  onBitacoraDateFromChange,
+  onBitacoraDateToChange,
+  toggleBitacoraSortOrder,
+  clearBitacoraFilters,
+  scrollToBitacoraNote,
+  openBitacoraPhotoLightbox,
+  openBitacoraDownloadsModal,
+  renderBitacoraDownloadsList,
+  onBitacoraDownloadsSearchChange,
+  onBitacoraDownloadsStatusFilterChange,
+  onBitacoraDownloadsTypeFilterChange,
+
+  // Tutorial Hub & Tours
+  openTutorialHubModal,
+  closeTutorialHubModal,
+  startInteractiveTour,
+  skipInteractiveTour,
+  closeInteractiveTour,
+  checkAndResumeTourOnLoad,
+  openVideoSimulatorModal,
+  toggleVoiceNarration
 });
 
 // Atajos de teclado:
@@ -1350,6 +1523,11 @@ if (isWorkspaceActive) {
   renderTAB1();
   updateUndoRedoButtons();
   updateClipboardUI();
+  try {
+    renderSidebarNotificationsUI();
+  } catch (e) {
+    console.warn('[Notifications] Error al inicializar UI de notificaciones:', e);
+  }
   openReferenceDb()
     .then(() => ensureDefaultMasterCatalogs().catch(err => console.warn('[PresetCatalogs] Error al sincronizar catálogos por defecto:', err)))
     .catch(err => console.warn('IndexedDB reference DB:', err));
@@ -1391,13 +1569,14 @@ if (isWorkspaceActive) {
 
 // Asegurar renderizado de colaboradores en el encabezado de proyecto
 if (typeof document !== 'undefined') {
-  initFloatingWindowOutsideClose();
-  renderHeaderCollaborators();
-  renderAllTabAssignedMembers();
-  updateNavigationTabsAccess();
-  updateSubscriptionBadgesUI();
-  applyTabLocksToDOM();
-  renderProjectChatDock();
+  try { initFloatingWindowOutsideClose(); } catch (e) { console.warn('[Init] Floating window error:', e); }
+  try { renderHeaderCollaborators(); } catch (e) { console.warn('[Init] Header collaborators error:', e); }
+  try { renderAllTabAssignedMembers(); } catch (e) { console.warn('[Init] Tab assigned members error:', e); }
+  try { updateNavigationTabsAccess(); } catch (e) { console.warn('[Init] Navigation tabs access error:', e); }
+  try { updateSubscriptionBadgesUI(); } catch (e) { console.warn('[Init] Subscription badges error:', e); }
+  try { applyTabLocksToDOM(); } catch (e) { console.warn('[Init] Tab locks error:', e); }
+  try { renderProjectChatDock(); } catch (e) { console.warn('[Init] Chat dock error:', e); }
+  try { renderSidebarNotificationsUI(); } catch (e) { console.warn('[Init] Notifications UI error:', e); }
   try {
     initGlobalRealtimeSync();
     requestPeerSync();
@@ -1486,6 +1665,14 @@ window.agruparComprasAction = agruparComprasAction;
 window.desagruparComprasAction = desagruparComprasAction;
 window.toggleComparativaCategoryCollapse = toggleComparativaCategoryCollapse;
 window.toggleAllComparativaCategories = toggleAllComparativaCategories;
+window.openExpensesSignaturesModal = openExpensesSignaturesModal;
+window.closeExpensesSignaturesModal = closeExpensesSignaturesModal;
+window.renderExpensesSignaturesListForm = renderExpensesSignaturesListForm;
+window.addExpensesSignatureRow = addExpensesSignatureRow;
+window.removeExpensesSignatureRow = removeExpensesSignatureRow;
+window.updateDraftExpensesSignature = updateDraftExpensesSignature;
+window.resetDefaultExpensesSignatures = resetDefaultExpensesSignatures;
+window.saveExpensesSignaturesModal = saveExpensesSignaturesModal;
 
 // Alias de conveniencia e interoperabilidad para compras, pagos y destajos
 window.switchComprasSubTab = function(sub) {
@@ -1550,6 +1737,11 @@ window.toggleBitacoraSortOrder = toggleBitacoraSortOrder;
 window.clearBitacoraFilters = clearBitacoraFilters;
 window.scrollToBitacoraNote = scrollToBitacoraNote;
 window.openBitacoraPhotoLightbox = openBitacoraPhotoLightbox;
+window.openBitacoraDownloadsModal = openBitacoraDownloadsModal;
+window.renderBitacoraDownloadsList = renderBitacoraDownloadsList;
+window.onBitacoraDownloadsSearchChange = onBitacoraDownloadsSearchChange;
+window.onBitacoraDownloadsStatusFilterChange = onBitacoraDownloadsStatusFilterChange;
+window.onBitacoraDownloadsTypeFilterChange = onBitacoraDownloadsTypeFilterChange;
 
 // Tutorial Hub & Modales de Aprendizaje
 window.openTutorialHubModal = openTutorialHubModal;

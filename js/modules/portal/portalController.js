@@ -62,7 +62,7 @@ import {
 } from './projectService.js';
 import { showToast } from '../../ui/notifications.js';
 import { persistLocalData, state, initStore } from '../../state/store.js';
-import { renderBrandingUI } from '../../ui/brandingController.js';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
 import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js';
 import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js';
@@ -85,11 +85,23 @@ import {
   openCubikarAdminModal
 } from '../admin/cubikarAdmin.js';
 import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js';
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 let customPhotoTemp = null;
 let wizardData = {
   step: 1,
   logo: '',
+  signatures: [],
   companyName: '',
   projectName: '',
   projectLocation: '',
@@ -2184,6 +2196,10 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
                   <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-blue-400"></i>
                   <span>Abrir en pestaña nueva</span>
                 </button>
+                <button type="button" onclick="openEditarProyectoModal('${proj.id}')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 cursor-pointer">
+                  <i class="fa-solid fa-pen-to-square text-[10px] text-blue-400"></i>
+                  <span>Editar Proyecto</span>
+                </button>
                 <button type="button" onclick="duplicateProjectAction('${proj.id}')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 cursor-pointer">
                   <i class="fa-solid fa-copy text-[10px] text-amber-400"></i>
                   <span>Duplicar Presupuesto</span>
@@ -2371,6 +2387,9 @@ export function renderProjectTableRowsHTML(filteredProjects) {
           </div>
         </td>
         <td class="px-5 py-4 text-right whitespace-nowrap">
+          <button type="button" onclick="openEditarProyectoModal('${proj.id}')" class="mr-1.5 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer" title="Editar datos del proyecto">
+            <i class="fa-solid fa-pen-to-square text-xs"></i>
+          </button>
           <button onclick="openProjectInWorkspace('${proj.id}')" class="px-3 py-1.5 rounded-lg ${isWarning ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-blue-600 hover:bg-blue-500 text-white'} font-medium text-xs transition cursor-pointer">Abrir</button>
         </td>
       </tr>
@@ -2536,7 +2555,224 @@ export function deleteProjectAction(projectId) {
 }
 
 // ==========================================
-// ASISTENTE NUEVO PROYECTO (WIZARD 2 PASOS)
+// GESTIÓN Y EDICIÓN DE PROYECTO EXISTENTE
+// ==========================================
+
+let editingProjectLogo = '';
+
+export function openEditarProyectoModal(projectId) {
+  const p = getProjectById(projectId);
+  if (!p) {
+    showToast('No se encontró el proyecto seleccionado.', 'warning');
+    return;
+  }
+
+  const user = getCurrentUser();
+  const uEmail = (user?.email || '').toLowerCase().trim();
+  const isOwner = (p.ownerEmail || '').toLowerCase().trim() === uEmail;
+  const myMem = Array.isArray(p.members) ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail) : null;
+  const isEditor = isOwner || myMem?.role === 'editar' || user?.role === 'Admin General';
+
+  if (!isEditor) {
+    showToast('🔒 Solo el propietario o colaboradores con rol de Editor pueden modificar este proyecto.', 'warning');
+    return;
+  }
+
+  const idInput = document.getElementById('edit-project-id');
+  const nameInput = document.getElementById('edit-project-name');
+  const locInput = document.getElementById('edit-project-location');
+  const compInput = document.getElementById('edit-project-company');
+  const tipoInput = document.getElementById('edit-project-tipo');
+  const dateInput = document.getElementById('edit-project-created-at');
+  const currSelect = document.getElementById('edit-project-currency');
+
+  if (idInput) idInput.value = p.id;
+  if (nameInput) nameInput.value = p.projectName || '';
+  if (locInput) locInput.value = p.projectLocation || '';
+  if (compInput) compInput.value = p.companyName || '';
+  if (tipoInput) tipoInput.value = p.tipoObra || 'Edificación';
+  if (dateInput) dateInput.value = p.createdAt || new Date().toISOString().slice(0, 10);
+
+  if (currSelect) {
+    const targetVal = `${p.currency || 'MXN'}|${p.currencySymbol || '$'}`;
+    let found = false;
+    for (let i = 0; i < currSelect.options.length; i++) {
+      if (currSelect.options[i].value === targetVal || currSelect.options[i].value.startsWith((p.currency || 'MXN') + '|')) {
+        currSelect.selectedIndex = i;
+        found = true;
+        break;
+      }
+    }
+    if (!found) currSelect.selectedIndex = 0;
+  }
+
+  setEditProjectLogoImage(p.companyLogo || '');
+
+  const modal = document.getElementById('modal-editar-proyecto');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  // Cerrar cualquier menú de tarjeta desplegado
+  document.querySelectorAll('[id^="menu-card-"]').forEach(el => el.classList.add('hidden'));
+}
+
+export function closeEditarProyectoModal() {
+  const modal = document.getElementById('modal-editar-proyecto');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+  editingProjectLogo = '';
+}
+
+export async function handleEditProjectLogoFile(e) {
+  const inputEl = e?.target;
+  const file = inputEl?.files?.[0];
+  if (!file) return;
+  try {
+    const res = await processPortalImageUpload(file, { modulo: 'branding', preset: 'branding' });
+    setEditProjectLogoImage(res.dataUrl);
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    if (inputEl) inputEl.value = '';
+  }
+}
+
+export function setEditProjectLogoImage(src) {
+  editingProjectLogo = src || '';
+  const img = document.getElementById('edit-project-logo-img');
+  const fb = document.getElementById('edit-project-logo-fallback');
+  if (img) {
+    img.src = src || '';
+    if (src) {
+      img.classList.remove('hidden');
+    } else {
+      img.classList.add('hidden');
+    }
+  }
+  if (fb) {
+    if (src) {
+      fb.classList.add('hidden');
+      fb.style.display = 'none';
+    } else {
+      fb.classList.remove('hidden');
+      fb.style.display = '';
+    }
+  }
+}
+
+export function clearEditProjectLogo() {
+  setEditProjectLogoImage('');
+}
+
+export function saveEditedProjectAction() {
+  const idInput = document.getElementById('edit-project-id');
+  const pId = idInput ? idInput.value : '';
+  if (!pId) return;
+
+  const nameInput = document.getElementById('edit-project-name');
+  const locInput = document.getElementById('edit-project-location');
+  const compInput = document.getElementById('edit-project-company');
+  const tipoInput = document.getElementById('edit-project-tipo');
+  const currInput = document.getElementById('edit-project-currency');
+  const dateInput = document.getElementById('edit-project-created-at');
+
+  const projectName = nameInput ? nameInput.value.trim() : '';
+  const projectLocation = locInput ? locInput.value.trim() : '';
+  const companyName = compInput ? compInput.value.trim() : '';
+  const tipoObra = tipoInput ? tipoInput.value : 'Edificación';
+  const createdAt = dateInput ? dateInput.value : '';
+
+  let currency = 'MXN';
+  let currencySymbol = '$';
+  if (currInput && currInput.value) {
+    const parts = currInput.value.split('|');
+    currency = parts[0] || 'MXN';
+    currencySymbol = parts[1] || '$';
+  }
+
+  if (!projectName) {
+    showToast('Por favor ingresa el nombre del proyecto.', 'warning');
+    if (nameInput) nameInput.focus();
+    return;
+  }
+  if (!projectLocation) {
+    showToast('Por favor ingresa la ubicación de la obra.', 'warning');
+    if (locInput) locInput.focus();
+    return;
+  }
+  if (!companyName) {
+    showToast('Por favor ingresa el nombre de la empresa.', 'warning');
+    if (compInput) compInput.focus();
+    return;
+  }
+
+  const list = getProjectsList();
+  const idx = list.findIndex(p => p.id === pId);
+  if (idx === -1) {
+    showToast('No se encontró el proyecto en la lista.', 'error');
+    return;
+  }
+
+  list[idx].projectName = projectName;
+  list[idx].projectLocation = projectLocation;
+  list[idx].companyName = companyName;
+  list[idx].tipoObra = tipoObra;
+  list[idx].companyLogo = editingProjectLogo;
+  list[idx].currency = currency;
+  list[idx].currencySymbol = currencySymbol;
+  if (createdAt) list[idx].createdAt = createdAt;
+
+  saveProjectsList(list);
+
+  // Actualizar settings del proyecto en almacenamiento local
+  try {
+    const sKey = getSettingsKey(pId);
+    const rawSet = localStorage.getItem(sKey);
+    const setObj = rawSet ? JSON.parse(rawSet) : {};
+    setObj.projectName = projectName;
+    setObj.projectLocation = projectLocation;
+    setObj.companyName = companyName;
+    setObj.companyLogo = editingProjectLogo;
+    setObj.currency = currency;
+    setObj.currencySymbol = currencySymbol;
+    localStorage.setItem(sKey, JSON.stringify(setObj));
+  } catch (err) {
+    console.warn('[EditProject] Error actualizando settings locales:', err);
+  }
+
+  // Si el proyecto modificado está actualmente activo en el workspace
+  const activePid = (typeof getActiveProjectId === 'function') ? getActiveProjectId() : (state.activeProjectId || null);
+  if (activePid === pId && typeof state !== 'undefined' && state.settings) {
+    state.settings.projectName = projectName;
+    state.settings.projectLocation = projectLocation;
+    state.settings.companyName = companyName;
+    state.settings.companyLogo = editingProjectLogo;
+    state.settings.currency = currency;
+    state.settings.currencySymbol = currencySymbol;
+    if (typeof syncCompanyName === 'function') syncCompanyName(companyName);
+    if (typeof syncProjectName === 'function') syncProjectName(projectName);
+    if (typeof syncProjectLocation === 'function') syncProjectLocation(projectLocation);
+    if (typeof renderBrandingUI === 'function') renderBrandingUI();
+  }
+
+  // Sincronizar cambios en segundo plano con la nube Supabase si aplica
+  try {
+    if (typeof syncProjectToCloud === 'function' && list[idx]) {
+      syncProjectToCloud(list[idx]).catch(() => {});
+    }
+  } catch (_) {}
+
+  closeEditarProyectoModal();
+  showToast(`Proyecto "${projectName}" actualizado exitosamente.`, 'success');
+  renderPortalDashboard();
+}
+
+// ==========================================
+// ASISTENTE NUEVO PROYECTO (WIZARD 3 PASOS)
 // ==========================================
 export const openNewProjectModal = openNuevoProyectoModal;
 export function openNuevoProyectoModal() {
@@ -2554,6 +2790,14 @@ export function openNuevoProyectoModal() {
   wizardData.step = 1;
   wizardData.logo = '';
   clearWizardLogo();
+
+  // Inicializar firmas oficiales predeterminadas para el proyecto
+  wizardData.signatures = DEFAULT_BUDGET_SIGNATURES.map((s) => ({
+    rol: sanitizeSignatureText(s.rol || 'FIRMA'),
+    nombre: sanitizeSignatureText(s.nombre || ''),
+    cargo: sanitizeSignatureText(s.cargo || '')
+  }));
+  renderWizardSignaturesForm();
   
   const cName = document.getElementById('wiz-company-name');
   const pName = document.getElementById('wiz-project-name');
@@ -2571,7 +2815,7 @@ export function openNuevoProyectoModal() {
     if (check.isHostContext) {
       subTitle.innerHTML = `<span class="text-emerald-300 font-bold">🏢 Creando obra para ${check.hostName}</span> • Plan ${getPlanLimits(check.planId).name}`;
     } else {
-      subTitle.textContent = 'Asistente de configuración inicial en 2 pasos';
+      subTitle.textContent = 'Asistente de configuración inicial en 3 pasos';
     }
   }
   
@@ -2604,41 +2848,214 @@ export function closeNuevoProyectoModal() {
 }
 
 export function goToWizardStep(step) {
-  wizardData.step = step;
-  const s1 = document.getElementById('wizard-step-1');
-  const s2 = document.getElementById('wizard-step-2');
-  const ind1 = document.getElementById('step-indicator-1');
-  const ind2 = document.getElementById('step-indicator-2');
-  const btnPrev = document.getElementById('btn-wiz-prev');
-  const btnNext = document.getElementById('btn-wiz-next');
-  const btnFinish = document.getElementById('btn-wiz-finish');
-
-  if (step === 1) {
-    if (s1) s1.classList.remove('hidden');
-    if (s2) s2.classList.add('hidden');
-    if (ind1) ind1.className = "flex items-center gap-2";
-    if (ind2) ind2.className = "flex items-center gap-2 opacity-50";
-    if (btnPrev) btnPrev.classList.add('hidden');
-    if (btnNext) btnNext.classList.remove('hidden');
-    if (btnFinish) btnFinish.classList.add('hidden');
-  } else {
-    const company = document.getElementById('wiz-company-name').value.trim();
-    const project = document.getElementById('wiz-project-name').value.trim();
-    const location = document.getElementById('wiz-project-location').value.trim();
+  if (step > 1) {
+    const company = document.getElementById('wiz-company-name')?.value?.trim();
+    const project = document.getElementById('wiz-project-name')?.value?.trim();
+    const location = document.getElementById('wiz-project-location')?.value?.trim();
     if (!company || !project || !location) {
       alert('Por favor completa el Nombre de Empresa, Nombre de Proyecto y Ubicación antes de avanzar.');
       return;
     }
+  }
 
-    if (s1) s1.classList.add('hidden');
+  wizardData.step = step;
+  const s1 = document.getElementById('wizard-step-1');
+  const s2 = document.getElementById('wizard-step-2');
+  const s3 = document.getElementById('wizard-step-3');
+
+  const ind1 = document.getElementById('step-indicator-1');
+  const ind2 = document.getElementById('step-indicator-2');
+  const ind3 = document.getElementById('step-indicator-3');
+  const badge1 = document.getElementById('step-badge-1');
+  const badge2 = document.getElementById('step-badge-2');
+  const badge3 = document.getElementById('step-badge-3');
+  const text1 = document.getElementById('step-text-1');
+  const text2 = document.getElementById('step-text-2');
+  const text3 = document.getElementById('step-text-3');
+
+  const btnPrev = document.getElementById('btn-wiz-prev');
+  const btnNext = document.getElementById('btn-wiz-next');
+  const btnFinish = document.getElementById('btn-wiz-finish');
+
+  if (s1) s1.classList.add('hidden');
+  if (s2) s2.classList.add('hidden');
+  if (s3) s3.classList.add('hidden');
+
+  const setStepState = (ind, badge, text, isActive) => {
+    if (!ind) return;
+    if (isActive) {
+      ind.classList.remove('opacity-50');
+      if (badge) badge.className = "w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold";
+      if (text) text.className = "text-blue-900 font-bold";
+    } else {
+      ind.classList.add('opacity-50');
+      if (badge) badge.className = "w-6 h-6 rounded-full bg-slate-400 text-white flex items-center justify-center text-[11px] font-bold";
+      if (text) text.className = "text-slate-600";
+    }
+  };
+
+  setStepState(ind1, badge1, text1, step === 1);
+  setStepState(ind2, badge2, text2, step === 2);
+  setStepState(ind3, badge3, text3, step === 3);
+
+  if (step === 1) {
+    if (s1) s1.classList.remove('hidden');
+    if (btnPrev) btnPrev.classList.add('hidden');
+    if (btnNext) {
+      btnNext.classList.remove('hidden');
+      btnNext.onclick = () => goToWizardStep(2);
+    }
+    if (btnFinish) btnFinish.classList.add('hidden');
+  } else if (step === 2) {
     if (s2) s2.classList.remove('hidden');
-    if (ind1) ind1.className = "flex items-center gap-2 opacity-50";
-    if (ind2) ind2.className = "flex items-center gap-2";
-    if (btnPrev) btnPrev.classList.remove('hidden');
+    if (btnPrev) {
+      btnPrev.classList.remove('hidden');
+      btnPrev.onclick = () => goToWizardStep(1);
+    }
+    if (btnNext) {
+      btnNext.classList.remove('hidden');
+      btnNext.onclick = () => goToWizardStep(3);
+    }
+    if (btnFinish) btnFinish.classList.add('hidden');
+    updateWizardFactorPreview();
+  } else if (step === 3) {
+    if (s3) s3.classList.remove('hidden');
+    if (btnPrev) {
+      btnPrev.classList.remove('hidden');
+      btnPrev.onclick = () => goToWizardStep(2);
+    }
     if (btnNext) btnNext.classList.add('hidden');
     if (btnFinish) btnFinish.classList.remove('hidden');
-    updateWizardFactorPreview();
+    renderWizardSignaturesForm();
   }
+}
+
+// Renderizar formulario de responsables y firmas en el paso 3 del asistente
+export function renderWizardSignaturesForm() {
+  const container = document.getElementById('wiz-signatures-list');
+  if (!container) return;
+
+  if (!Array.isArray(wizardData.signatures) || wizardData.signatures.length === 0) {
+    wizardData.signatures = DEFAULT_BUDGET_SIGNATURES.map((s) => ({
+      rol: sanitizeSignatureText(s.rol || 'FIRMA'),
+      nombre: sanitizeSignatureText(s.nombre || ''),
+      cargo: sanitizeSignatureText(s.cargo || '')
+    }));
+  }
+
+  const canRemove = wizardData.signatures.length > 1;
+  const canAdd = wizardData.signatures.length < 5;
+
+  const addBtn = document.getElementById('btn-wiz-add-signature');
+  if (addBtn) {
+    addBtn.disabled = !canAdd;
+    if (!canAdd) {
+      addBtn.classList.add('opacity-40', 'cursor-not-allowed');
+    } else {
+      addBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+    }
+  }
+
+  container.innerHTML = wizardData.signatures.map((sig, idx) => {
+    return `
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-2.5 relative transition hover:border-blue-300">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+          <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-mono font-bold">${idx + 1}</span>
+            Responsable #${idx + 1}
+          </span>
+          ${canRemove ? `
+            <button type="button" 
+                    onclick="removeWizardSignature(${idx})" 
+                    class="text-slate-400 hover:text-rose-600 text-xs p-1 rounded hover:bg-rose-50 transition cursor-pointer" 
+                    title="Eliminar este firmante">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          ` : ''}
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+              Rol / Título de la Firma:
+            </label>
+            <input type="text" 
+                   value="${escapeHtml(sig.rol)}" 
+                   placeholder="Ej: ELABORÓ, REVISÓ, AUTORIZÓ"
+                   oninput="onWizardSignatureChange(${idx}, 'rol', this.value)"
+                   class="w-full text-xs font-bold uppercase text-slate-800 bg-slate-50 hover:bg-white border border-slate-300 focus:border-blue-500 focus:bg-white rounded-lg px-2.5 py-1.5 outline-none transition">
+          </div>
+
+          <div>
+            <label class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+              Nombre del Responsable que firmará:
+            </label>
+            <input type="text" 
+                   value="${escapeHtml(sig.nombre)}" 
+                   placeholder="Ej: Ing. Juan Pérez Gómez"
+                   oninput="onWizardSignatureChange(${idx}, 'nombre', this.value)"
+                   class="w-full text-xs font-semibold text-slate-900 bg-slate-50 hover:bg-white border border-slate-300 focus:border-blue-500 focus:bg-white rounded-lg px-2.5 py-1.5 outline-none transition">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+            Cargo / Puesto / Dependencia:
+          </label>
+          <input type="text" 
+                 value="${escapeHtml(sig.cargo)}" 
+                 placeholder="Ej: Departamento de Precios Unitarios y Presupuestos"
+                 oninput="onWizardSignatureChange(${idx}, 'cargo', this.value)"
+                 class="w-full text-xs text-slate-700 bg-slate-50 hover:bg-white border border-slate-300 focus:border-blue-500 focus:bg-white rounded-lg px-2.5 py-1.5 outline-none transition">
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+export function addWizardSignature() {
+  if (!Array.isArray(wizardData.signatures)) {
+    wizardData.signatures = [];
+  }
+  if (wizardData.signatures.length >= 5) {
+    showToast('Se permite un máximo de 5 firmantes', 'info');
+    return;
+  }
+  const defaultRoles = ['SUPERVISIÓN', 'RESIDENTE DE OBRA', 'CONTRATISTA', 'CLIENTE'];
+  const nextRole = defaultRoles[wizardData.signatures.length % defaultRoles.length] || 'FIRMA';
+
+  wizardData.signatures.push({
+    rol: nextRole,
+    nombre: '',
+    cargo: ''
+  });
+
+  renderWizardSignaturesForm();
+}
+
+export function removeWizardSignature(index) {
+  if (!Array.isArray(wizardData.signatures) || wizardData.signatures.length <= 1) {
+    showToast('Debe existir al menos un firmante', 'warning');
+    return;
+  }
+  wizardData.signatures.splice(index, 1);
+  renderWizardSignaturesForm();
+}
+
+export function onWizardSignatureChange(index, field, value) {
+  if (wizardData.signatures && wizardData.signatures[index]) {
+    wizardData.signatures[index][field] = value;
+  }
+}
+
+export function resetWizardDefaultSignatures() {
+  wizardData.signatures = DEFAULT_BUDGET_SIGNATURES.map((s) => ({
+    rol: sanitizeSignatureText(s.rol || 'FIRMA'),
+    nombre: sanitizeSignatureText(s.nombre || ''),
+    cargo: sanitizeSignatureText(s.cargo || '')
+  }));
+  renderWizardSignaturesForm();
+  showToast('Se restablecieron los 3 firmantes predeterminados', 'info');
 }
 
 export async function handleWizardLogoFile(e) {
@@ -2781,6 +3198,19 @@ export async function finalizeCreateProject() {
     }
   }
 
+  // Firmas limpias del asistente
+  const cleanSignatures = (Array.isArray(wizardData.signatures) && wizardData.signatures.length > 0)
+    ? wizardData.signatures.map(s => ({
+        rol: sanitizeSignatureText((s.rol || 'FIRMA').trim().toUpperCase()),
+        nombre: sanitizeSignatureText((s.nombre || '').trim()),
+        cargo: sanitizeSignatureText((s.cargo || '').trim())
+      }))
+    : DEFAULT_BUDGET_SIGNATURES.map(s => ({
+        rol: sanitizeSignatureText(s.rol),
+        nombre: sanitizeSignatureText(s.nombre),
+        cargo: sanitizeSignatureText(s.cargo)
+      }));
+
   const projPayload = {
     companyName: company || (check.isHostContext ? check.hostName : 'Constructora'),
     companyLogo: wizardData.logo,
@@ -2797,6 +3227,7 @@ export async function finalizeCreateProject() {
     pctAdicionales: adi,
     pctSegurosFianzas: seg,
     pctFasar: fasar,
+    budgetSignatures: cleanSignatures,
     template: tpl,
     treeData: sampleTree
   };
@@ -4343,7 +4774,8 @@ export function canCurrentUserAccessTab(tabId) {
 
   const mem = proj.members.find(m => m.email && m.email.toLowerCase().trim() === uEmail);
   if (!mem) return true;
-  if (mem.role === 'editar' && (!Array.isArray(mem.allowedTabs) || mem.allowedTabs.length === 0)) return true;
+  // Todo usuario con rol 'editar' tiene acceso completo a todas las pestañas de la obra
+  if (mem.role === 'editar') return true;
 
   if (Array.isArray(mem.allowedTabs)) {
     if (tabId === 'presupuesto') {
@@ -4601,4 +5033,14 @@ if (typeof window !== 'undefined') {
   window.refreshProjectsGridUI = refreshProjectsGridUI;
   window.renderModeStatusBadgeHTML = renderModeStatusBadgeHTML;
   window.renderHeaderCreateButtonHTML = renderHeaderCreateButtonHTML;
+  window.openEditarProyectoModal = openEditarProyectoModal;
+  window.closeEditarProyectoModal = closeEditarProyectoModal;
+  window.handleEditProjectLogoFile = handleEditProjectLogoFile;
+  window.clearEditProjectLogo = clearEditProjectLogo;
+  window.saveEditedProjectAction = saveEditedProjectAction;
+  window.renderWizardSignaturesForm = renderWizardSignaturesForm;
+  window.addWizardSignature = addWizardSignature;
+  window.removeWizardSignature = removeWizardSignature;
+  window.onWizardSignatureChange = onWizardSignatureChange;
+  window.resetWizardDefaultSignatures = resetWizardDefaultSignatures;
 }

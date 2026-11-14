@@ -389,6 +389,8 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
   html.dark-mode textarea.bg-white,
   html.dark-mode #calendario-scale-selector,
   html.dark-mode #gantt-zoom-controls,
+  html.dark-mode #btn-open-signatures-modal,
+  html.dark-mode #btn-calendario-signatures-modal,
   html.dark-mode #tab-members-cat,
   html.dark-mode #tab-members-calendario,
   html.dark-mode #tab-members-estimaciones,

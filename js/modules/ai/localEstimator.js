@@ -1,5 +1,5 @@
 // js/modules/ai/localEstimator.js
-// Generador y estimador de matrices APU usando Catálogos Locales de Referencia (Opus, BIMSA, Neodata, Gobierno)
+// Generador y estimador de matrices APU usando Catálogos Locales de Referencia (Opus, Neodata, Gobierno)
 //
 // Cumple estrictamente con el flujo de dos pasos:
 // PASO 1: Busca en los catálogos cargados un concepto similar con los mismos elementos,
@@ -51,11 +51,11 @@ export async function buildLocalGenerationContext(selectedCatalogIds = 'all') {
     console.warn('Error leyendo registros de IndexedDB:', err);
   }
 
-  // Si no hay catálogos aún en IndexedDB, auto-instalar BIMSA Edificación para experiencia inmediata
+  // Si no hay catálogos aún en IndexedDB, auto-instalar catálogo muestra residencial para experiencia inmediata
   if (!loadedItems || loadedItems.length === 0) {
     try {
-      showToast('Cargando catálogo base BIMSA Edificación 2018...', 'info');
-      await installPresetCatalog('bimsa_edificacion_2018');
+      showToast('Cargando catálogo muestra Proyecto Residencial...', 'info');
+      await installPresetCatalog('catalogo_muestra_residencial');
       loadedItems = await getItemsByCatalogIds(selectedCatalogIds);
     } catch (err) {
       console.warn('Auto-instalación de catálogo preset no completada:', err);
@@ -193,10 +193,10 @@ export async function openLocalCatalogSelectorModal(singleSelectedOnly = false) 
   // Cargar lista de catálogos desde IndexedDB
   let catalogs = await listReferenceCatalogs();
 
-  // Si no hay catálogos cargados, auto-instalar BIMSA Edificación para experiencia inmediata
+  // Si no hay catálogos cargados, auto-instalar catálogo muestra residencial para experiencia inmediata
   if (!catalogs || catalogs.length === 0) {
-    showToast('Cargando catálogo base BIMSA Edificación 2018...', 'info');
-    await installPresetCatalog('bimsa_edificacion_2018');
+    showToast('Cargando catálogo muestra Proyecto Residencial...', 'info');
+    await installPresetCatalog('catalogo_muestra_residencial');
     catalogs = await listReferenceCatalogs();
   }
 

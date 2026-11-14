@@ -8,42 +8,42 @@ import { flattenPresetData } from '../ai/localMatrixEngine.js';
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
 import { CASA_LAURA_PROJECT } from './casaLauraData.js';
 
-// Catálogos BIMSA 2018 conocidos vinculados a sus paquetes de restauración
-const BIMSA_RESTORE_MAPPING = [
+// Catálogos oficiales de referencia conocidos vinculados a sus paquetes de restauración
+const REFERENCE_RESTORE_MAPPING = [
   {
     pattern: /edificaci[oó]n/i,
-    jsonPath: 'data/bimsa_edificacion.json',
-    catalogName: 'BIMSA Edificación 2018 (Opus)',
+    jsonPath: 'data/catalogo_edificacion.json',
+    catalogName: 'Catálogo de Edificación (Opus)',
     category: 'Edificación'
   },
   {
     pattern: /infraestruct|urbaniz/i,
-    jsonPath: 'data/bimsa_infraestructura.json',
-    catalogName: 'BIMSA Infraestructura y Urbanización 2018 (Opus)',
+    jsonPath: 'data/catalogo_infraestructura.json',
+    catalogName: 'Catálogo de Infraestructura y Urbanización (Opus)',
     category: 'Infraestructura'
   },
   {
     pattern: /el[eé]ctric|telecom/i,
-    jsonPath: 'data/bimsa_instalaciones_electricas.json',
-    catalogName: 'BIMSA Instalaciones Eléctricas 2018 (Opus)',
+    jsonPath: 'data/catalogo_instalaciones_electricas.json',
+    catalogName: 'Catálogo de Instalaciones Eléctricas (Opus)',
     category: 'Instalaciones Eléctricas'
   },
   {
     pattern: /hidr[aá]ulic|sanitar/i,
-    jsonPath: 'data/bimsa_instalaciones_hidraulicas.json',
-    catalogName: 'BIMSA Instalaciones Hidráulicas 2018 (Opus)',
+    jsonPath: 'data/catalogo_instalaciones_hidraulicas.json',
+    catalogName: 'Catálogo de Instalaciones Hidráulicas (Opus)',
     category: 'Instalaciones Hidráulicas'
   },
   {
     pattern: /aire.*acondicionado/i,
-    jsonPath: 'data/bimsa_aire_acondicionado.json',
-    catalogName: 'BIMSA Aire Acondicionado 2018 (Opus)',
+    jsonPath: 'data/catalogo_aire_acondicionado.json',
+    catalogName: 'Catálogo de Aire Acondicionado (Opus)',
     category: 'Aire Acondicionado'
   },
   {
     pattern: /industrial|obra.*manten/i,
-    jsonPath: 'data/bimsa_obra_industrial.json',
-    catalogName: 'BIMSA Obra y Mantenimiento Industrial 2018 (Opus)',
+    jsonPath: 'data/catalogo_obra_industrial.json',
+    catalogName: 'Catálogo de Obra y Mantenimiento Industrial (Opus)',
     category: 'Obra Industrial'
   }
 ];
@@ -454,8 +454,8 @@ async function parseZipPackage(file) {
     };
   }
 
-  // 1.2 Verificar si corresponde a uno de los paquetes BIMSA 2018 conocidos
-  const matchedMapping = BIMSA_RESTORE_MAPPING.find(m => 
+  // 1.2 Verificar si corresponde a uno de los paquetes oficiales de referencia
+  const matchedMapping = REFERENCE_RESTORE_MAPPING.find(m => 
     m.pattern.test(file.name) || fileEntries.some(e => m.pattern.test(e))
   );
 
@@ -547,22 +547,22 @@ async function parseBakFile(buffer, fileName) {
     };
   }
 
-  // 2. Comprobar coincidencia con proyecto Casa Laura exacto
-  if (/casa.*laura|laura/i.test(fileName)) {
-    console.log('[OpusImporter] Proyecto detectado: Casa laura (Opus 2014)');
-    const items = getCasaLauraExactProject().map(i => ({ ...i, catalogName: 'Casa laura (Opus 2014)' }));
+  // 2. Comprobar coincidencia con proyecto muestra exacto
+  if (/casa.*laura|laura|muestra.*residencial/i.test(fileName)) {
+    console.log('[OpusImporter] Proyecto detectado: Catalogo muestra - Proyecto Residencial');
+    const items = getCasaLauraExactProject().map(i => ({ ...i, catalogName: 'Catalogo muestra - Proyecto Residencial' }));
     return {
-      catalogName: 'Casa laura (Opus 2014)',
+      catalogName: 'Catalogo muestra - Proyecto Residencial',
       category: 'Edificación Residencial',
       sourceFileName: fileName,
-      tipoDetectado: 'Proyecto Opus 2014 (.bak)',
+      tipoDetectado: 'Proyecto Opus (.bak)',
       hasHierarchy: true,
       items: items
     };
   }
 
-  // Comprobar si el nombre coincide con algún catálogo BIMSA 2018
-  const matchedMapping = BIMSA_RESTORE_MAPPING.find(m => m.pattern.test(fileName));
+  // Comprobar si el nombre coincide con algún catálogo oficial de referencia
+  const matchedMapping = REFERENCE_RESTORE_MAPPING.find(m => m.pattern.test(fileName));
   if (matchedMapping) {
     try {
       const res = await fetch(matchedMapping.jsonPath);

@@ -1,8 +1,8 @@
 // js/modules/reference/presetCatalogs.js
-// Gestor de Catálogos Pre-cargados (BIMSA 2018 y Gobierno)
+// Gestor de Catálogos Pre-cargados del Sistema
 
 import { showToast } from '../../ui/notifications.js';
-import { saveReferenceCatalog, listReferenceCatalogs } from './referenceDb.js';
+import { saveReferenceCatalog, listReferenceCatalogs, countCatalogItems } from './referenceDb.js';
 import { flattenPresetData } from '../ai/localMatrixEngine.js';
 
 let manifestCache = null;
@@ -13,7 +13,8 @@ export async function getPresetCatalogManifest() {
   try {
     const res = await fetch('data/catalog_manifest.json');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    manifestCache = await res.json();
+    const text = await res.text();
+    manifestCache = JSON.parse(text.replace(/^\uFEFF/, ''));
     return manifestCache;
   } catch (err) {
     console.warn('No se pudo cargar el manifiesto de presets:', err);
@@ -29,31 +30,19 @@ export async function ensureDefaultMasterCatalogs() {
     const defaultPresets = manifest.filter(m => m.isDefault || m.absorbedByApp || m.isBase);
     if (!defaultPresets || defaultPresets.length === 0) return 0;
 
-    const existingCatalogs = await listReferenceCatalogs();
-    const existingIds = new Set(existingCatalogs.map(c => c.id));
-
     let loadedCount = 0;
     for (const preset of defaultPresets) {
-      if (existingIds.has(preset.id)) continue;
+      // Verificar si realmente tiene items indexados en IndexedDB
+      const existingItems = await countCatalogItems(preset.id);
+      if (existingItems > 0) {
+        continue;
+      }
 
       try {
         let data = null;
 
-        // Prioridad 1: Lectura directa por JSON nativo C++ si está disponible
-        if (preset.file) {
-          try {
-            const res = await fetch(preset.file);
-            if (res.ok) {
-              data = await res.json();
-              console.log(`[DefaultCatalogs] Archivo cargado directamente: ${preset.file}`);
-            }
-          } catch (fileErr) {
-            console.warn(`[DefaultCatalogs] Aviso al leer JSON ${preset.file}, probando ZIP:`, fileErr);
-          }
-        }
-
-        // Prioridad 2: Descomprimir paquete ZIP base ultraligero con JSZip
-        if (!data && preset.zipFile && typeof window !== 'undefined' && window.JSZip) {
+        // Prioridad 1: Descomprimir paquete ZIP base ultraligero con JSZip si está disponible (pesa hasta 40x menos de descarga)
+        if (preset.zipFile && typeof window !== 'undefined' && window.JSZip) {
           try {
             const zipRes = await fetch(preset.zipFile);
             if (zipRes.ok) {
@@ -67,7 +56,21 @@ export async function ensureDefaultMasterCatalogs() {
               }
             }
           } catch (zipErr) {
-            console.warn(`[DefaultCatalogs] Error al leer ZIP ${preset.zipFile}:`, zipErr);
+            console.warn(`[DefaultCatalogs] Aviso al leer ZIP ${preset.zipFile}, probando JSON directo:`, zipErr);
+          }
+        }
+
+        // Prioridad 2: Lectura directa de JSON si no se cargó por ZIP
+        if (!data && preset.file) {
+          try {
+            const res = await fetch(preset.file);
+            if (res.ok) {
+              const text = await res.text();
+              data = JSON.parse(text.replace(/^\uFEFF/, ''));
+              console.log(`[DefaultCatalogs] Archivo cargado directamente: ${preset.file}`);
+            }
+          } catch (fileErr) {
+            console.warn(`[DefaultCatalogs] Error al leer JSON ${preset.file}:`, fileErr);
           }
         }
 
@@ -182,7 +185,7 @@ export async function installPresetCatalog(presetId) {
   }
 }
 
-// Cargar TODOS los catálogos BIMSA y Gobierno de una sola vez
+// Cargar TODOS los catálogos oficiales pre-cargados de una sola vez
 export async function installAllPresets() {
   const manifest = await getPresetCatalogManifest();
   if (!manifest || manifest.length === 0) {
