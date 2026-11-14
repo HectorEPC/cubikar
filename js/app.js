@@ -64,10 +64,10 @@ import { getFactorSobrecosto, updateSobrecostoBadge, updateGrandTotal } from './
 import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalRealtimeSync, requestPeerSync } from './core/realtimeSync.js';
 import { hydrateProjectModulesFromCloud } from './core/cloudModulesSyncService.js';
 import { syncPendingMediaUploads } from './services/s3StorageService.js';
-import { initAuthListener, hasPendingIncomingSsoSession, hydrateIncomingSsoSession, isSsoHydrationPending } from './core/authService.js';
+import { initAuthListener, hasPendingIncomingSsoSession, hydrateIncomingSsoSession, isSsoHydrationPending } from './core/authService.js?v=20261114_07';
 import { isRecentInternalCloudAuthUpdate } from './core/collaborationCloudService.js';
 import { getCurrentUser } from './modules/portal/projectService.js';
-import { initAppSwitcher } from './ui/appSwitcher.js';
+import { initAppSwitcher } from './ui/appSwitcher.js?v=20261114_07';
 
 import {
   renderExpensesView,
@@ -597,7 +597,7 @@ import {
   resetFilters,
   exportProjectToExcelAction,
   logoutAllDevices
-} from './modules/portal/portalController.js';
+} from './modules/portal/portalController.js?v=20261114_07';
 
 import {
   openCubikarAdminModal,

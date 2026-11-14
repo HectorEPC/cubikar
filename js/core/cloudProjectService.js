@@ -4,7 +4,7 @@
 
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
 import { getCurrentUser, saveCurrentUser } from '../modules/portal/projectService.js';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261114_07';
 import { showToast } from '../ui/notifications.js';
 
 export function isValidUUID(str) {
