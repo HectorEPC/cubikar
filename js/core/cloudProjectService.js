@@ -4,7 +4,7 @@
 
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
 import { getCurrentUser, saveCurrentUser } from '../modules/portal/projectService.js';
-import { fetchUserProfile } from './authService.js';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js';
 import { showToast } from '../ui/notifications.js';
 
 export function isValidUUID(str) {
@@ -90,13 +90,21 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
     try {
       const { data: { session } } = await sb.auth.getSession();
       if (session?.user) {
+        const existingLocal = user;
         const perfil = await fetchUserProfile(session.user.id);
+        const resolvedName = resolveUserDisplayName({ perfil, authUser: session.user, existingUser: existingLocal });
+        const resolvedRole = perfil?.rol || existingLocal?.role || 'admin';
+        const resolvedAvatar = perfil?.avatar_url || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || existingLocal?.avatar || buildFallbackAvatarSvg(resolvedName, session.user.email);
         user = {
+          ...(existingLocal || {}),
           id: session.user.id,
-          empresaId: perfil?.empresa_id || null,
-          name: perfil?.nombre_completo || session.user.user_metadata?.full_name || session.user.email,
+          empresaId: perfil?.empresa_id || existingLocal?.empresaId || null,
+          name: resolvedName,
           email: session.user.email,
-          avatar: perfil?.avatar_url || ''
+          avatar: resolvedAvatar,
+          role: resolvedRole,
+          roleLabel: resolveUserRoleLabel({ roleLabel: existingLocal?.roleLabel, role: resolvedRole, isAuthenticated: true }),
+          user_metadata: session.user.user_metadata ? { ...session.user.user_metadata } : (existingLocal?.user_metadata || {})
         };
         saveCurrentUser(user);
       }
