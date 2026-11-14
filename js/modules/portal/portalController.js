@@ -3698,6 +3698,24 @@ export function updatePortalHeaderUserArea(user) {
             </span>
             <span id="portal-dropdown-user-plan-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Gratuita</span>
           </button>
+          <div class="h-px bg-slate-800 my-1"></div>
+          <div class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Ecosistema Cubikar</div>
+          <a href="${typeof window !== 'undefined' && window.location.hostname.includes('cubikar.com') ? 'https://arq.cubikar.com' : '../ADM_ARQ/index.html'}" 
+             class="w-full text-left px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 font-semibold flex items-center justify-between gap-2 transition cursor-pointer border border-blue-500/20">
+            <span class="flex items-center gap-2">
+              <i class="fa-solid fa-compass-drafting text-blue-400 text-xs"></i>
+              <span>Cubikar Arquitectura</span>
+            </span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-blue-400"></i>
+          </a>
+          <a href="${typeof window !== 'undefined' && window.location.hostname.includes('cubikar.com') ? 'https://cubikar.com' : '../Cubukar/index.html'}" 
+             class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-between gap-2 transition cursor-pointer">
+            <span class="flex items-center gap-2">
+              <i class="fa-solid fa-globe text-slate-400 text-xs"></i>
+              <span>Portal Central (cubikar.com)</span>
+            </span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-500"></i>
+          </a>
           <button type="button" onclick="closePortalUserDropdown(); showPortalView('login')" 
                   class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-2 transition cursor-pointer">
             <i class="fa-solid fa-right-to-bracket text-blue-400 text-xs"></i>

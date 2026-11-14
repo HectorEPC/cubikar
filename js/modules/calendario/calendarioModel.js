@@ -3,7 +3,7 @@
 // Sincronizado 100% con state.treeData del Catálogo Base
 
 import { state, persistLocalData } from '../../state/store.js';
-import { getActiveProjectId, getStorageKey } from '../../config/constants.js';
+import { getActiveProjectId, getStorageKey, STORAGE_KEY_PROJECTS } from '../../config/constants.js';
 import { getHierarchyColor } from '../../core/colors.js';
 import { scheduleCronogramaCloudSync } from '../../core/cloudModulesSyncService.js';
 
@@ -66,10 +66,30 @@ export function diffDays(d1, d2) {
   return Math.round((ms2 - ms1) / (1000 * 60 * 60 * 24));
 }
 
+// Obtener la fecha de creación del proyecto actual (o fallback a hoy)
+export function getProjectCreationDate() {
+  try {
+    const activeId = getActiveProjectId();
+    const raw = localStorage.getItem(STORAGE_KEY_PROJECTS);
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        const found = list.find(p => p.id === activeId);
+        if (found && found.createdAt) {
+          const dtStr = String(found.createdAt).slice(0, 10);
+          if (dtStr && dtStr.length === 10) return dtStr;
+        }
+      }
+    }
+  } catch (e) {}
+  return formatDate(new Date());
+}
+
 // Configuración persistente del calendario por proyecto
 export function getScheduleSettings() {
+  const projectCreation = getProjectCreationDate();
   const defaults = {
-    startDate: '2026-05-01',
+    startDate: projectCreation,
     currentDate: 'auto', // 'auto' (hoy real diario) o fecha específica 'YYYY-MM-DD'
     scale: 'dias',       // 'dias' | 'semanas' | 'meses'
     viewMode: 'gantt',    // 'gantt' | 'financiero' | 'curva_s'
@@ -86,7 +106,12 @@ export function getScheduleSettings() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
-        return Object.assign({}, defaults, parsed);
+        const merged = Object.assign({}, defaults, parsed);
+        // Si el valor guardado es el antiguo fallback por defecto ('2026-05-01'), actualizar a la fecha de creación del proyecto
+        if (merged.startDate === '2026-05-01' && projectCreation !== '2026-05-01') {
+          merged.startDate = projectCreation;
+        }
+        return merged;
       }
     }
   } catch (e) {}
@@ -600,7 +625,7 @@ export function recalculateScheduleCPM(items, options = {}) {
     } else {
       c.minAllowedStartDate = '';
       c.blockingClaves = [];
-      const sDt = parseDate(c.node.schedule.startDate || cfg.startDate || '2026-05-01');
+      const sDt = parseDate(c.node.schedule.startDate || cfg.startDate || getProjectCreationDate());
       const eDt = addDays(sDt, dur - 1);
       c.node.schedule.startDate = formatDate(sDt);
       c.node.schedule.endDate = formatDate(eDt);
@@ -625,7 +650,7 @@ export function recalculateScheduleCPM(items, options = {}) {
       projectMaxEndDt = eDt;
     }
   });
-  if (!projectMaxEndDt) projectMaxEndDt = parseDate(cfg.startDate || '2026-05-01');
+  if (!projectMaxEndDt) projectMaxEndDt = parseDate(cfg.startDate || getProjectCreationDate());
 
   const succMap = new Map();
   concepts.forEach(c => succMap.set(String(c.id), []));
@@ -705,8 +730,9 @@ export function recalculateScheduleCPM(items, options = {}) {
 }
 
 // Asegurar fechas iniciales lógicas en los conceptos si aún no tienen y recalcular CPM
-export function ensureInitialDates(items, projectStartDateStr = '2026-05-01') {
-  let currDate = parseDate(projectStartDateStr);
+export function ensureInitialDates(items, projectStartDateStr = null) {
+  const effectiveStart = projectStartDateStr || getScheduleSettings()?.startDate || getProjectCreationDate();
+  let currDate = parseDate(effectiveStart);
   let conceptIndex = 0;
 
   items.forEach(item => {
@@ -872,7 +898,7 @@ export function generateTimePeriods(items, scale = 'meses', customStart = null) 
     }
   });
 
-  if (!minDate) minDate = parseDate('2026-05-01');
+  if (!minDate) minDate = parseDate(getScheduleSettings()?.startDate || getProjectCreationDate());
   if (!maxDate || maxDate <= minDate) maxDate = addDays(minDate, 180);
 
   const periods = [];
@@ -1586,7 +1612,7 @@ export function applyScheduleProposalToModel(proposalTasks = [], projectStartDat
     ? Boolean(options.respectWorkdays)
     : (cfg.respectWorkdays !== false);
   const workdaysCfg = getWorkdaysSettings();
-  const baseStartStr = projectStartDateStr || cfg.startDate || '2026-05-01';
+  const baseStartStr = projectStartDateStr || cfg.startDate || getProjectCreationDate();
   const baseStartDt = getNextWorkingDate(baseStartStr, workdaysCfg, respectWorkdays);
 
   if (options.respectWorkdays !== undefined) {
@@ -1737,12 +1763,13 @@ export function updateConceptPeriodInModel(conceptId, periodKey, field, value, p
 }
 
 // Re-distribución automática de todo el calendario
-export function autoDistributeAllSchedule(projectStartDateStr = '2026-05-01', options = {}) {
+export function autoDistributeAllSchedule(projectStartDateStr = null, options = {}) {
+  const effectiveStart = projectStartDateStr || getScheduleSettings()?.startDate || getProjectCreationDate();
   if (!options.skipUndo) {
     saveScheduleUndoSnapshot('Auto-programación secuencial');
   }
   const items = extractScheduleItems(state.treeData);
-  let curr = parseDate(projectStartDateStr);
+  let curr = parseDate(effectiveStart);
 
   items.forEach(item => {
     if (item.tipo === 'concepto') {

@@ -20,7 +20,8 @@ import {
   addDays,
   getGanttTodayDate,
   getWorkdaysSettings,
-  getDateWorkdayInfo
+  getDateWorkdayInfo,
+  getProjectCreationDate
 } from '../calendario/calendarioModel.js';
 import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js';
 import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js';
@@ -1841,7 +1842,7 @@ function buildFinancialPrintHtml({
     }
   });
 
-  if (!minDate) minDate = parseDate(cfg.startDate || '2026-05-01');
+  if (!minDate) minDate = parseDate(cfg.startDate || getProjectCreationDate());
   if (!maxDate || maxDate <= minDate) maxDate = addDays(minDate, 180);
 
   const minDateStr = formatDate(minDate);
@@ -2291,7 +2292,7 @@ function buildCurvaSPrintHtml({
     }
   });
 
-  if (!minDate) minDate = parseDate(cfg.startDate || '2026-05-01');
+  if (!minDate) minDate = parseDate(cfg.startDate || getProjectCreationDate());
   if (!maxDate || maxDate <= minDate) maxDate = addDays(minDate, 180);
 
   const minDateStr = formatDate(minDate);
@@ -2663,7 +2664,7 @@ export function printCalendarioObraFormat() {
     }
   });
 
-  if (!minDate) minDate = parseDate(cfg.startDate || '2026-05-01');
+  if (!minDate) minDate = parseDate(cfg.startDate || getProjectCreationDate());
   if (!maxDate || maxDate < minDate) maxDate = addDays(minDate, 30);
 
   const cleanProjectName = projectName.replace(/[^a-zA-Z0-9_\-]/g, '_');

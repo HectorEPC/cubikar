@@ -39,6 +39,7 @@ import {
   getDateWorkdayInfo,
   calculateWorkdaysSummary,
   getMexicanHolidaysForYear,
+  getProjectCreationDate,
   wouldCreateScheduleCycle,
   setConceptPredecessorsInModel,
   toggleConceptPredecessorInModel,
@@ -164,7 +165,7 @@ export function renderCalendarioObra() {
     }
   });
 
-  if (!minDate) minDate = parseDate(cfg.startDate || '2026-05-01');
+  if (!minDate) minDate = parseDate(cfg.startDate || getProjectCreationDate());
   if (!maxDate || maxDate <= minDate) maxDate = addDays(minDate, 180);
 
   const totalDias = Math.max(1, diffDays(minDate, maxDate) + 1);
@@ -432,7 +433,7 @@ function renderActiveCalendarioView(mode, items, periods, scheduleData, currency
 // 1. VISTA DIAGRAMA DE GANTT (ESTILO EJECUTIVO)
 // ==========================================
 function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDate) {
-  if (!minDate) minDate = parseDate('2026-05-01');
+  if (!minDate) minDate = parseDate(getScheduleSettings()?.startDate || getProjectCreationDate());
   if (!maxDate || maxDate <= minDate) maxDate = addDays(minDate, 180);
 
   const cfg = getScheduleSettings();
@@ -1925,7 +1926,7 @@ export function initGanttBarDrag() {
       if (!maxDate || e > maxDate) maxDate = e;
     }
   });
-  if (!minDate) minDate = parseDate(cfg.startDate || '2026-05-01');
+  if (!minDate) minDate = parseDate(cfg.startDate || getProjectCreationDate());
   if (!maxDate || maxDate <= minDate) maxDate = addDays(minDate, 180);
 
   const scaleData = generateGanttTimeScale(minDate, maxDate, cfg.scale, cfg.dayWidth);
@@ -2433,7 +2434,7 @@ export function fitGanttTimelineEntireProject() {
       if (!maxDate || e > maxDate) maxDate = e;
     }
   });
-  if (!minDate) minDate = parseDate(cfg.startDate || '2026-05-01');
+  if (!minDate) minDate = parseDate(cfg.startDate || getProjectCreationDate());
   if (!maxDate || maxDate <= minDate) maxDate = addDays(minDate, 180);
 
   const scaleData = generateGanttTimeScale(minDate, maxDate, cfg.scale, 34);
@@ -2474,7 +2475,7 @@ export function initGanttTodayLineDrag() {
       if (!maxDate || e > maxDate) maxDate = e;
     }
   });
-  if (!minDate) minDate = parseDate(cfg.startDate || '2026-05-01');
+  if (!minDate) minDate = parseDate(cfg.startDate || getProjectCreationDate());
   if (!maxDate || maxDate <= minDate) maxDate = addDays(minDate, 180);
 
   const scaleData = generateGanttTimeScale(minDate, maxDate, cfg.scale, cfg.dayWidth);
@@ -2774,7 +2775,7 @@ export function initCurvaSTodayLineDrag() {
       if (!maxDate || e > maxDate) maxDate = e;
     }
   });
-  if (!minDate) minDate = parseDate(cfg.startDate || '2026-05-01');
+  if (!minDate) minDate = parseDate(cfg.startDate || getProjectCreationDate());
   if (!maxDate || maxDate <= minDate) maxDate = addDays(minDate, 180);
 
   const periods = generateTimePeriods(rawItems, cfg.scale, minDate ? formatDate(minDate) : cfg.startDate);
@@ -2955,7 +2956,7 @@ export function openCalendarioJornadaModal() {
       if (!maxDate || e > maxDate) maxDate = e;
     }
   });
-  if (!minDate) minDate = parseDate(cfg.startDate || '2026-05-01');
+  if (!minDate) minDate = parseDate(cfg.startDate || getProjectCreationDate());
   if (!maxDate || maxDate <= minDate) maxDate = addDays(minDate, 180);
   const totalDias = Math.max(1, diffDays(minDate, maxDate) + 1);
 
@@ -3298,7 +3299,7 @@ export function updateJornadaModalSummary() {
       if (!maxDate || e > maxDate) maxDate = e;
     }
   });
-  if (!minDate) minDate = parseDate(cfg.startDate || '2026-05-01');
+  if (!minDate) minDate = parseDate(cfg.startDate || getProjectCreationDate());
   if (!maxDate || maxDate <= minDate) maxDate = addDays(minDate, 180);
 
   const summary = calculateWorkdaysSummary(minDate, maxDate, currentJornadaModalConfig);
@@ -3712,7 +3713,7 @@ function readAiModalOptions() {
     targetDays: parseInt(tdEl?.value, 10) || 0,
     respectWorkdays: rwEl ? Boolean(rwEl.checked) : (cfg.respectWorkdays !== false),
     apiKey: akEl?.value || state.settings?.apiKey || '',
-    startDate: cfg.startDate || '2026-05-01'
+    startDate: cfg.startDate || getProjectCreationDate()
   };
 }
 

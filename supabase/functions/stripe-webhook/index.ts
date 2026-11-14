@@ -40,16 +40,37 @@ serve(async (req) => {
 
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          const plan = subscription.metadata.plan || "plus";
+          const plan = subscription.metadata?.plan || "plus";
+          const producto = subscription.metadata?.producto || "const"; // 'const' | 'arq' | 'combo'
+          const periodoFin = new Date(subscription.current_period_end * 1000).toISOString();
+
+          const updatePayload: Record<string, any> = {
+            stripe_subscription_id: subscriptionId,
+            plan: plan,
+            estado_suscripcion: "active",
+            periodo_fin: periodoFin,
+          };
+
+          if (producto === "arq") {
+            updatePayload.acceso_arq = true;
+            updatePayload.plan_arq = plan;
+            updatePayload.periodo_fin_arq = periodoFin;
+          } else if (producto === "const") {
+            updatePayload.acceso_const = true;
+            updatePayload.plan_const = plan;
+            updatePayload.periodo_fin_const = periodoFin;
+          } else if (producto === "combo") {
+            updatePayload.acceso_arq = true;
+            updatePayload.plan_arq = plan;
+            updatePayload.periodo_fin_arq = periodoFin;
+            updatePayload.acceso_const = true;
+            updatePayload.plan_const = plan;
+            updatePayload.periodo_fin_const = periodoFin;
+          }
 
           await supabaseAdmin
             .from("empresas")
-            .update({
-              stripe_subscription_id: subscriptionId,
-              plan: plan,
-              estado_suscripcion: "active",
-              periodo_fin: new Date(subscription.current_period_end * 1000).toISOString(),
-            })
+            .update(updatePayload)
             .eq("stripe_customer_id", customerId);
         }
         break;
@@ -60,13 +81,19 @@ serve(async (req) => {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
         const status = subscription.status === "active" ? "active" : subscription.status;
-        const plan = subscription.metadata.plan;
+        const plan = subscription.metadata?.plan;
+        const producto = subscription.metadata?.producto || "const";
+        const periodoFin = new Date(subscription.current_period_end * 1000).toISOString();
 
         const updatePayload: Record<string, any> = {
           estado_suscripcion: status,
-          periodo_fin: new Date(subscription.current_period_end * 1000).toISOString(),
+          periodo_fin: periodoFin,
         };
-        if (plan) updatePayload.plan = plan;
+        if (plan) {
+          updatePayload.plan = plan;
+          if (producto === "arq" || producto === "combo") updatePayload.plan_arq = plan;
+          if (producto === "const" || producto === "combo") updatePayload.plan_const = plan;
+        }
 
         await supabaseAdmin
           .from("empresas")
@@ -80,14 +107,30 @@ serve(async (req) => {
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
+        const producto = subscription.metadata?.producto || "const";
+
+        const updatePayload: Record<string, any> = {
+          estado_suscripcion: "canceled",
+          stripe_subscription_id: null,
+        };
+
+        if (producto === "arq") {
+          updatePayload.acceso_arq = false;
+          updatePayload.plan_arq = "free";
+        } else if (producto === "const") {
+          updatePayload.acceso_const = false;
+          updatePayload.plan_const = "free";
+        } else if (producto === "combo") {
+          updatePayload.acceso_arq = false;
+          updatePayload.plan_arq = "free";
+          updatePayload.acceso_const = false;
+          updatePayload.plan_const = "free";
+          updatePayload.plan = "free";
+        }
 
         await supabaseAdmin
           .from("empresas")
-          .update({
-            plan: "free",
-            estado_suscripcion: "canceled",
-            stripe_subscription_id: null,
-          })
+          .update(updatePayload)
           .eq("stripe_customer_id", customerId);
 
         break;
