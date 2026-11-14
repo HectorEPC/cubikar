@@ -734,18 +734,7 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
         }
       };
 
-      if (isUserAdmin(email) && !returnProjectId) {
-        showAdminDualLoginModal(
-          localAccount,
-          () => proceedSb(),
-          () => {
-            proceedSb();
-            openCubikarAdminModal();
-          }
-        );
-      } else {
-        proceedSb();
-      }
+      proceedSb();
       return;
     } catch (err) {
       console.warn('[Registro Supabase] Error:', err);
@@ -865,18 +854,7 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
         }
       };
 
-      if (isUserAdmin(email) && !returnProjectId) {
-        showAdminDualLoginModal(
-          loggedUser,
-          () => proceedSb(),
-          () => {
-            proceedSb();
-            openCubikarAdminModal();
-          }
-        );
-      } else {
-        proceedSb();
-      }
+      proceedSb();
       return;
     } catch (err) {
       console.warn('[Login Supabase] Error:', err);
@@ -915,18 +893,7 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
       }
     };
 
-    if (isUserAdmin(cleanEmail) && !returnProjectId) {
-      showAdminDualLoginModal(
-        savedUser,
-        () => proceedSaved(),
-        () => {
-          proceedSaved();
-          openCubikarAdminModal();
-        }
-      );
-    } else {
-      proceedSaved();
-    }
+    proceedSaved();
   } else {
     // Si no existe la cuenta ni localmente ni en nube
     showToast('No se encontró una cuenta con ese correo. Por favor regístrate.', 'error');
@@ -1091,18 +1058,7 @@ export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
       }
     };
 
-    if (isUserAdmin(cleanEmail) && !returnProjectId) {
-      showAdminDualLoginModal(
-        user,
-        () => proceedNormal(),
-        () => {
-          proceedNormal();
-          openCubikarAdminModal();
-        }
-      );
-    } else {
-      proceedNormal();
-    }
+    proceedNormal();
   } else {
     showToast('No se encontró el perfil seleccionado.', 'error');
   }
@@ -1194,18 +1150,7 @@ async function handleGoogleLoginSuccess(result, returnProjectId = null) {
     }
   };
 
-  if (cleanEmail && isUserAdmin(cleanEmail) && !returnProjectId) {
-    showAdminDualLoginModal(
-      activeUser,
-      () => proceedNormal(),
-      () => {
-        proceedNormal();
-        openCubikarAdminModal();
-      }
-    );
-  } else {
-    proceedNormal();
-  }
+  proceedNormal();
 }
 
 export async function mountPortalGoogleButton(returnProjectId = null, forceRefresh = false) {
