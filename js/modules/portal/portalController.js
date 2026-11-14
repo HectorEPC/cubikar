@@ -3635,11 +3635,13 @@ export async function logoutUser(skipConfirm = false) {
   renderSidebarNotificationsUI();
   showToast('Has cerrado sesión exitosamente.');
 
-  if (window.location.search) {
-    window.location.href = window.location.pathname;
-  } else {
-    showPortalView('login');
-  }
+  const isLocalhost = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' ||
+    window.location.protocol === 'file:'
+  );
+  const portalUrl = isLocalhost ? '../Cubikar/index.html?logout=1' : 'https://cubikar.app?logout=1';
+  window.location.href = portalUrl;
 }
 
 // Cerrar sesión en absolutamente todas las computadoras y navegadores
