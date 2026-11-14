@@ -71,7 +71,7 @@ import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/proje
 import {
   signUp,
   signInWithPassword,
-  signInWithGoogle,
+  mountGoogleSignInButton,
   signOut,
   resetPasswordForEmail,
   fetchUserProfile
@@ -275,9 +275,10 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans">cubikar<span class="text-rose-500 font-black">.</span></h1>
       </div>
 
-      <!-- Botón Rápido: Registrarse / Conectar con Gmail -->
+      <!-- Botón Rápido: Registrarse / Conectar con Gmail (Google Identity Services) -->
       <div class="px-6 sm:px-8 pt-5 pb-1">
-        <button type="button" onclick="triggerGoogleSignIn()" class="w-full bg-white hover:bg-slate-50 active:scale-98 text-slate-800 border-2 border-slate-200 hover:border-slate-300 font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition flex items-center justify-center gap-2.5 group cursor-pointer">
+        <div id="google-signin-gsi-slot" class="w-full min-h-[42px] flex items-center justify-center"></div>
+        <button id="google-signin-fallback-btn" type="button" onclick="triggerGoogleSignIn()" class="w-full bg-white hover:bg-slate-50 active:scale-98 text-slate-800 border-2 border-slate-200 hover:border-slate-300 font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition flex items-center justify-center gap-2.5 group cursor-pointer">
           <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -553,6 +554,8 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
 
     </div>
   `;
+
+  mountPortalGoogleButton(returnProjectId, true);
 }
 
 // Cambiar entre Iniciar Sesión y Registrarse
@@ -1149,8 +1152,72 @@ export function purgeAllUsersAndAccountsAction() {
 }
 
 // ==========================================
-// CONECTOR GOOGLE / GMAIL AUTO-FILL
+// CONECTOR GOOGLE / GMAIL (GOOGLE IDENTITY SERVICES)
 // ==========================================
+let activePortalReturnProjectId = null;
+
+async function handleGoogleLoginSuccess(result, returnProjectId = null) {
+  const activeUser = result?.localUser || getCurrentUser();
+  const cleanEmail = (activeUser?.email || result?.user?.email || '').toLowerCase().trim();
+  currentScopeFilter = 'owned';
+
+  if (cleanEmail) {
+    setActiveWorkspaceData(cleanEmail, activeUser?.name || cleanEmail);
+  }
+  updateSubscriptionBadgesUI();
+  if (activeUser) {
+    updatePortalHeaderUserArea(activeUser);
+    updateWorkspaceHeaderUser(activeUser);
+    addFeaturedProfile(activeUser);
+    markSessionOpen(activeUser.email);
+  }
+  showToast(`Sesión iniciada con Google como ${activeUser?.name || cleanEmail || 'usuario'}`, 'success');
+
+  const proceedNormal = () => {
+    if (returnProjectId) {
+      openProjectInWorkspace(returnProjectId);
+    } else {
+      setActiveProjectId(null);
+      showPortalView('dashboard');
+      renderSidebarNotificationsUI();
+    }
+  };
+
+  if (cleanEmail && isUserAdmin(cleanEmail) && !returnProjectId) {
+    showAdminDualLoginModal(
+      activeUser,
+      () => proceedNormal(),
+      () => {
+        proceedNormal();
+        openCubikarAdminModal();
+      }
+    );
+  } else {
+    proceedNormal();
+  }
+}
+
+export async function mountPortalGoogleButton(returnProjectId = null, forceRefresh = false) {
+  activePortalReturnProjectId = returnProjectId || null;
+  if (!isSupabaseConfigured()) return false;
+
+  const container = document.getElementById('google-signin-gsi-slot');
+  const fallbackBtn = document.getElementById('google-signin-fallback-btn');
+  if (!container) return false;
+
+  return mountGoogleSignInButton({
+    container,
+    fallbackBtn,
+    forceRefresh,
+    onStart: () => showToast('Validando acceso con Google...', 'info'),
+    onSuccess: (result) => handleGoogleLoginSuccess(result, returnProjectId),
+    onError: (err) => {
+      console.error('Error al iniciar sesión con Google GIS:', err);
+      showToast('Error al conectar con Google: ' + (err?.message || 'Intente de nuevo'), 'error');
+    }
+  });
+}
+
 export async function triggerGoogleSignIn() {
   if (!isSupabaseConfigured()) {
     showToast('Supabase no está configurado para autenticación con Google.', 'error');
@@ -1158,11 +1225,16 @@ export async function triggerGoogleSignIn() {
   }
 
   try {
-    showToast('Conectando con Google...', 'info');
-    await signInWithGoogle();
+    showToast('Cargando botón seguro de Google...', 'info');
+    const mounted = await mountPortalGoogleButton(activePortalReturnProjectId, true);
+    if (mounted) {
+      showToast('Botón oficial de Google listo. Haz clic para continuar.', 'info');
+    } else {
+      showToast('No se pudo cargar Google Sign-In. Verifica tu conexión o bloqueadores para accounts.google.com.', 'error');
+    }
   } catch (err) {
-    console.error('Error al conectar con Google OAuth:', err);
-    showToast('Error al conectar con Google: ' + (err.message || 'Intente de nuevo'), 'error');
+    console.error('Error al cargar Google Sign-In:', err);
+    showToast('Error al cargar Google Sign-In: ' + (err?.message || 'Intente de nuevo'), 'error');
   }
 }
 
