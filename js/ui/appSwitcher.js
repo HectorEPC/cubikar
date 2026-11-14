@@ -9,9 +9,9 @@ export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', curr
 
   // URLs de destino según entorno
   const urls = {
-    portal: isLocalhost ? (currentApp === 'portal' ? '#' : '../Cubikar/index.html') : 'https://cubikar.com',
-    const: isLocalhost ? (currentApp === 'const' ? '#' : '../ADM_CONST/index.html') : 'https://const.cubikar.com',
-    arq: isLocalhost ? (currentApp === 'arq' ? '#' : '../ADM_ARQ/index.html') : 'https://arq.cubikar.com'
+    portal: isLocalhost ? (currentApp === 'portal' ? '#' : '../Cubikar/index.html') : 'https://cubikar.app',
+    const: isLocalhost ? (currentApp === 'const' ? '#' : '../ADM_CONST/index.html') : 'https://const.cubikar.app',
+    arq: isLocalhost ? (currentApp === 'arq' ? '#' : '../ADM_ARQ/index.html') : 'https://arq.cubikar.app'
   };
 
   mount.innerHTML = `
