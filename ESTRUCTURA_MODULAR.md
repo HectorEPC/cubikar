@@ -51,17 +51,17 @@ A partir de ahora, cuando quieras que agreguemos o cambiemos algo, cada cosa est
 
 ### 8. 🤖 Inteligencia Artificial y Cotización
 * `js/modules/ai/geminiClient.js`: Conexión con Gemini 3.8 Flash y Google Search Grounding en tiempo real.
-* `js/modules/ai/localEstimator.js`: Generador de matrices APU usando los Catálogos Locales Importados (BIMSA / Gobierno en IndexedDB). Analiza el concepto, extrae palabras clave, localiza materiales, cuadrillas de mano de obra y equipo reales en la base de datos local y construye la matriz con claves y costos de referencia oficiales.
+* `js/modules/ai/localEstimator.js`: Generador de matrices APU usando los Catálogos Locales Importados (Oficiales / Gobierno en IndexedDB). Analiza el concepto, extrae palabras clave, localiza materiales, cuadrillas de mano de obra y equipo reales en la base de datos local y construye la matriz con claves y costos de referencia oficiales.
 
 ### 9. 💾 Archivos, Importación y Catálogos de Referencia
-* `js/modules/io/universalImporter.js`: Importador universal compatible con Excel (.xlsx, .xls BIMSA), CSV y JSON. Detección automática de columnas, vista previa de registros, selector de hojas y selector de destino (Catálogo Maestro vs Presupuesto Activo).
-* `js/modules/reference/referenceDb.js`: Motor de base de datos local IndexedDB (`APU_REFERENCE_DB`) para almacenar cientos de miles de registros de referencia (BIMSA, Gobierno) con búsquedas instantáneas y sin límite de 5MB.
-* `js/modules/reference/presetCatalogs.js`: Instalador y gestor de la biblioteca de 61,000+ conceptos e insumos de BIMSA 2018 (6 especialidades de Opus) y Tabulador Oficial de Gobierno en 1 clic.
-* `js/modules/reference/masterCatalogModal.js`: Buscador y explorador del Catálogo Maestro de Referencia (Opción 1), con filtros por rubro y catálogo, pestaña de instalación en 1 clic de BIMSA/Gobierno, inserción al presupuesto con 1 clic y administración/eliminación de catálogos.
+* `js/modules/io/universalImporter.js`: Importador universal compatible con Excel (.xlsx, .xls), CSV y JSON. Detección automática de columnas, vista previa de registros, selector de hojas y selector de destino (Catálogo Maestro vs Presupuesto Activo).
+* `js/modules/reference/referenceDb.js`: Motor de base de datos local IndexedDB (`APU_REFERENCE_DB`) para almacenar cientos de miles de registros de referencia (Oficiales, Gobierno) con búsquedas instantáneas y sin límite de 5MB.
+* `js/modules/reference/presetCatalogs.js`: Instalador y gestor de la biblioteca de 61,000+ conceptos e insumos de Catálogos Oficiales (6 especialidades de Opus/Neodata) y Tabulador Oficial de Gobierno en 1 clic.
+* `js/modules/reference/masterCatalogModal.js`: Buscador y explorador del Catálogo Maestro de Referencia (Opción 1), con filtros por rubro y catálogo, pestaña de instalación en 1 clic de Catálogos Oficiales/Gobierno, inserción al presupuesto con 1 clic y administración/eliminación de catálogos.
 * `js/modules/reference/apuAssistantModal.js`: Asistente de insumos para la matriz de precios unitarios (Opción 2), con búsqueda por categoría (Material, M. Obra, Equipo) e inserción directa con rendimiento a la matriz activa.
 * `js/modules/io/csvHandler.js`: Exportación del presupuesto de obra activo a CSV.
 * `js/vendor/xlsx.full.min.js`: Librería local SheetJS para procesar hojas de cálculo 100% offline en el navegador.
-* `data/`: Paquetes maestros estructurados y optimizados de BIMSA 2018 (Edificación, Instalaciones, Infraestructura, Industrial, HVAC) y Gobierno 2022.
+* `data/`: Paquetes maestros estructurados y optimizados de Catálogos Oficiales (Edificación, Instalaciones, Infraestructura, Industrial, HVAC) y Gobierno 2022.
 
 ### 10. 🖥️ Interfaz de Usuario
 * `js/ui/resizer.js`: Barra vertical arrastrable para agrandar o reducir el panel de matrices e insumos.
