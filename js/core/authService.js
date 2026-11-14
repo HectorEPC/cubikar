@@ -9,11 +9,12 @@ import {
   writeSharedSsoCookie,
   clearSharedSsoCookie,
   readSharedSsoCookie,
+  readLocalSupabaseTokens,
   extractIncomingSsoFromHash,
   scrubSsoHashParams,
   hasPendingIncomingSso,
   getLastSignOutTimestamp
-} from './ssoHelper.js?v=20261114_08';
+} from './ssoHelper.js?v=20261114_11';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -64,17 +65,48 @@ export function clearLocalSupabaseTokens() {
 }
 
 function hasValidLocalSessionForEmail(email) {
-  const current = getCurrentUser();
-  if (!current) return false;
   const cleanEmail = (email || '').toLowerCase().trim();
-  const currentEmail = (current.email || '').toLowerCase().trim();
-  if (cleanEmail && currentEmail && cleanEmail !== currentEmail) {
-    return false;
+  const current = getCurrentUser();
+  if (current) {
+    const currentEmail = (current.email || '').toLowerCase().trim();
+    if (cleanEmail && currentEmail && cleanEmail !== currentEmail) {
+      return false;
+    }
   }
-  const isDeviceRemembered = typeof localStorage !== 'undefined' && localStorage.getItem('cubikar_remember_device') === 'true';
-  const hasTabSession = typeof sessionStorage !== 'undefined' && !!sessionStorage.getItem(STORAGE_KEY_USER);
-  const hasPersistedUser = typeof localStorage !== 'undefined' && !!localStorage.getItem(STORAGE_KEY_USER) && isDeviceRemembered;
-  return hasTabSession || hasPersistedUser;
+
+  // 1. Sesión activa en pestaña actual
+  if (typeof sessionStorage !== 'undefined' && !!sessionStorage.getItem(STORAGE_KEY_USER)) {
+    return true;
+  }
+
+  // 2. Sesión recordada en localStorage
+  const isDeviceRemembered = typeof localStorage !== 'undefined' && localStorage.getItem('cubikar_remember_device') !== 'false';
+  if (typeof localStorage !== 'undefined' && !!localStorage.getItem(STORAGE_KEY_USER) && isDeviceRemembered) {
+    return true;
+  }
+
+  // 3. Tokens SSO compartidos válidos de .cubikar.app (no revocados por sign out posterior)
+  const cookieTokens = readSharedSsoCookie();
+  const lastSignOutTs = getLastSignOutTimestamp();
+  if (cookieTokens?.refreshToken) {
+    const isRevokedBySignout = lastSignOutTs > 0 && cookieTokens.ts > 0 && cookieTokens.ts <= lastSignOutTs;
+    const isEmailMatching = !cookieTokens.email || !cleanEmail || cookieTokens.email.toLowerCase().trim() === cleanEmail;
+    if (!isRevokedBySignout && isEmailMatching) {
+      return true;
+    }
+  }
+
+  // 4. Tokens locales de Supabase no revocados
+  const localTokens = readLocalSupabaseTokens();
+  if (localTokens?.refreshToken) {
+    const isRevokedBySignout = lastSignOutTs > 0 && localTokens.ts > 0 && localTokens.ts <= lastSignOutTs;
+    const isEmailMatching = !localTokens.email || !cleanEmail || localTokens.email.toLowerCase().trim() === cleanEmail;
+    if (!isRevokedBySignout && isEmailMatching) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function isPlaceholderUserName(name) {
@@ -764,18 +796,19 @@ export function initAuthListener(onAuthChangeCallback) {
       const isClosed = closedList.includes(email);
       const isOAuthRedirect = typeof window !== 'undefined' && (
         window.location.hash.includes('cubikar_sso_at=') ||
+        window.location.hash.includes('cubikar_sso_rt=') ||
         window.location.hash.includes('access_token') ||
         window.location.hash.includes('refresh_token') ||
         window.location.search.includes('code=')
       );
-      const isExplicitInteractive = explicitAuthDepth > 0 || isOAuthRedirect;
+      const isExplicitInteractive = explicitAuthDepth > 0 || isOAuthRedirect || ssoHydrationInProgress;
       const hasActiveLocal = hasValidLocalSessionForEmail(email);
 
       // Nunca auto-ingresar desde sesiones/tokens pasivos (INITIAL_SESSION, TOKEN_REFRESHED, SIGNED_IN)
       // si la sesión fue cerrada explícitamente o no existe una sesión local activa/recordada.
       if (isExplicitInteractive) {
         markSessionOpen(email);
-      } else if (isClosed || !hasActiveLocal) {
+      } else if (isClosed || (!hasActiveLocal && !hasPendingIncomingSso(false))) {
         console.info(`[Supabase Auth] Bloqueando auto-sesión pasiva (${event}) por sesión cerrada o sin persistencia en este equipo.`);
         clearCachedUserProfiles();
         clearLocalSupabaseTokens();

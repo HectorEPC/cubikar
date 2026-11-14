@@ -138,7 +138,7 @@ export function extractIncomingSsoFromHash() {
     const params = new URLSearchParams(rawHash);
     const accessToken = params.get(HASH_AT_KEY) || '';
     const refreshToken = params.get(HASH_RT_KEY) || '';
-    if (!accessToken || !refreshToken) return null;
+    if (!refreshToken) return null;
     const rememberParam = params.get(HASH_REMEMBER_KEY);
     return {
       accessToken,
@@ -186,17 +186,16 @@ export function hasPendingIncomingSso(hasLocalUser = false) {
 export function buildSsoTargetUrl(targetUrl, tokens, remember = true) {
   if (!targetUrl || targetUrl === '#') return targetUrl;
   const baseUrl = String(targetUrl).split('#')[0];
-  if (!tokens?.access_token && !tokens?.accessToken) return baseUrl;
-  const at = tokens.access_token || tokens.accessToken;
-  const rt = tokens.refresh_token || tokens.refreshToken;
-  if (!at || !rt) return baseUrl;
+  const at = tokens?.access_token || tokens?.accessToken || '';
+  const rt = tokens?.refresh_token || tokens?.refreshToken || '';
+  if (!rt) return baseUrl;
   const rememberFlag = remember === false ? '0' : '1';
-  const ssoHash = new URLSearchParams({
-    [HASH_AT_KEY]: at,
+  const params = new URLSearchParams({
     [HASH_RT_KEY]: rt,
     [HASH_REMEMBER_KEY]: rememberFlag
-  }).toString();
-  return `${baseUrl}#${ssoHash}`;
+  });
+  if (at) params.set(HASH_AT_KEY, at);
+  return `${baseUrl}#${params.toString()}`;
 }
 
 export function appendSsoToUrlFromStorage(targetUrl, remember = null) {
