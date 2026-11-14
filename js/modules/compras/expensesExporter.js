@@ -10,6 +10,7 @@ import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './exp
 import { getActiveProjectId } from '../../config/constants.js';
 import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js';
 import { resolveActivePrintBranding } from '../io/printBrandingService.js';
+import { isNightMode } from '../../ui/themeController.js';
 
 /**
  * Renderizar bloque dinámico de firmas configuradas para los reportes de Compras y Pagos
@@ -360,7 +361,8 @@ export function printSingleOrdenCompra(record) {
 /**
  * Renderizar el Tablero Resumen Financiero ERP en formato imprimible idéntico al Dashboard
  */
-export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
+export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNight = null) {
+  const isNight = customIsNight !== null ? customIsNight : isNightMode();
   const sem = kpis?.semaforo || { color: 'emerald', badgeText: 'Saludable / En Presupuesto', icon: 'fa-circle-check', description: '' };
   const isHealthy = sem.color === 'emerald';
   const isWarning = sem.color === 'amber';
@@ -376,14 +378,35 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
   const suppliers = getExpensesSuppliers() || [];
 
   const rubroMeta = {
-    'Material': { label: 'Materiales', color: '#06b6d4', grad: 'from-cyan-500 to-blue-500', icon: 'fa-box', textColor: 'text-cyan-400' },
-    'Mano de Obra': { label: 'Mano de Obra', color: '#a855f7', grad: 'from-purple-500 to-pink-500', icon: 'fa-user-group', textColor: 'text-purple-400' },
-    'Herramienta': { label: 'Herramienta', color: '#f59e0b', grad: 'from-amber-500 to-orange-500', icon: 'fa-screwdriver-wrench', textColor: 'text-amber-400' },
-    'Equipo': { label: 'Equipo / Fletes', color: '#6366f1', grad: 'from-indigo-500 to-blue-500', icon: 'fa-truck', textColor: 'text-indigo-400' },
-    'Maquinaria': { label: 'Maquinaria', color: '#ec4899', grad: 'from-pink-500 to-rose-500', icon: 'fa-tractor', textColor: 'text-rose-400' },
-    'Subcontrato': { label: 'Subcontratos', color: '#10b981', grad: 'from-emerald-500 to-teal-500', icon: 'fa-handshake', textColor: 'text-emerald-400' },
-    'Indirecto': { label: 'Indirectos', color: '#94a3b8', grad: 'from-slate-500 to-slate-600', icon: 'fa-file-lines', textColor: 'text-slate-400' }
+    'Material': { label: 'Materiales', color: '#06b6d4', grad: 'from-cyan-500 to-blue-500', icon: 'fa-box', textColor: isNight ? 'text-cyan-400' : 'text-cyan-700' },
+    'Mano de Obra': { label: 'Mano de Obra', color: '#a855f7', grad: 'from-purple-500 to-pink-500', icon: 'fa-user-group', textColor: isNight ? 'text-purple-400' : 'text-purple-700' },
+    'Herramienta': { label: 'Herramienta', color: '#f59e0b', grad: 'from-amber-500 to-orange-500', icon: 'fa-screwdriver-wrench', textColor: isNight ? 'text-amber-400' : 'text-amber-700' },
+    'Equipo': { label: 'Equipo / Fletes', color: '#6366f1', grad: 'from-indigo-500 to-blue-500', icon: 'fa-truck', textColor: isNight ? 'text-indigo-400' : 'text-indigo-700' },
+    'Maquinaria': { label: 'Maquinaria', color: '#ec4899', grad: 'from-pink-500 to-rose-500', icon: 'fa-tractor', textColor: isNight ? 'text-rose-400' : 'text-rose-700' },
+    'Subcontrato': { label: 'Subcontratos', color: '#10b981', grad: 'from-emerald-500 to-teal-500', icon: 'fa-handshake', textColor: isNight ? 'text-emerald-400' : 'text-emerald-700' },
+    'Indirecto': { label: 'Indirectos', color: '#64748b', grad: 'from-slate-500 to-slate-600', icon: 'fa-file-lines', textColor: isNight ? 'text-slate-400' : 'text-slate-700' }
   };
+
+  const containerClass = isNight
+    ? 'bg-[#0b1329] text-slate-100 border-slate-800 shadow-xl'
+    : 'bg-white text-slate-800 border-slate-200/90 shadow-none';
+
+  const cardClass = isNight
+    ? 'bg-[#121c38] border-slate-800'
+    : 'bg-slate-50/70 border-slate-200';
+
+  const panelClass = isNight
+    ? 'bg-[#121c38] border-slate-800'
+    : 'bg-white border-slate-200';
+
+  const subBoxClass = isNight
+    ? 'bg-[#0e162e] border-slate-800'
+    : 'bg-slate-50 border-slate-200';
+
+  const borderDivider = isNight ? 'border-slate-800/70' : 'border-slate-200';
+  const headerBorder = isNight ? 'border-slate-800/80' : 'border-slate-200';
+  const titleText = isNight ? 'text-white' : 'text-slate-900';
+  const mutedText = isNight ? 'text-slate-400' : 'text-slate-500';
 
   const totalSpendComprometido = categories.reduce((sum, c) => sum + (c.totalComprado || 0), 0);
   const totalBudgetDirecto = categories.reduce((sum, c) => sum + (c.totalPresupuestado || 0), 0);
@@ -420,12 +443,16 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
   const needleAngle = round2(-90 + (clampedGaugePct / 100) * 180);
 
   const semBadgeClass = isHealthy 
-    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+    ? (isNight ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')
     : isWarning 
-      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' 
-      : 'bg-rose-500/15 text-rose-400 border border-rose-500/30';
+      ? (isNight ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : 'bg-amber-50 text-amber-700 border border-amber-200')
+      : (isNight ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200');
 
-  const semPulseColor = isHealthy ? 'bg-emerald-400' : isWarning ? 'bg-amber-400' : 'bg-rose-400';
+  const semPulseColor = isHealthy 
+    ? (isNight ? 'bg-emerald-400' : 'bg-emerald-500') 
+    : isWarning 
+      ? (isNight ? 'bg-amber-400' : 'bg-amber-500') 
+      : (isNight ? 'bg-rose-400' : 'bg-rose-500');
 
   // Top 4 Proveedores
   const supplierSpendMap = new Map();
@@ -469,118 +496,118 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
   const todayStr = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
 
   return `
-    <div class="space-y-3.5 max-w-full mx-auto bg-[#0b1329] text-slate-100 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl" style="font-family: system-ui, -apple-system, sans-serif;">
+    <div class="space-y-3.5 max-w-full mx-auto ${containerClass} p-4 sm:p-5 rounded-2xl border" style="font-family: system-ui, -apple-system, sans-serif;">
       
       <!-- ENCABEZADO INSTITUCIONAL Y DEL DASHBOARD EJECUTIVO -->
-      <div class="flex items-center justify-between gap-4 pb-3 border-b border-slate-800/80">
+      <div class="flex items-center justify-between gap-4 pb-3 border-b ${headerBorder}">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
             <i class="fa-solid fa-chart-pie text-white text-base"></i>
           </div>
           <div>
-            <h1 class="text-base font-black text-white tracking-wide flex items-center gap-2">
+            <h1 class="text-base font-black ${titleText} tracking-wide flex items-center gap-2">
               <span>TABLERO RESUMEN FINANCIERO ERP</span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">En Tiempo Real</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${isNight ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'}">En Tiempo Real</span>
             </h1>
-            <p class="text-[11px] text-slate-400 font-medium">Control ejecutivo de costos, presupuesto contratado, ingresos por estimación y egresos por rubro</p>
+            <p class="text-[11px] ${mutedText} font-medium">Control ejecutivo de costos, presupuesto contratado, ingresos por estimación y egresos por rubro</p>
           </div>
         </div>
 
         <div class="flex items-center gap-3 text-right shrink-0">
           <div>
-            <div class="text-xs font-black uppercase tracking-wider text-white">${companyName}</div>
-            <div class="text-[11px] font-bold text-cyan-400">${projectName}</div>
-            <div class="text-[9.5px] text-slate-400">Ubicación: ${projectLocation} | Fecha: ${todayStr}</div>
+            <div class="text-xs font-black uppercase tracking-wider ${titleText}">${companyName}</div>
+            <div class="text-[11px] font-bold ${isNight ? 'text-cyan-400' : 'text-blue-700'}">${projectName}</div>
+            <div class="text-[9.5px] ${mutedText}">Ubicación: ${projectLocation} | Fecha: ${todayStr}</div>
           </div>
           ${companyLogo ? `
-            <img src="${companyLogo}" alt="Logo" class="h-10 w-10 object-contain rounded-lg border border-slate-700 bg-white/5 p-1 shrink-0">
+            <img src="${companyLogo}" alt="Logo" class="h-10 w-10 object-contain rounded-lg border ${isNight ? 'border-slate-700 bg-white/5' : 'border-slate-300 bg-white'} p-1 shrink-0">
           ` : ''}
         </div>
       </div>
 
-      <!-- FILA 1: 5 TARJETAS KPI SUPERIORES CON DEGRADADOS NEÓN -->
+      <!-- FILA 1: 5 TARJETAS KPI SUPERIORES -->
       <div class="grid grid-cols-5 gap-3">
         
         <!-- Tarjeta 1: Presupuesto Obra -->
-        <div class="bg-[#121c38] border border-slate-800 rounded-xl p-3 space-y-1 relative overflow-hidden shadow-md">
-          <div class="flex items-center justify-between text-slate-400">
+        <div class="${cardClass} border rounded-xl p-3 space-y-1 relative overflow-hidden shadow-xs">
+          <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[9.5px] font-bold uppercase tracking-wider">Presupuesto Obra</span>
-            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">BASE VENTA</span>
+            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${isNight ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'}">BASE VENTA</span>
           </div>
-          <div class="text-base font-black font-mono text-white tracking-tight">
+          <div class="text-base font-black font-mono ${titleText} tracking-tight">
             ${formatCurrency(kpis?.presupuestoContratado || 0)}
           </div>
-          <div class="text-[9.5px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
-            <span>Directo: <strong class="text-slate-300 font-mono">${formatCurrency(kpis?.costoDirectoPresupuestado || 0)}</strong></span>
-            <i class="fa-solid fa-file-contract text-cyan-400 text-[10px]"></i>
+          <div class="text-[9.5px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
+            <span>Directo: <strong class="${isNight ? 'text-slate-300' : 'text-slate-700'} font-mono">${formatCurrency(kpis?.costoDirectoPresupuestado || 0)}</strong></span>
+            <i class="fa-solid fa-file-contract ${isNight ? 'text-cyan-400' : 'text-blue-600'} text-[10px]"></i>
           </div>
         </div>
 
         <!-- Tarjeta 2: Cobrado / Estimado -->
-        <div class="bg-[#121c38] border border-slate-800 rounded-xl p-3 space-y-1 relative overflow-hidden shadow-md">
-          <div class="flex items-center justify-between text-slate-400">
+        <div class="${cardClass} border rounded-xl p-3 space-y-1 relative overflow-hidden shadow-xs">
+          <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[9.5px] font-bold uppercase tracking-wider">Cobrado / Estimado</span>
-            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 flex items-center gap-0.5">
+            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${isNight ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/30' : 'bg-sky-50 text-sky-700 border border-sky-200'} flex items-center gap-0.5">
               <i class="fa-solid fa-arrow-up text-[7px]"></i> ${pctCobrado}%
             </span>
           </div>
-          <div class="text-base font-black font-mono text-cyan-300 tracking-tight">
+          <div class="text-base font-black font-mono ${isNight ? 'text-cyan-300' : 'text-sky-700'} tracking-tight">
             ${formatCurrency(kpis?.totalFacturadoEstimado || 0)}
           </div>
-          <div class="text-[9.5px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+          <div class="text-[9.5px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
             <span>Avance acumulado</span>
-            <i class="fa-solid fa-hand-holding-dollar text-cyan-400 text-[10px]"></i>
+            <i class="fa-solid fa-hand-holding-dollar ${isNight ? 'text-cyan-400' : 'text-sky-600'} text-[10px]"></i>
           </div>
         </div>
 
         <!-- Tarjeta 3: Egresos Pagados -->
-        <div class="bg-[#121c38] border border-slate-800 rounded-xl p-3 space-y-1 relative overflow-hidden shadow-md">
-          <div class="flex items-center justify-between text-slate-400">
+        <div class="${cardClass} border rounded-xl p-3 space-y-1 relative overflow-hidden shadow-xs">
+          <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[9.5px] font-bold uppercase tracking-wider">Egresos Pagados</span>
-            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-rose-500/10 text-rose-300 border border-rose-500/30">
+            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${isNight ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'}">
               ${kpis?.totalRegistros || 0} ÓRDENES
             </span>
           </div>
-          <div class="text-base font-black font-mono text-rose-400 tracking-tight">
+          <div class="text-base font-black font-mono ${isNight ? 'text-rose-400' : 'text-rose-700'} tracking-tight">
             ${formatCurrency(kpis?.totalEgresosReales || 0)}
           </div>
-          <div class="text-[9.5px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
-            <span>Por Pagar: <strong class="text-amber-400 font-mono">${formatCurrency(kpis?.totalEgresosPorPagar || 0)}</strong></span>
-            <i class="fa-solid fa-money-bill-wave text-rose-400 text-[10px]"></i>
+          <div class="text-[9.5px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
+            <span>Por Pagar: <strong class="${isNight ? 'text-amber-400' : 'text-amber-700'} font-mono">${formatCurrency(kpis?.totalEgresosPorPagar || 0)}</strong></span>
+            <i class="fa-solid fa-money-bill-wave ${isNight ? 'text-rose-400' : 'text-rose-600'} text-[10px]"></i>
           </div>
         </div>
 
         <!-- Tarjeta 4: Utilidad en Caja -->
-        <div class="bg-[#121c38] border border-slate-800 rounded-xl p-3 space-y-1 relative overflow-hidden shadow-md">
-          <div class="flex items-center justify-between text-slate-400">
+        <div class="${cardClass} border rounded-xl p-3 space-y-1 relative overflow-hidden shadow-xs">
+          <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[9.5px] font-bold uppercase tracking-wider">Utilidad en Caja</span>
-            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${(kpis?.utilidadEnCaja || 0) >= 0 ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-300 border border-rose-500/30'}">
+            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${(kpis?.utilidadEnCaja || 0) >= 0 ? (isNight ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border border-emerald-200') : (isNight ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200')}">
               FLUJO NETO
             </span>
           </div>
-          <div class="text-base font-black font-mono ${(kpis?.utilidadEnCaja || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'} tracking-tight">
+          <div class="text-base font-black font-mono ${(kpis?.utilidadEnCaja || 0) >= 0 ? (isNight ? 'text-emerald-400' : 'text-emerald-700') : (isNight ? 'text-rose-400' : 'text-rose-700')} tracking-tight">
             ${formatCurrency(kpis?.utilidadEnCaja || 0)}
           </div>
-          <div class="text-[9.5px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+          <div class="text-[9.5px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
             <span>Cobrado - Egresos</span>
-            <i class="fa-solid fa-piggy-bank text-emerald-400 text-[10px]"></i>
+            <i class="fa-solid fa-piggy-bank ${(kpis?.utilidadEnCaja || 0) >= 0 ? (isNight ? 'text-emerald-400' : 'text-emerald-600') : (isNight ? 'text-rose-400' : 'text-rose-600')} text-[10px]"></i>
           </div>
         </div>
 
         <!-- Tarjeta 5: Utilidad Proyectada -->
-        <div class="bg-[#121c38] border border-slate-800 rounded-xl p-3 space-y-1 relative overflow-hidden shadow-md">
-          <div class="flex items-center justify-between text-slate-400">
+        <div class="${cardClass} border rounded-xl p-3 space-y-1 relative overflow-hidden shadow-xs">
+          <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[9.5px] font-bold uppercase tracking-wider">Utilidad Proyectada</span>
-            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${(kpis?.margenUtilidadProyectado || 0) >= 10 ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-300 border border-amber-500/30'}">
+            <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${(kpis?.margenUtilidadProyectado || 0) >= 10 ? (isNight ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border border-emerald-200') : (isNight ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30' : 'bg-amber-50 text-amber-700 border border-amber-200')}">
               ${kpis?.margenUtilidadProyectado || 0}% MARGEN
             </span>
           </div>
-          <div class="text-base font-black font-mono ${(kpis?.proyeccionUtilidadCierre || 0) >= 0 ? 'text-amber-300' : 'text-rose-400'} tracking-tight">
+          <div class="text-base font-black font-mono ${(kpis?.proyeccionUtilidadCierre || 0) >= 0 ? (isNight ? 'text-amber-300' : 'text-slate-900') : (isNight ? 'text-rose-400' : 'text-rose-700')} tracking-tight">
             ${formatCurrency(kpis?.proyeccionUtilidadCierre || 0)}
           </div>
-          <div class="text-[9.5px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+          <div class="text-[9.5px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
             <span>Presupuesto - Gasto</span>
-            <i class="fa-solid fa-chart-line text-amber-400 text-[10px]"></i>
+            <i class="fa-solid fa-chart-line ${isNight ? 'text-amber-400' : 'text-amber-600'} text-[10px]"></i>
           </div>
         </div>
 
@@ -590,10 +617,10 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
       <div class="grid grid-cols-12 gap-3.5">
         
         <!-- Panel Izquierdo: Velocímetro / Gauge Radial del Semáforo (cols 5/12) -->
-        <div class="col-span-5 bg-[#121c38] border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-md relative overflow-hidden">
-          <div class="flex items-center justify-between pb-1.5 border-b border-slate-800/70">
+        <div class="col-span-5 ${panelClass} border rounded-xl p-3.5 flex flex-col justify-between shadow-xs relative overflow-hidden">
+          <div class="flex items-center justify-between pb-1.5 border-b ${borderDivider}">
             <div class="flex items-center gap-1.5">
-              <span class="text-xs font-black uppercase tracking-wider text-white">Semáforo Presupuestal</span>
+              <span class="text-xs font-black uppercase tracking-wider ${titleText}">Semáforo Presupuestal</span>
               <span class="w-2 h-2 rounded-full ${semPulseColor}"></span>
             </div>
             <span class="px-2 py-0.5 rounded-full text-[9.5px] font-bold ${semBadgeClass} flex items-center gap-1">
@@ -613,47 +640,47 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
                   <stop offset="100%" stop-color="#ef4444"/>
                 </linearGradient>
               </defs>
-              <path d="M 32 95 A 68 68 0 0 1 168 95" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="round"/>
+              <path d="M 32 95 A 68 68 0 0 1 168 95" fill="none" stroke="${isNight ? '#1e293b' : '#e2e8f0'}" stroke-width="12" stroke-linecap="round"/>
               <path d="M 32 95 A 68 68 0 0 1 168 95" fill="none" stroke="url(#print-gauge-gradient)" stroke-width="12" stroke-linecap="round"
                     stroke-dasharray="213.63" stroke-dashoffset="${gaugeDashOffset}"/>
               <g transform="rotate(${needleAngle} 100 95)">
-                <polygon points="98,95 100,32 102,95" fill="#f8fafc"/>
+                <polygon points="98,95 100,32 102,95" fill="${isNight ? '#f8fafc' : '#0f172a'}"/>
               </g>
-              <circle cx="100" cy="95" r="7" fill="#06b6d4" stroke="#0b1329" stroke-width="2.5"/>
-              <circle cx="100" cy="95" r="2.5" fill="#ffffff"/>
+              <circle cx="100" cy="95" r="7" fill="${isNight ? '#06b6d4' : '#2563eb'}" stroke="${isNight ? '#0b1329' : '#ffffff'}" stroke-width="2.5"/>
+              <circle cx="100" cy="95" r="2.5" fill="${isNight ? '#ffffff' : '#0f172a'}"/>
               <text x="28" y="112" font-size="8.5" font-weight="700" fill="#64748b" text-anchor="middle">0%</text>
               <text x="100" y="20" font-size="8.5" font-weight="700" fill="#64748b" text-anchor="middle">50%</text>
               <text x="172" y="112" font-size="8.5" font-weight="700" fill="#64748b" text-anchor="middle">100%</text>
             </svg>
 
             <div class="text-center space-y-0.5 mt-0.5">
-              <div class="text-2xl font-black font-mono text-white tracking-tight">${pctGastado}%</div>
-              <p class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Del Presupuesto Total Ejercido</p>
+              <div class="text-2xl font-black font-mono ${titleText} tracking-tight">${pctGastado}%</div>
+              <p class="text-[9.5px] font-bold uppercase tracking-wider ${mutedText}">Del Presupuesto Total Ejercido</p>
             </div>
           </div>
 
           <!-- Barra de Detalles -->
-          <div class="p-2 bg-[#0e162e] rounded-lg border border-slate-800 space-y-1 text-xs">
+          <div class="p-2 ${subBoxClass} rounded-lg border space-y-1 text-xs">
             <div class="flex items-center justify-between text-[10.5px]">
-              <span class="text-slate-400 font-semibold">Total Comprometido:</span>
-              <span class="font-mono font-bold text-white">${formatCurrency(kpis?.totalEgresosComprometidos || 0)}</span>
+              <span class="${mutedText} font-semibold">Total Comprometido:</span>
+              <span class="font-mono font-bold ${titleText}">${formatCurrency(kpis?.totalEgresosComprometidos || 0)}</span>
             </div>
             <div class="flex items-center justify-between text-[10.5px]">
-              <span class="text-slate-400 font-semibold">Límite Contratado:</span>
-              <span class="font-mono font-bold text-cyan-300">${formatCurrency(kpis?.presupuestoContratado || 0)}</span>
+              <span class="${mutedText} font-semibold">Límite Contratado:</span>
+              <span class="font-mono font-bold ${isNight ? 'text-cyan-300' : 'text-blue-700'}">${formatCurrency(kpis?.presupuestoContratado || 0)}</span>
             </div>
-            <p class="text-[9px] text-slate-400 leading-tight pt-1 border-t border-slate-800/80">${sem.description || 'Monitoreo de gasto activo.'}</p>
+            <p class="text-[9px] ${mutedText} leading-tight pt-1 border-t ${borderDivider}">${sem.description || 'Monitoreo de gasto activo.'}</p>
           </div>
         </div>
 
         <!-- Panel Derecho: Donut Chart & Distribución de los 6 Rubros (cols 7/12) -->
-        <div class="col-span-7 bg-[#121c38] border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between shadow-md">
-          <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-800/70">
+        <div class="col-span-7 ${panelClass} border rounded-xl p-3.5 flex flex-col justify-between shadow-xs">
+          <div class="flex items-center justify-between gap-2 pb-1.5 border-b ${borderDivider}">
             <div>
-              <h3 class="text-xs font-black uppercase tracking-wider text-white">Distribución por Rubro</h3>
-              <p class="text-[9.5px] text-slate-400">Proporción de gasto en los 6 rubros constructivos</p>
+              <h3 class="text-xs font-black uppercase tracking-wider ${titleText}">Distribución por Rubro</h3>
+              <p class="text-[9.5px] ${mutedText}">Proporción de gasto en los 6 rubros constructivos</p>
             </div>
-            <span class="text-[10px] font-mono font-bold px-2 py-0.5 bg-slate-800 text-cyan-300 rounded-md border border-slate-700">
+            <span class="text-[10px] font-mono font-bold px-2 py-0.5 ${isNight ? 'bg-slate-800 text-cyan-300 border border-slate-700' : 'bg-blue-50 text-blue-700 border border-blue-200'} rounded-md">
               ${totalSpendComprometido > 0 ? 'Gasto: ' + formatCurrency(totalSpendComprometido) : 'Base: ' + formatCurrency(totalBudgetDirecto)}
             </span>
           </div>
@@ -662,14 +689,14 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
             <!-- Donut SVG (cols 5/12) -->
             <div class="col-span-5 flex flex-col items-center justify-center relative">
               <svg viewBox="0 0 180 180" class="w-36 h-36 transform -rotate-90">
-                <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="#1e293b" stroke-width="18"/>
+                <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="${isNight ? '#1e293b' : '#f1f5f9'}" stroke-width="18"/>
                 ${donutSlicesSvg}
               </svg>
               <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span class="text-[11px] font-black font-mono text-white leading-tight">
+                <span class="text-[11px] font-black font-mono ${titleText} leading-tight">
                   ${totalSpendComprometido > 0 ? formatCurrency(totalSpendComprometido) : formatCurrency(totalBudgetDirecto)}
                 </span>
-                <span class="text-[8.5px] font-bold uppercase tracking-wider text-cyan-400">
+                <span class="text-[8.5px] font-bold uppercase tracking-wider ${isNight ? 'text-cyan-400' : 'text-blue-600'}">
                   ${comp?.resumen?.totalInsumos || 0} INSUMOS
                 </span>
               </div>
@@ -682,13 +709,13 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
                 const val = totalSpendComprometido > 0 ? cat.totalComprado : cat.totalPresupuestado;
                 const pct = chartBasis > 0 ? round2((val / chartBasis) * 100) : 0;
                 return `
-                  <div class="p-1.5 bg-[#0e162e] rounded-lg border border-slate-800 space-y-0.5">
+                  <div class="p-1.5 ${subBoxClass} rounded-lg border space-y-0.5">
                     <div class="flex items-center gap-1.5">
                       <span class="w-2 h-2 rounded-xs shrink-0" style="background-color: ${meta.color};"></span>
-                      <span class="text-[9.5px] font-bold text-slate-300 truncate">${meta.label}</span>
+                      <span class="text-[9.5px] font-bold ${isNight ? 'text-slate-300' : 'text-slate-700'} truncate">${meta.label}</span>
                     </div>
-                    <div class="font-mono font-bold text-[10px] text-white">${formatCurrency(val)}</div>
-                    <div class="text-[8.5px] text-slate-400 flex items-center justify-between">
+                    <div class="font-mono font-bold text-[10px] ${titleText}">${formatCurrency(val)}</div>
+                    <div class="text-[8.5px] ${mutedText} flex items-center justify-between">
                       <span>${cat.items.length} insumos</span>
                       <strong class="font-mono ${meta.textColor}">${pct}%</strong>
                     </div>
@@ -698,9 +725,9 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
             </div>
           </div>
 
-          <div class="pt-1.5 border-t border-slate-800/70 text-[9.5px] text-slate-400 flex justify-between">
+          <div class="pt-1.5 border-t ${borderDivider} text-[9.5px] ${mutedText} flex justify-between">
             <span>6 rubros consolidados calculados desde la explosión de insumos</span>
-            <span class="text-cyan-400 font-bold font-mono">Total: ${formatCurrency(totalSpendComprometido > 0 ? totalSpendComprometido : totalBudgetDirecto)}</span>
+            <span class="${isNight ? 'text-cyan-400' : 'text-blue-700'} font-bold font-mono">Total: ${formatCurrency(totalSpendComprometido > 0 ? totalSpendComprometido : totalBudgetDirecto)}</span>
           </div>
         </div>
 
@@ -710,13 +737,13 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
       <div class="grid grid-cols-12 gap-3.5">
         
         <!-- Panel Izquierdo: Barras de Avance Presupuestal por Rubro (cols 6/12) -->
-        <div class="col-span-6 bg-[#121c38] border border-slate-800 rounded-xl p-3.5 space-y-2.5 shadow-md">
-          <div class="flex items-center justify-between pb-1 border-b border-slate-800/70">
+        <div class="col-span-6 ${panelClass} border rounded-xl p-3.5 space-y-2.5 shadow-xs">
+          <div class="flex items-center justify-between pb-1 border-b ${borderDivider}">
             <div>
-              <h3 class="text-xs font-black uppercase tracking-wider text-white">Avance Presupuestal por Rubro</h3>
-              <p class="text-[9px] text-slate-400">Comparativa del gasto comprometido contra el presupuesto asignado</p>
+              <h3 class="text-xs font-black uppercase tracking-wider ${titleText}">Avance Presupuestal por Rubro</h3>
+              <p class="text-[9px] ${mutedText}">Comparativa del gasto comprometido contra el presupuesto asignado</p>
             </div>
-            <span class="text-[9px] font-bold uppercase text-slate-400 tracking-wider">Gasto / Base</span>
+            <span class="text-[9px] font-bold uppercase ${mutedText} tracking-wider">Gasto / Base</span>
           </div>
 
           <div class="space-y-1.5">
@@ -729,20 +756,20 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
               return `
                 <div class="space-y-0.5">
                   <div class="flex items-center justify-between text-xs">
-                    <span class="text-[10px] font-bold text-slate-200 flex items-center gap-1.5">
+                    <span class="text-[10px] font-bold ${isNight ? 'text-slate-200' : 'text-slate-800'} flex items-center gap-1.5">
                       <i class="fa-solid ${meta.icon} ${meta.textColor} text-[9px]"></i>
                       <span>${meta.label}</span>
                     </span>
                     <div class="flex items-center gap-2 font-mono text-[9px]">
-                      <span class="text-white font-bold">${formatCurrency(compVal)}</span>
-                      <span class="text-slate-500">/</span>
-                      <span class="text-slate-400">${formatCurrency(presup)}</span>
-                      <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${isOver ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-cyan-300'}">
+                      <span class="${titleText} font-bold">${formatCurrency(compVal)}</span>
+                      <span class="${isNight ? 'text-slate-500' : 'text-slate-400'}">/</span>
+                      <span class="${mutedText}">${formatCurrency(presup)}</span>
+                      <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${isOver ? (isNight ? 'bg-rose-500/20 text-rose-300' : 'bg-rose-50 text-rose-700 border border-rose-200') : (isNight ? 'bg-slate-800 text-cyan-300' : 'bg-slate-100 text-slate-700 border border-slate-200')}">
                         ${pctUsed}%
                       </span>
                     </div>
                   </div>
-                  <div class="w-full bg-[#0e162e] h-1.5 rounded-full overflow-hidden p-0.2 border border-slate-800">
+                  <div class="w-full ${isNight ? 'bg-[#0e162e] border-slate-800' : 'bg-slate-100 border-slate-200'} h-1.5 rounded-full overflow-hidden p-0.2 border">
                     <div class="h-full rounded-full bg-gradient-to-r ${meta.grad}" style="width: ${Math.min(100, pctUsed)}%"></div>
                   </div>
                 </div>
@@ -752,55 +779,55 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
         </div>
 
         <!-- Panel Derecho: Flujo de Caja & Top Proveedores (cols 6/12) -->
-        <div class="col-span-6 bg-[#121c38] border border-slate-800 rounded-xl p-3.5 space-y-2.5 shadow-md flex flex-col justify-between">
+        <div class="col-span-6 ${panelClass} border rounded-xl p-3.5 space-y-2.5 shadow-xs flex flex-col justify-between">
           
           <!-- Flujo de Caja y Liquidez -->
           <div class="space-y-1.5">
-            <div class="flex items-center justify-between pb-1 border-b border-slate-800/70">
-              <h3 class="text-xs font-black uppercase tracking-wider text-white">Flujo de Caja y Liquidez</h3>
-              <span class="text-[9.5px] font-bold uppercase tracking-wider text-cyan-400 font-mono">
+            <div class="flex items-center justify-between pb-1 border-b ${borderDivider}">
+              <h3 class="text-xs font-black uppercase tracking-wider ${titleText}">Flujo de Caja y Liquidez</h3>
+              <span class="text-[9.5px] font-bold uppercase tracking-wider ${isNight ? 'text-cyan-400' : 'text-blue-700'} font-mono">
                 Caja Neta: ${formatCurrency(kpis?.utilidadEnCaja || 0)}
               </span>
             </div>
 
             <div class="grid grid-cols-3 gap-2 text-center">
-              <div class="p-1.5 bg-[#0e162e] rounded-lg border border-slate-800">
-                <span class="text-[8.5px] font-bold text-slate-400 uppercase block">Ingreso Cobrado</span>
-                <span class="font-mono font-bold text-[11px] text-cyan-300">${formatCurrency(kpis?.totalFacturadoEstimado || 0)}</span>
+              <div class="p-1.5 ${subBoxClass} rounded-lg border">
+                <span class="text-[8.5px] font-bold ${mutedText} uppercase block">Ingreso Cobrado</span>
+                <span class="font-mono font-bold text-[11px] ${isNight ? 'text-cyan-300' : 'text-sky-700'}">${formatCurrency(kpis?.totalFacturadoEstimado || 0)}</span>
               </div>
-              <div class="p-1.5 bg-[#0e162e] rounded-lg border border-slate-800">
-                <span class="text-[8.5px] font-bold text-slate-400 uppercase block">Egresos Pagados</span>
-                <span class="font-mono font-bold text-[11px] text-rose-400">${formatCurrency(kpis?.totalEgresosReales || 0)}</span>
+              <div class="p-1.5 ${subBoxClass} rounded-lg border">
+                <span class="text-[8.5px] font-bold ${mutedText} uppercase block">Egresos Pagados</span>
+                <span class="font-mono font-bold text-[11px] ${isNight ? 'text-rose-400' : 'text-rose-700'}">${formatCurrency(kpis?.totalEgresosReales || 0)}</span>
               </div>
-              <div class="p-1.5 bg-[#0e162e] rounded-lg border border-slate-800">
-                <span class="text-[8.5px] font-bold text-slate-400 uppercase block">Cuentas por Pagar</span>
-                <span class="font-mono font-bold text-[11px] text-amber-400">${formatCurrency(kpis?.totalEgresosPorPagar || 0)}</span>
+              <div class="p-1.5 ${subBoxClass} rounded-lg border">
+                <span class="text-[8.5px] font-bold ${mutedText} uppercase block">Cuentas por Pagar</span>
+                <span class="font-mono font-bold text-[11px] ${isNight ? 'text-amber-400' : 'text-amber-700'}">${formatCurrency(kpis?.totalEgresosPorPagar || 0)}</span>
               </div>
             </div>
           </div>
 
           <!-- Top Proveedores -->
           <div class="space-y-1">
-            <div class="flex items-center justify-between pb-0.5 border-b border-slate-800/70">
-              <h4 class="text-xs font-black uppercase tracking-wider text-white">Top Proveedores & Contratistas</h4>
-              <span class="text-[9px] text-slate-400">Mayor volumen de compra</span>
+            <div class="flex items-center justify-between pb-0.5 border-b ${borderDivider}">
+              <h4 class="text-xs font-black uppercase tracking-wider ${titleText}">Top Proveedores & Contratistas</h4>
+              <span class="text-[9px] ${mutedText}">Mayor volumen de compra</span>
             </div>
 
             <div class="grid grid-cols-2 gap-1.5">
               ${topSuppliers.slice(0, 4).map(sup => `
-                <div class="p-1.5 bg-[#0e162e] rounded-lg border border-slate-800 flex items-center justify-between text-xs">
+                <div class="p-1.5 ${subBoxClass} rounded-lg border flex items-center justify-between text-xs">
                   <div class="flex items-center gap-1.5 min-w-0">
-                    <div class="w-5 h-5 rounded bg-blue-600/20 text-cyan-400 flex items-center justify-center shrink-0 text-[9px] font-bold">
+                    <div class="w-5 h-5 rounded ${isNight ? 'bg-blue-600/20 text-cyan-400' : 'bg-blue-50 text-blue-600 border border-blue-200/60'} flex items-center justify-center shrink-0 text-[9px] font-bold">
                       <i class="fa-solid fa-truck-field"></i>
                     </div>
                     <div class="min-w-0">
-                      <p class="font-bold text-slate-200 truncate text-[10px]">${sup.name}</p>
-                      <p class="text-[8.5px] text-slate-400 truncate">${sup.count} órdenes</p>
+                      <p class="font-bold ${isNight ? 'text-slate-200' : 'text-slate-800'} truncate text-[10px]">${sup.name}</p>
+                      <p class="text-[8.5px] ${mutedText} truncate">${sup.count} órdenes</p>
                     </div>
                   </div>
                   <div class="text-right shrink-0">
-                    <div class="font-mono font-bold text-white text-[10px]">${formatCurrency(sup.total)}</div>
-                    <span class="px-1 py-0.2 rounded text-[7.5px] font-bold ${sup.pending > 0 ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}">
+                    <div class="font-mono font-bold ${titleText} text-[10px]">${formatCurrency(sup.total)}</div>
+                    <span class="px-1 py-0.2 rounded text-[7.5px] font-bold ${sup.pending > 0 ? (isNight ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-50 text-amber-700 border border-amber-200') : (isNight ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')}">
                       ${sup.pending > 0 ? 'Pendiente' : 'Al Corriente'}
                     </span>
                   </div>
@@ -813,8 +840,10 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding) {
 
       </div>
 
-      <!-- BLOQUE DE FIRMAS OFICIALES DE CONTROL Y RESPONSABLES (ESTILO EJECUTIVO OSCURO) -->
-      ${renderExpensesPrintSignaturesBlock(null, true)}
+      <!-- BLOQUE DE FIRMAS OFICIALES DE CONTROL Y RESPONSABLES -->
+      <div class="mt-4 pt-2">
+        ${renderExpensesPrintSignaturesBlock(null, isNight)}
+      </div>
 
     </div>
   `;
@@ -832,10 +861,11 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
   if (activeSubTab === 'tablero') {
     const kpis = getExpensesKpiMetrics();
     const docTitle = `Tablero Resumen Financiero ERP - ${projectName}`;
-    const bodyContent = renderPrintableExecutiveDashboardHTML(kpis, branding);
+    const isNight = isNightMode();
+    const bodyContent = renderPrintableExecutiveDashboardHTML(kpis, branding, isNight);
 
     openPrintWindow(docTitle, bodyContent, 'landscape', {
-      theme: 'dark',
+      theme: isNight ? 'dark' : 'light',
       extraStyles: `
         @media print {
           @page {
@@ -843,12 +873,13 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
             margin: 4mm 5mm 4mm 5mm !important;
           }
           body {
-            background-color: #0b1329 !important;
+            background-color: ${isNight ? '#0b1329' : '#ffffff'} !important;
+            color: ${isNight ? '#ffffff' : '#0f172a'} !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
           .page-container {
-            background-color: #0b1329 !important;
+            background-color: ${isNight ? '#0b1329' : '#ffffff'} !important;
             padding: 0 !important;
             margin: 0 !important;
             max-width: 100% !important;

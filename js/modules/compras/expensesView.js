@@ -34,7 +34,7 @@ import {
   openExpenseEvidence,
   deleteExpenseEvidence
 } from './driveExpenseService.js';
-import { mountStorageMeter, resolveHostStorageContext } from '../../services/storageQuotaService.js';
+import { resolveHostStorageContext } from '../../services/storageQuotaService.js';
 import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
@@ -42,6 +42,7 @@ import {
 } from './expensesExporter.js';
 import { renderTabAssignedAvatars } from '../portal/portalController.js';
 import { resolveWorkspacePlanContext } from '../portal/projectService.js';
+import { isNightMode } from '../../ui/themeController.js';
 
 function isAdvancedExpensesAllowed() {
   return true;
@@ -183,18 +184,15 @@ export function renderExpensesView() {
     renderTabAssignedAvatars('compras');
   }
 
-  // Montar medidor de cuota unificada S3 en Compras
-  const meterId = 'expenses-storage-meter';
-  if (!document.getElementById(meterId)) {
-    const subviewEl = document.getElementById('expenses-subview-container');
-    if (subviewEl && subviewEl.parentElement) {
-      const meterHost = document.createElement('div');
-      meterHost.id = meterId;
-      meterHost.className = 'px-4 pt-2 shrink-0';
-      subviewEl.parentElement.insertBefore(meterHost, subviewEl);
+  // Remover barra de cuota / mejorar plan de la pestaña Compras y Pagos
+  const oldMeter = document.getElementById('expenses-storage-meter');
+  if (oldMeter) {
+    if (typeof oldMeter.remove === 'function') {
+      oldMeter.remove();
+    } else if (oldMeter.parentElement) {
+      oldMeter.parentElement.removeChild(oldMeter);
     }
   }
-  mountStorageMeter(meterId, { compact: true }).catch(() => {});
 }
 
 /**
@@ -280,6 +278,7 @@ function renderActiveExpensesSubView(subTab, kpis) {
  * VISTA 1: TABLERO RESUMEN (DASHBOARD FINANCIERO ERP)
  */
 function renderTableroDashboardView(kpis) {
+  const isNight = isNightMode();
   const sem = kpis.semaforo;
   const isHealthy = sem.color === 'emerald';
   const isWarning = sem.color === 'amber';
@@ -297,16 +296,42 @@ function renderTableroDashboardView(kpis) {
   const records = getExpensesRecords() || [];
   const suppliers = getExpensesSuppliers() || [];
 
-  // Configuración de los 6 rubros con su paleta visual neón ejecutiva
+  // Configuración de los 6 rubros con su paleta visual adaptada a Día / Noche
   const rubroMeta = {
-    'Material': { label: 'Materiales', color: '#06b6d4', grad: 'from-cyan-500 to-blue-500', icon: 'fa-box', textColor: 'text-cyan-400' },
-    'Mano de Obra': { label: 'Mano de Obra', color: '#a855f7', grad: 'from-purple-500 to-pink-500', icon: 'fa-user-group', textColor: 'text-purple-400' },
-    'Herramienta': { label: 'Herramienta', color: '#f59e0b', grad: 'from-amber-500 to-orange-500', icon: 'fa-screwdriver-wrench', textColor: 'text-amber-400' },
-    'Equipo': { label: 'Equipo / Fletes', color: '#6366f1', grad: 'from-indigo-500 to-blue-500', icon: 'fa-truck', textColor: 'text-indigo-400' },
-    'Maquinaria': { label: 'Maquinaria', color: '#ec4899', grad: 'from-pink-500 to-rose-500', icon: 'fa-tractor', textColor: 'text-rose-400' },
-    'Subcontrato': { label: 'Subcontratos', color: '#10b981', grad: 'from-emerald-500 to-teal-500', icon: 'fa-handshake', textColor: 'text-emerald-400' },
-    'Indirecto': { label: 'Indirectos', color: '#94a3b8', grad: 'from-slate-500 to-slate-600', icon: 'fa-file-lines', textColor: 'text-slate-400' }
+    'Material': { label: 'Materiales', color: '#06b6d4', grad: 'from-cyan-500 to-blue-500', icon: 'fa-box', textColor: isNight ? 'text-cyan-400' : 'text-cyan-700' },
+    'Mano de Obra': { label: 'Mano de Obra', color: '#a855f7', grad: 'from-purple-500 to-pink-500', icon: 'fa-user-group', textColor: isNight ? 'text-purple-400' : 'text-purple-700' },
+    'Herramienta': { label: 'Herramienta', color: '#f59e0b', grad: 'from-amber-500 to-orange-500', icon: 'fa-screwdriver-wrench', textColor: isNight ? 'text-amber-400' : 'text-amber-700' },
+    'Equipo': { label: 'Equipo / Fletes', color: '#6366f1', grad: 'from-indigo-500 to-blue-500', icon: 'fa-truck', textColor: isNight ? 'text-indigo-400' : 'text-indigo-700' },
+    'Maquinaria': { label: 'Maquinaria', color: '#ec4899', grad: 'from-pink-500 to-rose-500', icon: 'fa-tractor', textColor: isNight ? 'text-rose-400' : 'text-rose-700' },
+    'Subcontrato': { label: 'Subcontratos', color: '#10b981', grad: 'from-emerald-500 to-teal-500', icon: 'fa-handshake', textColor: isNight ? 'text-emerald-400' : 'text-emerald-700' },
+    'Indirecto': { label: 'Indirectos', color: '#64748b', grad: 'from-slate-500 to-slate-600', icon: 'fa-file-lines', textColor: isNight ? 'text-slate-400' : 'text-slate-700' }
   };
+
+  // Clases semánticas compartidas para armonía Día / Noche
+  const containerClass = isNight
+    ? 'bg-[#0b1329] text-slate-100 border-slate-800 shadow-xl'
+    : 'bg-white text-slate-800 border-slate-200/90 shadow-sm';
+
+  const cardClass = isNight
+    ? 'bg-[#121c38] border-slate-800/90 hover:border-cyan-500/40 shadow-lg'
+    : 'bg-slate-50/70 border-slate-200 hover:border-slate-300 shadow-2xs';
+
+  const panelClass = isNight
+    ? 'bg-[#121c38] border-slate-800/90 shadow-lg'
+    : 'bg-white border-slate-200 shadow-2xs';
+
+  const subBoxClass = isNight
+    ? 'bg-[#0e162e] border-slate-800'
+    : 'bg-slate-50 border-slate-200';
+
+  const subBoxHoverClass = isNight
+    ? 'bg-[#0e162e] hover:bg-[#152042] border-slate-800/90'
+    : 'bg-slate-50 hover:bg-slate-100/90 border-slate-200';
+
+  const borderDivider = isNight ? 'border-slate-800/70' : 'border-slate-200';
+  const headerBorder = isNight ? 'border-slate-800/80' : 'border-slate-200';
+  const titleText = isNight ? 'text-white' : 'text-slate-900';
+  const mutedText = isNight ? 'text-slate-400' : 'text-slate-500';
 
   // Datos para el Donut Chart (reparto por los 6 rubros)
   const totalSpendComprometido = categories.reduce((sum, c) => sum + (c.totalComprado || 0), 0);
@@ -346,14 +371,18 @@ function renderTableroDashboardView(kpis) {
   // Ángulo de aguja: 0% -> -90 deg (izquierda), 50% -> 0 deg (arriba), 100% -> +90 deg (derecha)
   const needleAngle = round2(-90 + (clampedGaugePct / 100) * 180);
 
-  // Semáforo Badge y Colores Neón
+  // Semáforo Badge y Colores Neón / Día
   const semBadgeClass = isHealthy 
-    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+    ? (isNight ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')
     : isWarning 
-      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' 
-      : 'bg-rose-500/15 text-rose-400 border border-rose-500/30';
+      ? (isNight ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : 'bg-amber-50 text-amber-700 border border-amber-200')
+      : (isNight ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200');
 
-  const semPulseColor = isHealthy ? 'bg-emerald-400' : isWarning ? 'bg-amber-400' : 'bg-rose-400';
+  const semPulseColor = isHealthy 
+    ? (isNight ? 'bg-emerald-400' : 'bg-emerald-500') 
+    : isWarning 
+      ? (isNight ? 'bg-amber-400' : 'bg-amber-500') 
+      : (isNight ? 'bg-rose-400' : 'bg-rose-500');
 
   // Top 4 Proveedores / Contratistas
   const supplierSpendMap = new Map();
@@ -391,24 +420,24 @@ function renderTableroDashboardView(kpis) {
   }
 
   return `
-    <div class="space-y-4 max-w-7xl mx-auto bg-[#0b1329] text-slate-100 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl">
+    <div class="space-y-4 max-w-7xl mx-auto ${containerClass} p-4 sm:p-5 rounded-2xl border">
       
       <!-- ENCABEZADO DEL DASHBOARD EJECUTIVO -->
-      <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-3 ${headerBorder}">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
             <i class="fa-solid fa-chart-pie text-white text-sm"></i>
           </div>
           <div>
-            <h2 class="text-sm font-extrabold text-white tracking-wide flex items-center gap-2">
+            <h2 class="text-sm font-extrabold ${titleText} tracking-wide flex items-center gap-2">
               <span>TABLERO RESUMEN FINANCIERO ERP</span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">En Tiempo Real</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${isNight ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'}">En Tiempo Real</span>
             </h2>
-            <p class="text-[11px] text-slate-400 font-medium">Control ejecutivo de costos, presupuesto contratado, ingresos por estimación y egresos por rubro</p>
+            <p class="text-[11px] ${mutedText} font-medium">Control ejecutivo de costos, presupuesto contratado, ingresos por estimación y egresos por rubro</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <button onclick="switchExpensesSubTab('comparativa')" class="px-3 py-1.5 rounded-lg bg-[#182348] hover:bg-[#202e5c] text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs">
+          <button onclick="switchExpensesSubTab('comparativa')" class="px-3 py-1.5 rounded-lg ${isNight ? 'bg-[#182348] hover:bg-[#202e5c] text-cyan-300 border border-cyan-500/30' : 'bg-slate-50 hover:bg-slate-100 text-blue-700 border border-blue-200 font-bold'} text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs">
             <i class="fa-solid fa-scale-balanced text-xs"></i>
             <span>Ver Comparativa Insumos</span>
           </button>
@@ -419,89 +448,89 @@ function renderTableroDashboardView(kpis) {
         </div>
       </div>
 
-      <!-- FILA 1: 5 TARJETAS KPI SUPERIORES CON BRILLO Y DEGRADADOS NEÓN -->
+      <!-- FILA 1: 5 TARJETAS KPI SUPERIORES CON BRILLO Y DEGRADADOS NEÓN / DÍA -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         
         <!-- Tarjeta 1: Presupuesto Contratado Base -->
-        <div class="bg-[#121c38] border border-slate-800/90 hover:border-cyan-500/40 rounded-xl p-3.5 space-y-1.5 relative overflow-hidden shadow-lg transition">
-          <div class="flex items-center justify-between text-slate-400">
+        <div class="${cardClass} border rounded-xl p-3.5 space-y-1.5 relative overflow-hidden transition">
+          <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[10px] font-bold uppercase tracking-wider">Presupuesto Obra</span>
-            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">BASE VENTA</span>
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${isNight ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'}">BASE VENTA</span>
           </div>
-          <div class="text-lg sm:text-xl font-black font-mono text-white tracking-tight">
+          <div class="text-lg sm:text-xl font-black font-mono ${titleText} tracking-tight">
             ${formatCurrency(kpis.presupuestoContratado)}
           </div>
-          <div class="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
-            <span>Directo: <strong class="text-slate-300 font-mono">${formatCurrency(kpis.costoDirectoPresupuestado)}</strong></span>
-            <i class="fa-solid fa-file-contract text-cyan-400 text-xs"></i>
+          <div class="text-[10px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
+            <span>Directo: <strong class="${isNight ? 'text-slate-300' : 'text-slate-700'} font-mono">${formatCurrency(kpis.costoDirectoPresupuestado)}</strong></span>
+            <i class="fa-solid fa-file-contract ${isNight ? 'text-cyan-400' : 'text-blue-600'} text-xs"></i>
           </div>
         </div>
 
         <!-- Tarjeta 2: Cobrado / Estimado -->
-        <div class="bg-[#121c38] border border-slate-800/90 hover:border-cyan-500/40 rounded-xl p-3.5 space-y-1.5 relative overflow-hidden shadow-lg transition">
-          <div class="flex items-center justify-between text-slate-400">
+        <div class="${cardClass} border rounded-xl p-3.5 space-y-1.5 relative overflow-hidden transition">
+          <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[10px] font-bold uppercase tracking-wider">Cobrado / Estimado</span>
-            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 flex items-center gap-0.5">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${isNight ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/30' : 'bg-sky-50 text-sky-700 border border-sky-200'} flex items-center gap-0.5">
               <i class="fa-solid fa-arrow-up text-[8px]"></i> ${pctCobrado}%
             </span>
           </div>
-          <div class="text-lg sm:text-xl font-black font-mono text-cyan-300 tracking-tight">
+          <div class="text-lg sm:text-xl font-black font-mono ${isNight ? 'text-cyan-300' : 'text-sky-700'} tracking-tight">
             ${formatCurrency(kpis.totalFacturadoEstimado)}
           </div>
-          <div class="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+          <div class="text-[10px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
             <span>Avance acumulado estimado</span>
-            <i class="fa-solid fa-hand-holding-dollar text-cyan-400 text-xs"></i>
+            <i class="fa-solid fa-hand-holding-dollar ${isNight ? 'text-cyan-400' : 'text-sky-600'} text-xs"></i>
           </div>
         </div>
 
         <!-- Tarjeta 3: Egresos Reales Pagados -->
-        <div class="bg-[#121c38] border border-slate-800/90 hover:border-rose-500/40 rounded-xl p-3.5 space-y-1.5 relative overflow-hidden shadow-lg transition">
-          <div class="flex items-center justify-between text-slate-400">
+        <div class="${cardClass} border rounded-xl p-3.5 space-y-1.5 relative overflow-hidden transition">
+          <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[10px] font-bold uppercase tracking-wider">Egresos Pagados</span>
-            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 text-rose-300 border border-rose-500/30">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${isNight ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'}">
               ${kpis.totalRegistros} ÓRDENES
             </span>
           </div>
-          <div class="text-lg sm:text-xl font-black font-mono text-rose-400 tracking-tight">
+          <div class="text-lg sm:text-xl font-black font-mono ${isNight ? 'text-rose-400' : 'text-rose-700'} tracking-tight">
             ${formatCurrency(kpis.totalEgresosReales)}
           </div>
-          <div class="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
-            <span>Por Pagar: <strong class="text-amber-400 font-mono">${formatCurrency(kpis.totalEgresosPorPagar)}</strong></span>
-            <i class="fa-solid fa-money-bill-wave text-rose-400 text-xs"></i>
+          <div class="text-[10px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
+            <span>Por Pagar: <strong class="${isNight ? 'text-amber-400' : 'text-amber-700'} font-mono">${formatCurrency(kpis.totalEgresosPorPagar)}</strong></span>
+            <i class="fa-solid fa-money-bill-wave ${isNight ? 'text-rose-400' : 'text-rose-600'} text-xs"></i>
           </div>
         </div>
 
         <!-- Tarjeta 4: Utilidad en Caja Inmediata -->
-        <div class="bg-[#121c38] border border-slate-800/90 hover:border-emerald-500/40 rounded-xl p-3.5 space-y-1.5 relative overflow-hidden shadow-lg transition">
-          <div class="flex items-center justify-between text-slate-400">
+        <div class="${cardClass} border rounded-xl p-3.5 space-y-1.5 relative overflow-hidden transition">
+          <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[10px] font-bold uppercase tracking-wider">Utilidad en Caja</span>
-            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${kpis.utilidadEnCaja >= 0 ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-300 border border-rose-500/30'}">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${kpis.utilidadEnCaja >= 0 ? (isNight ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border border-emerald-200') : (isNight ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200')}">
               FLUJO NETO
             </span>
           </div>
-          <div class="text-lg sm:text-xl font-black font-mono ${kpis.utilidadEnCaja >= 0 ? 'text-emerald-400' : 'text-rose-400'} tracking-tight">
+          <div class="text-lg sm:text-xl font-black font-mono ${kpis.utilidadEnCaja >= 0 ? (isNight ? 'text-emerald-400' : 'text-emerald-700') : (isNight ? 'text-rose-400' : 'text-rose-700')} tracking-tight">
             ${formatCurrency(kpis.utilidadEnCaja)}
           </div>
-          <div class="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+          <div class="text-[10px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
             <span>Cobrado − Egresos Pagados</span>
-            <i class="fa-solid fa-piggy-bank text-emerald-400 text-xs"></i>
+            <i class="fa-solid fa-piggy-bank ${kpis.utilidadEnCaja >= 0 ? (isNight ? 'text-emerald-400' : 'text-emerald-600') : (isNight ? 'text-rose-400' : 'text-rose-600')} text-xs"></i>
           </div>
         </div>
 
         <!-- Tarjeta 5: Proyección de Utilidad al Cierre -->
-        <div class="bg-[#121c38] border border-slate-800/90 hover:border-amber-500/40 rounded-xl p-3.5 space-y-1.5 relative overflow-hidden shadow-lg transition">
-          <div class="flex items-center justify-between text-slate-400">
+        <div class="${cardClass} border rounded-xl p-3.5 space-y-1.5 relative overflow-hidden transition">
+          <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[10px] font-bold uppercase tracking-wider">Utilidad Proyectada</span>
-            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${kpis.margenUtilidadProyectado >= 10 ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-300 border border-amber-500/30'}">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${kpis.margenUtilidadProyectado >= 10 ? (isNight ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border border-emerald-200') : (isNight ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30' : 'bg-amber-50 text-amber-700 border border-amber-200')}">
               ${kpis.margenUtilidadProyectado}% MARGEN
             </span>
           </div>
-          <div class="text-lg sm:text-xl font-black font-mono ${kpis.proyeccionUtilidadCierre >= 0 ? 'text-amber-300' : 'text-rose-400'} tracking-tight">
+          <div class="text-lg sm:text-xl font-black font-mono ${kpis.proyeccionUtilidadCierre >= 0 ? (isNight ? 'text-amber-300' : 'text-slate-900') : (isNight ? 'text-rose-400' : 'text-rose-700')} tracking-tight">
             ${formatCurrency(kpis.proyeccionUtilidadCierre)}
           </div>
-          <div class="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+          <div class="text-[10px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
             <span>Presupuesto − Comprometido</span>
-            <i class="fa-solid fa-chart-line text-amber-400 text-xs"></i>
+            <i class="fa-solid fa-chart-line ${isNight ? 'text-amber-400' : 'text-amber-600'} text-xs"></i>
           </div>
         </div>
 
@@ -511,10 +540,10 @@ function renderTableroDashboardView(kpis) {
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
         <!-- Panel Izquierdo: Velocímetro / Gauge Radial del Semáforo Presupuestal (cols 5/12) -->
-        <div class="lg:col-span-5 bg-[#121c38] border border-slate-800/90 rounded-xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden">
-          <div class="flex items-center justify-between pb-2 border-b border-slate-800/70">
+        <div class="lg:col-span-5 ${panelClass} border rounded-xl p-4 flex flex-col justify-between relative overflow-hidden">
+          <div class="flex items-center justify-between pb-2 border-b ${borderDivider}">
             <div class="flex items-center gap-2">
-              <span class="text-xs font-black uppercase tracking-wider text-white">Semáforo Presupuestal</span>
+              <span class="text-xs font-black uppercase tracking-wider ${titleText}">Semáforo Presupuestal</span>
               <span class="w-2 h-2 rounded-full ${semPulseColor} animate-pulse"></span>
             </div>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${semBadgeClass} flex items-center gap-1">
@@ -534,21 +563,21 @@ function renderTableroDashboardView(kpis) {
                   <stop offset="100%" stop-color="#ef4444"/>
                 </linearGradient>
                 <filter id="gauge-glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#ffffff" flood-opacity="0.8"/>
+                  <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="${isNight ? '#ffffff' : '#000000'}" flood-opacity="${isNight ? '0.8' : '0.15'}"/>
                 </filter>
               </defs>
               <!-- Arco Base Track -->
-              <path d="M 32 95 A 68 68 0 0 1 168 95" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="round"/>
+              <path d="M 32 95 A 68 68 0 0 1 168 95" fill="none" stroke="${isNight ? '#1e293b' : '#e2e8f0'}" stroke-width="12" stroke-linecap="round"/>
               <!-- Arco con Gradiente de Progreso -->
               <path d="M 32 95 A 68 68 0 0 1 168 95" fill="none" stroke="url(#gauge-gradient)" stroke-width="12" stroke-linecap="round"
                     stroke-dasharray="213.63" stroke-dashoffset="${gaugeDashOffset}" class="transition-all duration-1000"/>
               <!-- Aguja Pointer -->
               <g transform="rotate(${needleAngle} 100 95)" class="transition-transform duration-1000 ease-out">
-                <polygon points="98,95 100,32 102,95" fill="#f8fafc" filter="url(#gauge-glow)"/>
+                <polygon points="98,95 100,32 102,95" fill="${isNight ? '#f8fafc' : '#0f172a'}" filter="url(#gauge-glow)"/>
               </g>
               <!-- Centro de Aguja / Pivot Hub -->
-              <circle cx="100" cy="95" r="7" fill="#06b6d4" stroke="#0b1329" stroke-width="2.5"/>
-              <circle cx="100" cy="95" r="2.5" fill="#ffffff"/>
+              <circle cx="100" cy="95" r="7" fill="${isNight ? '#06b6d4' : '#2563eb'}" stroke="${isNight ? '#0b1329' : '#ffffff'}" stroke-width="2.5"/>
+              <circle cx="100" cy="95" r="2.5" fill="${isNight ? '#ffffff' : '#0f172a'}"/>
               <!-- Ticks -->
               <text x="28" y="112" font-size="8.5" font-weight="700" fill="#64748b" text-anchor="middle">0%</text>
               <text x="100" y="20" font-size="8.5" font-weight="700" fill="#64748b" text-anchor="middle">50%</text>
@@ -557,33 +586,33 @@ function renderTableroDashboardView(kpis) {
 
             <!-- Métrica Numérica y Explicación -->
             <div class="text-center space-y-0.5 mt-1">
-              <div class="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">${pctGastado}%</div>
-              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Del Presupuesto Total Ejercido</p>
+              <div class="text-2xl sm:text-3xl font-black font-mono ${titleText} tracking-tight">${pctGastado}%</div>
+              <p class="text-[10px] font-bold uppercase tracking-wider ${mutedText}">Del Presupuesto Total Ejercido</p>
             </div>
           </div>
 
           <!-- Barra de Detalles del Límite Presupuestal -->
-          <div class="p-2.5 bg-[#0e162e] rounded-lg border border-slate-800 space-y-1.5 text-xs">
+          <div class="p-2.5 ${subBoxClass} rounded-lg border space-y-1.5 text-xs">
             <div class="flex items-center justify-between text-[11px]">
-              <span class="text-slate-400 font-semibold">Total Comprometido:</span>
-              <span class="font-mono font-bold text-white">${formatCurrency(kpis.totalEgresosComprometidos)}</span>
+              <span class="${mutedText} font-semibold">Total Comprometido:</span>
+              <span class="font-mono font-bold ${titleText}">${formatCurrency(kpis.totalEgresosComprometidos)}</span>
             </div>
             <div class="flex items-center justify-between text-[11px]">
-              <span class="text-slate-400 font-semibold">Límite Contratado:</span>
-              <span class="font-mono font-bold text-cyan-300">${formatCurrency(kpis.presupuestoContratado)}</span>
+              <span class="${mutedText} font-semibold">Límite Contratado:</span>
+              <span class="font-mono font-bold ${isNight ? 'text-cyan-300' : 'text-blue-700'}">${formatCurrency(kpis.presupuestoContratado)}</span>
             </div>
-            <p class="text-[10px] text-slate-400 leading-tight pt-1 border-t border-slate-800/80">${sem.description}</p>
+            <p class="text-[10px] ${mutedText} leading-tight pt-1 border-t ${borderDivider}">${sem.description}</p>
           </div>
         </div>
 
         <!-- Panel Derecho: Donut Chart & Distribución de los 6 Rubros (cols 7/12) -->
-        <div class="lg:col-span-7 bg-[#121c38] border border-slate-800/90 rounded-xl p-4 flex flex-col justify-between shadow-lg">
-          <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800/70">
+        <div class="lg:col-span-7 ${panelClass} border rounded-xl p-4 flex flex-col justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b ${borderDivider}">
             <div>
-              <h3 class="text-xs font-black uppercase tracking-wider text-white">Distribución por Rubro</h3>
-              <p class="text-[10px] text-slate-400">Proporción de gasto en los 6 rubros constructivos</p>
+              <h3 class="text-xs font-black uppercase tracking-wider ${titleText}">Distribución por Rubro</h3>
+              <p class="text-[10px] ${mutedText}">Proporción de gasto en los 6 rubros constructivos</p>
             </div>
-            <span class="text-[11px] font-mono font-bold px-2 py-0.5 bg-slate-800 text-cyan-300 rounded-md border border-slate-700">
+            <span class="text-[11px] font-mono font-bold px-2 py-0.5 ${isNight ? 'bg-slate-800 text-cyan-300 border border-slate-700' : 'bg-blue-50 text-blue-700 border border-blue-200'} rounded-md">
               ${totalSpendComprometido > 0 ? 'Gasto: ' + formatCurrency(totalSpendComprometido) : 'Base: ' + formatCurrency(totalBudgetDirecto)}
             </span>
           </div>
@@ -594,15 +623,15 @@ function renderTableroDashboardView(kpis) {
             <!-- Donut SVG (cols 5/12) -->
             <div class="sm:col-span-5 flex flex-col items-center justify-center relative">
               <svg viewBox="0 0 180 180" class="w-40 h-40 transform -rotate-90">
-                <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="#1e293b" stroke-width="18"/>
+                <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="${isNight ? '#1e293b' : '#f1f5f9'}" stroke-width="18"/>
                 ${donutSlicesSvg}
               </svg>
               <!-- Centro del Donut -->
               <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                <span class="text-xs font-black font-mono text-white leading-tight">
+                <span class="text-xs font-black font-mono ${titleText} leading-tight">
                   ${totalSpendComprometido > 0 ? formatCurrency(totalSpendComprometido) : formatCurrency(totalBudgetDirecto)}
                 </span>
-                <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400">
+                <span class="text-[9px] font-bold uppercase tracking-wider ${isNight ? 'text-cyan-400' : 'text-blue-600'}">
                   ${comp.resumen.totalInsumos} INSUMOS
                 </span>
               </div>
@@ -615,13 +644,13 @@ function renderTableroDashboardView(kpis) {
                 const val = totalSpendComprometido > 0 ? cat.totalComprado : cat.totalPresupuestado;
                 const pct = chartBasis > 0 ? round2((val / chartBasis) * 100) : 0;
                 return `
-                  <div class="p-2 bg-[#0e162e] rounded-lg border border-slate-800/90 hover:border-slate-700 space-y-0.5 transition">
+                  <div class="p-2 ${subBoxClass} rounded-lg border hover:border-slate-400/50 space-y-0.5 transition">
                     <div class="flex items-center gap-1.5">
                       <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background-color: ${meta.color};"></span>
-                      <span class="text-[10px] font-bold text-slate-300 truncate">${meta.label}</span>
+                      <span class="text-[10px] font-bold ${isNight ? 'text-slate-300' : 'text-slate-700'} truncate">${meta.label}</span>
                     </div>
-                    <div class="font-mono font-bold text-[11px] text-white">${formatCurrency(val)}</div>
-                    <div class="text-[9px] text-slate-400 flex items-center justify-between">
+                    <div class="font-mono font-bold text-[11px] ${titleText}">${formatCurrency(val)}</div>
+                    <div class="text-[9px] ${mutedText} flex items-center justify-between">
                       <span>${cat.items.length} insumos</span>
                       <strong class="font-mono ${meta.textColor}">${pct}%</strong>
                     </div>
@@ -633,9 +662,9 @@ function renderTableroDashboardView(kpis) {
           </div>
 
           <!-- Pie del Donut: Desglose Rápido -->
-          <div class="pt-2 border-t border-slate-800/70 flex items-center justify-between text-xs text-slate-400">
+          <div class="pt-2 border-t ${borderDivider} flex items-center justify-between text-xs ${mutedText}">
             <span class="text-[10px]">6 rubros calculados desde la explosión de insumos</span>
-            <button onclick="switchExpensesSubTab('comparativa')" class="text-cyan-400 hover:text-cyan-300 font-bold text-[11px] flex items-center gap-1 cursor-pointer">
+            <button onclick="switchExpensesSubTab('comparativa')" class="${isNight ? 'text-cyan-400 hover:text-cyan-300' : 'text-blue-600 hover:text-blue-700'} font-bold text-[11px] flex items-center gap-1 cursor-pointer">
               <span>Ver desglose por insumo</span>
               <i class="fa-solid fa-arrow-right text-[9px]"></i>
             </button>
@@ -648,13 +677,13 @@ function renderTableroDashboardView(kpis) {
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
         <!-- Panel Izquierdo: Barras Horizontales de Consumo Presupuestal por Rubro (cols 6/12) -->
-        <div class="lg:col-span-6 bg-[#121c38] border border-slate-800/90 rounded-xl p-4 space-y-3 shadow-lg">
-          <div class="flex items-center justify-between pb-2 border-b border-slate-800/70">
+        <div class="lg:col-span-6 ${panelClass} border rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b ${borderDivider}">
             <div>
-              <h3 class="text-xs font-black uppercase tracking-wider text-white">Consumo Presupuestal por Rubro</h3>
-              <p class="text-[10px] text-slate-400">Presupuesto asignado vs real ejercido</p>
+              <h3 class="text-xs font-black uppercase tracking-wider ${titleText}">Consumo Presupuestal por Rubro</h3>
+              <p class="text-[10px] ${mutedText}">Presupuesto asignado vs real ejercido</p>
             </div>
-            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avance %</span>
+            <span class="text-[10px] font-bold ${mutedText} uppercase tracking-wider">Avance %</span>
           </div>
 
           <!-- Lista de las 6 barras -->
@@ -668,20 +697,20 @@ function renderTableroDashboardView(kpis) {
               return `
                 <div class="space-y-1">
                   <div class="flex items-center justify-between text-xs">
-                    <span class="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                    <span class="text-[11px] font-bold ${isNight ? 'text-slate-200' : 'text-slate-800'} flex items-center gap-1.5">
                       <i class="fa-solid ${meta.icon} ${meta.textColor} text-[10px]"></i>
                       <span>${meta.label}</span>
                     </span>
                     <div class="flex items-center gap-2 font-mono text-[10px]">
-                      <span class="text-white font-bold">${formatCurrency(compVal)}</span>
-                      <span class="text-slate-500">/</span>
-                      <span class="text-slate-400">${formatCurrency(presup)}</span>
-                      <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${isOver ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-cyan-300'}">
+                      <span class="${titleText} font-bold">${formatCurrency(compVal)}</span>
+                      <span class="${isNight ? 'text-slate-500' : 'text-slate-400'}">/</span>
+                      <span class="${mutedText}">${formatCurrency(presup)}</span>
+                      <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${isOver ? (isNight ? 'bg-rose-500/20 text-rose-300' : 'bg-rose-50 text-rose-700 border border-rose-200') : (isNight ? 'bg-slate-800 text-cyan-300' : 'bg-slate-100 text-slate-700 border border-slate-200')}">
                         ${pctUsed}%
                       </span>
                     </div>
                   </div>
-                  <div class="w-full bg-[#0e162e] h-2 rounded-full overflow-hidden p-0.5 border border-slate-800">
+                  <div class="w-full ${isNight ? 'bg-[#0e162e] border-slate-800' : 'bg-slate-100 border-slate-200'} h-2 rounded-full overflow-hidden p-0.5 border">
                     <div class="h-full rounded-full bg-gradient-to-r ${meta.grad} transition-all duration-700" style="width: ${Math.min(100, pctUsed)}%"></div>
                   </div>
                 </div>
@@ -691,38 +720,38 @@ function renderTableroDashboardView(kpis) {
         </div>
 
         <!-- Panel Derecho: Flujo de Caja & Top Proveedores / Contratistas (cols 6/12) -->
-        <div class="lg:col-span-6 bg-[#121c38] border border-slate-800/90 rounded-xl p-4 space-y-3.5 shadow-lg flex flex-col justify-between">
+        <div class="lg:col-span-6 ${panelClass} border rounded-xl p-4 space-y-3.5 flex flex-col justify-between">
           
           <!-- Bloque Superior: Liquidez & Flujo de Caja -->
           <div class="space-y-2">
-            <div class="flex items-center justify-between pb-1.5 border-b border-slate-800/70">
-              <h3 class="text-xs font-black uppercase tracking-wider text-white">Flujo de Caja y Liquidez</h3>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">
+            <div class="flex items-center justify-between pb-1.5 border-b ${borderDivider}">
+              <h3 class="text-xs font-black uppercase tracking-wider ${titleText}">Flujo de Caja y Liquidez</h3>
+              <span class="text-[10px] font-bold uppercase tracking-wider ${isNight ? 'text-cyan-400' : 'text-blue-700'} font-mono">
                 Caja Neta: ${formatCurrency(kpis.utilidadEnCaja)}
               </span>
             </div>
 
             <div class="grid grid-cols-3 gap-2 text-center">
-              <div class="p-2 bg-[#0e162e] rounded-lg border border-slate-800">
-                <span class="text-[9px] font-bold text-slate-400 uppercase block">Ingreso Cobrado</span>
-                <span class="font-mono font-bold text-xs text-cyan-300">${formatCurrency(kpis.totalFacturadoEstimado)}</span>
+              <div class="p-2 ${subBoxClass} rounded-lg border">
+                <span class="text-[9px] font-bold ${mutedText} uppercase block">Ingreso Cobrado</span>
+                <span class="font-mono font-bold text-xs ${isNight ? 'text-cyan-300' : 'text-sky-700'}">${formatCurrency(kpis.totalFacturadoEstimado)}</span>
               </div>
-              <div class="p-2 bg-[#0e162e] rounded-lg border border-slate-800">
-                <span class="text-[9px] font-bold text-slate-400 uppercase block">Egresos Pagados</span>
-                <span class="font-mono font-bold text-xs text-rose-400">${formatCurrency(kpis.totalEgresosReales)}</span>
+              <div class="p-2 ${subBoxClass} rounded-lg border">
+                <span class="text-[9px] font-bold ${mutedText} uppercase block">Egresos Pagados</span>
+                <span class="font-mono font-bold text-xs ${isNight ? 'text-rose-400' : 'text-rose-700'}">${formatCurrency(kpis.totalEgresosReales)}</span>
               </div>
-              <div class="p-2 bg-[#0e162e] rounded-lg border border-slate-800">
-                <span class="text-[9px] font-bold text-slate-400 uppercase block">Cuentas por Pagar</span>
-                <span class="font-mono font-bold text-xs text-amber-400">${formatCurrency(kpis.totalEgresosPorPagar)}</span>
+              <div class="p-2 ${subBoxClass} rounded-lg border">
+                <span class="text-[9px] font-bold ${mutedText} uppercase block">Cuentas por Pagar</span>
+                <span class="font-mono font-bold text-xs ${isNight ? 'text-amber-400' : 'text-amber-700'}">${formatCurrency(kpis.totalEgresosPorPagar)}</span>
               </div>
             </div>
           </div>
 
           <!-- Bloque Inferior: Top Proveedores y Destajistas -->
           <div class="space-y-2">
-            <div class="flex items-center justify-between pb-1 border-b border-slate-800/70">
-              <h4 class="text-xs font-black uppercase tracking-wider text-white">Top Proveedores & Contratistas</h4>
-              <button onclick="openSuppliersListModal()" class="text-cyan-400 hover:text-cyan-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer">
+            <div class="flex items-center justify-between pb-1 border-b ${borderDivider}">
+              <h4 class="text-xs font-black uppercase tracking-wider ${titleText}">Top Proveedores & Contratistas</h4>
+              <button onclick="openSuppliersListModal()" class="${isNight ? 'text-cyan-400 hover:text-cyan-300' : 'text-blue-600 hover:text-blue-700 font-bold'} text-[10px] flex items-center gap-1 cursor-pointer">
                 <span>Directorio</span>
                 <i class="fa-solid fa-arrow-right text-[8px]"></i>
               </button>
@@ -730,23 +759,23 @@ function renderTableroDashboardView(kpis) {
 
             <div class="space-y-1.5">
               ${topSuppliers.length === 0 ? `
-                <div class="p-3 text-center text-slate-500 text-xs font-medium bg-[#0e162e] rounded-lg border border-slate-800">
+                <div class="p-3 text-center ${mutedText} text-xs font-medium ${subBoxClass} rounded-lg border">
                   No hay egresos registrados aún. Haz clic en "Nueva Compra" para registrar tu primer gasto.
                 </div>
               ` : topSuppliers.map(sup => `
-                <div class="p-2 bg-[#0e162e] hover:bg-[#152042] rounded-lg border border-slate-800/90 flex items-center justify-between text-xs transition">
+                <div class="p-2 ${subBoxHoverClass} rounded-lg border flex items-center justify-between text-xs transition">
                   <div class="flex items-center gap-2 min-w-0">
-                    <div class="w-6 h-6 rounded-md bg-blue-600/20 text-cyan-400 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                    <div class="w-6 h-6 rounded-md ${isNight ? 'bg-blue-600/20 text-cyan-400' : 'bg-blue-50 text-blue-600 border border-blue-200/60'} flex items-center justify-center shrink-0 text-[10px] font-bold">
                       <i class="fa-solid fa-truck-field"></i>
                     </div>
                     <div class="min-w-0">
-                      <p class="font-bold text-slate-200 truncate text-[11px]">${sup.name}</p>
-                      <p class="text-[9px] text-slate-400 truncate">${sup.count} órdenes registradas</p>
+                      <p class="font-bold ${isNight ? 'text-slate-200' : 'text-slate-800'} truncate text-[11px]">${sup.name}</p>
+                      <p class="text-[9px] ${mutedText} truncate">${sup.count} órdenes registradas</p>
                     </div>
                   </div>
                   <div class="text-right shrink-0">
-                    <div class="font-mono font-bold text-white text-[11px]">${formatCurrency(sup.total)}</div>
-                    <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${sup.pending > 0 ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}">
+                    <div class="font-mono font-bold ${titleText} text-[11px]">${formatCurrency(sup.total)}</div>
+                    <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${sup.pending > 0 ? (isNight ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-50 text-amber-700 border border-amber-200') : (isNight ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')}">
                       ${sup.pending > 0 ? 'Pendiente' : 'Al Corriente'}
                     </span>
                   </div>
@@ -756,12 +785,12 @@ function renderTableroDashboardView(kpis) {
           </div>
 
           <!-- Acciones Rápidas del Tablero -->
-          <div class="pt-2 border-t border-slate-800/70 flex items-center justify-between gap-2">
-            <button onclick="switchExpensesSubTab('bitacora')" class="flex-1 py-1.5 px-3 rounded-lg bg-[#0e162e] hover:bg-[#172348] border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer">
-              <i class="fa-solid fa-receipt text-xs text-blue-400"></i>
+          <div class="pt-2 border-t ${borderDivider} flex items-center justify-between gap-2">
+            <button onclick="switchExpensesSubTab('bitacora')" class="flex-1 py-1.5 px-3 rounded-lg ${isNight ? 'bg-[#0e162e] hover:bg-[#172348] border-slate-800 text-slate-300 hover:text-white' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900 font-bold'} text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer border">
+              <i class="fa-solid fa-receipt text-xs ${isNight ? 'text-blue-400' : 'text-blue-600'}"></i>
               <span>Ver Bitácora de Gastos</span>
             </button>
-            <button onclick="exportExpensesExcelAction()" class="py-1.5 px-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer">
+            <button onclick="exportExpensesExcelAction()" class="py-1.5 px-3 rounded-lg ${isNight ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700 font-bold'} text-xs transition flex items-center justify-center gap-1.5 cursor-pointer border">
               <i class="fa-solid fa-file-excel text-xs"></i>
               <span>Excel</span>
             </button>

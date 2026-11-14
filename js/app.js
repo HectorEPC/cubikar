@@ -1414,6 +1414,10 @@ setThemeRenderCallback(() => {
   if (viewBitacora && !viewBitacora.classList.contains('hidden')) {
     renderBitacoraView();
   }
+  const viewCompras = document.getElementById('view-compras');
+  if (viewCompras && !viewCompras.classList.contains('hidden')) {
+    renderExpensesView();
+  }
   const subModal = document.getElementById('modal-suscripcion-usuario');
   if (subModal && !subModal.classList.contains('hidden')) {
     renderSubscriptionCards();
