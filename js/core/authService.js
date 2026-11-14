@@ -3,8 +3,17 @@
 
 import { STORAGE_KEY_USER } from '../config/constants.js';
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
-import { getCurrentUser, saveCurrentUser, markSessionOpen, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js';
 import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js';
+import {
+  writeSharedSsoCookie,
+  clearSharedSsoCookie,
+  readSharedSsoCookie,
+  extractIncomingSsoFromHash,
+  scrubSsoHashParams,
+  hasPendingIncomingSso,
+  getLastSignOutTimestamp
+} from './ssoHelper.js';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -13,6 +22,18 @@ let googleGsiLoadPromise = null;
 let activeGoogleNoncePair = null;
 let explicitAuthDepth = 0;
 let explicitAuthRemember = null;
+let ssoHydrationInProgress = false;
+const inFlightProfilePromises = new Map();
+const cachedProfilesByUserId = new Map();
+
+export function isSsoHydrationPending() {
+  return ssoHydrationInProgress;
+}
+
+function clearCachedUserProfiles() {
+  inFlightProfilePromises.clear();
+  cachedProfilesByUserId.clear();
+}
 
 const PLACEHOLDER_USER_NAMES = new Set(['', 'usuario', 'usuario invitado', 'invitado']);
 
@@ -223,8 +244,23 @@ export async function signInWithPassword({ email, password, remember = null }) {
 
     if (error) throw error;
 
-    const perfil = await fetchUserProfile(data.user.id);
-    syncLocalUserSession(data.user, perfil, true, effectiveRemember);
+    syncLocalUserSession(data.user, null, true, effectiveRemember);
+    if (effectiveRemember && data.session) {
+      writeSharedSsoCookie(data.session);
+    } else if (!effectiveRemember) {
+      clearSharedSsoCookie({ markSignOut: false });
+    }
+
+    let perfil = null;
+    if (data?.user?.id) {
+      perfil = await Promise.race([
+        fetchUserProfile(data.user.id),
+        new Promise((resolve) => setTimeout(() => resolve(null), 1500))
+      ]).catch(() => null);
+      if (perfil) {
+        syncLocalUserSession(data.user, perfil, false, null);
+      }
+    }
 
     return { session: data.session, user: data.user, perfil };
   } finally {
@@ -294,10 +330,19 @@ export async function signInWithGoogleIdToken({ idToken, rawNonce, remember = nu
     let perfil = null;
     if (data?.user?.id) {
       markSessionOpen(data.user.email || data.user);
-      try {
-        perfil = await fetchUserProfile(data.user.id);
-      } catch (_) {}
-      await syncLocalUserSession(data.user, perfil, true, effectiveRemember);
+      syncLocalUserSession(data.user, null, true, effectiveRemember);
+      if (effectiveRemember && data.session) {
+        writeSharedSsoCookie(data.session);
+      } else if (!effectiveRemember) {
+        clearSharedSsoCookie({ markSignOut: false });
+      }
+      perfil = await Promise.race([
+        fetchUserProfile(data.user.id),
+        new Promise((resolve) => setTimeout(() => resolve(null), 1500))
+      ]).catch(() => null);
+      if (perfil) {
+        syncLocalUserSession(data.user, perfil, false, null);
+      }
     }
 
     return {
@@ -405,6 +450,14 @@ export async function mountGoogleSignInButton({
  */
 export async function signOut() {
   activeGoogleNoncePair = null;
+  clearCachedUserProfiles();
+  const current = getCurrentUser();
+  if (current?.email) {
+    markSessionClosed(current.email);
+  }
+  clearSharedSsoCookie({ markSignOut: true });
+  clearLocalSupabaseTokens();
+  saveCurrentUser(null);
   try {
     if (typeof window !== 'undefined' && window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
@@ -416,7 +469,6 @@ export async function signOut() {
       await sb.auth.signOut({ scope: 'global' });
     } catch (_) {}
   }
-  saveCurrentUser(null);
 }
 
 /**
@@ -439,40 +491,56 @@ export async function resetPasswordForEmail(email) {
 /**
  * Obtener perfil completo y empresa asociada desde la base de datos
  */
-export async function fetchUserProfile(userId) {
+export async function fetchUserProfile(userId, forceRefresh = false) {
   const sb = getSupabaseClient();
   if (!sb || !userId) return null;
 
-  try {
-    const { data, error } = await sb
-      .from('perfiles')
-      .select(`
-        id,
-        nombre_completo,
-        email,
-        avatar_url,
-        rol,
-        empresa_id,
-        empresas (
-          id,
-          nombre,
-          plan,
-          estado_suscripcion,
-          logo_url
-        )
-      `)
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      console.warn('[Supabase Auth] Perfil no encontrado:', error.message);
-      return null;
-    }
-    return data;
-  } catch (err) {
-    console.error('[Supabase Auth] Error al obtener perfil:', err);
-    return null;
+  const cached = cachedProfilesByUserId.get(userId);
+  if (!forceRefresh && cached && (Date.now() - cached.fetchedAt) < 5000) {
+    return cached.data;
   }
+  if (inFlightProfilePromises.has(userId)) {
+    return inFlightProfilePromises.get(userId);
+  }
+
+  const reqPromise = (async () => {
+    try {
+      const { data, error } = await sb
+        .from('perfiles')
+        .select(`
+          id,
+          nombre_completo,
+          email,
+          avatar_url,
+          rol,
+          empresa_id,
+          empresas (
+            id,
+            nombre,
+            plan,
+            estado_suscripcion,
+            logo_url
+          )
+        `)
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.warn('[Supabase Auth] Perfil no encontrado:', error.message);
+        return null;
+      }
+      cachedProfilesByUserId.set(userId, { data, fetchedAt: Date.now() });
+      return data;
+    } catch (err) {
+      console.error('[Supabase Auth] Error al obtener perfil:', err);
+      return null;
+    } finally {
+      inFlightProfilePromises.delete(userId);
+    }
+  })();
+
+  inFlightProfilePromises.set(userId, reqPromise);
+  return reqPromise;
 }
 
 /**
@@ -547,17 +615,8 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
     }
   } catch (_) {}
 
-  // Si la suscripción es de pago y no estaba en Supabase Auth, sincronizarla a la nube
-  if (userSub && userSub.planId !== 'free' && (!metaSub || metaSub.planId !== userSub.planId)) {
-    try {
-      const sbClient = getSupabaseClient();
-      if (sbClient) {
-        sbClient.auth.updateUser({
-          data: { subscription: userSub }
-        }).catch(() => {});
-      }
-    } catch (_) {}
-  }
+  // Si la suscripción es de pago y no estaba en Supabase Auth, sincronizarla fuera de locks de Auth
+  const shouldSyncSubToCloud = !!(userSub && userSub.planId !== 'free' && (!metaSub || metaSub.planId !== userSub.planId));
 
   const resolvedRole = perfil?.rol || existingSameUser?.role || 'admin';
   const localUser = {
@@ -577,7 +636,6 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
   try {
     saveRegisteredUserAccount(localUser);
     markSessionOpen(localUser.email || localUser);
-    restoreUserCollaborationFromCloud(user);
     if (typeof window !== 'undefined' && typeof window.updateSubscriptionBadgesUI === 'function') {
       window.updateSubscriptionBadgesUI();
     }
@@ -585,13 +643,104 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
       refreshProjectsGridUI();
     }
     setTimeout(() => {
+      if (shouldSyncSubToCloud) {
+        try {
+          const sbClient = getSupabaseClient();
+          if (sbClient) {
+            sbClient.auth.updateUser({
+              data: { subscription: userSub }
+            }).catch(() => {});
+          }
+        } catch (_) {}
+      }
+      try {
+        restoreUserCollaborationFromCloud(user);
+      } catch (_) {}
       autoSyncCollaborationOnStartup(user);
       import('../modules/ai/aiQuotaAndCacheService.js')
         .then(m => m.syncAiQuotaFromSupabase())
         .catch(() => {});
-    }, 100);
+    }, 50);
   } catch (e) {}
   return localUser;
+}
+
+/**
+ * Verifica síncronamente si hay una sesión SSO entrante pendiente desde otro subdominio Cubikar
+ */
+export function hasPendingIncomingSsoSession() {
+  return hasPendingIncomingSso(!!getCurrentUser());
+}
+
+/**
+ * Hidrata una sesión SSO entrante (vía URL hash o cookie compartida .cubikar.app) sin pedir login de nuevo
+ */
+export async function hydrateIncomingSsoSession() {
+  enforceGlobalSessionRevocation();
+  const sb = getSupabaseClient();
+  if (!sb) return { hydrated: false };
+
+  const hashTokens = extractIncomingSsoFromHash();
+  scrubSsoHashParams();
+
+  let tokens = hashTokens;
+  if (!tokens && !getCurrentUser()) {
+    const cookieTokens = readSharedSsoCookie();
+    const lastSignOutTs = getLastSignOutTimestamp();
+    if (cookieTokens?.refreshToken && !(lastSignOutTs > 0 && cookieTokens.ts > 0 && cookieTokens.ts <= lastSignOutTs)) {
+      tokens = cookieTokens;
+    }
+  }
+
+  if (!tokens?.refreshToken) {
+    try {
+      const { data } = await sb.auth.getSession();
+      if (data?.session?.user) {
+        const current = getCurrentUser();
+        const email = (data.session.user.email || '').toLowerCase().trim();
+        const isClosed = getClosedSessionsList().includes(email);
+        if (current || (!isClosed && hasValidLocalSessionForEmail(email))) {
+          return { hydrated: true, session: data.session, user: data.session.user };
+        }
+      }
+    } catch (_) {}
+    return { hydrated: false };
+  }
+
+  const effectiveRemember = tokens.fromHash ? tokens.remember !== false : true;
+  explicitAuthDepth += 1;
+  explicitAuthRemember = effectiveRemember;
+  ssoHydrationInProgress = true;
+  try {
+    const { data, error } = tokens.accessToken
+      ? await sb.auth.setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken })
+      : await sb.auth.refreshSession({ refresh_token: tokens.refreshToken });
+
+    if (error || !data?.session?.user) {
+      return { hydrated: false, error };
+    }
+
+    const email = (data.session.user.email || '').toLowerCase().trim();
+    if (email) markSessionOpen(email);
+    syncLocalUserSession(data.session.user, null, true, effectiveRemember);
+    if (effectiveRemember) {
+      writeSharedSsoCookie(data.session);
+    }
+    fetchUserProfile(data.session.user.id).then((perfil) => {
+      if (perfil && getCurrentUser()?.id === data.session.user.id) {
+        syncLocalUserSession(data.session.user, perfil, false, null);
+      }
+    }).catch(() => {});
+
+    return { hydrated: true, session: data.session, user: data.session.user };
+  } catch (err) {
+    console.warn('[Supabase SSO] No se pudo hidratar sesión entrante:', err?.message || err);
+    return { hydrated: false, error: err };
+  } finally {
+    ssoHydrationInProgress = false;
+    explicitAuthDepth = Math.max(0, explicitAuthDepth - 1);
+    if (explicitAuthDepth === 0) explicitAuthRemember = null;
+  }
 }
 
 /**
@@ -602,7 +751,8 @@ export function initAuthListener(onAuthChangeCallback) {
   const sb = getSupabaseClient();
   if (!sb) return;
 
-  sb.auth.onAuthStateChange(async (event, session) => {
+  // Callback síncrono: evita bloquear navigator.locks de Supabase GoTrue con consultas DB en línea.
+  sb.auth.onAuthStateChange((event, session) => {
     console.info(`[Supabase Auth] Evento: ${event}`);
     if (session?.user) {
       const email = (session.user.email || '').toLowerCase().trim();
@@ -610,6 +760,7 @@ export function initAuthListener(onAuthChangeCallback) {
       const closedList = getClosedSessionsList();
       const isClosed = closedList.includes(email);
       const isOAuthRedirect = typeof window !== 'undefined' && (
+        window.location.hash.includes('cubikar_sso_at=') ||
         window.location.hash.includes('access_token') ||
         window.location.hash.includes('refresh_token') ||
         window.location.search.includes('code=')
@@ -623,28 +774,59 @@ export function initAuthListener(onAuthChangeCallback) {
         markSessionOpen(email);
       } else if (isClosed || !hasActiveLocal) {
         console.info(`[Supabase Auth] Bloqueando auto-sesión pasiva (${event}) por sesión cerrada o sin persistencia en este equipo.`);
+        clearCachedUserProfiles();
         clearLocalSupabaseTokens();
         saveCurrentUser(null);
-        try {
-          sb.auth.signOut({ scope: 'local' }).catch(() => {});
-        } catch (_) {}
-        if (current && onAuthChangeCallback) onAuthChangeCallback('SIGNED_OUT', null, null);
+        setTimeout(() => {
+          try {
+            sb.auth.signOut({ scope: 'local' }).catch(() => {});
+          } catch (_) {}
+          if (current && onAuthChangeCallback) onAuthChangeCallback('SIGNED_OUT', null, null);
+        }, 0);
         return;
       }
 
       const isInternalSync = (event === 'USER_UPDATED' && isRecentInternalCloudAuthUpdate());
       const isExplicitLogin = (event === 'SIGNED_IN' || (event === 'USER_UPDATED' && !isInternalSync) || isOAuthRedirect);
       const rememberPref = isExplicitInteractive ? explicitAuthRemember : null;
-      const perfil = await fetchUserProfile(session.user.id);
-      syncLocalUserSession(session.user, perfil, isExplicitLogin, rememberPref);
-      if (!isInternalSync) {
-        try {
-          autoSyncCollaborationOnStartup(session.user);
-        } catch (e) {}
+      const shouldKeepSsoCookie = rememberPref !== null ? rememberPref : resolveRememberPreference(null);
+      if (shouldKeepSsoCookie) {
+        writeSharedSsoCookie(session);
+      } else if (rememberPref === false) {
+        clearSharedSsoCookie({ markSignOut: false });
       }
-      if (onAuthChangeCallback) onAuthChangeCallback(event, session, perfil);
+
+      const cachedEntry = cachedProfilesByUserId.get(session.user.id);
+      const initialPerfil = cachedEntry ? cachedEntry.data : null;
+      syncLocalUserSession(session.user, initialPerfil, isExplicitLogin, rememberPref);
+
+      setTimeout(() => {
+        if (!isInternalSync) {
+          try {
+            autoSyncCollaborationOnStartup(session.user);
+          } catch (e) {}
+        }
+        if (onAuthChangeCallback) onAuthChangeCallback(event, session, initialPerfil);
+
+        if (!initialPerfil) {
+          fetchUserProfile(session.user.id).then((perfil) => {
+            if (perfil && getCurrentUser()?.id === session.user.id) {
+              syncLocalUserSession(session.user, perfil, false, null);
+              if (onAuthChangeCallback) {
+                onAuthChangeCallback('USER_UPDATED', session, perfil);
+              }
+            }
+          }).catch(() => {});
+        }
+      }, 0);
     } else {
-      if (onAuthChangeCallback) onAuthChangeCallback(event, null, null);
+      if (event === 'SIGNED_OUT') {
+        clearCachedUserProfiles();
+        clearSharedSsoCookie({ markSignOut: true });
+      }
+      setTimeout(() => {
+        if (onAuthChangeCallback) onAuthChangeCallback(event, null, null);
+      }, 0);
     }
   });
 }

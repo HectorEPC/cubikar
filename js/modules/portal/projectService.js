@@ -495,6 +495,7 @@ export function enforceGlobalSessionRevocation() {
       const oldRaw = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY_USER) : null) ||
                      localStorage.getItem(STORAGE_KEY_USER) ||
                      localStorage.getItem(STORAGE_KEY_USER + '_last');
+      let hadLegacySessionData = Boolean(oldRaw);
       if (oldRaw) {
         try {
           const oldU = JSON.parse(oldRaw);
@@ -518,6 +519,7 @@ export function enforceGlobalSessionRevocation() {
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const k = localStorage.key(i);
         if (k && (k.startsWith('sb-') || k.includes('auth-token'))) {
+          hadLegacySessionData = true;
           localStorage.removeItem(k);
         }
       }
@@ -525,13 +527,18 @@ export function enforceGlobalSessionRevocation() {
       // 3. Registrar versión actual de revocación global
       localStorage.setItem(STORAGE_KEY_AUTH_SESSION_VERSION, CURRENT_AUTH_SESSION_VERSION);
 
-      // 4. Invocar signOut global en Supabase si está disponible
+      // 4. Invocar signOut local solo si existía sesión previa en esta máquina y NO hay SSO entrante activo
       try {
         if (typeof window !== 'undefined') {
-          import('../../core/supabaseClient.js').then(m => {
-            const sb = m.getSupabaseClient();
-            if (sb) sb.auth.signOut({ scope: 'global' }).catch(() => {});
-          }).catch(() => {});
+          const hasIncomingSso = (window.location?.hash || '').includes('cubikar_sso_at=') ||
+                                 (window.location?.hash || '').includes('access_token=') ||
+                                 (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
+          if (!hasIncomingSso && hadLegacySessionData) {
+            import('../../core/supabaseClient.js').then(m => {
+              const sb = m.getSupabaseClient();
+              if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
+            }).catch(() => {});
+          }
         }
       } catch (_) {}
 

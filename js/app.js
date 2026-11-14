@@ -64,9 +64,10 @@ import { getFactorSobrecosto, updateSobrecostoBadge, updateGrandTotal } from './
 import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalRealtimeSync, requestPeerSync } from './core/realtimeSync.js';
 import { hydrateProjectModulesFromCloud } from './core/cloudModulesSyncService.js';
 import { syncPendingMediaUploads } from './services/s3StorageService.js';
-import { initAuthListener } from './core/authService.js';
+import { initAuthListener, hasPendingIncomingSsoSession, hydrateIncomingSsoSession, isSsoHydrationPending } from './core/authService.js';
 import { isRecentInternalCloudAuthUpdate } from './core/collaborationCloudService.js';
 import { getCurrentUser } from './modules/portal/projectService.js';
+import { initAppSwitcher } from './ui/appSwitcher.js';
 
 import {
   renderExpensesView,
@@ -1507,16 +1508,18 @@ try {
       }
     } else {
       const currentUser = getCurrentUser();
-      if (!currentUser) {
+      if (!currentUser && !isSsoHydrationPending()) {
         showPortalView('login');
       }
     }
   });
 } catch (_) {}
 
-// Inicialización de la aplicación al cargar el módulo
-const isWorkspaceActive = initPortal();
-if (isWorkspaceActive) {
+let workspaceModulesBooted = false;
+
+function bootWorkspaceModules() {
+  if (workspaceModulesBooted) return;
+  workspaceModulesBooted = true;
   initStore();
   initBranding();
   initPanelResizer();
@@ -1564,6 +1567,48 @@ if (isWorkspaceActive) {
     checkAndResumeTourOnLoad();
   } catch (e) {
     console.warn('[Tour] Aviso al verificar reanudación de tour:', e);
+  }
+}
+
+function renderSsoConnectingOverlay() {
+  if (typeof document === 'undefined') return;
+  const main = document.getElementById('portal-main-container');
+  if (!main) return;
+  main.innerHTML = `
+    <div class="max-w-md mx-auto w-full my-16 p-8 rounded-3xl bg-slate-900/90 border border-slate-800 text-center text-white shadow-2xl">
+      <div class="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/40 text-blue-400 flex items-center justify-center mx-auto mb-4">
+        <i class="fa-solid fa-spinner fa-spin text-xl"></i>
+      </div>
+      <h2 class="text-lg font-extrabold tracking-tight">Conectando tu sesión Cubikar...</h2>
+      <p class="text-xs text-slate-400 mt-2">Cargando tus proyectos sin volver a iniciar sesión.</p>
+    </div>
+  `;
+}
+
+try {
+  initAppSwitcher('cubikar-app-switcher-mount', 'const');
+} catch (_) {}
+
+// Inicialización de la aplicación al cargar el módulo (con soporte fluido de SSO entre subdominios)
+if (hasPendingIncomingSsoSession()) {
+  renderSsoConnectingOverlay();
+  Promise.race([
+    hydrateIncomingSsoSession(),
+    new Promise((resolve) => setTimeout(() => resolve({ hydrated: false }), 6000))
+  ]).finally(() => {
+    try {
+      const hasProjectParam = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('project');
+      const alreadyRenderedDashboard = !hasProjectParam && getCurrentUser() && !!document.getElementById('portal-projects-grid');
+      if (!alreadyRenderedDashboard) {
+        const isWorkspaceActive = initPortal();
+        if (isWorkspaceActive) bootWorkspaceModules();
+      }
+    } catch (_) {}
+  });
+} else {
+  const isWorkspaceActive = initPortal();
+  if (isWorkspaceActive) {
+    bootWorkspaceModules();
   }
 }
 

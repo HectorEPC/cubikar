@@ -1,5 +1,7 @@
-// assets/js/appSwitcher.js
+// js/ui/appSwitcher.js
 // Selector Unificado de Aplicaciones del Ecosistema Cubikar (Estilo Google Workspace Waffle 9-puntos)
+
+import { appendSsoToUrlFromStorage } from '../core/ssoHelper.js';
 
 export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', currentApp = 'portal') {
   const mount = document.getElementById(containerId);
@@ -48,6 +50,8 @@ export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', curr
         <div class="space-y-1.5">
           <!-- 1. CUBIKAR CONSTRUCCIÓN -->
           <a href="${urls.const}" 
+             data-cubikar-sso-link="const"
+             data-base-href="${urls.const}"
              class="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-slate-800/80 transition ${currentApp === 'const' ? 'bg-amber-500/10 border border-amber-500/30' : 'border border-transparent'}">
             <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center text-lg shrink-0">
               <i class="fa-solid fa-helmet-safety text-base"></i>
@@ -63,6 +67,8 @@ export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', curr
 
           <!-- 2. CUBIKAR ARQUITECTURA -->
           <a href="${urls.arq}" 
+             data-cubikar-sso-link="arq"
+             data-base-href="${urls.arq}"
              class="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-slate-800/80 transition ${currentApp === 'arq' ? 'bg-blue-500/10 border border-blue-500/30' : 'border border-transparent'}">
             <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-400/40 flex items-center justify-center text-lg shrink-0">
               <i class="fa-solid fa-compass-drafting text-base"></i>
@@ -78,6 +84,8 @@ export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', curr
 
           <!-- 3. PORTAL CENTRAL -->
           <a href="${urls.portal}" 
+             data-cubikar-sso-link="portal"
+             data-base-href="${urls.portal}"
              class="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-slate-800/80 transition ${currentApp === 'portal' ? 'bg-slate-800 border border-slate-700' : 'border border-transparent'}">
             <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 flex items-center justify-center text-lg shrink-0">
               <i class="fa-solid fa-globe text-base"></i>
@@ -113,6 +121,24 @@ export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', curr
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       menu.classList.toggle('hidden');
+    });
+
+    menu.querySelectorAll('[data-cubikar-sso-link]').forEach((link) => {
+      const targetApp = link.getAttribute('data-cubikar-sso-link');
+      const baseHref = link.getAttribute('data-base-href') || link.getAttribute('href');
+      const refreshSsoHref = () => {
+        if (!targetApp || targetApp === currentApp || !baseHref || baseHref === '#') return;
+        link.setAttribute('href', appendSsoToUrlFromStorage(baseHref));
+      };
+      link.addEventListener('pointerdown', refreshSsoHref);
+      link.addEventListener('click', (e) => {
+        if (targetApp === currentApp) {
+          e.preventDefault();
+          menu.classList.add('hidden');
+          return;
+        }
+        refreshSsoHref();
+      });
     });
 
     document.addEventListener('click', (e) => {
