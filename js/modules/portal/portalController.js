@@ -1488,6 +1488,21 @@ export function renderPortalDashboard() {
     }
   } catch (_) {}
 
+  // Sincronizar y purgar proyectos eliminados del anfitrión si estamos en su espacio de trabajo
+  try {
+    if (typeof window !== 'undefined' && typeof window.syncHostWorkspaceProjects === 'function') {
+      if (currentScopeFilter && currentScopeFilter.startsWith('owner:')) {
+        const hEmail = currentScopeFilter.replace('owner:', '').toLowerCase().trim();
+        window.syncHostWorkspaceProjects(hEmail);
+      }
+      if (Array.isArray(invitersList) && invitersList.length > 0) {
+        invitersList.forEach(inv => {
+          if (inv.email) window.syncHostWorkspaceProjects(inv.email);
+        });
+      }
+    }
+  } catch (_) {}
+
   main.innerHTML = `
     <!-- Header Section with KPIs -->
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -1791,6 +1806,11 @@ export function setProjectScopeFilter(scope) {
     const inviters = getWorkspaceInviters(user, allProjects);
     const inv = inviters.find(i => (i.email || '').toLowerCase().trim() === targetEmail);
     setActiveWorkspaceData(targetEmail, inv?.name || targetEmail);
+
+    // Sincronizar y purgar proyectos eliminados del anfitrión en segundo plano
+    if (typeof window !== 'undefined' && typeof window.syncHostWorkspaceProjects === 'function') {
+      window.syncHostWorkspaceProjects(targetEmail);
+    }
   } else {
     setActiveWorkspaceData(uEmail, user?.name || uEmail);
   }
@@ -2063,7 +2083,7 @@ export function refreshProjectsGridUI() {
 
   const noResults = document.getElementById('noResults');
   if (noResults) {
-    if (allProjects.length > 0 && filtered.length === 0) {
+    if (filtered.length === 0) {
       noResults.classList.remove('hidden');
       const titleEl = document.getElementById('noResultsTitle');
       const textEl = document.getElementById('noResultsText');

@@ -13,7 +13,10 @@ import {
   saveProjectsList,
   countTreeConcepts,
   countTreePartidas,
-  calculateTreeTotal
+  calculateTreeTotal,
+  markProjectDeleted,
+  isProjectMarkedDeleted,
+  saveCurrentUser
 } from '../modules/portal/projectService.js';
 import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js';
 import { findNodeById } from '../modules/catalog/treeService.js';
@@ -37,6 +40,8 @@ if (localBroadcastChannel) {
     const { type, payload } = event.data;
     if (type === 'proyecto_actualizado') {
       handleIncomingProjectUpdate(payload);
+    } else if (type === 'proyecto_eliminado') {
+      handleIncomingProjectDeleted(payload);
     } else if (type === 'chat_mensaje_nuevo') {
       handleIncomingChatMessage(payload);
     } else if (type === 'chat_mensaje_eliminado') {
@@ -257,6 +262,13 @@ export function subscribeToProjectRealtime(projectId) {
   activeChannel.on('broadcast', { event: 'chat_mensaje_eliminado' }, (payload) => {
     if (payload?.payload) {
       handleIncomingChatDelete(payload.payload);
+    }
+  });
+
+  // Escuchar eliminación de esta obra en tiempo real
+  activeChannel.on('broadcast', { event: 'proyecto_eliminado' }, (payload) => {
+    if (payload?.payload) {
+      handleIncomingProjectDeleted(payload.payload);
     }
   });
 
@@ -742,6 +754,13 @@ export function initGlobalRealtimeSync() {
     }
   });
 
+  // 10. Escuchar eliminación global de proyectos en tiempo real
+  globalSyncChannel.on('broadcast', { event: 'proyecto_eliminado_global' }, (payload) => {
+    if (payload?.payload) {
+      handleIncomingProjectDeleted(payload.payload);
+    }
+  });
+
   globalSyncChannel.subscribe((status) => {
     if (status === 'SUBSCRIBED') {
       console.info('[Realtime] Canal global WebSocket conectado exitosamente.');
@@ -1014,6 +1033,161 @@ function handleIncomingNewProject({ project, creatorName, creatorEmail }) {
       if (typeof window.refreshProjectsGridUI === 'function') {
         window.refreshProjectsGridUI();
       }
+    }
+  }
+}
+
+/**
+ * Emitir broadcast cuando un proyecto es eliminado definitivamente
+ */
+export function broadcastProjectDeleted(projectId, ownerEmail = null) {
+  if (!projectId) return;
+  const currentUser = getCurrentUser();
+  const payload = {
+    projectId,
+    ownerEmail: (ownerEmail || currentUser?.email || '').toLowerCase().trim(),
+    deletedBy: (currentUser?.email || '').toLowerCase().trim(),
+    timestamp: Date.now()
+  };
+
+  // 0. Enviar localmente a otras pestañas/ventanas del navegador (0ms latencia)
+  if (localBroadcastChannel) {
+    try {
+      localBroadcastChannel.postMessage({
+        type: 'proyecto_eliminado',
+        payload
+      });
+    } catch (_) {}
+  }
+
+  const sb = getSupabaseClient();
+  if (!isSupabaseConfigured() || !sb) return;
+
+  // 1. Enviar vía canal de la obra si está activo
+  if (activeChannel && currentSubscribedProjectId === projectId) {
+    try {
+      activeChannel.send({
+        type: 'broadcast',
+        event: 'proyecto_eliminado',
+        payload
+      });
+    } catch (err) {
+      console.warn('[Realtime] Aviso al emitir eliminación en canal de obra:', err);
+    }
+  }
+
+  // 2. Enviar vía canal global para sincronizar ventanas, dashboard y todos los colaboradores
+  if (!globalSyncChannel) initGlobalRealtimeSync();
+  if (globalSyncChannel) {
+    try {
+      globalSyncChannel.send({
+        type: 'broadcast',
+        event: 'proyecto_eliminado_global',
+        payload
+      });
+    } catch (err) {
+      console.warn('[Realtime] Aviso al emitir eliminación en canal global:', err);
+    }
+  }
+}
+
+/**
+ * Procesar eliminación entrante de proyecto emitida por otro usuario en tiempo real
+ */
+export function handleIncomingProjectDeleted(data) {
+  if (!data || !data.projectId) return;
+  const currentUser = getCurrentUser();
+  if (!currentUser || !currentUser.email) return;
+
+  const myEmail = currentUser.email.toLowerCase().trim();
+  const deletedBy = (data.deletedBy || '').toLowerCase().trim();
+
+  // Si fue emitido por nosotros mismos, ignorar (ya se procesó en deleteProject)
+  if (deletedBy && deletedBy === myEmail) {
+    return;
+  }
+
+  const projectId = data.projectId;
+  const currentPId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
+
+  // 1. Marcar como eliminado localmente para que getProjectsList() nunca lo vuelva a incluir
+  if (typeof markProjectDeleted === 'function') {
+    markProjectDeleted(projectId);
+  } else {
+    try {
+      const raw = localStorage.getItem('cubikar_deleted_projects_v1');
+      let list = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(list)) list = [];
+      if (!list.includes(projectId)) {
+        list.push(projectId);
+        localStorage.setItem('cubikar_deleted_projects_v1', JSON.stringify(list));
+      }
+    } catch (_) {}
+  }
+
+  // 2. Limpiar de la lista en memoria y localStorage
+  const allProjects = getProjectsList();
+  const filtered = allProjects.filter(p => p.id !== projectId && p.cloudId !== projectId);
+  if (filtered.length !== allProjects.length) {
+    saveProjectsList(filtered);
+  }
+
+  // 3. Limpiar almacenamiento asociado
+  try {
+    localStorage.removeItem(getSettingsKey(projectId));
+    localStorage.removeItem(getStorageKey(projectId));
+    localStorage.removeItem(`estimaciones_data_${projectId}`);
+    localStorage.removeItem(`adm_const_chat_${projectId}`);
+    localStorage.removeItem(`control_obra_chat_${projectId}`);
+    localStorage.removeItem(`adm_const_signatures_${projectId}`);
+    localStorage.removeItem(`adm_const_bitacora_${projectId}`);
+    localStorage.removeItem(`adm_const_expenses_${projectId}`);
+    localStorage.removeItem(`adm_const_suppliers_${projectId}`);
+  } catch (_) {}
+
+  // 4. Limpiar del cubikar_cloud_state_v2 del usuario
+  if (currentUser.user_metadata?.cubikar_cloud_state_v2) {
+    const cs = currentUser.user_metadata.cubikar_cloud_state_v2;
+    let modified = false;
+    if (Array.isArray(cs.collaboratedProjects)) {
+      const prevLen = cs.collaboratedProjects.length;
+      cs.collaboratedProjects = cs.collaboratedProjects.filter(p => p.id !== projectId && p.cloudId !== projectId);
+      if (cs.collaboratedProjects.length !== prevLen) modified = true;
+    }
+    if (Array.isArray(cs.ownedProjects)) {
+      const prevLen = cs.ownedProjects.length;
+      cs.ownedProjects = cs.ownedProjects.filter(p => p.id !== projectId && p.cloudId !== projectId);
+      if (cs.ownedProjects.length !== prevLen) modified = true;
+    }
+    if (modified) {
+      saveCurrentUser(currentUser);
+      if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
+        window.syncUserCollaborationToCloud(currentUser);
+      }
+    }
+  }
+
+  // 5. Si el usuario estaba dentro de este proyecto, expulsarlo cordialmente al portal
+  if (currentPId && (currentPId === projectId)) {
+    if (typeof showToast === 'function') {
+      showToast('⚠️ Este proyecto fue eliminado por su propietario.', 'warning');
+    }
+    setTimeout(() => {
+      if (typeof window.exitProjectToPortal === 'function') {
+        window.exitProjectToPortal();
+      } else {
+        window.location.reload();
+      }
+    }, 1200);
+  }
+
+  // 6. Refrescar interfaz del dashboard de proyectos inmediatamente
+  if (typeof window !== 'undefined') {
+    if (typeof window.refreshProjectsGridUI === 'function') {
+      window.refreshProjectsGridUI();
+    }
+    if (typeof window.renderSidebarNotificationsUI === 'function') {
+      window.renderSidebarNotificationsUI();
     }
   }
 }
@@ -1526,6 +1700,8 @@ if (typeof window !== 'undefined') {
     broadcastInvitationAccepted,
     broadcastInvitationRejected,
     broadcastNewProject,
+    broadcastProjectDeleted,
+    handleIncomingProjectDeleted,
     broadcastProjectMutation,
     handleIncomingProjectUpdate,
     broadcastChatMessage,
@@ -1535,6 +1711,8 @@ if (typeof window !== 'undefined') {
     hydrateProjectChatFromCloud,
     requestPeerSync
   };
+  window.broadcastProjectDeleted = broadcastProjectDeleted;
+  window.handleIncomingProjectDeleted = handleIncomingProjectDeleted;
   window.subscribeToProjectRealtime = subscribeToProjectRealtime;
   window.unsubscribeFromProjectRealtime = unsubscribeFromProjectRealtime;
   window.broadcastProjectMutation = broadcastProjectMutation;

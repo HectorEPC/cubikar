@@ -1654,6 +1654,7 @@ export async function deleteProject(projectId) {
 
   // 3. Purgar del estado sincronizado del usuario en user_metadata (cubikar_cloud_state_v2)
   const user = getCurrentUser();
+  const myEmail = (user?.email || '').toLowerCase().trim();
   if (user && user.user_metadata?.cubikar_cloud_state_v2) {
     const cs = user.user_metadata.cubikar_cloud_state_v2;
     let modified = false;
@@ -1672,14 +1673,34 @@ export async function deleteProject(projectId) {
     }
   }
 
-  // 4. Eliminar de la base de datos Supabase
+  // 4. Emitir evento en tiempo real para que todos los colaboradores y navegadores lo eliminen inmediatamente (<30ms)
+  try {
+    if (typeof window !== 'undefined' && window.CubikarRealtime?.broadcastProjectDeleted) {
+      window.CubikarRealtime.broadcastProjectDeleted(projectId, myEmail);
+    } else if (typeof window !== 'undefined' && typeof window.broadcastProjectDeleted === 'function') {
+      window.broadcastProjectDeleted(projectId, myEmail);
+    }
+  } catch (_) {}
+
+  // 5. Registrar lápida (tombstone) y actualizar manifiesto de obras activas del anfitrión en Supabase
+  try {
+    if (typeof window !== 'undefined' && typeof window.recordDeletedProjectTombstone === 'function') {
+      await window.recordDeletedProjectTombstone(projectId, myEmail);
+    }
+    if (myEmail && typeof window !== 'undefined' && typeof window.recordHostActiveManifest === 'function') {
+      const myActiveIds = list.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail).map(p => p.id);
+      await window.recordHostActiveManifest(myEmail, myActiveIds);
+    }
+  } catch (_) {}
+
+  // 6. Eliminar de la base de datos Supabase
   try {
     await deleteProjectFromCloud(projectId);
   } catch (err) {
     console.warn('[deleteProject] Aviso al eliminar en Supabase:', err);
   }
 
-  // 5. Respaldar estado limpio a la nube inmediatamente
+  // 7. Respaldar estado limpio a la nube inmediatamente
   try {
     if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
       await window.syncUserCollaborationToCloud(user);
