@@ -18,8 +18,6 @@ import {
   loadSampleResidentialZipCatalog,
   duplicateProject,
   deleteProject,
-  getDeletedProjectsList,
-  markProjectDeleted,
   addProjectMember,
   removeProjectMember,
   updateProjectMemberRole,
@@ -61,7 +59,7 @@ import {
   SAMPLE_LOGOS,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261115_v12';
+} from './projectService.js';
 import { showToast } from '../../ui/notifications.js';
 import { persistLocalData, state, initStore } from '../../state/store.js';
 import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js';
@@ -1382,6 +1380,32 @@ export function renderHeaderCreateButtonHTML(user, scope) {
       <span>Nuevo Proyecto (${check.currentProjects || 0}/${check.maxProjects || 2})</span>
     </button>
   `;
+}
+
+// ==========================================
+// REGISTRO LOCAL DE PROYECTOS ELIMINADOS (DEFENSIVO)
+// ==========================================
+function getDeletedProjectsList() {
+  try {
+    if (typeof localStorage === 'undefined') return [];
+    const raw = localStorage.getItem('cubikar_deleted_projects_v1');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function markProjectDeleted(projectId) {
+  if (!projectId) return;
+  try {
+    const list = getDeletedProjectsList();
+    if (!list.includes(projectId)) {
+      list.push(projectId);
+      localStorage.setItem('cubikar_deleted_projects_v1', JSON.stringify(list));
+    }
+  } catch (_) {}
 }
 
 // ==========================================
