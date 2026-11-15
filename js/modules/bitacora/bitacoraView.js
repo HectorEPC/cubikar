@@ -12,7 +12,7 @@ function isLegalBitacoraAllowed() {
   const planId = resolveWorkspacePlanContext()?.planId || 'free';
   return planId === 'plus' || planId === 'pro';
 }
-import { renderTabAssignedAvatars } from '../portal/portalController.js';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261115_v14';
 import { formatDate } from '../calendario/calendarioModel.js';
 import { mountStorageMeter } from '../../services/storageQuotaService.js';
 import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js';

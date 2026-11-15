@@ -13,7 +13,7 @@ import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView
 import { renderExpensesView } from '../modules/compras/expensesView.js?v=20261114_18';
 import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js';
 import { renderBrandingUI } from './brandingController.js';
-import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js';
+import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js?v=20261115_v14';
 import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js';
 
 // Modo de destino del modal Google IA: 'single' (solo concepto activo en matriz) o 'batch' (conceptos con casilla)

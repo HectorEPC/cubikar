@@ -40,7 +40,7 @@ import {
   printSingleOrdenCompra,
   printExpensesActiveReport
 } from './expensesExporter.js?v=20261114_18';
-import { renderTabAssignedAvatars } from '../portal/portalController.js';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261115_v14';
 import { resolveWorkspacePlanContext } from '../portal/projectService.js';
 import { isNightMode } from '../../ui/themeController.js?v=20261114_18';
 

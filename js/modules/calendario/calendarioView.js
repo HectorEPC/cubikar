@@ -1,5 +1,5 @@
 import { printCalendarioObraFormat } from '../io/printService.js';
-import { renderTabAssignedAvatars } from '../portal/portalController.js';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261115_v14';
 import { resolveWorkspacePlanContext } from '../portal/projectService.js';
 // js/modules/calendario/calendarioView.js
 // Renderizador y controlador de la pestaña CALENDARIO DE OBRA
