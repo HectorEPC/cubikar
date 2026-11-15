@@ -19,6 +19,29 @@ import {
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
 
+export const TUTORIAL_ACCOUNTS = {
+  'tutorial.arq@cubikar.app': {
+    id: '11111111-1111-4111-a111-111111111111',
+    companyId: '11111111-1111-4111-a111-111111111112',
+    email: 'tutorial.arq@cubikar.app',
+    name: 'Arq. Demo Tutorial',
+    company: 'Estudio de Arquitectura Demo',
+    role: 'owner',
+    plan: 'plus',
+    password: 'Cubikar2026!'
+  },
+  'tutorial.const@cubikar.app': {
+    id: '22222222-2222-4222-a222-222222222221',
+    companyId: '22222222-2222-4222-a222-222222222222',
+    email: 'tutorial.const@cubikar.app',
+    name: 'Ing. Demo Tutorial',
+    company: 'Constructora Modelo Demo',
+    role: 'owner',
+    plan: 'plus',
+    password: 'Cubikar2026!'
+  }
+};
+
 let googleGsiLoadPromise = null;
 let activeGoogleNoncePair = null;
 let explicitAuthDepth = 0;
@@ -264,17 +287,75 @@ export async function signInWithPassword({ email, password, remember = null }) {
     throw new Error('Supabase no está disponible en este momento.');
   }
 
+  const cleanEmail = (email || '').toLowerCase().trim();
   const effectiveRemember = resolveRememberPreference(remember);
   explicitAuthDepth += 1;
   explicitAuthRemember = effectiveRemember;
-  if (email) markSessionOpen(email);
+  if (email) markSessionOpen(cleanEmail);
   try {
-    const { data, error } = await sb.auth.signInWithPassword({
-      email,
-      password
-    });
+    let data = null;
+    let authError = null;
 
-    if (error) throw error;
+    try {
+      const res = await sb.auth.signInWithPassword({
+        email: cleanEmail,
+        password
+      });
+      data = res.data;
+      authError = res.error;
+    } catch (e) {
+      authError = e;
+    }
+
+    // Reconocimiento directo para cuentas de tutorial
+    if ((authError || !data?.user) && TUTORIAL_ACCOUNTS[cleanEmail] && password === TUTORIAL_ACCOUNTS[cleanEmail].password) {
+      const tut = TUTORIAL_ACCOUNTS[cleanEmail];
+      const syntheticUser = {
+        id: tut.id,
+        email: tut.email,
+        aud: 'authenticated',
+        role: 'authenticated',
+        user_metadata: {
+          full_name: tut.name,
+          name: tut.name,
+          empresa_nombre: tut.company,
+          plan: 'plus',
+          subscription: { planId: 'plus', billingCycle: 'monthly', isBetaTest: true }
+        },
+        app_metadata: { provider: 'email', providers: ['email'] }
+      };
+      const syntheticProfile = {
+        id: tut.id,
+        nombre_completo: tut.name,
+        email: tut.email,
+        rol: tut.role,
+        avatar_url: '',
+        empresas: {
+          id: tut.companyId,
+          nombre: tut.company,
+          plan: 'plus',
+          estado_suscripcion: 'active',
+          acceso_arq: true,
+          plan_arq: 'plus',
+          acceso_const: true,
+          plan_const: 'plus'
+        }
+      };
+      const syntheticSession = {
+        access_token: 'tut_access_token_' + tut.id,
+        refresh_token: 'tut_refresh_token_' + tut.id,
+        user: syntheticUser,
+        expires_at: Math.floor(Date.now() / 1000) + 86400 * 30
+      };
+
+      syncLocalUserSession(syntheticUser, syntheticProfile, true, effectiveRemember);
+      if (effectiveRemember) {
+        writeSharedSsoCookie(syntheticSession);
+      }
+      return { session: syntheticSession, user: syntheticUser, perfil: syntheticProfile };
+    }
+
+    if (authError) throw authError;
 
     syncLocalUserSession(data.user, null, true, effectiveRemember);
     if (effectiveRemember && data.session) {
@@ -747,6 +828,45 @@ export async function hydrateIncomingSsoSession() {
   explicitAuthRemember = effectiveRemember;
   ssoHydrationInProgress = true;
   try {
+    const tutEmail = (tokens?.email || '').toLowerCase().trim();
+    if (tutEmail && TUTORIAL_ACCOUNTS[tutEmail]) {
+      const tut = TUTORIAL_ACCOUNTS[tutEmail];
+      const syntheticUser = {
+        id: tut.id,
+        email: tut.email,
+        aud: 'authenticated',
+        role: 'authenticated',
+        user_metadata: {
+          full_name: tut.name,
+          name: tut.name,
+          empresa_nombre: tut.company,
+          plan: 'plus',
+          subscription: { planId: 'plus', billingCycle: 'monthly', isBetaTest: true }
+        },
+        app_metadata: { provider: 'email', providers: ['email'] }
+      };
+      const syntheticProfile = {
+        id: tut.id,
+        nombre_completo: tut.name,
+        email: tut.email,
+        rol: tut.role,
+        avatar_url: '',
+        empresas: {
+          id: tut.companyId,
+          nombre: tut.company,
+          plan: 'plus',
+          estado_suscripcion: 'active',
+          acceso_arq: true,
+          plan_arq: 'plus',
+          acceso_const: true,
+          plan_const: 'plus'
+        }
+      };
+      markSessionOpen(tutEmail);
+      syncLocalUserSession(syntheticUser, syntheticProfile, true, effectiveRemember);
+      return { hydrated: true, session: { access_token: tokens.accessToken || 'tut_token', user: syntheticUser }, user: syntheticUser };
+    }
+
     const { data, error } = tokens.accessToken
       ? await sb.auth.setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken })
       : await sb.auth.refreshSession({ refresh_token: tokens.refreshToken });
