@@ -190,7 +190,8 @@ export function applyTabLocksToDOM() {
   }
 
   // 3. Bloquear campos de encabezado de proyecto en Catálogo Base e Insumos Base cuando están bloqueados
-  const catHeaderInputs = ['header-project-name', 'header-project-location', 'select-all-checkbox', 'btn-toolbar-google-ia', 'btn-toolbar-ai-menu', 'btn-ai-apu', 'btn-apu-ai-menu', 'btn-ai-apu-max', 'btn-apu-max-ai-menu'];
+  // Nota: 'select-all-checkbox' permanece siempre habilitado para permitir filtrado, consulta y visualización de insumos
+  const catHeaderInputs = ['header-project-name', 'header-project-location', 'btn-toolbar-google-ia', 'btn-toolbar-ai-menu', 'btn-ai-apu', 'btn-apu-ai-menu', 'btn-ai-apu-max', 'btn-apu-max-ai-menu'];
   catHeaderInputs.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = locks.cat;

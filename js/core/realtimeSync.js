@@ -10,12 +10,18 @@ import {
   getStoredPlanInvitations,
   saveStoredPlanInvitations,
   getProjectsList,
-  saveProjectsList
+  saveProjectsList,
+  countTreeConcepts,
+  countTreePartidas,
+  calculateTreeTotal
 } from '../modules/portal/projectService.js';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js';
+import { findNodeById } from '../modules/catalog/treeService.js';
 import { showToast } from '../ui/notifications.js';
 
 let activeChannel = null;
 let currentSubscribedProjectId = null;
+let broadcastDebounceTimer = null;
 
 let onRemoteConceptUpdated = null;
 let onPresenceSyncCallback = null;
@@ -79,7 +85,14 @@ export function subscribeToProjectRealtime(projectId) {
     }
   });
 
-  // 1. Escuchar transmisiones instantáneas (Broadcast P2P en vivo < 30ms)
+  // 1. Escuchar actualizaciones completas del proyecto en tiempo real (P2P < 30ms)
+  activeChannel.on('broadcast', { event: 'proyecto_actualizado' }, (payload) => {
+    if (payload?.payload) {
+      handleIncomingProjectUpdate(payload.payload);
+    }
+  });
+
+  // Escuchar transmisiones directas de un concepto editado
   activeChannel.on('broadcast', { event: 'concepto_editado' }, (payload) => {
     if (payload?.payload) {
       handleIncomingConceptUpdate(payload.payload);
@@ -141,6 +154,191 @@ export function subscribeToProjectRealtime(projectId) {
       }
     }
   });
+}
+
+/**
+ * Emitir broadcast de mutación de proyecto en tiempo real (cambio de texto, adición, eliminación de fila, APU)
+ * a todos los colaboradores y anfitriones conectados al canal de la obra y global.
+ */
+export function broadcastProjectMutation({
+  projectId,
+  treeData,
+  settings,
+  immediate = false,
+  changeType = 'general',
+  highlightId = null,
+  changeDescription = 'cambios en el catálogo'
+} = {}) {
+  const pId = projectId || currentSubscribedProjectId || (typeof getActiveProjectId === 'function' ? getActiveProjectId() : null);
+  if (!pId) return;
+
+  const sb = getSupabaseClient();
+  if (!isSupabaseConfigured() || !sb) return;
+
+  const currentUser = getCurrentUser();
+  const author = {
+    id: currentUser?.id || null,
+    name: currentUser?.name || 'Colaborador',
+    email: (currentUser?.email || '').toLowerCase().trim(),
+    avatar: currentUser?.avatar || ''
+  };
+
+  const sendPayload = () => {
+    const payload = {
+      projectId: pId,
+      treeData: Array.isArray(treeData) ? treeData : null,
+      settings: settings && typeof settings === 'object' ? settings : null,
+      summary: {
+        totalPresupuesto: typeof calculateTreeTotal === 'function' && Array.isArray(treeData) ? calculateTreeTotal(treeData) : 0,
+        conceptCount: typeof countTreeConcepts === 'function' && Array.isArray(treeData) ? countTreeConcepts(treeData) : 0,
+        partidasCount: typeof countTreePartidas === 'function' && Array.isArray(treeData) ? countTreePartidas(treeData) : 0,
+        factorSobrecosto: settings?.applySobrecosto ? (Number(settings?.factorSobrecosto) || 1.2584) : 1.0
+      },
+      changeType,
+      highlightId,
+      changeDescription,
+      author,
+      timestamp: Date.now()
+    };
+
+    // 1. Enviar vía canal de la obra activa (latencia < 30ms para quienes tienen la obra abierta)
+    if (activeChannel && currentSubscribedProjectId === pId) {
+      try {
+        activeChannel.send({
+          type: 'broadcast',
+          event: 'proyecto_actualizado',
+          payload
+        });
+      } catch (err) {
+        console.warn('[Realtime] Aviso al emitir en canal de obra:', err);
+      }
+    }
+
+    // 2. Enviar vía canal global para sincronizar ventanas, dashboard y propietarios
+    if (!globalSyncChannel) initGlobalRealtimeSync();
+    if (globalSyncChannel) {
+      try {
+        globalSyncChannel.send({
+          type: 'broadcast',
+          event: 'proyecto_actualizado_global',
+          payload
+        });
+      } catch (err) {
+        console.warn('[Realtime] Aviso al emitir en canal global:', err);
+      }
+    }
+  };
+
+  if (immediate) {
+    if (broadcastDebounceTimer) {
+      clearTimeout(broadcastDebounceTimer);
+      broadcastDebounceTimer = null;
+    }
+    sendPayload();
+    return;
+  }
+
+  if (broadcastDebounceTimer) clearTimeout(broadcastDebounceTimer);
+  broadcastDebounceTimer = setTimeout(() => {
+    broadcastDebounceTimer = null;
+    sendPayload();
+  }, 300);
+}
+
+/**
+ * Procesar actualización entrante de proyecto emitida por otro usuario en tiempo real
+ */
+export function handleIncomingProjectUpdate(data) {
+  if (!data || !data.projectId) return;
+  const currentUser = getCurrentUser();
+  if (!currentUser || !currentUser.email) return;
+
+  const myEmail = currentUser.email.toLowerCase().trim();
+  const authorEmail = (data.author?.email || '').toLowerCase().trim();
+
+  // Si el cambio fue emitido por nosotros mismos, ignorar para evitar bucles de actualización
+  if (authorEmail && authorEmail === myEmail) {
+    return;
+  }
+
+  const projectId = data.projectId;
+  const currentPId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
+
+  const allProjects = getProjectsList();
+  const projIdx = allProjects.findIndex(p => p.id === projectId);
+  if (projIdx < 0) {
+    return;
+  }
+
+  const proj = allProjects[projIdx];
+  const isOwner = (proj.ownerEmail || '').toLowerCase().trim() === myEmail;
+  const isMember = Array.isArray(proj.members) && proj.members.some(m => (m.email || '').toLowerCase().trim() === myEmail);
+  if (!isOwner && !isMember) return;
+
+  // Actualizar resumen en la lista de proyectos
+  if (data.summary) {
+    if (data.summary.totalPresupuesto !== undefined) proj.totalPresupuesto = data.summary.totalPresupuesto;
+    if (data.summary.conceptCount !== undefined) proj.conceptCount = data.summary.conceptCount;
+    if (data.summary.partidasCount !== undefined) proj.partidasCount = data.summary.partidasCount;
+    if (data.summary.factorSobrecosto !== undefined) proj.factorSobrecosto = data.summary.factorSobrecosto;
+  }
+  proj.updatedAt = new Date().toISOString();
+  saveProjectsList(allProjects);
+
+  // Guardar en el almacenamiento local de este navegador
+  if (Array.isArray(data.treeData)) {
+    try {
+      localStorage.setItem(getStorageKey(projectId), JSON.stringify(data.treeData));
+    } catch (_) {}
+  }
+  if (data.settings && typeof data.settings === 'object') {
+    try {
+      localStorage.setItem(getSettingsKey(projectId), JSON.stringify(data.settings));
+    } catch (_) {}
+  }
+
+  // Si el usuario tiene actualmente abierta esta misma obra en el espacio de trabajo
+  if (currentPId && currentPId === projectId) {
+    if (Array.isArray(data.treeData)) {
+      state.treeData = JSON.parse(JSON.stringify(data.treeData));
+    }
+    if (data.settings && typeof data.settings === 'object') {
+      state.settings = Object.assign({}, state.settings, data.settings);
+    }
+
+    if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
+    if (typeof window.renderTAB1 === 'function') window.renderTAB1();
+
+    if (state.activeSelectedId) {
+      const stillExists = typeof findNodeById === 'function' ? findNodeById(state.treeData, state.activeSelectedId) : null;
+      if (stillExists) {
+        if (typeof window.renderInsumosUnitarios === 'function') window.renderInsumosUnitarios(stillExists);
+      } else {
+        if (typeof window.closeApuPanel === 'function') window.closeApuPanel();
+      }
+    }
+
+    if (data.highlightId && typeof window.highlightCatalogRowInPlace === 'function') {
+      window.highlightCatalogRowInPlace(data.highlightId);
+    }
+  }
+
+  if (typeof window.refreshProjectsGridUI === 'function') {
+    window.refreshProjectsGridUI();
+  }
+
+  const authorName = data.author?.name || data.author?.email || 'Un colaborador';
+  const desc = data.changeDescription || 'cambios en el catálogo';
+  showToast(`🔄 ${authorName} actualizó ${desc} en tiempo real`, 'info');
+
+  // Si somos el anfitrión/propietario, respaldar automáticamente el nuevo estado en la nube
+  if (isOwner) {
+    try {
+      if (typeof window.triggerDebouncedCloudStateSync === 'function') {
+        window.triggerDebouncedCloudStateSync();
+      }
+    } catch (_) {}
+  }
 }
 
 /**
@@ -310,6 +508,13 @@ export function initGlobalRealtimeSync() {
     handlePeerSyncResponse(payload.payload);
   });
 
+  // 7. Escuchar actualizaciones completas de proyectos en tiempo real (P2P global)
+  globalSyncChannel.on('broadcast', { event: 'proyecto_actualizado_global' }, (payload) => {
+    if (payload?.payload) {
+      handleIncomingProjectUpdate(payload.payload);
+    }
+  });
+
   globalSyncChannel.subscribe((status) => {
     if (status === 'SUBSCRIBED') {
       console.info('[Realtime] Canal global WebSocket conectado exitosamente.');
@@ -326,6 +531,17 @@ export function initGlobalRealtimeSync() {
 export function broadcastNewInvitation(invitation, project) {
   if (!globalSyncChannel) initGlobalRealtimeSync();
   if (!globalSyncChannel || !invitation) return;
+
+  let localTree = null;
+  let localSettings = null;
+  if (project && project.id) {
+    try {
+      const rawTree = localStorage.getItem(getStorageKey(project.id));
+      if (rawTree) localTree = JSON.parse(rawTree);
+      const rawSettings = localStorage.getItem(getSettingsKey(project.id));
+      if (rawSettings) localSettings = JSON.parse(rawSettings);
+    } catch (_) {}
+  }
 
   globalSyncChannel.send({
     type: 'broadcast',
@@ -348,7 +564,9 @@ export function broadcastNewInvitation(invitation, project) {
         ownerEmail: project.ownerEmail,
         ownerPlanId: project.ownerPlanId,
         members: project.members,
-        createdAt: project.createdAt
+        createdAt: project.createdAt,
+        treeData: localTree,
+        settings: localSettings
       } : null
     }
   });
@@ -382,6 +600,18 @@ function handleIncomingInvitation({ invitation, project }) {
       list.unshift(project);
     }
     saveProjectsList(list);
+
+    // Guardar catálogo y configuración para que el invitado tenga acceso inmediato completo
+    if (Array.isArray(project.treeData)) {
+      try {
+        localStorage.setItem(getStorageKey(project.id), JSON.stringify(project.treeData));
+      } catch (_) {}
+    }
+    if (project.settings && typeof project.settings === 'object') {
+      try {
+        localStorage.setItem(getSettingsKey(project.id), JSON.stringify(project.settings));
+      } catch (_) {}
+    }
   }
 
   // 3. Notificar al usuario
@@ -589,11 +819,27 @@ function handlePeerSyncRequest({ email }) {
   const allInvs = getStoredInvitations();
   const myInvsForTarget = allInvs.filter(i => (i.email || '').toLowerCase().trim() === targetEmail);
 
-  // Buscar proyectos míos donde este email sea miembro
+  // Buscar proyectos donde targetEmail sea miembro O donde targetEmail sea el dueño y yo sea miembro
   const allProjects = getProjectsList();
-  const myProjectsForTarget = allProjects.filter(p =>
-    Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === targetEmail)
-  );
+  const myProjectsForTarget = allProjects.filter(p => {
+    const isTargetMember = Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === targetEmail);
+    const isTargetOwner = (p.ownerEmail || '').toLowerCase().trim() === targetEmail;
+    return isTargetMember || isTargetOwner;
+  }).map(p => {
+    let localTree = null;
+    let localSettings = null;
+    try {
+      const rawTree = localStorage.getItem(getStorageKey(p.id));
+      if (rawTree) localTree = JSON.parse(rawTree);
+      const rawSettings = localStorage.getItem(getSettingsKey(p.id));
+      if (rawSettings) localSettings = JSON.parse(rawSettings);
+    } catch (_) {}
+    return {
+      ...p,
+      treeData: localTree,
+      settings: localSettings
+    };
+  });
 
   // Incluir también invitaciones al plan
   const allPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
@@ -656,7 +902,7 @@ function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
     }
   }
 
-  // Mergear proyectos
+  // Mergear proyectos (nuevos o actualizados por colaboradores)
   if (Array.isArray(projects) && projects.length > 0) {
     const currentProjs = getProjectsList();
     let projChanged = false;
@@ -665,6 +911,33 @@ function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
       if (idx < 0) {
         currentProjs.unshift(p);
         projChanged = true;
+      } else {
+        const localProj = currentProjs[idx];
+        const localUpdated = localProj.updatedAt ? new Date(localProj.updatedAt).getTime() : 0;
+        const incomingUpdated = p.updatedAt ? new Date(p.updatedAt).getTime() : 0;
+        if (incomingUpdated >= localUpdated || (Array.isArray(p.treeData) && p.treeData.length > 0)) {
+          currentProjs[idx] = Object.assign({}, localProj, p);
+          projChanged = true;
+        }
+      }
+
+      if (Array.isArray(p.treeData) && p.treeData.length > 0) {
+        try {
+          localStorage.setItem(getStorageKey(p.id), JSON.stringify(p.treeData));
+          if (typeof getActiveProjectId === 'function' && getActiveProjectId() === p.id) {
+            state.treeData = JSON.parse(JSON.stringify(p.treeData));
+            if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
+            if (typeof window.renderTAB1 === 'function') window.renderTAB1();
+          }
+        } catch (_) {}
+      }
+      if (p.settings && typeof p.settings === 'object') {
+        try {
+          localStorage.setItem(getSettingsKey(p.id), JSON.stringify(p.settings));
+          if (typeof getActiveProjectId === 'function' && getActiveProjectId() === p.id) {
+            state.settings = Object.assign({}, state.settings, p.settings);
+          }
+        } catch (_) {}
       }
     });
     if (projChanged) {
@@ -695,6 +968,10 @@ if (typeof window !== 'undefined') {
     broadcastInvitationAccepted,
     broadcastInvitationRejected,
     broadcastNewProject,
+    broadcastProjectMutation,
+    handleIncomingProjectUpdate,
     requestPeerSync
   };
+  window.broadcastProjectMutation = broadcastProjectMutation;
+  window.handleIncomingProjectUpdate = handleIncomingProjectUpdate;
 }

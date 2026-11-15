@@ -2,6 +2,7 @@ import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOAR
 import { defaultTreeData, defaultSettings } from '../config/defaultData.js';
 import { syncActiveProjectSummary, getProjectById } from '../modules/portal/projectService.js';
 import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js';
+import { broadcastProjectMutation } from '../core/realtimeSync.js';
 import { sanitizeCatalogNodes } from '../core/textSanitizer.js';
 import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js';
 
@@ -228,27 +229,51 @@ export function triggerDebouncedCloudSync() {
   }, 1200);
 }
 
-// Persistencia de configuración en localStorage
-export function persistSettings() {
+// Persistencia de configuración en localStorage y emisión en tiempo real
+export function persistSettings(meta = {}) {
+  const projectId = getActiveProjectId();
   try {
     localStorage.setItem(getSettingsKey(), JSON.stringify(state.settings));
-    syncActiveProjectSummary(getActiveProjectId(), state.treeData, state.settings);
+    syncActiveProjectSummary(projectId, state.treeData, state.settings);
     triggerDebouncedCloudSync();
+
+    if (typeof broadcastProjectMutation === 'function') {
+      broadcastProjectMutation({
+        projectId,
+        treeData: state.treeData,
+        settings: state.settings,
+        immediate: false,
+        changeType: 'settings_updated',
+        changeDescription: 'parámetros del proyecto y sobrecosto',
+        ...meta
+      });
+    }
   } catch (e) {
     console.error('Error guardando configuración:', e);
   }
 }
 
-// Persistencia en localStorage con debounce de 300ms
+// Persistencia en localStorage con debounce de 300ms y emisión en vivo vía WebSockets
 let persistTimer = null;
-export function persistLocalData(immediate = false) {
+export function persistLocalData(immediate = false, meta = {}) {
+  const projectId = getActiveProjectId();
   if (immediate) {
     if (persistTimer) clearTimeout(persistTimer);
     persistTimer = null;
     try {
       localStorage.setItem(getStorageKey(), JSON.stringify(state.treeData));
-      syncActiveProjectSummary(getActiveProjectId(), state.treeData, state.settings);
+      syncActiveProjectSummary(projectId, state.treeData, state.settings);
       triggerDebouncedCloudSync();
+
+      if (typeof broadcastProjectMutation === 'function') {
+        broadcastProjectMutation({
+          projectId,
+          treeData: state.treeData,
+          settings: state.settings,
+          immediate: true,
+          ...meta
+        });
+      }
     } catch (e) {
       console.error('Error guardando en localStorage:', e);
     }
@@ -258,8 +283,18 @@ export function persistLocalData(immediate = false) {
   persistTimer = setTimeout(() => {
     try {
       localStorage.setItem(getStorageKey(), JSON.stringify(state.treeData));
-      syncActiveProjectSummary(getActiveProjectId(), state.treeData, state.settings);
+      syncActiveProjectSummary(projectId, state.treeData, state.settings);
       triggerDebouncedCloudSync();
+
+      if (typeof broadcastProjectMutation === 'function') {
+        broadcastProjectMutation({
+          projectId,
+          treeData: state.treeData,
+          settings: state.settings,
+          immediate: false,
+          ...meta
+        });
+      }
     } catch (e) {
       console.error('Error guardando en localStorage:', e);
     }

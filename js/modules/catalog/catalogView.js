@@ -8,13 +8,17 @@ import { APU_WIDTH_KEY } from '../../config/constants.js';
 import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js';
 import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js';
 import { getClampedApuWidth } from '../../ui/resizer.js';
+import { canCurrentUserEditProject } from '../portal/projectService.js';
 
 // Renderizado de la tabla principal de catálogo (TAB1-CAT-BASE)
 export function renderTAB1() {
   const tbody = document.getElementById('tb1-body');
   if (!tbody) return;
 
-  const isCatLocked = isTabLocked('cat');
+  // Bloqueo estricto del candado explícito y permisos de edición en la obra
+  const isExplicitLocked = isTabLocked('cat');
+  const isReadOnly = !canCurrentUserEditProject();
+  const isCatLocked = isExplicitLocked || isReadOnly;
   applyTabLocksToDOM();
 
   const fragment = document.createDocumentFragment();
@@ -88,7 +92,7 @@ export function renderTAB1() {
           </div>
         </td>
         <td class="p-1.5 text-center align-top pt-2">
-          <input type="checkbox" ${node.selected ? 'checked' : ''} ${isCatLocked ? 'disabled' : ''} onchange="toggleSelectNode('${node.id}', this.checked, event)" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+          <input type="checkbox" ${node.selected ? 'checked' : ''} onchange="toggleSelectNode('${node.id}', this.checked, event)" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
         </td>
         <td class="p-1.5 text-center font-sans ${isLevel1 ? 'font-bold text-slate-700' : 'text-slate-400'} text-[10px] align-top pt-2">${level}</td>
         <td class="p-1.5 ${isLevel1 ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'} align-top pt-2">${node.clave}</td>

@@ -5,7 +5,7 @@ import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js';
 import { renderInsumosUnitarios } from '../apu/apuView.js';
 import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js';
 import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js';
-import { getProjectById, validateConceptAdditionLimit, countTreeConcepts } from '../portal/projectService.js';
+import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js';
 export { countTreeConcepts };
 import { getFactorSobrecosto, round2 } from '../../core/calculations.js';
 import { guardTabUnlocked } from '../../ui/tabLockController.js';
@@ -98,6 +98,10 @@ export function recalculateClaves(nodes, parentClave = '') {
 
 // Agregar partida raíz principal
 export function addRootRow() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: No tienes permisos para agregar partidas en este proyecto.', 'warning');
+    return;
+  }
   if (!guardTabUnlocked('cat')) return;
   if (!guardConceptLimit(1)) return;
   saveState();
@@ -115,7 +119,7 @@ export function addRootRow() {
     children: []
   });
   recalculateClaves(state.treeData);
-  persistLocalData();
+  persistLocalData(true, { changeType: 'row_added', highlightId: newId, changeDescription: 'una partida principal' });
   renderTAB1();
   showToast('Partida agregada', 'success');
 }
@@ -123,6 +127,10 @@ export function addRootRow() {
 // Agregar sub-concepto / sub-renglón
 export function addChildRow(parentId, e) {
   if (e) e.stopPropagation();
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: No tienes permisos para agregar conceptos en este proyecto.', 'warning');
+    return;
+  }
   if (!guardTabUnlocked('cat')) return;
   const parent = findNodeById(state.treeData, parentId);
   if (!parent) return;
@@ -163,7 +171,7 @@ export function addChildRow(parentId, e) {
   }
 
   recalculateClaves(state.treeData);
-  persistLocalData();
+  persistLocalData(true, { changeType: 'row_added', highlightId: newId, changeDescription: 'un nuevo concepto' });
   renderTAB1();
   showToast('Sub-renglón agregado', 'success');
 }
@@ -171,6 +179,10 @@ export function addChildRow(parentId, e) {
 // Duplicar un nodo
 export function duplicarNode(id, e) {
   if (e) e.stopPropagation();
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: No tienes permisos para duplicar renglones.', 'warning');
+    return;
+  }
   if (!guardTabUnlocked('cat')) return;
   const nodeToDuplicate = findNodeById(state.treeData, id);
   if (!nodeToDuplicate) return;
@@ -204,7 +216,7 @@ export function duplicarNode(id, e) {
     const index = parentList.findIndex(n => n.id === id);
     parentList.splice(index + 1, 0, cloned);
     recalculateClaves(state.treeData);
-    persistLocalData();
+    persistLocalData(true, { changeType: 'row_added', highlightId: cloned.id, changeDescription: 'renglón duplicado' });
     renderTAB1();
     showToast('Renglón duplicado', 'success');
   }
@@ -307,6 +319,10 @@ export function copiarSelectedRow() {
 // Pegar concepto copiado (con su respectiva matriz APU) en la ubicación seleccionada
 export function pegarNode(targetId, e) {
   if (e) e.stopPropagation();
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: No tienes permisos para pegar conceptos en este proyecto.', 'warning');
+    return;
+  }
   if (!guardTabUnlocked('cat')) return;
 
   const clip = getClipboardData();
@@ -376,7 +392,7 @@ export function pegarNode(targetId, e) {
   parentList.splice(position, 0, pastedNode);
 
   recalculateClaves(state.treeData);
-  persistLocalData();
+  persistLocalData(true, { changeType: 'row_added', highlightId: pastedNode.id, changeDescription: 'concepto pegado' });
   renderTAB1();
 
   // Seleccionar de inmediato la fila pegada para visualizar su matriz APU
@@ -433,6 +449,10 @@ export function updateClipboardUI() {
 // Mover nodo arriba o abajo
 export function moverNode(id, direction, e) {
   if (e) e.stopPropagation();
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: No tienes permisos para mover filas en este proyecto.', 'warning');
+    return;
+  }
   if (!guardTabUnlocked('cat')) return;
   const ctx = findNodeContext(state.treeData, id);
   if (!ctx) return;
@@ -491,7 +511,7 @@ export function moverNode(id, direction, e) {
   }
 
   recalculateClaves(state.treeData);
-  persistLocalData();
+  persistLocalData(true, { changeType: 'row_moved', highlightId: id, changeDescription: 'orden de filas' });
   renderTAB1();
 
   if (state.activeSelectedId === id) {
@@ -521,6 +541,10 @@ export function moverSelectedRow(direction) {
 // Eliminar nodo individual
 export function deleteNode(id, e) {
   if (e) e.stopPropagation();
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: No tienes permisos para eliminar filas en este proyecto.', 'warning');
+    return;
+  }
   if (!guardTabUnlocked('cat')) return;
   saveState();
   function removeRecursive(nodes) {
@@ -533,13 +557,17 @@ export function deleteNode(id, e) {
   state.treeData = removeRecursive(state.treeData);
   if (state.activeSelectedId === id) closeApuPanel();
   recalculateClaves(state.treeData);
-  persistLocalData();
+  persistLocalData(true, { changeType: 'row_deleted', changeDescription: 'una fila del catálogo' });
   renderTAB1();
   showToast('Fila eliminada', 'info');
 }
 
 // Eliminar filas marcadas o fila seleccionada
 export function deleteSelectedRow() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: No tienes permisos para eliminar filas en este proyecto.', 'warning');
+    return;
+  }
   if (!guardTabUnlocked('cat')) return;
   function countCheckedNodes(nodes) {
     let count = 0;
@@ -572,7 +600,7 @@ export function deleteSelectedRow() {
     }
 
     recalculateClaves(state.treeData);
-    persistLocalData();
+    persistLocalData(true, { changeType: 'row_deleted', changeDescription: `${checkedTotal} fila(s) del catálogo` });
     renderTAB1();
     showToast(`${checkedTotal} filas eliminadas`, 'info');
   } else if (state.activeSelectedId) {
@@ -586,6 +614,11 @@ export function deleteSelectedRow() {
 
 // Actualizar un campo de un nodo (descripcion, unidad, cantidad, precioUnitario)
 export function updateNode(id, field, value) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: No tienes permisos para editar conceptos en este proyecto.', 'warning');
+    renderTAB1();
+    return;
+  }
   if (!guardTabUnlocked('cat')) {
     renderTAB1();
     return;
@@ -597,7 +630,7 @@ export function updateNode(id, field, value) {
     } else {
       node[field] = value;
     }
-    persistLocalData();
+    persistLocalData(false, { changeType: 'text_edit', highlightId: id, changeDescription: `el concepto "${node.clave || ''}"` });
     renderTAB1();
     if (state.activeSelectedId === id) {
       renderInsumosUnitarios(node);
@@ -681,6 +714,10 @@ export function desagruparCatalogoConceptos() {
 // Actualizar color propio de un nodo
 export function updateNodeColor(id, newColor, event) {
   if (event) event.stopPropagation();
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: No tienes permisos para editar colores en este proyecto.', 'warning');
+    return;
+  }
   if (!guardTabUnlocked('cat')) {
     renderTAB1();
     return;
@@ -689,7 +726,7 @@ export function updateNodeColor(id, newColor, event) {
   if (!node) return;
   saveState();
   node.color = newColor;
-  persistLocalData();
+  persistLocalData(false, { changeType: 'color_updated', highlightId: id, changeDescription: `color de ${node.clave || 'partida'}` });
   renderTAB1();
   showToast(`Color asignado a ${node.clave || 'partida'}`, 'success');
 }
@@ -801,10 +838,6 @@ export function autoColorRows(event) {
 // Checkbox individual de fila (con propagación a hijos)
 export function toggleSelectNode(id, isChecked, e) {
   if (e) e.stopPropagation();
-  if (!guardTabUnlocked('cat')) {
-    renderTAB1();
-    return;
-  }
   const node = findNodeById(state.treeData, id);
   if (!node) return;
 
@@ -827,10 +860,6 @@ export function toggleSelectNode(id, isChecked, e) {
 
 // Seleccionar o deseleccionar todas las filas
 export function toggleSelectAll(isChecked) {
-  if (!guardTabUnlocked('cat')) {
-    renderTAB1();
-    return;
-  }
   const val = Boolean(isChecked);
   function setSelectAllRecursive(nodes) {
     if (!Array.isArray(nodes)) return;
