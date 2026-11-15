@@ -13,8 +13,10 @@ import {
   saveStoredPlanInvitations,
   getProjectsList,
   saveProjectsList,
-  getUserPlanId
-} from '../modules/portal/projectService.js?v=20261115_v14';
+  getUserPlanId,
+  isInvalidUserName,
+  resolveCleanHostName
+} from '../modules/portal/projectService.js?v=20261115_v15';
 
 function getDeletedProjectsList() {
   try {
@@ -224,7 +226,9 @@ function mapProjectForCloudSync(p) {
     conceptCount: p.conceptCount || 0,
     partidasCount: p.partidasCount || 0,
     ownerEmail: p.ownerEmail,
-    ownerName: p.ownerName || p.companyName || 'Anfitrión',
+    ownerName: (p.ownerName && !isInvalidUserName(p.ownerName, p.ownerEmail, p))
+      ? p.ownerName
+      : resolveCleanHostName(p.ownerEmail, '', p),
     ownerPlanId: p.ownerPlanId || 'free',
     members: Array.isArray(p.members) ? p.members : [],
     createdAt: p.createdAt || new Date().toISOString(),

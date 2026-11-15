@@ -746,7 +746,7 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
                     📁 ${inv.projectName}
                   </h5>
                   <span class="text-[10.5px] text-slate-300 block truncate">
-                    Invitado por: <strong class="text-amber-300">${inv.ownerName || inv.companyName || 'Anfitrión'}</strong>
+                    Invitado por: <strong class="text-amber-300">${inv.ownerName || 'Anfitrión'}</strong>
                   </span>
                 </div>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${inv.role === 'editar' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-purple-500/20 text-purple-300 border border-purple-500/40'}">

@@ -5852,7 +5852,7 @@
           var opt = sel.options[i];
           var val = (opt.value || '').toLowerCase();
           var txt = (opt.textContent || '').toLowerCase();
-          if (val === 'all' || txt.includes('todos los proyectos') || txt.includes('sistema de control de obra') || txt.includes('sistema de arquitectura')) {
+          if (val === 'all' || txt.includes('todos los proyectos') || txt.includes('sistema de control de obra') || txt.includes('sistema de arquitectura') || txt === 'dsad' || txt === 'asdasd') {
             sel.remove(i);
           }
         }
@@ -5865,10 +5865,10 @@
       setInterval(purgeInvalidScopeOptions, 300);
     })();
   </script>
-  <script type="module" src="js/app.js?v=20261115_v15"></script>
+  <script type="module" src="js/app.js?v=20261115_v16"></script>
   <script type="module">
-    import { switchTab } from './js/ui/modalController.js?v=20261115_v15';
-    import { renderBitacoraView } from './js/modules/bitacora/bitacoraView.js?v=20261115_v15';
+    import { switchTab } from './js/ui/modalController.js?v=20261115_v16';
+    import { renderBitacoraView } from './js/modules/bitacora/bitacoraView.js?v=20261115_v16';
 
     try {
       const p = new URLSearchParams(window.location.search);
