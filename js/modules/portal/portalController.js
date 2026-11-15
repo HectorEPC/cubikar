@@ -3752,13 +3752,6 @@ export function updatePortalHeaderUserArea(user) {
         </div>
 
         <div class="p-1.5 space-y-1 text-xs font-semibold">
-                    ${isUserAdmin(user?.email) ? `
-            <button type="button" onclick="closePortalUserDropdown(); openCubikarAdminModal()" 
-                    class="w-full text-left px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold border border-amber-500/35 flex items-center gap-2 transition cursor-pointer">
-              <i class="fa-solid fa-shield-halved text-amber-400 text-xs"></i>
-              <span>Panel de Administración</span>
-            </button>
-          ` : ''}
           <button type="button" onclick="closePortalUserDropdown(); openProfileModal()" 
                   class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-2 transition cursor-pointer">
             <i class="fa-solid fa-user-gear text-blue-400 text-xs"></i>

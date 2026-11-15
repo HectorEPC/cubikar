@@ -21,6 +21,7 @@ import { showToast } from '../../ui/notifications.js';
 import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js';
 import { openSubscriptionModal } from '../portal/subscriptionModal.js';
 import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js';
+import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js';
 
 let isChatDockExpanded = false; // Inicia como pequeño círculo flotante abajo a la derecha
 let isChatMaximized = false; // Permite maximizar o restaurar el tamaño de la ventana del chat
@@ -58,7 +59,7 @@ function triggerExternalChatRefresh() {
   }
 }
 
-function getChatStorageKey(projectId = null) {
+export function getChatStorageKey(projectId = null) {
   const pid = projectId || getActiveProjectId() || 'proj-default-01';
   return `adm_const_project_chat_${pid}`;
 }
@@ -1436,13 +1437,15 @@ export function sendProjectChatMessage() {
   const dateStr = now.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
 
   const messages = loadProjectChatMessages();
-  messages.push({
+  const newMsg = {
     id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     section: activeChatSection || 'tecnico',
     authorName: authorObj.name,
     authorHandle: authorObj.handle,
     authorRole: authorObj.roleLabel,
     authorInitials: authorObj.initials,
+    authorEmail: currentUser?.email || '',
+    authorAvatar: authorObj.avatar || '',
     time: `${dateStr} • ${timeStr}`,
     partidaId: pendingComposerTags.partidaId || activePartidaFilterId || null,
     mentions: mergedMentions,
@@ -1451,9 +1454,11 @@ export function sendProjectChatMessage() {
     reportes: [...pendingComposerTags.reportes],
     readBy: [],
     text
-  });
+  };
+  messages.push(newMsg);
 
   saveProjectChatMessages(messages);
+  broadcastChatMessage(getActiveProjectId(), newMsg);
   inp.value = '';
   pendingComposerTags = {
     partidaId: activePartidaFilterId || null,
@@ -1477,6 +1482,7 @@ export function deleteProjectChatMessage(msgId) {
   const messages = loadProjectChatMessages();
   const next = messages.filter(m => m.id !== msgId);
   saveProjectChatMessages(next);
+  broadcastChatDelete(getActiveProjectId(), msgId);
   renderProjectChatDock();
   triggerExternalChatRefresh();
 }

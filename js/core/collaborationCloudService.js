@@ -16,6 +16,7 @@ import {
   getUserPlanId
 } from '../modules/portal/projectService.js';
 import { getSettingsKey, getStorageKey } from '../config/constants.js';
+import { getChatStorageKey } from '../modules/chat/projectChat.js';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
@@ -176,6 +177,7 @@ export async function syncUserCollaborationToCloud(user = null) {
 function mapProjectForCloudSync(p) {
   let localSettings = null;
   let localTree = null;
+  let localChat = null;
   try {
     const rawSet = localStorage.getItem(getSettingsKey(p.id));
     if (rawSet) localSettings = JSON.parse(rawSet);
@@ -185,6 +187,13 @@ function mapProjectForCloudSync(p) {
       // Incluir catálogo si no supera 200 conceptos para mantener tamaño ágil
       if (Array.isArray(parsedTree) && parsedTree.length <= 200) {
         localTree = parsedTree;
+      }
+    }
+    const rawChat = localStorage.getItem(getChatStorageKey(p.id));
+    if (rawChat) {
+      const parsedChat = JSON.parse(rawChat);
+      if (Array.isArray(parsedChat)) {
+        localChat = parsedChat.slice(-150);
       }
     }
   } catch (_) {}
@@ -208,7 +217,8 @@ function mapProjectForCloudSync(p) {
     members: Array.isArray(p.members) ? p.members : [],
     createdAt: p.createdAt || new Date().toISOString(),
     settings: localSettings,
-    treeData: localTree
+    treeData: localTree,
+    chatMessages: localChat
   };
 }
 
@@ -280,13 +290,23 @@ export function restoreUserCollaborationFromCloud(user = null) {
         }
       }
 
-      // Restaurar árbol de catálogo y configuración en localStorage si vinieron incluidos
+      // Restaurar árbol de catálogo, configuración y mensajes de chat en localStorage si vinieron incluidos
       try {
         if (cp.settings && !localStorage.getItem(getSettingsKey(cp.id))) {
           localStorage.setItem(getSettingsKey(cp.id), JSON.stringify(cp.settings));
         }
         if (cp.treeData && !localStorage.getItem(getStorageKey(cp.id))) {
           localStorage.setItem(getStorageKey(cp.id), JSON.stringify(cp.treeData));
+        }
+        if (Array.isArray(cp.chatMessages) && cp.chatMessages.length > 0) {
+          const chatKey = getChatStorageKey(cp.id);
+          const rawChat = localStorage.getItem(chatKey);
+          let curChat = rawChat ? JSON.parse(rawChat) : [];
+          if (!Array.isArray(curChat)) curChat = [];
+          const map = new Map();
+          curChat.forEach(m => map.set(m.id, m));
+          cp.chatMessages.forEach(m => map.set(m.id, m));
+          localStorage.setItem(chatKey, JSON.stringify(Array.from(map.values())));
         }
       } catch (_) {}
     });

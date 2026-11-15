@@ -99,6 +99,20 @@ export function subscribeToProjectRealtime(projectId) {
     }
   });
 
+  // Escuchar mensajes de chat del proyecto en tiempo real (<30ms)
+  activeChannel.on('broadcast', { event: 'chat_mensaje_nuevo' }, (payload) => {
+    if (payload?.payload) {
+      handleIncomingChatMessage(payload.payload);
+    }
+  });
+
+  // Escuchar eliminación de mensajes de chat en tiempo real
+  activeChannel.on('broadcast', { event: 'chat_mensaje_eliminado' }, (payload) => {
+    if (payload?.payload) {
+      handleIncomingChatDelete(payload.payload);
+    }
+  });
+
   // 2. Escuchar cambios de base de datos en 'catalogo_conceptos' (Postgres CDC)
   activeChannel.on(
     'postgres_changes',
@@ -142,6 +156,7 @@ export function subscribeToProjectRealtime(projectId) {
   activeChannel.subscribe(async (status) => {
     if (status === 'SUBSCRIBED') {
       console.info(`[Realtime] Conectado al canal WebSocket de la obra: ${projectId}`);
+      hydrateProjectChatFromCloud(projectId);
       const user = getCurrentUser();
       if (user) {
         await activeChannel.track({
@@ -515,6 +530,20 @@ export function initGlobalRealtimeSync() {
     }
   });
 
+  // 8. Escuchar mensajes de chat globales (notificaciones y sincronización de fondo)
+  globalSyncChannel.on('broadcast', { event: 'chat_mensaje_global' }, (payload) => {
+    if (payload?.payload) {
+      handleIncomingChatMessage(payload.payload);
+    }
+  });
+
+  // 9. Escuchar eliminación global de mensajes de chat
+  globalSyncChannel.on('broadcast', { event: 'chat_mensaje_eliminado_global' }, (payload) => {
+    if (payload?.payload) {
+      handleIncomingChatDelete(payload.payload);
+    }
+  });
+
   globalSyncChannel.subscribe((status) => {
     if (status === 'SUBSCRIBED') {
       console.info('[Realtime] Canal global WebSocket conectado exitosamente.');
@@ -828,16 +857,20 @@ function handlePeerSyncRequest({ email }) {
   }).map(p => {
     let localTree = null;
     let localSettings = null;
+    let localChat = null;
     try {
       const rawTree = localStorage.getItem(getStorageKey(p.id));
       if (rawTree) localTree = JSON.parse(rawTree);
       const rawSettings = localStorage.getItem(getSettingsKey(p.id));
       if (rawSettings) localSettings = JSON.parse(rawSettings);
+      const rawChat = localStorage.getItem(resolveChatStorageKey(p.id));
+      if (rawChat) localChat = JSON.parse(rawChat);
     } catch (_) {}
     return {
       ...p,
       treeData: localTree,
-      settings: localSettings
+      settings: localSettings,
+      chatMessages: localChat
     };
   });
 
@@ -939,6 +972,24 @@ function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
           }
         } catch (_) {}
       }
+      if (Array.isArray(p.chatMessages) && p.chatMessages.length > 0) {
+        try {
+          const chatKey = resolveChatStorageKey(p.id);
+          let curChat = [];
+          const rawChat = localStorage.getItem(chatKey);
+          if (rawChat) curChat = JSON.parse(rawChat);
+          if (!Array.isArray(curChat)) curChat = [];
+          const msgMap = new Map();
+          curChat.forEach(m => msgMap.set(m.id, m));
+          p.chatMessages.forEach(m => msgMap.set(m.id, m));
+          localStorage.setItem(chatKey, JSON.stringify(Array.from(msgMap.values())));
+          if (typeof getActiveProjectId === 'function' && getActiveProjectId() === p.id) {
+            if (typeof window !== 'undefined' && typeof window.renderProjectChatDock === 'function') {
+              window.renderProjectChatDock();
+            }
+          }
+        } catch (_) {}
+      }
     });
     if (projChanged) {
       saveProjectsList(currentProjs);
@@ -961,6 +1012,313 @@ function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
   }
 }
 
+// =========================================================================
+// SINCRONIZACIÓN DE CHAT DE PROYECTO EN TIEMPO REAL & PERSISTENCIA EN ANFITRIÓN
+// =========================================================================
+
+export function resolveChatStorageKey(projectId = null) {
+  const pid = projectId || (typeof getActiveProjectId === 'function' ? getActiveProjectId() : null) || 'proj-default-01';
+  const isArq = typeof window !== 'undefined' && (
+    (window.location?.hostname || '').includes('arq') ||
+    (window.location?.pathname || '').includes('ADM_ARQ')
+  );
+  return `${isArq ? 'adm_arq' : 'adm_const'}_project_chat_${pid}`;
+}
+
+export function handleIncomingChatMessage(data) {
+  if (!data || !data.projectId || !data.message) return;
+  const currentUser = getCurrentUser();
+  if (!currentUser || !currentUser.email) return;
+
+  const myEmail = currentUser.email.toLowerCase().trim();
+  const authorEmail = (data.author?.email || data.message?.authorEmail || '').toLowerCase().trim();
+
+  // Si fue emitido por nosotros mismos, ignorar (ya se guardó y renderizó localmente)
+  if (authorEmail && authorEmail === myEmail) {
+    return;
+  }
+
+  const projectId = data.projectId;
+  const allProjects = getProjectsList();
+  const proj = allProjects.find(p => p.id === projectId);
+  if (!proj) return;
+
+  const isOwner = (proj.ownerEmail || '').toLowerCase().trim() === myEmail;
+  const isMember = Array.isArray(proj.members) && proj.members.some(m => (m.email || '').toLowerCase().trim() === myEmail);
+  if (!isOwner && !isMember) return;
+
+  // 1. Guardar mensaje en el almacenamiento local de este proyecto
+  const chatKey = resolveChatStorageKey(projectId);
+  let messages = [];
+  try {
+    const raw = localStorage.getItem(chatKey);
+    if (raw) messages = JSON.parse(raw);
+    if (!Array.isArray(messages)) messages = [];
+  } catch (_) {
+    messages = [];
+  }
+
+  // Deduplicar por id
+  const exists = messages.some(m => m.id === data.message.id);
+  if (!exists) {
+    messages.push(data.message);
+    try {
+      localStorage.setItem(chatKey, JSON.stringify(messages));
+    } catch (_) {}
+  }
+
+  // 2. Si el usuario actual es el anfitrión, respaldar en su estado en la nube
+  if (isOwner) {
+    persistChatMessageToHostCloud(projectId, data.message, proj);
+  }
+
+  // 3. Si la obra está abierta actualmente en pantalla, actualizar la interfaz del dock
+  const currentPId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
+  if (currentPId && currentPId === projectId) {
+    if (typeof window !== 'undefined' && typeof window.renderProjectChatDock === 'function') {
+      window.renderProjectChatDock();
+    }
+    // Auto-scroll si el contenedor de mensajes existe
+    if (typeof document !== 'undefined') {
+      setTimeout(() => {
+        const listEl = document.getElementById('project-chat-messages-list');
+        if (listEl) listEl.scrollTop = listEl.scrollHeight;
+      }, 50);
+    }
+
+    // Mostrar toast informativo si el mensaje menciona al usuario
+    const mentions = Array.isArray(data.message.mentions) ? data.message.mentions : [];
+    const myHandle = (currentUser.name || currentUser.email).replace(/\s+/g, '');
+    const isMentioned = mentions.some(m => m.toLowerCase().includes(myHandle.toLowerCase()) || m.toLowerCase().includes(myEmail));
+    if (isMentioned) {
+      showToast(`💬 ${data.author?.name || 'Un colaborador'} te mencionó en el chat`, 'info');
+    }
+  }
+}
+
+export function handleIncomingChatDelete(data) {
+  if (!data || !data.projectId || !data.messageId) return;
+  const currentUser = getCurrentUser();
+  if (!currentUser || !currentUser.email) return;
+
+  const myEmail = currentUser.email.toLowerCase().trim();
+  const authorEmail = (data.authorEmail || '').toLowerCase().trim();
+  if (authorEmail && authorEmail === myEmail) return;
+
+  const projectId = data.projectId;
+  const chatKey = resolveChatStorageKey(projectId);
+  try {
+    const raw = localStorage.getItem(chatKey);
+    if (raw) {
+      let messages = JSON.parse(raw);
+      if (Array.isArray(messages)) {
+        const next = messages.filter(m => m.id !== data.messageId);
+        localStorage.setItem(chatKey, JSON.stringify(next));
+      }
+    }
+  } catch (_) {}
+
+  const currentPId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
+  if (currentPId && currentPId === projectId) {
+    if (typeof window !== 'undefined' && typeof window.renderProjectChatDock === 'function') {
+      window.renderProjectChatDock();
+    }
+  }
+}
+
+export function broadcastChatMessage(projectId, message) {
+  const pId = projectId || currentSubscribedProjectId || (typeof getActiveProjectId === 'function' ? getActiveProjectId() : null);
+  if (!pId || !message) return;
+
+  const currentUser = getCurrentUser();
+  const author = {
+    id: currentUser?.id || null,
+    email: currentUser?.email || message.authorEmail || '',
+    name: currentUser?.name || message.authorName || 'Colaborador',
+    avatar: currentUser?.avatar || message.authorAvatar || ''
+  };
+
+  const allProjects = getProjectsList();
+  const proj = allProjects.find(p => p.id === pId);
+  const ownerEmail = (proj?.ownerEmail || currentUser?.email || '').toLowerCase().trim();
+
+  const payload = {
+    projectId: pId,
+    ownerEmail,
+    author,
+    message,
+    timestamp: new Date().toISOString()
+  };
+
+  // 1. Broadcast en canal de la obra activa
+  if (activeChannel && currentSubscribedProjectId === pId) {
+    try {
+      const res = activeChannel.send({
+        type: 'broadcast',
+        event: 'chat_mensaje_nuevo',
+        payload
+      });
+      if (res && typeof res.catch === 'function') {
+        res.catch(err => console.warn('[Realtime] Error al emitir mensaje de chat:', err));
+      }
+    } catch (_) {}
+  }
+
+  // 2. Broadcast en canal global de sincronización
+  if (!globalSyncChannel) initGlobalRealtimeSync();
+  if (globalSyncChannel) {
+    try {
+      const res = globalSyncChannel.send({
+        type: 'broadcast',
+        event: 'chat_mensaje_global',
+        payload
+      });
+      if (res && typeof res.catch === 'function') {
+        res.catch(err => console.warn('[Realtime] Error al emitir mensaje global de chat:', err));
+      }
+    } catch (_) {}
+  }
+
+  // 3. Persistir en la cuenta del usuario anfitrión (DB y cloud state)
+  persistChatMessageToHostCloud(pId, message, proj);
+}
+
+export function broadcastChatDelete(projectId, messageId) {
+  const pId = projectId || currentSubscribedProjectId || (typeof getActiveProjectId === 'function' ? getActiveProjectId() : null);
+  if (!pId || !messageId) return;
+
+  const currentUser = getCurrentUser();
+  const payload = {
+    projectId: pId,
+    messageId,
+    authorEmail: currentUser?.email || '',
+    timestamp: new Date().toISOString()
+  };
+
+  if (activeChannel && currentSubscribedProjectId === pId) {
+    try {
+      const res = activeChannel.send({
+        type: 'broadcast',
+        event: 'chat_mensaje_eliminado',
+        payload
+      });
+      if (res && typeof res.catch === 'function') {
+        res.catch(err => console.warn('[Realtime] Error al emitir eliminación de chat:', err));
+      }
+    } catch (_) {}
+  }
+
+  if (!globalSyncChannel) initGlobalRealtimeSync();
+  if (globalSyncChannel) {
+    try {
+      const res = globalSyncChannel.send({
+        type: 'broadcast',
+        event: 'chat_mensaje_eliminado_global',
+        payload
+      });
+      if (res && typeof res.catch === 'function') {
+        res.catch(err => console.warn('[Realtime] Error al emitir eliminación global de chat:', err));
+      }
+    } catch (_) {}
+  }
+
+  deleteChatMessageFromHostCloud(pId, messageId);
+}
+
+export async function persistChatMessageToHostCloud(projectId, message, proj) {
+  const sb = getSupabaseClient();
+  const allProjects = proj ? [proj] : getProjectsList();
+  const targetProj = proj || allProjects.find(p => p.id === projectId);
+  const ownerEmail = (targetProj?.ownerEmail || message?.ownerEmail || getCurrentUser()?.email || '').toLowerCase().trim();
+  if (!projectId || !message) return;
+
+  // 1. Guardar en tabla Supabase 'chat_mensajes'
+  if (sb && typeof sb.from === 'function') {
+    try {
+      const rowId = `${projectId}__${message.id}`;
+      await sb.from('chat_mensajes').upsert({
+        id: rowId,
+        proyecto_id: projectId,
+        empresa_id: targetProj?.empresaId || null,
+        owner_email: ownerEmail,
+        autor_nombre: message.authorName || 'Colaborador',
+        autor_email: message.authorEmail || getCurrentUser()?.email || '',
+        autor_avatar_url: message.authorAvatar || '',
+        mensaje: message.text || '',
+        adjuntos: (message.estimaciones || []).concat(message.reportes || []),
+        payload_json: message,
+        created_at: message.createdAt || new Date().toISOString()
+      }, { onConflict: 'id' });
+    } catch (_) {}
+  }
+
+  // 2. Si el usuario actual es el anfitrión, respaldar en su estado en la nube
+  const currentUser = getCurrentUser();
+  if (currentUser && (currentUser.email || '').toLowerCase().trim() === ownerEmail) {
+    try {
+      if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
+        window.syncUserCollaborationToCloud(currentUser);
+      }
+    } catch (_) {}
+  }
+}
+
+export async function deleteChatMessageFromHostCloud(projectId, messageId) {
+  const sb = getSupabaseClient();
+  if (!sb || !projectId || !messageId) return;
+  try {
+    const rowId = `${projectId}__${messageId}`;
+    await sb.from('chat_mensajes').delete().eq('id', rowId);
+  } catch (_) {}
+}
+
+export async function hydrateProjectChatFromCloud(projectId) {
+  const sb = getSupabaseClient();
+  if (!sb || !projectId || typeof sb.from !== 'function') return;
+  try {
+    const { data, error } = await sb
+      .from('chat_mensajes')
+      .select('*')
+      .eq('proyecto_id', projectId)
+      .order('created_at', { ascending: true });
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      const chatKey = resolveChatStorageKey(projectId);
+      let localMessages = [];
+      try {
+        const raw = localStorage.getItem(chatKey);
+        if (raw) localMessages = JSON.parse(raw);
+      } catch (_) {}
+      if (!Array.isArray(localMessages)) localMessages = [];
+
+      const map = new Map();
+      localMessages.forEach(m => map.set(m.id, m));
+      data.forEach(row => {
+        const msg = row.payload_json || {
+          id: (row.id || '').split('__')[1] || row.id,
+          text: row.mensaje,
+          authorName: row.autor_nombre,
+          authorEmail: row.autor_email,
+          authorAvatar: row.autor_avatar_url,
+          time: new Date(row.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+        };
+        map.set(msg.id, msg);
+      });
+
+      const merged = Array.from(map.values()).sort((a, b) => {
+        const tA = new Date(a.createdAt || 0).getTime();
+        const tB = new Date(b.createdAt || 0).getTime();
+        return tA - tB;
+      });
+
+      localStorage.setItem(chatKey, JSON.stringify(merged));
+      if (typeof window !== 'undefined' && typeof window.renderProjectChatDock === 'function') {
+        window.renderProjectChatDock();
+      }
+    }
+  } catch (_) {}
+}
+
 if (typeof window !== 'undefined') {
   window.CubikarRealtime = {
     initGlobalRealtimeSync,
@@ -970,8 +1328,15 @@ if (typeof window !== 'undefined') {
     broadcastNewProject,
     broadcastProjectMutation,
     handleIncomingProjectUpdate,
+    broadcastChatMessage,
+    broadcastChatDelete,
+    handleIncomingChatMessage,
+    handleIncomingChatDelete,
+    hydrateProjectChatFromCloud,
     requestPeerSync
   };
   window.broadcastProjectMutation = broadcastProjectMutation;
   window.handleIncomingProjectUpdate = handleIncomingProjectUpdate;
+  window.broadcastChatMessage = broadcastChatMessage;
+  window.broadcastChatDelete = broadcastChatDelete;
 }
