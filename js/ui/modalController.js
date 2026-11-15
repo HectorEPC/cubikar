@@ -10,7 +10,7 @@ import { renderAPUInsumos } from '../modules/apu/apuView.js';
 import { renderInsumosGenerales } from '../modules/insumosGenerales/insumosView.js';
 import { renderCalendarioObra } from '../modules/calendario/calendarioView.js';
 import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView.js';
-import { renderExpensesView } from '../modules/compras/expensesView.js';
+import { renderExpensesView } from '../modules/compras/expensesView.js?v=20261114_18';
 import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js';
 import { renderBrandingUI } from './brandingController.js';
 import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js';

@@ -39,10 +39,10 @@ import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
   printExpensesActiveReport
-} from './expensesExporter.js';
+} from './expensesExporter.js?v=20261114_18';
 import { renderTabAssignedAvatars } from '../portal/portalController.js';
 import { resolveWorkspacePlanContext } from '../portal/projectService.js';
-import { isNightMode } from '../../ui/themeController.js';
+import { isNightMode } from '../../ui/themeController.js?v=20261114_18';
 
 function isAdvancedExpensesAllowed() {
   return true;

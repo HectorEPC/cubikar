@@ -115,12 +115,12 @@ import {
   updateDraftExpensesSignature,
   resetDefaultExpensesSignatures,
   saveExpensesSignaturesModal
-} from './modules/compras/expensesView.js';
+} from './modules/compras/expensesView.js?v=20261114_18';
 import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
   printExpensesActiveReport
-} from './modules/compras/expensesExporter.js';
+} from './modules/compras/expensesExporter.js?v=20261114_18';
 import {
   openExpenseEvidence
 } from './modules/compras/driveExpenseService.js';
@@ -385,7 +385,7 @@ import {
   switchTab,
   switchPresupuestoSubTab,
   initFloatingWindowOutsideClose
-} from './ui/modalController.js';
+} from './ui/modalController.js?v=20261114_18';
 
 import {
   initBranding,
