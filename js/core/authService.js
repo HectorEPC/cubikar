@@ -808,7 +808,11 @@ export async function hydrateIncomingSsoSession() {
     }
   }
 
-  if (!tokens?.refreshToken) {
+  if (tokens?.email) {
+    markSessionOpen(tokens.email);
+  }
+
+  if (!tokens?.refreshToken && !tokens?.email) {
     try {
       const { data } = await sb.auth.getSession();
       if (data?.session?.user) {
@@ -867,13 +871,54 @@ export async function hydrateIncomingSsoSession() {
       return { hydrated: true, session: { access_token: tokens.accessToken || 'tut_token', user: syntheticUser }, user: syntheticUser };
     }
 
-    const { data, error } = tokens.accessToken
-      ? await sb.auth.setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken })
-      : await sb.auth.refreshSession({ refresh_token: tokens.refreshToken });
+    let sessionData = null;
+    let sessionError = null;
 
-    if (error || !data?.session?.user) {
-      return { hydrated: false, error };
+    if (tokens.accessToken && tokens.refreshToken) {
+      try {
+        const res = await sb.auth.setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken });
+        if (res.data?.session?.user) {
+          sessionData = res.data;
+        } else {
+          sessionError = res.error;
+        }
+      } catch (err) {
+        sessionError = err;
+      }
     }
+
+    if (!sessionData && tokens.refreshToken) {
+      try {
+        const res = await sb.auth.refreshSession({ refresh_token: tokens.refreshToken });
+        if (res.data?.session?.user) {
+          sessionData = res.data;
+          sessionError = null;
+        } else {
+          sessionError = res.error || sessionError;
+        }
+      } catch (err) {
+        sessionError = err;
+      }
+    }
+
+    if (!sessionData) {
+      try {
+        const { data: existingData } = await sb.auth.getSession();
+        if (existingData?.session?.user) {
+          const em = (existingData.session.user.email || '').toLowerCase().trim();
+          if (!tokens.email || em === tokens.email) {
+            sessionData = existingData;
+            sessionError = null;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!sessionData?.session?.user) {
+      return { hydrated: false, error: sessionError };
+    }
+
+    const data = sessionData;
 
     const email = (data.session.user.email || '').toLowerCase().trim();
     if (email) markSessionOpen(email);
@@ -917,11 +962,12 @@ export function initAuthListener(onAuthChangeCallback) {
       const isOAuthRedirect = typeof window !== 'undefined' && (
         window.location.hash.includes('cubikar_sso_at=') ||
         window.location.hash.includes('cubikar_sso_rt=') ||
+        window.location.hash.includes('cubikar_sso_email=') ||
         window.location.hash.includes('access_token') ||
         window.location.hash.includes('refresh_token') ||
         window.location.search.includes('code=')
       );
-      const isExplicitInteractive = explicitAuthDepth > 0 || isOAuthRedirect || ssoHydrationInProgress;
+      const isExplicitInteractive = explicitAuthDepth > 0 || isOAuthRedirect || ssoHydrationInProgress || hasPendingIncomingSso(false);
       const hasActiveLocal = hasValidLocalSessionForEmail(email);
 
       // Nunca auto-ingresar desde sesiones/tokens pasivos (INITIAL_SESSION, TOKEN_REFRESHED, SIGNED_IN)

@@ -531,6 +531,8 @@ export function enforceGlobalSessionRevocation() {
       try {
         if (typeof window !== 'undefined') {
           const hasIncomingSso = (window.location?.hash || '').includes('cubikar_sso_at=') ||
+                                 (window.location?.hash || '').includes('cubikar_sso_rt=') ||
+                                 (window.location?.hash || '').includes('cubikar_sso_email=') ||
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {

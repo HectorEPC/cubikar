@@ -7,6 +7,7 @@ export const STORAGE_KEY_LAST_SIGNOUT_TS = 'cubikar_last_signout_ts';
 const HASH_AT_KEY = 'cubikar_sso_at';
 const HASH_RT_KEY = 'cubikar_sso_rt';
 const HASH_REMEMBER_KEY = 'cubikar_sso_remember';
+const HASH_EMAIL_KEY = 'cubikar_sso_email';
 
 function isCubikarDomainHost() {
   if (typeof window === 'undefined') return false;
@@ -134,15 +135,17 @@ export function extractIncomingSsoFromHash() {
   if (typeof window === 'undefined' || !window.location?.hash) return null;
   try {
     const rawHash = window.location.hash.replace(/^#/, '');
-    if (!rawHash.includes(HASH_AT_KEY) && !rawHash.includes(HASH_RT_KEY)) return null;
+    if (!rawHash.includes(HASH_AT_KEY) && !rawHash.includes(HASH_RT_KEY) && !rawHash.includes(HASH_EMAIL_KEY)) return null;
     const params = new URLSearchParams(rawHash);
     const accessToken = params.get(HASH_AT_KEY) || '';
     const refreshToken = params.get(HASH_RT_KEY) || '';
-    if (!refreshToken) return null;
+    const email = (params.get(HASH_EMAIL_KEY) || '').toLowerCase().trim();
+    if (!refreshToken && !accessToken && !email) return null;
     const rememberParam = params.get(HASH_REMEMBER_KEY);
     return {
       accessToken,
       refreshToken,
+      email,
       remember: rememberParam !== '0',
       fromHash: true
     };
@@ -155,11 +158,12 @@ export function scrubSsoHashParams() {
   if (typeof window === 'undefined' || !window.history?.replaceState || !window.location?.hash) return;
   try {
     const rawHash = window.location.hash.replace(/^#/, '');
-    if (!rawHash.includes(HASH_AT_KEY) && !rawHash.includes(HASH_RT_KEY)) return;
+    if (!rawHash.includes(HASH_AT_KEY) && !rawHash.includes(HASH_RT_KEY) && !rawHash.includes(HASH_EMAIL_KEY)) return;
     const params = new URLSearchParams(rawHash);
     params.delete(HASH_AT_KEY);
     params.delete(HASH_RT_KEY);
     params.delete(HASH_REMEMBER_KEY);
+    params.delete(HASH_EMAIL_KEY);
     const remaining = params.toString();
     const nextUrl = window.location.pathname + window.location.search + (remaining ? `#${remaining}` : '');
     window.history.replaceState(null, document.title, nextUrl);
@@ -175,7 +179,7 @@ export function hasPendingIncomingSso(hasLocalUser = false) {
   }
   if (hasLocalUser) return false;
   const cookieTokens = readSharedSsoCookie();
-  if (!cookieTokens || !cookieTokens.refreshToken) return false;
+  if (!cookieTokens || (!cookieTokens.refreshToken && !cookieTokens.email)) return false;
   const lastSignOutTs = getLastSignOutTimestamp();
   if (lastSignOutTs > 0 && cookieTokens.ts > 0 && cookieTokens.ts <= lastSignOutTs) {
     return false;
@@ -188,13 +192,15 @@ export function buildSsoTargetUrl(targetUrl, tokens, remember = true) {
   const baseUrl = String(targetUrl).split('#')[0];
   const at = tokens?.access_token || tokens?.accessToken || '';
   const rt = tokens?.refresh_token || tokens?.refreshToken || '';
-  if (!rt) return baseUrl;
+  const email = (tokens?.user?.email || tokens?.email || '').toLowerCase().trim();
+  if (!rt && !at && !email) return baseUrl;
   const rememberFlag = remember === false ? '0' : '1';
   const params = new URLSearchParams({
-    [HASH_RT_KEY]: rt,
     [HASH_REMEMBER_KEY]: rememberFlag
   });
+  if (rt) params.set(HASH_RT_KEY, rt);
   if (at) params.set(HASH_AT_KEY, at);
+  if (email) params.set(HASH_EMAIL_KEY, email);
   return `${baseUrl}#${params.toString()}`;
 }
 
