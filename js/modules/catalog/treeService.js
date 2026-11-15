@@ -831,13 +831,22 @@ export function toggleSelectAll(isChecked) {
     renderTAB1();
     return;
   }
-  function setSelectAllRecursive(nodes, val) {
+  const val = Boolean(isChecked);
+  function setSelectAllRecursive(nodes) {
+    if (!Array.isArray(nodes)) return;
     nodes.forEach(n => {
       n.selected = val;
-      if (n.children) setSelectAllRecursive(n.children, val);
+      if (n.children && n.children.length > 0) {
+        setSelectAllRecursive(n.children);
+      }
     });
   }
-  setSelectAllRecursive(state.treeData, isChecked);
+  setSelectAllRecursive(state.treeData);
+
+  // Asegurar que visualmente todas las casillas DOM del cuerpo se sincronicen de inmediato
+  const domChecks = document.querySelectorAll('#tb1-body input[type="checkbox"]');
+  domChecks.forEach(cb => { cb.checked = val; });
+
   persistLocalData();
   renderTAB1();
 
