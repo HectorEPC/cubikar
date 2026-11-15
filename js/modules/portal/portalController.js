@@ -5,7 +5,7 @@ import {
   setActiveProjectId,
   getActiveProjectId,
   getSettingsKey
-} from '../../config/constants.js';
+} from '../../config/constants.js?v=20261115_v12';
 import {
   getCurrentUser,
   getLastKnownUser,
