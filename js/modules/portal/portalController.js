@@ -59,13 +59,13 @@ import {
   SAMPLE_LOGOS,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js';
+} from './projectService.js?v=20261115_v10';
 import { showToast } from '../../ui/notifications.js';
 import { persistLocalData, state, initStore } from '../../state/store.js';
 import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
 import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261115_v10';
 import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js';
 import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js';
 import {

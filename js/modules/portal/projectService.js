@@ -2758,7 +2758,16 @@ export function getPlanCollaboratorsForOwner(ownerEmail) {
     }
   });
 
-  return Array.from(map.values());
+  const result = Array.from(map.values()).filter(inv => {
+    const n = (inv.name || '').toLowerCase().trim();
+    const em = (inv.email || '').toLowerCase().trim();
+    if (!n || GENERIC_BLACKLIST.has(n)) return false;
+    if (SYSTEM_EXCLUDED_EMAILS.has(em)) return false;
+    if (n.includes('sistema de control') || n.includes('sistema de arquitectura')) return false;
+    return true;
+  });
+
+  return result;
 }
 
 export function canUserInviteToPlan(user = null, targetEmail = '') {

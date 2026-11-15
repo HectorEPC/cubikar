@@ -597,7 +597,7 @@ import {
   resetFilters,
   exportProjectToExcelAction,
   logoutAllDevices
-} from './modules/portal/portalController.js?v=20261114_12';
+} from './modules/portal/portalController.js?v=20261115_v10';
 
 import {
   openCubikarAdminModal,

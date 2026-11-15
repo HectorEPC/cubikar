@@ -5842,7 +5842,30 @@
   <div id="bitacora-modals-root"></div>
 
   <!-- Entrada Modular Principal ES6 -->
-  <script type="module" src="js/app.js?v=20261115_03"></script>
+  <script>
+    // Sanitizador defensivo en tiempo real para selector de Modo de Trabajo
+    (function() {
+      function purgeInvalidScopeOptions() {
+        var sel = document.getElementById('projectScopeModeSelect');
+        if (!sel || !sel.options) return;
+        for (var i = sel.options.length - 1; i >= 0; i--) {
+          var opt = sel.options[i];
+          var val = (opt.value || '').toLowerCase();
+          var txt = (opt.textContent || '').toLowerCase();
+          if (val === 'all' || txt.includes('todos los proyectos') || txt.includes('sistema de control de obra') || txt.includes('sistema de arquitectura')) {
+            sel.remove(i);
+          }
+        }
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', purgeInvalidScopeOptions);
+      } else {
+        purgeInvalidScopeOptions();
+      }
+      setInterval(purgeInvalidScopeOptions, 300);
+    })();
+  </script>
+  <script type="module" src="js/app.js?v=20261115_v10"></script>
   <script type="module">
     import { switchTab } from './js/ui/modalController.js';
     import { renderBitacoraView } from './js/modules/bitacora/bitacoraView.js';
