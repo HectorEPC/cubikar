@@ -1501,9 +1501,6 @@ export function renderPortalDashboard() {
                   ${inv.name}
                 </option>
               `).join('')}
-              <option value="all" ${currentScopeFilter === 'all' ? 'selected' : ''}>
-                Todos los proyectos
-              </option>
             </select>
             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-blue-400">
               <i class="fa-solid fa-chevron-down text-xs"></i>
@@ -1751,7 +1748,7 @@ let currentSortMode = 'date-desc'; // 'date-desc' | 'date-asc' | 'az-asc' | 'az-
 let currentViewMode = 'grid'; // 'grid' | 'list'
 
 export function setProjectScopeFilter(scope) {
-  currentScopeFilter = scope || 'owned';
+  currentScopeFilter = (scope && scope !== 'all') ? scope : 'owned';
   const user = getCurrentUser();
   const uEmail = (user?.email || '').toLowerCase().trim();
 
@@ -1993,11 +1990,10 @@ export function refreshProjectsGridUI() {
       ${invitersList.map(inv => `
         <option value="owner:${inv.email}" ${currentScopeFilter === `owner:${inv.email}` ? 'selected' : ''}>${inv.name}</option>
       `).join('')}
-      <option value="all" ${currentScopeFilter === 'all' ? 'selected' : ''}>Todos los proyectos</option>
     `.trim();
 
     const currentOptionsSign = Array.from(modeSelect.options).map(o => `${o.value}:${o.textContent.trim()}`).join('|');
-    const newOptionsSign = `owned:Mis proyectos|${invitersList.map(inv => `owner:${inv.email}:${inv.name}`).join('|')}|all:Todos los proyectos`;
+    const newOptionsSign = `owned:Mis proyectos|${invitersList.map(inv => `owner:${inv.email}:${inv.name}`).join('|')}`;
 
     if (currentOptionsSign !== newOptionsSign) {
       modeSelect.innerHTML = desiredHTML;

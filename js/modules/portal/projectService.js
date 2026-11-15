@@ -800,6 +800,10 @@ export function getProjectsList() {
           conceptCount: 102,
           partidasCount: 12,
           createdAt: '2024-05-20',
+          isSample: true,
+          ownerEmail: 'admin.general@constructora.com',
+          ownerName: 'Administrador de Obra',
+          ownerPlanId: 'pro',
           members: [
             {
               id: 'mem-' + (currentUser ? currentUser.email : 'owner'),
@@ -1323,6 +1327,7 @@ export function createNewProject(params) {
     conceptCount: countTreeConcepts(projTree),
     partidasCount: countTreePartidas(projTree),
     ownerEmail: targetOwnerEmail,
+    ownerName: params.ownerName || (currentUser?.name) || (params.hostName) || (targetOwnerEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())),
     ownerPlanId: targetOwnerPlanId,
     members: initialMembers,
     createdAt: params.createdAt || new Date().toISOString().slice(0, 10)
@@ -2146,10 +2151,12 @@ export function getUserPlanId(userOrEmail = null) {
     cleanEmail = (u?.email || '').toLowerCase().trim();
   }
 
-  // 1. Sincronizar directamente con getCurrentSubscription si está disponible para el usuario actual
   const activeUser = getCurrentUser();
   const activeEmail = (activeUser?.email || '').toLowerCase().trim();
-  if ((!cleanEmail || cleanEmail === activeEmail) && typeof window !== 'undefined' && typeof window.getCurrentSubscription === 'function') {
+  const isSelf = !cleanEmail || cleanEmail === activeEmail;
+
+  // 1. Sincronizar directamente con getCurrentSubscription si está disponible para el usuario actual
+  if (isSelf && typeof window !== 'undefined' && typeof window.getCurrentSubscription === 'function') {
     try {
       const winSub = window.getCurrentSubscription();
       if (winSub?.planId && winSub.planId !== 'free') {
@@ -2158,6 +2165,7 @@ export function getUserPlanId(userOrEmail = null) {
     } catch (_) {}
   }
 
+  // 2. Almacenamiento específico por usuario
   if (cleanEmail && typeof localStorage !== 'undefined') {
     try {
       const raw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
@@ -2174,28 +2182,49 @@ export function getUserPlanId(userOrEmail = null) {
     } catch (e) {}
   }
 
-  if (u && typeof u === 'object' && u?.subscription?.planId) {
-    return u.subscription.planId;
-  }
-  if (activeUser?.subscription?.planId) {
-    return activeUser.subscription.planId;
+  // 3. Si se consulta al usuario activo, revisar su objeto o clave global
+  if (isSelf) {
+    if (u && typeof u === 'object' && u?.subscription?.planId) {
+      return u.subscription.planId;
+    }
+    if (activeUser?.subscription?.planId) {
+      return activeUser.subscription.planId;
+    }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const globalRaw = localStorage.getItem('adm_const_subscription');
+        if (globalRaw) {
+          const parsedG = JSON.parse(globalRaw);
+          if (parsedG?.planId && parsedG.planId !== 'free') return parsedG.planId;
+        }
+      } catch (_) {}
+    }
   }
 
-  // Clave global por compatibilidad heredada
-  if ((!cleanEmail || cleanEmail === activeEmail) && typeof localStorage !== 'undefined') {
-    try {
-      const globalRaw = localStorage.getItem('adm_const_subscription');
-      if (globalRaw) {
-        const parsedG = JSON.parse(globalRaw);
-        if (parsedG?.planId && parsedG.planId !== 'free') return parsedG.planId;
-      }
-    } catch (_) {}
-  }
-
+  // 4. Si se consulta a un anfitrión/otro usuario, buscar su plan efectivo en sus obras e invitaciones
   if (cleanEmail) {
     if (cleanEmail === 'hepc.90@gmail.com' || cleanEmail === 'admin.general@constructora.com') {
       return 'pro';
     }
+
+    try {
+      const allProjects = getProjectsList();
+      const hostProj = allProjects.find(p => (p.ownerEmail || '').toLowerCase().trim() === cleanEmail && p.ownerPlanId);
+      if (hostProj?.ownerPlanId) return hostProj.ownerPlanId;
+    } catch (_) {}
+
+    try {
+      const invs = getStoredInvitations();
+      const hostInv = invs.find(i => ((i.ownerEmail || '').toLowerCase().trim() === cleanEmail || (i.invitedBy?.email || '').toLowerCase().trim() === cleanEmail) && (i.ownerPlanId || i.planId));
+      if (hostInv?.ownerPlanId) return hostInv.ownerPlanId;
+      if (hostInv?.planId) return hostInv.planId;
+
+      const planInvs = getStoredPlanInvitations();
+      const hostPlanInv = planInvs.find(pi => (pi.ownerEmail || '').toLowerCase().trim() === cleanEmail && (pi.ownerPlanId || pi.planId));
+      if (hostPlanInv?.ownerPlanId) return hostPlanInv.ownerPlanId;
+      if (hostPlanInv?.planId) return hostPlanInv.planId;
+    } catch (_) {}
+
     try {
       const reg = findRegisteredUserAccount(cleanEmail);
       if (reg?.subscription?.planId) return reg.subscription.planId;
@@ -2361,51 +2390,142 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
 
   const map = new Map();
 
+  const SYSTEM_EXCLUDED_EMAILS = new Set([
+    'admin.general@constructora.com',
+    'admin@constructora.com',
+    'demo@cubikar.com',
+    'demo@constructora.com'
+  ]);
+
+  const GENERIC_BLACKLIST = new Set([
+    'sistema de control de obra',
+    'sistema de control de obras',
+    'sistema de arquitectura',
+    'cubikar construccion',
+    'cubikar construcción',
+    'cubikar arquitectura',
+    'propietario de obra',
+    'anfitrión',
+    'anfitrion',
+    'administrador',
+    'administrador de obra',
+    'editor de obra',
+    'usuario',
+    'null',
+    'undefined'
+  ]);
+
+  const formatEmailToName = (em) => {
+    return (em || '').split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()).trim();
+  };
+
+  const resolveCleanHostName = (oEmail, candidateName = '', proj = null) => {
+    let name = (candidateName || '').trim();
+    if (!name || GENERIC_BLACKLIST.has(name.toLowerCase()) || name.toLowerCase() === oEmail) {
+      name = '';
+    }
+
+    // 1. Revisar invitaciones de obra aceptadas o pendientes donde conste el nombre del anfitrión
+    if (!name) {
+      try {
+        const invs = getStoredInvitations();
+        const foundInv = invs.find(i =>
+          ((i.ownerEmail || '').toLowerCase().trim() === oEmail || (i.invitedBy?.email || '').toLowerCase().trim() === oEmail) &&
+          (i.email || '').toLowerCase().trim() === uEmail
+        );
+        if (foundInv?.ownerName && !GENERIC_BLACKLIST.has(foundInv.ownerName.toLowerCase()) && foundInv.ownerName.toLowerCase() !== oEmail) {
+          name = foundInv.ownerName.trim();
+        } else if (foundInv?.invitedBy?.name && !GENERIC_BLACKLIST.has(foundInv.invitedBy.name.toLowerCase()) && foundInv.invitedBy.name.toLowerCase() !== oEmail) {
+          name = foundInv.invitedBy.name.trim();
+        }
+      } catch (_) {}
+    }
+
+    // 2. Revisar invitaciones al plan
+    if (!name) {
+      try {
+        const pInvs = getStoredPlanInvitations();
+        const foundPInv = pInvs.find(pi =>
+          (pi.ownerEmail || '').toLowerCase().trim() === oEmail &&
+          (pi.email || '').toLowerCase().trim() === uEmail
+        );
+        if (foundPInv?.ownerName && !GENERIC_BLACKLIST.has(foundPInv.ownerName.toLowerCase()) && foundPInv.ownerName.toLowerCase() !== oEmail) {
+          name = foundPInv.ownerName.trim();
+        }
+      } catch (_) {}
+    }
+
+    // 3. Revisar en los miembros de la obra si el anfitrión está con su nombre
+    if (!name && proj && Array.isArray(proj.members)) {
+      const ownerMember = proj.members.find(m => (m.email || '').toLowerCase().trim() === oEmail);
+      if (ownerMember?.name && !GENERIC_BLACKLIST.has(ownerMember.name.toLowerCase()) && ownerMember.name.toLowerCase() !== oEmail) {
+        name = ownerMember.name.trim();
+      }
+    }
+
+    // 4. Revisar usuario registrado o preset
+    if (!name) {
+      try {
+        const reg = findRegisteredUserAccount(oEmail);
+        if (reg?.name && !GENERIC_BLACKLIST.has(reg.name.toLowerCase()) && reg.name.toLowerCase() !== oEmail) {
+          name = reg.name.trim();
+        }
+        const preset = GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === oEmail);
+        if (preset?.name && (!name || name === oEmail) && !GENERIC_BLACKLIST.has(preset.name.toLowerCase())) {
+          name = preset.name.trim();
+        }
+      } catch (_) {}
+    }
+
+    // 5. Fallback limpio derivado del correo
+    if (!name || GENERIC_BLACKLIST.has(name.toLowerCase())) {
+      name = formatEmailToName(oEmail);
+    }
+
+    return name;
+  };
+
   // 1. Revisar obras donde el usuario es miembro activo aceptado
   userProjects.forEach(p => {
+    // Excluir obras de muestra predeterminadas
+    if (p.isSample || p.id === 'proj-opus-casa-laura' || p.id === 'proj-default-01' || p.id === 'proj-demo-02' || (typeof p.id === 'string' && p.id.startsWith('proj-demo'))) {
+      return;
+    }
+
     const oEmail = (p.ownerEmail || '').toLowerCase().trim();
-    if (oEmail && oEmail !== uEmail) {
-      if (Array.isArray(p.members)) {
-        const mem = p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
-        if (mem) {
-          if (!map.has(oEmail)) {
-            let hostName = p.ownerName;
-            try {
-              const reg = findRegisteredUserAccount(oEmail);
-              if (reg?.name) hostName = reg.name;
-              const preset = GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === oEmail);
-              if (preset?.name && (!hostName || hostName === oEmail)) hostName = preset.name;
-            } catch (_) {}
+    if (!oEmail || oEmail === uEmail || SYSTEM_EXCLUDED_EMAILS.has(oEmail)) {
+      return;
+    }
 
-            if (!hostName) {
-              hostName = p.companyName || oEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            }
+    if (Array.isArray(p.members)) {
+      const mem = p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
+      if (mem) {
+        if (!map.has(oEmail)) {
+          const hostName = resolveCleanHostName(oEmail, p.ownerName, p);
+          const planId = getUserPlanId(oEmail) || p.ownerPlanId || 'free';
+          const planLimits = getPlanLimits(planId);
 
-            const planId = getUserPlanId(oEmail) || p.ownerPlanId || 'free';
-            const planLimits = getPlanLimits(planId);
+          map.set(oEmail, {
+            email: oEmail,
+            name: hostName,
+            companyName: p.companyName || '',
+            planId: planId,
+            planName: planLimits.name,
+            maxProjects: planLimits.maxProjects,
+            maxMembers: planLimits.maxMembers,
+            count: 0,
+            isEditor: false,
+            roles: new Set()
+          });
+        }
 
-            map.set(oEmail, {
-              email: oEmail,
-              name: hostName,
-              companyName: p.companyName || '',
-              planId: planId,
-              planName: planLimits.name,
-              maxProjects: planLimits.maxProjects,
-              maxMembers: planLimits.maxMembers,
-              count: 0,
-              isEditor: false,
-              roles: new Set()
-            });
-          }
+        const entry = map.get(oEmail);
+        entry.count++;
 
-          const entry = map.get(oEmail);
-          entry.count++;
-
-          if (mem.role) {
-            entry.roles.add(mem.role);
-            if (mem.role === 'editar') {
-              entry.isEditor = true;
-            }
+        if (mem.role) {
+          entry.roles.add(mem.role);
+          if (mem.role === 'editar') {
+            entry.isEditor = true;
           }
         }
       }
@@ -2417,17 +2537,8 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
   planInvs.forEach(pInv => {
     const oEmail = (pInv.ownerEmail || '').toLowerCase().trim();
     const guestEmail = (pInv.email || '').toLowerCase().trim();
-    if (guestEmail === uEmail && oEmail && oEmail !== uEmail && pInv.status === 'accepted') {
-      let hostName = pInv.ownerName;
-      try {
-        const reg = findRegisteredUserAccount(oEmail);
-        if (reg?.name) hostName = reg.name;
-        const preset = GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === oEmail);
-        if (preset?.name && (!hostName || hostName === oEmail)) hostName = preset.name;
-      } catch (_) {}
-
-      if (!hostName) hostName = oEmail;
-
+    if (guestEmail === uEmail && oEmail && oEmail !== uEmail && !SYSTEM_EXCLUDED_EMAILS.has(oEmail) && pInv.status === 'accepted') {
+      const hostName = resolveCleanHostName(oEmail, pInv.ownerName);
       const planId = getUserPlanId(oEmail) || pInv.ownerPlanId || 'free';
       const planLimits = getPlanLimits(planId);
 
@@ -2461,6 +2572,7 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
     }
     return {
       ...inv,
+      roles: Array.from(inv.roles),
       myRoleDisplay
     };
   });

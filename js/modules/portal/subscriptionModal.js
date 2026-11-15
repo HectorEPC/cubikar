@@ -8,7 +8,9 @@ import {
   syncOwnerProjectsPlan,
   findRegisteredUserAccount,
   saveRegisteredUserAccount,
-  addFeaturedProfile
+  addFeaturedProfile,
+  getActiveWorkspaceData,
+  getUserPlanId
 } from './projectService.js';
 import { showToast } from '../../ui/notifications.js';
 import { isNightMode } from '../../ui/themeController.js';
@@ -328,8 +330,20 @@ export function saveSubscription(planId, billingCycle = activeBillingCycle) {
 export function updateSubscriptionBadgesUI(options = {}) {
   const { refreshGrid = true } = options || {};
   if (typeof document === 'undefined') return;
-  const sub = getCurrentSubscription();
-  const plan = getPlanById(sub.planId);
+
+  const activeWs = (typeof getActiveWorkspaceData === 'function') ? getActiveWorkspaceData() : null;
+  const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+  const currentEmail = (currentUser?.email || '').toLowerCase().trim();
+  const isHostWorkspace = Boolean(activeWs && activeWs.ownerEmail && currentEmail && activeWs.ownerEmail.toLowerCase().trim() !== currentEmail);
+
+  let planId = 'free';
+  if (isHostWorkspace && activeWs?.ownerEmail) {
+    planId = (typeof getUserPlanId === 'function') ? getUserPlanId(activeWs.ownerEmail) : 'free';
+  } else {
+    const sub = getCurrentSubscription();
+    planId = sub?.planId || (typeof getUserPlanId === 'function' ? getUserPlanId(currentUser) : 'free');
+  }
+  const plan = getPlanById(planId);
 
   const dropdownBadge = document.getElementById('dropdown-user-plan-badge');
   if (dropdownBadge) {
