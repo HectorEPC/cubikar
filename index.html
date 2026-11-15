@@ -81,8 +81,8 @@
             </div>
           </div>
 
-          <!-- App Switcher 9-dots (Ecosistema Cubikar) -->
-          <div id="cubikar-app-switcher-mount" class="flex items-center mr-1"></div>
+          <!-- App Switcher 9-dots (Ecosistema Cubikar - Solo visible con sesión) -->
+          <div id="cubikar-app-switcher-mount" class="hidden items-center mr-1"></div>
 
           <!-- User Profile Pill (Compact, Unificado) -->
           <div id="portal-header-user-area" class="flex items-center">
@@ -5849,6 +5849,25 @@
   <div id="bitacora-modals-root"></div>
 
   <!-- Entrada Modular Principal ES6 -->
-  <script type="module" src="js/app.js?v=20261114_18"></script>
+  <script type="module" src="js/app.js?v=20261115_01"></script>
+  <script type="module">
+    import { switchTab } from './js/ui/modalController.js';
+    import { renderBitacoraView } from './js/modules/bitacora/bitacoraView.js';
+
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('tab') === 'bitacora') {
+        const trigger = () => {
+          try {
+            switchTab('bitacora');
+            renderBitacoraView();
+          } catch (_) {}
+        };
+        setTimeout(trigger, 300);
+        setTimeout(trigger, 800);
+        setTimeout(trigger, 1500);
+      }
+    } catch (_) {}
+  </script>
 </body>
 </html>

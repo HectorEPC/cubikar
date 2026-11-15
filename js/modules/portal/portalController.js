@@ -1670,11 +1670,11 @@ export function renderPortalDashboard() {
     </div>
 
     <!-- Medidor de Cuota Unificada AWS S3 del Anfitrión -->
-    <div id="portal-dashboard-storage-meter" class="mt-2"></div>
+    <div id="portal-dashboard-storage-meter" class="mt-6 mb-2"></div>
   `;
 
   refreshProjectsGridUI();
-  mountStorageMeter('portal-dashboard-storage-meter', { showUpgradeButton: true }).catch(() => {});
+  mountStorageMeter('portal-dashboard-storage-meter', { showUpgradeButton: true, theme: 'dark' }).catch(() => {});
 }
 
 export function getCompanyBadgeMeta(companyName) {
@@ -3370,7 +3370,7 @@ export function openProfileModal() {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
   }
-  mountStorageMeter('profile-modal-storage-meter', { showUpgradeButton: false }).catch(() => {});
+  mountStorageMeter('profile-modal-storage-meter', { showUpgradeButton: false, theme: 'light' }).catch(() => {});
 }
 
 export function closeProfileModal() {
@@ -3650,8 +3650,13 @@ if (typeof window !== 'undefined') {
 export function updatePortalHeaderUserArea(user) {
   const container = document.getElementById('portal-header-user-area');
   const notifWrapper = document.getElementById('portal-notifications-wrapper');
+  const appSwitcherMount = document.getElementById('cubikar-app-switcher-mount');
 
   if (!user) {
+    if (appSwitcherMount) {
+      appSwitcherMount.classList.add('hidden');
+      appSwitcherMount.classList.remove('flex');
+    }
     if (notifWrapper) {
       notifWrapper.classList.add('hidden');
     }
@@ -3669,6 +3674,11 @@ export function updatePortalHeaderUserArea(user) {
       `;
     }
     return;
+  }
+
+  if (appSwitcherMount) {
+    appSwitcherMount.classList.remove('hidden');
+    appSwitcherMount.classList.add('flex');
   }
 
   if (notifWrapper) {
