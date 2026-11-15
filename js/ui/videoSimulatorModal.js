@@ -1,10 +1,11 @@
 ﻿// js/ui/videoSimulatorModal.js
 // Reproductor Web de Video-Simulación Interactiva para Cubikar (Alternativa 1)
-// Simula audiovisualmente el 100% de los 15 módulos con pantallas dinámicas realistas,
+// Simula audiovisualmente el 100% de los 16 módulos con pantallas dinámicas realistas,
 // cursor virtual animado con clic ripple, tipografía de texto en tiempo real,
-// barra de tiempo deslizable (scrubber), selector de velocidad y subtítulos sincronizados.
+// barra de tiempo deslizable (scrubber), selector de velocidad y narración por voz fluida
+// sincronizada adaptativamente con Web Speech API para garantizar locución 100% íntegra y natural.
 
-import { renderModuleVisualScene } from './realisticSimulatorShell.js?v=20261113_23';
+import { renderModuleVisualScene } from './realisticSimulatorShell.js?v=20261115_01';
 
 let isVideoModalOpen = false;
 let currentModuleId = 1;
@@ -15,13 +16,19 @@ let simulationInterval = null;
 
 // Variables de Audio y Narración por Voz
 let isVoiceNarrationEnabled = true;
-let lastSpokenKey = null;
+let isSpeakingNarration = false;
+let activeUtterance = null;
+let currentStepSpokenIndex = -1;
+let currentModuleSpokenId = -1;
+let minStepHoldUntil = 0;
+let speechWatchdog = null;
+let keepAliveTimer = null;
 let lastClickedStepKey = null;
 let cachedSpanishVoice = null;
 let audioCtx = null;
 
 // =========================================================================
-// GUIONES VISUALES DE LOS 15 M"DULOS (100% DE LA APLICACI"N)
+// GUIONES VISUALES DE LOS 16 MÓDULOS (100% DE LA APLICACIÓN)
 // =========================================================================
 
 export const VIDEO_MODULES = [
@@ -30,45 +37,45 @@ export const VIDEO_MODULES = [
     id: 1,
     title: 'Crear Proyecto e Identidad Corporativa',
     badge: 'Módulo 1 • Inicio',
-    duration: 25,
+    duration: 32,
     icon: 'fa-folder-plus',
     description: 'Asistente en 2 Pasos: Nombre de empresa, logotipo 1:1, sobrecosto y plantilla.',
     steps: [
       { t: 0, text: 'Para dar de alta una nueva obra, haz clic en el botón azul "+ Nuevo Proyecto".', targetId: 'mock-step1-btn-new', action: 'click' },
-      { t: 5, text: 'Paso 1: Asigna el nombre de tu empresa constructora y sube tu logotipo institucional.', targetId: 'mock-step1-empresa', action: 'type', value: 'Constructora del Valle S.A.' },
-      { t: 10, text: 'Captura el nombre de la obra y ubicación. Elige la tipología (Edificación, Vivienda, Obra Civil).', targetId: 'mock-step1-obra', action: 'type', value: 'Residencial Palmas Norte' },
-      { t: 16, text: 'Paso 2: Configura la divisa (MXN) y los factores de sobrecosto (Indirectos 12%, Utilidad 10%).', targetId: 'mock-step1-sobrecosto', action: 'highlight' },
-      { t: 21, text: 'Elige plantilla en blanco o de muestra y haz clic en "Crear Proyecto".', targetId: 'mock-step1-btn-finish', action: 'click' }
+      { t: 6, text: 'Paso 1: Asigna el nombre de tu empresa constructora y sube tu logotipo institucional.', targetId: 'mock-step1-empresa', action: 'type', value: 'Constructora del Valle S.A.' },
+      { t: 12, text: 'Captura el nombre de la obra y ubicación. Elige la tipología (Edificación, Vivienda, Obra Civil).', targetId: 'mock-step1-obra', action: 'type', value: 'Residencial Palmas Norte' },
+      { t: 18, text: 'Paso 2: Configura la divisa (MXN) y los factores de sobrecosto (Indirectos 12%, Utilidad 10%).', targetId: 'mock-step1-sobrecosto', action: 'highlight' },
+      { t: 24, text: 'Elige plantilla en blanco o de muestra y haz clic en "Crear Proyecto".', targetId: 'mock-step1-btn-finish', action: 'click' }
     ]
   },
   {
     id: 2,
     title: 'Modo de Trabajo: Obras Propias vs. Invitaciones',
     badge: 'Módulo 2 • Modo de Trabajo',
-    duration: 26,
+    duration: 32,
     icon: 'fa-briefcase',
     description: 'Filtro entre proyectos propios, obras compartidas por empresas colaboradoras y gobernanza de planes.',
     steps: [
       { t: 0, text: 'En el portal principal, ubica la barra de "Modo de Trabajo" con su selector desplegable de ámbitos.', targetId: 'mock-step2-mode-bar', action: 'highlight' },
-      { t: 5, text: 'En "Mis proyectos", accedes a tus obras de autoría propia gobernadas por tu plan de suscripción activa.', targetId: 'mock-step2-scope-select', action: 'click' },
-      { t: 11, text: 'Selecciona una empresa invitadora para acceder como colaborador con permisos granulares (Editor o Lector).', targetId: 'mock-step2-scope-select', action: 'click' },
-      { t: 17, text: 'El indicador de membresía se adapta automáticamente al plan del anfitrión sin consumir tu cuota de obras.', targetId: 'mock-step2-status-badge', action: 'highlight' },
-      { t: 22, text: 'Presiona "Invitaciones" para sumar residentes, calculistas o auditores a tus propios proyectos de obra.', targetId: 'mock-step2-btn-invite', action: 'click' }
+      { t: 6, text: 'En "Mis proyectos", accedes a tus obras de autoría propia gobernadas por tu plan de suscripción activa.', targetId: 'mock-step2-scope-select', action: 'click' },
+      { t: 12, text: 'Selecciona una empresa invitadora para acceder como colaborador con permisos granulares (Editor o Lector).', targetId: 'mock-step2-scope-select', action: 'click' },
+      { t: 18, text: 'El indicador de membresía se adapta automáticamente al plan del anfitrión sin consumir tu cuota de obras.', targetId: 'mock-step2-status-badge', action: 'highlight' },
+      { t: 24, text: 'Presiona "Invitaciones" para sumar residentes, calculistas o auditores a tus propios proyectos de obra.', targetId: 'mock-step2-btn-invite', action: 'click' }
     ]
   },
   {
     id: 3,
     title: 'Invitar Colaboradores y Permisos Granulares',
     badge: 'Módulo 3 • Equipo',
-    duration: 25,
+    duration: 32,
     icon: 'fa-users',
     description: 'Gestión de colaboradores, asignación de roles (Editar, Escribir, Leer) y permisos por pestaña.',
     steps: [
       { t: 0, text: 'En la tarjeta de tu obra, haz clic en "+ Invitar" para abrir el gestor de equipo.', targetId: 'mock-step3-btn-invite', action: 'click' },
-      { t: 5, text: 'Captura el correo del colaborador y asígnale su avatar temático con casco.', targetId: 'mock-step3-email', action: 'type', value: 'ing.torres@constructora.com' },
-      { t: 11, text: 'Selecciona el rol de trabajo: Editar (Control Total), Escribir (Captura) o Leer (Solo Consulta).', targetId: 'mock-step3-roles', action: 'highlight' },
-      { t: 17, text: 'Activa o restringe selectivamente las pestañas (Catálogo, Compras, Bitácora).', targetId: 'mock-step3-tabs', action: 'click' },
-      { t: 21, text: 'Presiona "Agregar Colaborador". El invitado recibirá la notificación para aceptar con 1 clic.', targetId: 'mock-step3-btn-add', action: 'click' }
+      { t: 6, text: 'Captura el correo del colaborador y asígnale su avatar temático con casco.', targetId: 'mock-step3-email', action: 'type', value: 'ing.torres@constructora.com' },
+      { t: 12, text: 'Selecciona el rol de trabajo: Editar (Control Total), Escribir (Captura) o Leer (Solo Consulta).', targetId: 'mock-step3-roles', action: 'highlight' },
+      { t: 18, text: 'Activa o restringe selectivamente las pestañas (Catálogo, Compras, Bitácora).', targetId: 'mock-step3-tabs', action: 'click' },
+      { t: 24, text: 'Presiona "Agregar Colaborador". El invitado recibirá la notificación para aceptar con 1 clic.', targetId: 'mock-step3-btn-add', action: 'click' }
     ]
   },
 
@@ -77,90 +84,90 @@ export const VIDEO_MODULES = [
     id: 4,
     title: 'Catálogo de Conceptos y Presupuesto Base',
     badge: 'Módulo 4 • Presupuesto',
-    duration: 25,
+    duration: 32,
     icon: 'fa-list-check',
     description: 'Estructuración multinivel, edición en celda, atajos Alt+Flechas y renumeración.',
     steps: [
       { t: 0, text: 'Crea Partidas Principales con el botón "+ Nueva Partida". El sistema renumerará automáticamente.', targetId: 'mock-step4-btn-partida', action: 'click' },
       { t: 6, text: 'Agrega subpartidas o conceptos de obra e ingresa sus especificaciones técnicas.', targetId: 'mock-step4-desc', action: 'type', value: 'Muro de tabique rojo recocido e=14cm' },
       { t: 12, text: 'Edita directamente en celda la unidad de medida, cantidad y precio unitario.', targetId: 'mock-step4-cells', action: 'highlight' },
-      { t: 17, text: 'Usa los atajos Alt + Flecha Arriba/Abajo para reordenar renglones sin perder la jerarquía.', targetId: 'mock-step4-reorder', action: 'click' },
-      { t: 21, text: 'Asigna colores personalizados por partida para presentaciones ejecutivas.', targetId: 'mock-step4-color', action: 'highlight' }
+      { t: 18, text: 'Usa los atajos Alt + Flecha Arriba/Abajo para reordenar renglones sin perder la jerarquía.', targetId: 'mock-step4-reorder', action: 'click' },
+      { t: 24, text: 'Asigna colores personalizados por partida para presentaciones ejecutivas.', targetId: 'mock-step4-color', action: 'highlight' }
     ]
   },
   {
     id: 5,
     title: 'Análisis de Precios Unitarios (APU)',
     badge: 'Módulo 5 • Matrices',
-    duration: 26,
+    duration: 32,
     icon: 'fa-calculator',
     description: 'Desglose en 4 rubros: Materiales, Mano de Obra con FASAR, Maquinaria y Subcontratos.',
     steps: [
       { t: 0, text: 'Haz clic en el botón "APU" de cualquier concepto para abrir la matriz de análisis.', targetId: 'mock-step5-btn-apu', action: 'click' },
       { t: 6, text: 'Rubro Materiales: analiza insumos básicos con consumos, mermas y costos de compra.', targetId: 'mock-step5-mat', action: 'highlight' },
       { t: 12, text: 'Rubro Mano de Obra: añade cuadrillas de oficiales y peones con rendimientos y FASAR.', targetId: 'mock-step5-mo', action: 'highlight' },
-      { t: 17, text: 'Rubro Equipo: define costos horarios de maquinaria y porcentaje de herramienta menor.', targetId: 'mock-step5-eq', action: 'highlight' },
-      { t: 22, text: 'Comprueba cómo el Costo Directo y el Factor de Sobrecosto calculan el Precio de Venta final.', targetId: 'mock-step5-total', action: 'click' }
+      { t: 18, text: 'Rubro Equipo: define costos horarios de maquinaria y porcentaje de herramienta menor.', targetId: 'mock-step5-eq', action: 'highlight' },
+      { t: 24, text: 'Comprueba cómo el Costo Directo y el Factor de Sobrecosto calculan el Precio de Venta final.', targetId: 'mock-step5-total', action: 'click' }
     ]
   },
   {
     id: 6,
     title: 'Inteligencia Artificial y Google Search Grounding',
     badge: 'Módulo 6 • IA Gemini',
-    duration: 26,
+    duration: 32,
     icon: 'fa-brain',
     description: 'Cotizaciones en tiempo real con fuentes de mercado y estimación automática de matrices APU.',
     steps: [
       { t: 0, text: 'Haz clic en el Menú Dividido de Inteligencia Artificial en la barra superior de herramientas.', targetId: 'mock-step6-btn-ai', action: 'click' },
-      { t: 5, text: 'Selecciona "Precios Web en Vivo (Google)" para cotizar costos reales de mercado hoy.', targetId: 'mock-step6-menu-web', action: 'click' },
-      { t: 10, text: 'Se despliega la ventana oficial de Google Search Grounding para la zapata seleccionada (CIM-001).', targetId: 'mock-step6-concept-card', action: 'highlight' },
-      { t: 16, text: 'Verifica la activación de Google Search Grounding conectado a Home Depot, Construrama y Cemex.', targetId: 'mock-step6-grounding-toggle', action: 'click' },
-      { t: 21, text: 'Presiona "Cotizar en Web y Llenar Matriz". Gemini calcula cuadrillas, materiales y rendimientos en vivo.', targetId: 'mock-step6-btn-run', action: 'click' }
+      { t: 6, text: 'Selecciona "Precios Web en Vivo (Google)" para cotizar costos reales de mercado hoy.', targetId: 'mock-step6-menu-web', action: 'click' },
+      { t: 12, text: 'Se despliega la ventana oficial de Google Search Grounding para la zapata seleccionada (CIM-001).', targetId: 'mock-step6-concept-card', action: 'highlight' },
+      { t: 18, text: 'Verifica la activación de Google Search Grounding conectado a Home Depot, Construrama y Cemex.', targetId: 'mock-step6-grounding-toggle', action: 'click' },
+      { t: 24, text: 'Presiona "Cotizar en Web y Llenar Matriz". Gemini calcula cuadrillas, materiales y rendimientos en vivo.', targetId: 'mock-step6-btn-run', action: 'click' }
     ]
   },
   {
     id: 7,
     title: 'Catálogos Maestros y de Referencia',
     badge: 'Módulo 7 • Referencia',
-    duration: 25,
+    duration: 32,
     icon: 'fa-book-bookmark',
     description: 'Exploración de miles de conceptos precargados en Catálogos Maestros y Tabuladores oficiales.',
     steps: [
       { t: 0, text: 'Abre el Catálogo Maestro desde la barra lateral izquierda para acceder a la biblioteca offline.', targetId: 'mock-step7-btn-master', action: 'click' },
       { t: 6, text: 'Filtra por especialidad: Edificación, Instalaciones, Infraestructura o Climatización.', targetId: 'mock-step7-specialties', action: 'click' },
       { t: 12, text: 'Busca palabras clave para localizar conceptos probados con sus matrices APU completas.', targetId: 'mock-step7-search', action: 'type', value: 'Zapata corrida concreto f\'c=250' },
-      { t: 17, text: 'Revisa la ficha técnica del concepto con claves oficiales y rendimientos probados.', targetId: 'mock-step7-preview', action: 'highlight' },
-      { t: 21, text: 'Haz clic en "Insertar al Presupuesto" para inyectarlo en tu obra activa con 1 solo clic.', targetId: 'mock-step7-btn-insert', action: 'click' }
+      { t: 18, text: 'Revisa la ficha técnica del concepto con claves oficiales y rendimientos probados.', targetId: 'mock-step7-preview', action: 'highlight' },
+      { t: 24, text: 'Haz clic en "Insertar al Presupuesto" para inyectarlo en tu obra activa con 1 solo clic.', targetId: 'mock-step7-btn-insert', action: 'click' }
     ]
   },
   {
     id: 8,
     title: 'Explosión y Consolidado de Insumos Generales',
     badge: 'Módulo 8 • Insumos',
-    duration: 24,
+    duration: 32,
     icon: 'fa-boxes-stacked',
     description: 'Explosión general de materiales, cambio masivo de costos y unificación de duplicados.',
     steps: [
       { t: 0, text: 'Entra a la pestaña "Insumos Generales" para ver los totales consolidados de la obra.', targetId: 'mock-step8-tab-insumos', action: 'click' },
       { t: 6, text: 'Filtra por pestaña: Materiales, Mano de Obra, Maquinaria o Subcontratos.', targetId: 'mock-step8-filters', action: 'click' },
       { t: 12, text: 'Cambio masivo: edita el costo del cemento o varilla directamente en la celda.', targetId: 'mock-step8-price-cell', action: 'type', value: '$3,850.00 / Ton' },
-      { t: 17, text: 'El sistema recalcula automáticamente en cascada todos los conceptos donde se utiliza.', targetId: 'mock-step8-cascade', action: 'highlight' },
-      { t: 21, text: 'Usa "Unificar Insumos" para combinar materiales duplicados bajo una sola clave estándar.', targetId: 'mock-step8-btn-unify', action: 'click' }
+      { t: 18, text: 'El sistema recalcula automáticamente en cascada todos los conceptos donde se utiliza.', targetId: 'mock-step8-cascade', action: 'highlight' },
+      { t: 24, text: 'Usa "Unificar Insumos" para combinar materiales duplicados bajo una sola clave estándar.', targetId: 'mock-step8-btn-unify', action: 'click' }
     ]
   },
   {
     id: 9,
     title: 'Reportes e Impresión Oficial en PDF',
     badge: 'Módulo 9 • Reportes',
-    duration: 24,
+    duration: 32,
     icon: 'fa-print',
     description: 'Formatos oficiales de Presupuesto Base, Matrices APU e Insumos con membrete y firmas.',
     steps: [
       { t: 0, text: 'Abre el menú de Impresión desde la barra de herramientas del presupuesto.', targetId: 'mock-step9-btn-print', action: 'click' },
       { t: 6, text: 'Configura las Firmas Oficiales: Elaboró, Revisó, Aprobó y Autorizó.', targetId: 'mock-step9-signatures', action: 'highlight' },
       { t: 12, text: 'Selecciona el formato: Presupuesto Base, Ficha de Precio Unitario (APU) o Explosión de Insumos.', targetId: 'mock-step9-formats', action: 'click' },
-      { t: 17, text: 'El reporte se genera con tu Logotipo institucional 1:1, sobrecosto y totales en letra oficiales.', targetId: 'mock-step9-preview', action: 'highlight' },
-      { t: 21, text: 'Descarga el archivo PDF vectorial listo para entrega técnica o licitación.', targetId: 'mock-step9-btn-download', action: 'click' }
+      { t: 18, text: 'El reporte se genera con tu Logotipo institucional 1:1, sobrecosto y totales en letra oficiales.', targetId: 'mock-step9-preview', action: 'highlight' },
+      { t: 24, text: 'Descarga el archivo PDF vectorial listo para entrega técnica o licitación.', targetId: 'mock-step9-btn-download', action: 'click' }
     ]
   },
 
@@ -169,15 +176,15 @@ export const VIDEO_MODULES = [
     id: 10,
     title: 'Calendario de Obra y Diagrama de Gantt',
     badge: 'Módulo 10 • Tiempos',
-    duration: 25,
+    duration: 32,
     icon: 'fa-calendar-days',
     description: 'Cronograma interactivo ligado al catálogo, ruta crítica y calendario financiero.',
     steps: [
       { t: 0, text: 'Pasa a la pestaña "Calendario de Obra" para planificar la ejecución en el tiempo.', targetId: 'mock-step10-tab-cal', action: 'click' },
       { t: 6, text: 'Arrastra las barras del Gantt o edita las duraciones para programar las fechas de ejecución.', targetId: 'mock-step10-gantt-bars', action: 'highlight' },
-      { t: 11, text: 'Usa el "Asistente AI" para sugerir duraciones lógicas según los rendimientos de la matriz APU.', targetId: 'mock-step10-btn-ai', action: 'click' },
-      { t: 17, text: 'Activa la "Ruta Crítica" para vigilar las tareas que no admiten holgura en el tiempo de entrega.', targetId: 'mock-step10-critical', action: 'click' },
-      { t: 21, text: 'Consulta el Calendario Financiero de erogaciones semanales o mensuales programadas.', targetId: 'mock-step10-financial', action: 'highlight' }
+      { t: 12, text: 'Usa el "Asistente AI" para sugerir duraciones lógicas según los rendimientos de la matriz APU.', targetId: 'mock-step10-btn-ai', action: 'click' },
+      { t: 18, text: 'Activa la "Ruta Crítica" para vigilar las tareas que no admiten holgura en el tiempo de entrega.', targetId: 'mock-step10-critical', action: 'click' },
+      { t: 24, text: 'Consulta el Calendario Financiero de erogaciones semanales o mensuales programadas.', targetId: 'mock-step10-financial', action: 'highlight' }
     ]
   },
 
@@ -186,15 +193,15 @@ export const VIDEO_MODULES = [
     id: 11,
     title: 'Estimaciones y Números Generadores de Cobro',
     badge: 'Módulo 11 • Cobros',
-    duration: 24,
+    duration: 32,
     icon: 'fa-file-invoice-dollar',
     description: 'Periodos de corte, captura de generadores de obra, amortización de anticipos y estados de cuenta.',
     steps: [
       { t: 0, text: 'Abre la pestaña "Estimaciones" para generar tus cortes de cobro de obra periódicos.', targetId: 'mock-step11-tab-est', action: 'click' },
       { t: 6, text: 'Crea una "Nueva Estimación" definiendo las fechas del periodo de corte.', targetId: 'mock-step11-btn-new', action: 'click' },
       { t: 12, text: 'Captura los volúmenes de obra efectivamente ejecutados (números generadores).', targetId: 'mock-step11-inputs', action: 'type', value: '145.00 m2 ejecutados' },
-      { t: 17, text: 'Revisa el cálculo automático de amortización de anticipo (30%) y retención de fondo de garantía.', targetId: 'mock-step11-summary', action: 'highlight' },
-      { t: 21, text: 'Descarga la Carátula Oficial de Estimación en PDF lista para cobro con firmas.', targetId: 'mock-step11-btn-pdf', action: 'click' }
+      { t: 18, text: 'Revisa el cálculo automático de amortización de anticipo (30%) y retención de fondo de garantía.', targetId: 'mock-step11-summary', action: 'highlight' },
+      { t: 24, text: 'Descarga la Carátula Oficial de Estimación en PDF lista para cobro con firmas.', targetId: 'mock-step11-btn-pdf', action: 'click' }
     ]
   },
 
@@ -203,15 +210,15 @@ export const VIDEO_MODULES = [
     id: 12,
     title: 'Compras, Gastos y ERP Financiero',
     badge: 'Módulo 12 • Egresos',
-    duration: 26,
+    duration: 32,
     icon: 'fa-cart-shopping',
     description: 'Dashboard financiero, registro de facturas, comparativa presupuesto vs real y órdenes de compra.',
     steps: [
       { t: 0, text: 'Accede a "Compras y Pagos" para revisar las métricas de Presupuesto vs Gasto Real.', targetId: 'mock-step12-tab-compras', action: 'click' },
       { t: 6, text: 'Haz clic en "+ Registrar Gasto" para capturar una factura, ticket o remisión.', targetId: 'mock-step12-btn-new', action: 'click' },
       { t: 12, text: 'Captura proveedor, concepto, tipo de egreso e importe con IVA. Adjunta la factura en PDF.', targetId: 'mock-step12-form', action: 'type', value: 'Factura F-4892 • Concreto f\'c=250' },
-      { t: 17, text: 'Cambia el estatus de pago con 1 clic: "Pagado", "Pendiente" o "Parcial" para control de tesorería.', targetId: 'mock-step12-status', action: 'click' },
-      { t: 22, text: 'Genera e imprime la Orden de Compra oficial con membrete corporativo y folio.', targetId: 'mock-step12-btn-order', action: 'click' }
+      { t: 18, text: 'Cambia el estatus de pago con 1 clic: "Pagado", "Pendiente" o "Parcial" para control de tesorería.', targetId: 'mock-step12-status', action: 'click' },
+      { t: 24, text: 'Genera e imprime la Orden de Compra oficial con membrete corporativo y folio.', targetId: 'mock-step12-btn-order', action: 'click' }
     ]
   },
 
@@ -220,15 +227,15 @@ export const VIDEO_MODULES = [
     id: 13,
     title: 'Bitácora Electrónica y Legal de Obra (LOPSRM / BESOP)',
     badge: 'Módulo 13 • Bitácora',
-    duration: 26,
+    duration: 32,
     icon: 'fa-book',
     description: 'Folios inalterables #001, registro de clima, firma digital táctil y sellado criptográfico.',
     steps: [
       { t: 0, text: 'Abre la pestaña "Bitácora de Obra" para gestionar el libro legal de notas conforme a ley.', targetId: 'mock-step13-tab-bitacora', action: 'click' },
       { t: 6, text: 'Haz clic en "+ Nueva Nota" y selecciona el tipo (Apertura, Instrucción, Avance o Incidencia).', targetId: 'mock-step13-btn-new', action: 'click' },
       { t: 12, text: 'Registra el estado del tiempo (Soleado, Lluvia, Viento) y vincula los conceptos ejecutados.', targetId: 'mock-step13-clima', action: 'click' },
-      { t: 17, text: 'Dibuja tu firma digital manuscrita en el panel táctil con mouse, stylus o dedo.', targetId: 'mock-step13-firma', action: 'highlight' },
-      { t: 22, text: 'Presiona "Sellar Nota Oficial". Se genera un Hash SHA inmutable y se compila al Libro PDF.', targetId: 'mock-step13-btn-save', action: 'click' }
+      { t: 18, text: 'Dibuja tu firma digital manuscrita en el panel táctil con mouse, stylus o dedo.', targetId: 'mock-step13-firma', action: 'highlight' },
+      { t: 24, text: 'Presiona "Sellar Nota Oficial". Se genera un Hash SHA inmutable y se compila al Libro PDF.', targetId: 'mock-step13-btn-save', action: 'click' }
     ]
   },
 
@@ -237,58 +244,54 @@ export const VIDEO_MODULES = [
     id: 14,
     title: 'Chat de Proyecto y Bitácora Contextual',
     badge: 'Módulo 14 • Comunicación',
-    duration: 25,
+    duration: 32,
     icon: 'fa-comments',
     description: 'Canales Técnico y Financiero, menciones @Usuario y comentarios directos en partidas.',
     steps: [
       { t: 0, text: 'Abre la ventana del chat desde el botón flotante inferior o la barra lateral izquierda.', targetId: 'mock-step14-btn-chat', action: 'click' },
-      { t: 5, text: 'Alterna entre la Sección Técnica (Catálogo/Calendario) y la Sección Financiera (Compras/Estimaciones).', targetId: 'mock-step14-tabs', action: 'click' },
-      { t: 11, text: 'Escribe un mensaje usando "@" para alertar a un compañero con notificación en tiempo real.', targetId: 'mock-step14-input', action: 'type', value: '@Carlos Revisar volumen de concreto en cimentación' },
-      { t: 17, text: 'Comenta directamente sobre cualquier partida haciendo clic en su icono de chat.', targetId: 'mock-step14-partida-tag', action: 'highlight' },
-      { t: 21, text: 'Exporta la Minuta Oficial de Acuerdos a PDF con membrete institucional y firmas.', targetId: 'mock-step14-btn-print', action: 'click' }
+      { t: 6, text: 'Alterna entre la Sección Técnica (Catálogo/Calendario) y la Sección Financiera (Compras/Estimaciones).', targetId: 'mock-step14-tabs', action: 'click' },
+      { t: 12, text: 'Escribe un mensaje usando "@" para alertar a un compañero con notificación en tiempo real.', targetId: 'mock-step14-input', action: 'type', value: '@Carlos Revisar volumen de concreto en cimentación' },
+      { t: 18, text: 'Comenta directamente sobre cualquier partida haciendo clic en su icono de chat.', targetId: 'mock-step14-partida-tag', action: 'highlight' },
+      { t: 24, text: 'Exporta la Minuta Oficial de Acuerdos a PDF con membrete institucional y firmas.', targetId: 'mock-step14-btn-print', action: 'click' }
     ]
   },
   {
     id: 15,
     title: 'Importador Universal (Excel, Opus y Neodata)',
     badge: 'Módulo 15 • Importación',
-    duration: 24,
+    duration: 32,
     icon: 'fa-cloud-arrow-up',
     description: 'Carga de archivos .xlsx, .csv y .json con mapeo inteligente de columnas y vista previa.',
     steps: [
       { t: 0, text: 'Haz clic en "Importar Archivo" en la barra lateral izquierda.', targetId: 'mock-step15-btn-import', action: 'click' },
       { t: 6, text: 'Arrastra tu archivo Excel (.xlsx, .xls) o respaldo de Opus / Neodata.', targetId: 'mock-step15-dropzone', action: 'highlight' },
       { t: 12, text: 'El Asistente detecta automáticamente las columnas: Clave, Descripción, Unidad, Cantidad y Precio.', targetId: 'mock-step15-mapping', action: 'highlight' },
-      { t: 17, text: 'Revisa la vista previa de renglones y selecciona si importar al Presupuesto o al Catálogo Maestro.', targetId: 'mock-step15-preview', action: 'click' },
-      { t: 21, text: 'Presiona "Iniciar Importación". Miles de conceptos se procesan en segundos 100% offline.', targetId: 'mock-step15-btn-start', action: 'click' }
+      { t: 18, text: 'Revisa la vista previa de renglones y selecciona si importar al Presupuesto o al Catálogo Maestro.', targetId: 'mock-step15-preview', action: 'click' },
+      { t: 24, text: 'Presiona "Iniciar Importación". Miles de conceptos se procesan en segundos 100% offline.', targetId: 'mock-step15-btn-start', action: 'click' }
     ]
   },
   {
     id: 16,
     title: 'Seguridad, Respaldos y Perfil Profesional',
     badge: 'Módulo 16 • Ajustes',
-    duration: 24,
+    duration: 32,
     icon: 'fa-shield-halved',
     description: 'Candado de bloqueo de pestañas (Tab Lock), respaldo de seguridad .json y temas día/noche.',
     steps: [
       { t: 0, text: 'Usa el botón de candado "Tab Lock" para congelar la edición contra cambios accidentales.', targetId: 'mock-step16-btn-lock', action: 'click' },
       { t: 6, text: 'Descarga un Respaldo Completo (.json) de tu obra para tener copia de seguridad local.', targetId: 'mock-step16-btn-backup', action: 'click' },
       { t: 12, text: 'En tu Perfil de Usuario, personaliza tus datos y cambia entre Modo Día y Modo Nocturno.', targetId: 'mock-step16-profile', action: 'highlight' },
-      { t: 17, text: 'Monitorea tu cuota de almacenamiento en la nube y estado de sincronización.', targetId: 'mock-step16-quota', action: 'highlight' },
-      { t: 21, text: '¡Listo! Cubikar mantiene tu información blindada, organizada y accesible desde cualquier lugar.', targetId: 'mock-step16-logo', action: 'click' }
+      { t: 18, text: 'Monitorea tu cuota de almacenamiento en la nube y estado de sincronización.', targetId: 'mock-step16-quota', action: 'highlight' },
+      { t: 24, text: '¡Listo! Cubikar mantiene tu información blindada, organizada y accesible desde cualquier lugar.', targetId: 'mock-step16-logo', action: 'click' }
     ]
   }
 ];
 
 // =========================================================================
-// MÉTODOS DEL CONTROLADOR DEL REPRODUCTOR
+// MOTOR DE NARRACIÓN POR VOZ Y EFECTOS DE SONIDO (AUDIO ENGINE)
 // =========================================================================
 
-// =========================================================================
-// MOTOR DE NARRACI"N POR VOZ Y EFECTOS DE SONIDO (AUDIO ENGINE)
-// =========================================================================
-
-function getSpanishVoice() {
+export function getSpanishVoice() {
   if (cachedSpanishVoice) return cachedSpanishVoice;
   if (typeof window === 'undefined' || !window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices() || [];
@@ -318,38 +321,104 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   };
 }
 
-function cleanNarrationText(text) {
+export function cleanNarrationText(text) {
   if (!text) return '';
   let clean = text.replace(/<\/?[^>]+(>|$)/g, ' ');
-  clean = clean.replace(/\bAPU\b/g, 'A-P-U');
-  clean = clean.replace(/\bPDF\b/g, 'P-D-F');
-  clean = clean.replace(/\bERP\b/g, 'E-R-P');
-  clean = clean.replace(/\bFASAR\b/g, 'Fasar');
-  clean = clean.replace(/\bLOPSRM\b/g, 'Ley de Obra Pública');
-  clean = clean.replace(/\bBESOP\b/g, 'Besop');
-  clean = clean.replace(/\bSHA\b/g, 'Sha');
-  clean = clean.replace(/\bMXN\b/g, 'pesos');
-  clean = clean.replace(/\bAlt\s*\+\s*Flechas?\b/gi, 'Alt más flechas');
+
+  // 1. Fórmulas técnicas y especificaciones de obra
+  clean = clean.replace(/f'c\s*=\s*(\d+)/gi, 'resistencia $1');
+  clean = clean.replace(/e\s*=\s*(\d+)\s*cm/gi, 'espesor $1 centímetros');
+  clean = clean.replace(/CIM-001/gi, 'cimentación cero cero uno');
+  clean = clean.replace(/#001/g, 'número uno');
+
+  // 2. Unidades de medida y precios
+  clean = clean.replace(/\bm2\b/gi, 'metros cuadrados');
+  clean = clean.replace(/\bm3\b/gi, 'metros cúbicos');
+  clean = clean.replace(/\bkg\/cm2\b/gi, 'kilogramos por centímetro cuadrado');
+  clean = clean.replace(/\bkg\b/gi, 'kilogramos');
+  clean = clean.replace(/\$\s*([0-9,.]+)\s*\/\s*Ton/gi, '$1 pesos por tonelada');
+  clean = clean.replace(/\/\s*Ton\b/gi, 'por tonelada');
+  clean = clean.replace(/\bTon\b/gi, 'toneladas');
+
+  // 3. Formatos y archivos
+  clean = clean.replace(/\(\.xlsx,\s*\.xls\)/gi, '');
+  clean = clean.replace(/\.xlsx,\s*\.csv\s*y\s*\.json/gi, 'archivos Excel, CSV y JSON');
+  clean = clean.replace(/\.xlsx|\.xls/gi, 'Excel');
+  clean = clean.replace(/\.json\b/gi, 'JSON');
+
+  // 4. Siglas técnicas y normativas oficiales
+  clean = clean.replace(/Hash\s+SHA/gi, 'código criptográfico S H A');
+  clean = clean.replace(/\bSHA\b/g, 'sellado criptográfico S H A');
+  clean = clean.replace(/\bAPU\b/g, 'A P U');
+  clean = clean.replace(/\bFASAR\b/g, 'factor de salario real Fasar');
+  clean = clean.replace(/\bLOPSRM\b/g, 'Ley de Obras Públicas');
+  clean = clean.replace(/\bBESOP\b/g, 'Bitácora Electrónica Besop');
+  clean = clean.replace(/\bERP\b/g, 'sistema E R P');
+  clean = clean.replace(/\bPDF\b/g, 'P D F');
+  clean = clean.replace(/\bMXN\b/g, 'pesos mexicanos');
+  clean = clean.replace(/\bP\.U\.\b/gi, 'precio unitario');
+
+  // 5. Botones y atajos de teclado
+  clean = clean.replace(/\bAlt\s*\+\s*Flecha\s*Arriba\/Abajo\b/gi, 'teclas Alt más flecha arriba o flecha abajo');
+  clean = clean.replace(/\bAlt\s*\+\s*Flechas?\b/gi, 'teclas Alt más flechas');
+  clean = clean.replace(/\+\s*Nuevo\b/gi, 'más Nuevo');
+  clean = clean.replace(/\+\s*Nueva\b/gi, 'más Nueva');
+  clean = clean.replace(/\+\s*Invitar\b/gi, 'más Invitar');
+  clean = clean.replace(/\+\s*Registrar\b/gi, 'más Registrar');
   clean = clean.replace(/\b1:1\b/g, 'uno a uno');
+  clean = clean.replace(/\b1\s+clic\b/gi, 'un clic');
+  clean = clean.replace(/\b1\s+solo\s+clic\b/gi, 'un solo clic');
+  clean = clean.replace(/\bvs\.?\b/gi, 'versus');
+  clean = clean.replace(/@([a-zA-ZáéíóúÁÉÍÓÚñÑ]+)/g, 'arroba $1');
+
+  // 6. Porcentajes y divisas (eliminar coma de miles para lectura numérica fluida: 3,850 -> 3850)
+  clean = clean.replace(/(\d+),(\d{3})/g, '$1$2');
+  clean = clean.replace(/100%/g, 'cien por ciento');
+  clean = clean.replace(/(\d+)%/g, '$1 por ciento');
+  clean = clean.replace(/\$([0-9,.]+)/g, '$1 pesos');
+
+  // 7. Limpieza de puntuación para evitar tropiezos del sintetizador
+  clean = clean.replace(/\(([^)]+)\)/g, ', $1, ');
+  clean = clean.replace(/["“”«»]/g, '');
+  clean = clean.replace(/\s*\/\s*/g, ' o ');
+  clean = clean.replace(/,\s*,+/g, ',');
+  clean = clean.replace(/,\s*\./g, '.');
+  clean = clean.replace(/\s*,\s*/g, ', ');
   clean = clean.replace(/\s+/g, ' ').trim();
+
   return clean;
 }
 
-function speakNarration(rawText) {
+export function speakNarration(rawText, stepIndex, moduleId) {
   if (!isVoiceNarrationEnabled || typeof window === 'undefined' || !window.speechSynthesis) return;
 
   try {
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
+    if (speechWatchdog) {
+      clearTimeout(speechWatchdog);
+      speechWatchdog = null;
     }
+
+    if (window.speechSynthesis.paused) {
+      try { window.speechSynthesis.resume(); } catch (e) {}
+    }
+
     if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-      window.speechSynthesis.cancel();
+      try { window.speechSynthesis.cancel(); } catch (e) {}
     }
 
     const cleanText = cleanNarrationText(rawText);
-    if (!cleanText) return;
+    if (!cleanText) {
+      isSpeakingNarration = false;
+      return;
+    }
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
+
+    // Anclaje global en window para prevenir bug de Garbage Collection en Chromium/Edge
+    window.__cubikarActiveUtterance = utterance;
+    activeUtterance = utterance;
+    isSpeakingNarration = true;
+
     const voice = getSpanishVoice();
     if (voice) {
       utterance.voice = voice;
@@ -358,30 +427,79 @@ function speakNarration(rawText) {
       utterance.lang = 'es-MX';
     }
 
-    // Ajuste de ritmo de narración según la velocidad del video (1.0x -> 1.05, 1.5x -> 1.35, 2.0x -> 1.65)
-    let rate = 1.05;
-    if (playbackSpeed === 1.5) rate = 1.35;
-    else if (playbackSpeed === 2.0) rate = 1.65;
+    // Ritmo de narración calmado, altamente inteligible y profesional (0.98x en velocidad normal)
+    let rate = 0.98;
+    if (playbackSpeed === 1.5) rate = 1.28;
+    else if (playbackSpeed === 2.0) rate = 1.55;
     utterance.rate = rate;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
 
-    // Retardo asíncrono seguro para que Chromium procese la cancelación previa
+    utterance.onstart = () => {
+      isSpeakingNarration = true;
+    };
+
+    utterance.onend = () => {
+      isSpeakingNarration = false;
+      window.__cubikarActiveUtterance = null;
+      activeUtterance = null;
+      // Pausa de respiración natural de 450ms antes de dar paso a la siguiente acción
+      minStepHoldUntil = Date.now() + 450;
+      if (speechWatchdog) {
+        clearTimeout(speechWatchdog);
+        speechWatchdog = null;
+      }
+    };
+
+    utterance.onerror = (e) => {
+      isSpeakingNarration = false;
+      window.__cubikarActiveUtterance = null;
+      activeUtterance = null;
+      if (speechWatchdog) {
+        clearTimeout(speechWatchdog);
+        speechWatchdog = null;
+      }
+    };
+
+    // Watchdog de seguridad (máximo 14 segundos) por si el navegador suspende silenciosamente el audio
+    speechWatchdog = setTimeout(() => {
+      if (isSpeakingNarration) {
+        console.warn('[VideoSimulator] Temporizador de seguridad de voz alcanzado.');
+        isSpeakingNarration = false;
+        window.__cubikarActiveUtterance = null;
+        activeUtterance = null;
+      }
+    }, 14000);
+
     setTimeout(() => {
       try {
-        if (!isVoiceNarrationEnabled || !isPlaying) return;
+        if (!isVoiceNarrationEnabled || !isPlaying) {
+          isSpeakingNarration = false;
+          return;
+        }
         if (window.speechSynthesis.paused) {
           window.speechSynthesis.resume();
         }
         window.speechSynthesis.speak(utterance);
-      } catch (e) {}
-    }, 25);
+      } catch (e) {
+        isSpeakingNarration = false;
+      }
+    }, 35);
   } catch (err) {
     console.warn('[VideoSimulator] Error en síntesis de voz:', err);
+    isSpeakingNarration = false;
   }
 }
 
-function stopNarration() {
+export function stopNarration() {
+  isSpeakingNarration = false;
+  minStepHoldUntil = 0;
+  if (speechWatchdog) {
+    clearTimeout(speechWatchdog);
+    speechWatchdog = null;
+  }
+  window.__cubikarActiveUtterance = null;
+  activeUtterance = null;
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     try {
       window.speechSynthesis.cancel();
@@ -464,18 +582,10 @@ export function toggleVoiceNarration() {
   if (!isVoiceNarrationEnabled) {
     stopNarration();
   } else {
-    lastSpokenKey = null;
-    const mod = VIDEO_MODULES.find(m => m.id === currentModuleId) || VIDEO_MODULES[0];
-    const steps = mod.steps || [];
-    let currentStep = steps[0];
-    for (let i = steps.length - 1; i >= 0; i--) {
-      if (currentTimeSeconds >= steps[i].t) {
-        currentStep = steps[i];
-        break;
-      }
-    }
-    if (isPlaying && currentStep) {
-      speakNarration(currentStep.text);
+    currentStepSpokenIndex = -1;
+    currentModuleSpokenId = -1;
+    if (isPlaying) {
+      renderSimulationStageFrame(currentTimeSeconds);
     }
   }
 
@@ -510,7 +620,9 @@ export function openVideoSimulatorModal(moduleId = 1) {
   isVideoModalOpen = true;
   currentTimeSeconds = 0;
   isPlaying = true;
-  lastSpokenKey = null;
+  currentStepSpokenIndex = -1;
+  currentModuleSpokenId = -1;
+  minStepHoldUntil = 0;
   lastClickedStepKey = null;
 
   getAudioContext();
@@ -529,7 +641,7 @@ export function openVideoSimulatorModal(moduleId = 1) {
 }
 
 export function closeVideoSimulatorModal() {
-  pauseVideoSimulation();
+  pauseVideoSimulation(true);
   stopNarration();
   isVideoModalOpen = false;
 
@@ -545,7 +657,9 @@ export function selectVideoModule(moduleId) {
   stopNarration();
   currentModuleId = Number(moduleId);
   currentTimeSeconds = 0;
-  lastSpokenKey = null;
+  currentStepSpokenIndex = -1;
+  currentModuleSpokenId = -1;
+  minStepHoldUntil = 0;
   lastClickedStepKey = null;
   loadModuleInPlayer(currentModuleId);
   if (!isPlaying) {
@@ -592,18 +706,27 @@ export function toggleVideoPlayPause() {
 
   if (isPlaying) {
     getAudioContext();
+    currentStepSpokenIndex = -1;
+    currentModuleSpokenId = -1;
     startPlaybackTimer();
+    renderSimulationStageFrame(currentTimeSeconds);
   } else {
-    pauseVideoSimulation();
+    pauseVideoSimulation(true);
   }
 }
 
-function pauseVideoSimulation() {
+function pauseVideoSimulation(userTriggered = false) {
   isPlaying = false;
-  stopNarration();
+  if (userTriggered) {
+    stopNarration();
+  }
   if (simulationInterval) {
     clearInterval(simulationInterval);
     simulationInterval = null;
+  }
+  if (keepAliveTimer) {
+    clearInterval(keepAliveTimer);
+    keepAliveTimer = null;
   }
   const playIcon = document.getElementById('video-btn-play-icon');
   if (playIcon) playIcon.className = 'fa-solid fa-play text-base';
@@ -611,21 +734,67 @@ function pauseVideoSimulation() {
 
 function startPlaybackTimer() {
   if (simulationInterval) clearInterval(simulationInterval);
+  if (keepAliveTimer) clearInterval(keepAliveTimer);
 
   const playIcon = document.getElementById('video-btn-play-icon');
   if (playIcon) playIcon.className = 'fa-solid fa-pause text-base';
 
-  const mod = VIDEO_MODULES.find(m => m.id === currentModuleId) || VIDEO_MODULES[0];
-  const stepMs = 250;
+  const stepMs = 200;
+
+  // Keep-alive anti-freeze para Chromium SpeechSynthesis
+  keepAliveTimer = setInterval(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      if (isSpeakingNarration && window.speechSynthesis.paused) {
+        try { window.speechSynthesis.resume(); } catch (e) {}
+      }
+    }
+  }, 1500);
 
   simulationInterval = setInterval(() => {
     if (!isPlaying) return;
 
-    currentTimeSeconds += (stepMs / 1000) * playbackSpeed;
+    const delta = (stepMs / 1000) * playbackSpeed;
+    const currentMod = VIDEO_MODULES.find(m => m.id === currentModuleId) || VIDEO_MODULES[0];
+    const steps = currentMod.steps || [];
 
-    if (currentTimeSeconds >= mod.duration) {
-      currentTimeSeconds = mod.duration;
-      pauseVideoSimulation();
+    // Localizar índice del paso actual
+    let currentStepIndex = 0;
+    for (let i = steps.length - 1; i >= 0; i--) {
+      if (currentTimeSeconds >= steps[i].t) {
+        currentStepIndex = i;
+        break;
+      }
+    }
+
+    const nextStep = steps[currentStepIndex + 1];
+    const isSpeechActive = isVoiceNarrationEnabled && (isSpeakingNarration || Date.now() < minStepHoldUntil);
+
+    // Si la locución sigue activa o en pausa de respiración, retener el avance
+    if (nextStep) {
+      if (currentTimeSeconds + delta >= nextStep.t) {
+        if (isSpeechActive) {
+          currentTimeSeconds = Math.max(currentTimeSeconds, nextStep.t - 0.05);
+          updateProgressScrubber(currentTimeSeconds, currentMod.duration);
+          renderSimulationStageFrame(currentTimeSeconds);
+          return;
+        }
+      }
+    } else {
+      if (currentTimeSeconds + delta >= currentMod.duration) {
+        if (isSpeechActive) {
+          currentTimeSeconds = Math.max(currentTimeSeconds, currentMod.duration - 0.05);
+          updateProgressScrubber(currentTimeSeconds, currentMod.duration);
+          renderSimulationStageFrame(currentTimeSeconds);
+          return;
+        }
+      }
+    }
+
+    currentTimeSeconds += delta;
+
+    if (currentTimeSeconds >= currentMod.duration) {
+      currentTimeSeconds = currentMod.duration;
+      pauseVideoSimulation(false);
       playSfxChime();
       if (currentModuleId < VIDEO_MODULES.length) {
         setTimeout(() => {
@@ -634,7 +803,7 @@ function startPlaybackTimer() {
       }
     }
 
-    updateProgressScrubber(currentTimeSeconds, mod.duration);
+    updateProgressScrubber(currentTimeSeconds, currentMod.duration);
     renderSimulationStageFrame(currentTimeSeconds);
   }, stepMs);
 }
@@ -651,7 +820,9 @@ export function seekVideoSimulation(event) {
   currentTimeSeconds = pct * mod.duration;
 
   stopNarration();
-  lastSpokenKey = null;
+  currentStepSpokenIndex = -1;
+  currentModuleSpokenId = -1;
+  minStepHoldUntil = 0;
   lastClickedStepKey = null;
 
   updateProgressScrubber(currentTimeSeconds, mod.duration);
@@ -666,16 +837,10 @@ export function cyclePlaybackSpeed() {
   const speedBadge = document.getElementById('video-speed-indicator');
   if (speedBadge) speedBadge.textContent = `${playbackSpeed}x`;
 
-  // Re-narrar el paso actual a la nueva velocidad si está reproduciendo
   if (isPlaying && isVoiceNarrationEnabled) {
-    const mod = VIDEO_MODULES.find(m => m.id === currentModuleId) || VIDEO_MODULES[0];
-    const steps = mod.steps || [];
-    for (let i = steps.length - 1; i >= 0; i--) {
-      if (currentTimeSeconds >= steps[i].t) {
-        speakNarration(steps[i].text);
-        break;
-      }
-    }
+    currentStepSpokenIndex = -1;
+    currentModuleSpokenId = -1;
+    renderSimulationStageFrame(currentTimeSeconds);
   }
 }
 
@@ -683,11 +848,14 @@ export function restartCurrentVideo() {
   stopNarration();
   currentTimeSeconds = 0;
   isPlaying = true;
-  lastSpokenKey = null;
+  currentStepSpokenIndex = -1;
+  currentModuleSpokenId = -1;
+  minStepHoldUntil = 0;
   lastClickedStepKey = null;
   const playIcon = document.getElementById('video-btn-play-icon');
   if (playIcon) playIcon.className = 'fa-solid fa-pause text-base';
   startPlaybackTimer();
+  renderSimulationStageFrame(0);
 }
 
 function formatTimeDisplay(sec) {
@@ -735,18 +903,20 @@ function renderSimulationStageFrame(seconds) {
   }
 
   // Disparar narración por voz si cambió de paso
-  const stepKey = `${currentModuleId}_${currentStepIndex}`;
-  if (isPlaying && isVoiceNarrationEnabled && lastSpokenKey !== stepKey) {
-    lastSpokenKey = stepKey;
-    speakNarration(currentStep.text);
+  if (isPlaying && isVoiceNarrationEnabled && currentStep) {
+    if (currentModuleSpokenId !== currentModuleId || currentStepSpokenIndex !== currentStepIndex) {
+      currentStepSpokenIndex = currentStepIndex;
+      currentModuleSpokenId = currentModuleId;
+      speakNarration(currentStep.text, currentStepIndex, currentModuleId);
+    }
   }
 
-    // Control Dinámico de Vistas y Ventanas Flotantes para Módulo 6 (IA Gemini Grounding)
+  // Control Dinámico de Vistas y Ventanas Flotantes para Módulo 6 (IA Gemini Grounding)
   if (currentModuleId === 6) {
     const aiMenu = document.getElementById('mock-step6-ai-menu');
     const aiOverlay = document.getElementById('mock-step6-modal-overlay');
     if (aiMenu && aiOverlay) {
-      if (seconds < 10) {
+      if (seconds < 12) {
         aiMenu.style.display = 'block';
         aiOverlay.style.display = 'none';
         aiOverlay.classList.add('hidden');
@@ -766,7 +936,7 @@ function renderSimulationStageFrame(seconds) {
     const invitedCards = document.getElementById('mock-step2-cards-invited');
 
     if (scopeSelect && statusBadge && ownCards && invitedCards) {
-      if (seconds < 11) {
+      if (seconds < 12) {
         scopeSelect.value = 'owned';
         statusBadge.innerHTML = `
           <div class="flex items-center gap-2 bg-slate-900/90 border border-amber-500/40 px-3 py-1.5 rounded-xl shadow-inner text-xs">
@@ -1081,4 +1251,16 @@ if (typeof window !== 'undefined') {
   window.restartCurrentVideoAction = restartCurrentVideo;
   window.toggleVoiceNarrationAction = toggleVoiceNarration;
   window.renderSimulationStageFrame = renderSimulationStageFrame;
+  window.cleanNarrationText = cleanNarrationText;
+  window.getSpanishVoice = getSpanishVoice;
+  window.speakNarration = speakNarration;
+  window.stopNarration = stopNarration;
+  window.getVideoSimulatorState = () => ({
+    isSpeakingNarration,
+    currentTimeSeconds,
+    isPlaying,
+    isVoiceNarrationEnabled,
+    currentModuleId,
+    currentStepSpokenIndex
+  });
 }

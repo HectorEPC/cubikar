@@ -313,54 +313,171 @@ export function renderStorageMeterHtml(summary, options = {}) {
   if (!s) return '';
 
   const compact = Boolean(options.compact);
-  const pct = Math.min(100, s.totalUsagePct);
-  const barColor = s.level === 'blocked'
-    ? 'bg-rose-600'
-    : (s.level === 'amber' ? 'bg-amber-500' : 'bg-indigo-600');
-  const badgeStyle = s.level === 'blocked'
-    ? 'bg-rose-100 text-rose-800 border-rose-200'
-    : (s.level === 'amber' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200');
+  const pct = Math.min(100, Math.max(0, s.totalUsagePct));
+  const isBlocked = s.level === 'blocked' || pct >= 100;
+  const isAmber = s.level === 'amber' || (pct >= 90 && !isBlocked);
+
+  // Tema claro (usado únicamente en ventanas modales con fondo blanco)
+  if (options.theme === 'light') {
+    const barColorLight = isBlocked
+      ? 'bg-rose-600'
+      : (isAmber ? 'bg-amber-500' : 'bg-indigo-600');
+    const badgeStyleLight = isBlocked
+      ? 'bg-rose-100 text-rose-800 border-rose-200'
+      : (isAmber ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200');
+
+    const upgradeBtnLight = options.showUpgradeButton !== false
+      ? `<button type="button" onclick="window.openSubscriptionModal?.()" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10.5px] transition cursor-pointer shrink-0">Mejorar Plan</button>`
+      : '';
+
+    return `
+      <div class="cubikar-storage-meter p-3 rounded-xl border ${isAmber ? 'border-amber-300 bg-amber-50/40' : (isBlocked ? 'border-rose-300 bg-rose-50/50' : 'border-slate-200 bg-slate-50/80')}">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="min-w-0">
+            <div class="text-[11.5px] font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+              <i class="fa-solid fa-cloud text-indigo-600"></i>
+              <span>Espacio utilizado: <strong>${s.formatted.used}</strong> / ${s.formatted.quota} (${s.spec.label})</span>
+              <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${badgeStyleLight}">${pct.toFixed(1)}%</span>
+            </div>
+            ${!compact ? `
+              <p class="text-[10.5px] text-slate-500 mt-0.5">
+                Proyectos S3: <strong>${s.formatted.projectUsed}</strong> / ${s.formatted.projectCap} ·
+                Catálogo Maestro reservado: <strong>${s.formatted.catalogUsed}</strong> / ${s.formatted.catalogCap} ·
+                Máx/archivo: <strong>${s.formatted.maxFile}</strong>
+              </p>
+            ` : ''}
+          </div>
+          ${upgradeBtnLight}
+        </div>
+        <div class="mt-2 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+          <div class="h-full ${barColorLight} transition-all duration-300 rounded-full" style="width:${Math.max(pct > 0 ? 2 : 0, pct)}%"></div>
+        </div>
+        ${s.level === 'amber' ? `
+          <p class="mt-1.5 text-[10.5px] font-semibold text-amber-700 flex items-center gap-1">
+            <i class="fa-solid fa-triangle-exclamation"></i> Has superado el 90% de tu cuota. Considera liberar archivos o actualizar tu plan.
+          </p>
+        ` : ''}
+        ${s.level === 'blocked' ? `
+          <p class="mt-1.5 text-[10.5px] font-semibold text-rose-700 flex items-center gap-1">
+            <i class="fa-solid fa-circle-xmark"></i> Cuota al 100%. Nuevas subidas bloqueadas hasta liberar espacio o cambiar de plan.
+          </p>
+        ` : ''}
+        ${s.pendingCount > 0 ? `
+          <p class="mt-1 text-[10px] text-slate-500 flex items-center gap-1">
+            <i class="fa-solid fa-clock-rotate-left text-amber-500"></i> ${s.pendingCount} archivo(s) en caché local pendientes de sincronizar a S3.
+          </p>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  // TEMA OSCURO INTEGRADO (DISEÑO IDÉNTICO A "MONITOREO DE AMORTIZACIÓN DEL ANTICIPO")
+  const barGradient = isBlocked
+    ? 'bg-gradient-to-r from-rose-600 via-rose-500 to-red-400'
+    : (isAmber
+        ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-amber-300'
+        : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400');
+
+  const pctColor = isBlocked
+    ? 'text-rose-400'
+    : (isAmber ? 'text-amber-400' : 'text-amber-400');
+
+  const containerBorder = isBlocked
+    ? 'border-rose-500/50 bg-gradient-to-br from-slate-900 via-rose-950/20 to-slate-900'
+    : (isAmber
+        ? 'border-amber-500/40 bg-gradient-to-br from-slate-900 via-amber-950/20 to-slate-900'
+        : 'border-slate-800 bg-gradient-to-br from-slate-900 to-indigo-950/70');
 
   const upgradeBtn = options.showUpgradeButton !== false
-    ? `<button type="button" onclick="window.openSubscriptionModal?.()" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10.5px] transition cursor-pointer shrink-0">Mejorar Plan</button>`
+    ? `
+      <button type="button" 
+              onclick="window.openSubscriptionModal?.()" 
+              class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs transition shadow-md cursor-pointer flex items-center gap-1.5 shrink-0 hover:scale-[1.02] active:scale-95"
+              title="Aumentar cuota y almacenamiento en la nube">
+        <i class="fa-solid fa-crown text-[10.5px] text-amber-300"></i>
+        <span>Mejorar Plan</span>
+      </button>
+    `
     : '';
 
   return `
-    <div class="cubikar-storage-meter p-3 rounded-xl border ${s.level === 'amber' ? 'border-amber-300 bg-amber-50/40' : (s.level === 'blocked' ? 'border-rose-300 bg-rose-50/50' : 'border-slate-200 bg-slate-50/80')}">
-      <div class="flex items-center justify-between gap-2 flex-wrap">
-        <div class="min-w-0">
-          <div class="text-[11.5px] font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
-            <i class="fa-solid fa-cloud text-indigo-600"></i>
-            <span>Espacio utilizado: <strong>${s.formatted.used}</strong> / ${s.formatted.quota} (${s.spec.label})</span>
-            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${badgeStyle}">${pct.toFixed(1)}%</span>
+    <div class="cubikar-storage-meter p-4 sm:p-5 rounded-2xl ${containerBorder} text-white space-y-3.5 shadow-xl border">
+      <!-- Encabezado: Icono, Título y Porcentaje Total -->
+      <div class="flex items-center justify-between flex-wrap gap-2.5">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm shadow-inner shrink-0">
+            <i class="fa-solid fa-cloud"></i>
           </div>
-          ${!compact ? `
-            <p class="text-[10.5px] text-slate-500 mt-0.5">
-              Proyectos S3: <strong>${s.formatted.projectUsed}</strong> / ${s.formatted.projectCap} ·
-              Catálogo Maestro reservado: <strong>${s.formatted.catalogUsed}</strong> / ${s.formatted.catalogCap} ·
-              Máx/archivo: <strong>${s.formatted.maxFile}</strong>
-            </p>
-          ` : ''}
+          <div class="min-w-0">
+            <h4 class="text-sm font-black text-white tracking-wide flex items-center gap-2">
+              <span>Espacio Utilizado en la Nube</span>
+              <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 font-sans">${s.spec.label}</span>
+            </h4>
+            <span class="text-[11px] text-slate-300 block truncate">
+              Monitoreo de almacenamiento AWS S3 para proyectos, presupuestos y base de datos
+            </span>
+          </div>
         </div>
-        ${upgradeBtn}
+
+        <div class="flex items-center gap-3 ml-auto">
+          <div class="text-right">
+            <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Uso Total</span>
+            <span class="text-lg font-black ${pctColor} font-mono leading-none">${pct.toFixed(2)}%</span>
+          </div>
+          ${upgradeBtn}
+        </div>
       </div>
-      <div class="mt-2 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
-        <div class="h-full ${barColor} transition-all duration-300 rounded-full" style="width:${Math.max(pct > 0 ? 2 : 0, pct)}%"></div>
+
+      <!-- Barra de progreso visual estilo Monitoreo de Amortización -->
+      <div class="w-full h-3 rounded-full bg-slate-950/80 p-0.5 overflow-hidden shadow-inner border border-slate-800">
+        <div class="h-full rounded-full transition-all duration-500 ${barGradient}" 
+             style="width: ${Math.min(100, Math.max(pct > 0 ? 1.5 : 0, pct))}%;"></div>
       </div>
+
+      <!-- Métricas Clave en 3 Columnas (Igual a Monitoreo de Amortización) -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2.5 border-t border-slate-800/80">
+        <div>
+          <span class="text-[10px] text-slate-400 block font-bold tracking-wider">1. ESPACIO UTILIZADO:</span>
+          <span class="text-sm font-black font-mono text-white">
+            ${s.formatted.used} <span class="text-xs text-slate-400 font-normal">/ ${s.formatted.quota}</span>
+          </span>
+        </div>
+
+        <div>
+          <span class="text-[10.5px] text-amber-300 block font-bold tracking-wider">2. PROYECTOS S3 (ARCHIVOS Y OBRAS):</span>
+          <span class="text-sm font-black font-mono text-amber-400">
+            ${s.formatted.projectUsed} <span class="text-xs text-amber-500/70 font-normal">/ ${s.formatted.projectCap}</span>
+          </span>
+        </div>
+
+        <div>
+          <span class="text-[10.5px] text-emerald-300 block font-bold tracking-wider">3. CATÁLOGO MAESTRO RESERVADO:</span>
+          <span class="text-sm font-black font-mono text-emerald-400">
+            ${s.formatted.catalogUsed} <span class="text-xs text-emerald-500/70 font-normal">/ ${s.formatted.catalogCap}</span>
+            <span class="text-[10.5px] text-slate-400 font-normal ml-1">· Máx/arch: <strong class="text-slate-300">${s.formatted.maxFile}</strong></span>
+          </span>
+        </div>
+      </div>
+
       ${s.level === 'amber' ? `
-        <p class="mt-1.5 text-[10.5px] font-semibold text-amber-700 flex items-center gap-1">
-          <i class="fa-solid fa-triangle-exclamation"></i> Has superado el 90% de tu cuota. Considera liberar archivos o actualizar tu plan.
-        </p>
+        <div class="mt-2 text-[11px] font-semibold text-amber-300 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 p-2.5 rounded-xl">
+          <i class="fa-solid fa-triangle-exclamation text-amber-400 shrink-0"></i>
+          <span>Has superado el 90% de tu cuota de almacenamiento. Considera liberar archivos o mejorar tu plan.</span>
+        </div>
       ` : ''}
+
       ${s.level === 'blocked' ? `
-        <p class="mt-1.5 text-[10.5px] font-semibold text-rose-700 flex items-center gap-1">
-          <i class="fa-solid fa-circle-xmark"></i> Cuota al 100%. Nuevas subidas bloqueadas hasta liberar espacio o cambiar de plan.
-        </p>
+        <div class="mt-2 text-[11px] font-semibold text-rose-300 flex items-center gap-2 bg-rose-500/10 border border-rose-500/30 p-2.5 rounded-xl">
+          <i class="fa-solid fa-circle-xmark text-rose-400 shrink-0"></i>
+          <span>Cuota de almacenamiento al 100%. Las nuevas subidas están bloqueadas hasta liberar espacio o cambiar de plan.</span>
+        </div>
       ` : ''}
+
       ${s.pendingCount > 0 ? `
-        <p class="mt-1 text-[10px] text-slate-500 flex items-center gap-1">
-          <i class="fa-solid fa-clock-rotate-left text-amber-500"></i> ${s.pendingCount} archivo(s) en caché local pendientes de sincronizar a S3.
-        </p>
+        <div class="text-[10.5px] text-slate-400 flex items-center gap-1.5 pt-0.5">
+          <i class="fa-solid fa-clock-rotate-left text-amber-400"></i>
+          <span>${s.pendingCount} archivo(s) en caché local pendientes de sincronizar a la nube S3.</span>
+        </div>
       ` : ''}
     </div>
   `;

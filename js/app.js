@@ -439,12 +439,12 @@ import {
   openVideoSimulatorModal,
   closeVideoSimulatorModal,
   toggleVoiceNarration
-} from './ui/videoSimulatorModal.js?v=20261113_23';
+} from './ui/videoSimulatorModal.js?v=20261115_01';
 
 import {
   openTutorialHubModal,
   closeTutorialHubModal
-} from './ui/tutorialHubModal.js?v=20261113_23';
+} from './ui/tutorialHubModal.js?v=20261115_01';
 
 import {
   toggleProjectChatDock,
@@ -1534,6 +1534,12 @@ function bootWorkspaceModules() {
   updateUndoRedoButtons();
   updateClipboardUI();
   try {
+    const initialTab = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab');
+    if (initialTab && typeof switchTab === 'function') {
+      switchTab(initialTab);
+    }
+  } catch (_) {}
+  try {
     renderSidebarNotificationsUI();
   } catch (e) {
     console.warn('[Notifications] Error al inicializar UI de notificaciones:', e);
@@ -1636,6 +1642,16 @@ if (typeof document !== 'undefined') {
       window.autoSyncCollaborationOnStartup();
     }
   } catch (e) {}
+
+  try {
+    const urlTab = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab');
+    if (urlTab && typeof switchTab === 'function') {
+      switchTab(urlTab);
+      setTimeout(() => switchTab(urlTab), 100);
+      setTimeout(() => switchTab(urlTab), 350);
+      setTimeout(() => switchTab(urlTab), 800);
+    }
+  } catch (_) {}
 }
 
 window.handleAcceptInvitationAction = handleAcceptInvitationAction;
@@ -1824,3 +1840,12 @@ setProjectChatRefreshCallback(() => {
     renderExpensesView();
   }
 });
+
+// Auto-activación inmediata de pestaña por parámetro de URL (ej. ?tab=bitacora)
+try {
+  const pUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const reqTab = pUrl ? pUrl.get('tab') : null;
+  if (reqTab && typeof switchTab === 'function') {
+    switchTab(reqTab);
+  }
+} catch (_) {}
