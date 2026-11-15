@@ -238,6 +238,9 @@ function showWorkspaceView(user, project) {
     workspaceContainer.style.display = 'flex';
   }
 
+  if (project && project.id) {
+    setActiveProjectId(project.id);
+  }
   if (project && project.ownerEmail) {
     const hostEmail = (project.ownerEmail || '').toLowerCase().trim();
     const hostName = project.companyName || hostEmail;

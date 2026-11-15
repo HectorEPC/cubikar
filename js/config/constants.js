@@ -17,11 +17,54 @@ export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
 let activeProjectId = null;
 
 export function setActiveProjectId(id) {
-  activeProjectId = id;
+  activeProjectId = id || null;
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      if (id) sessionStorage.setItem('cubikar_active_project_id', id);
+      else sessionStorage.removeItem('cubikar_active_project_id');
+    }
+  } catch (_) {}
+  try {
+    if (typeof window !== 'undefined') {
+      const rt = window.CubikarRealtime;
+      if (id) {
+        if (typeof window.subscribeToProjectRealtime === 'function') {
+          window.subscribeToProjectRealtime(id);
+        } else if (rt && typeof rt.subscribeToProjectRealtime === 'function') {
+          rt.subscribeToProjectRealtime(id);
+        }
+      } else {
+        if (typeof window.unsubscribeFromProjectRealtime === 'function') {
+          window.unsubscribeFromProjectRealtime();
+        } else if (rt && typeof rt.unsubscribeFromProjectRealtime === 'function') {
+          rt.unsubscribeFromProjectRealtime();
+        }
+      }
+    }
+  } catch (_) {}
 }
 
 export function getActiveProjectId() {
-  return activeProjectId;
+  if (activeProjectId) return activeProjectId;
+  if (typeof window !== 'undefined' && window.location?.search) {
+    try {
+      const p = new URLSearchParams(window.location.search).get('project');
+      if (p) {
+        setActiveProjectId(p);
+        return p;
+      }
+    } catch (_) {}
+  }
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      const saved = sessionStorage.getItem('cubikar_active_project_id');
+      if (saved) {
+        setActiveProjectId(saved);
+        return saved;
+      }
+    } catch (_) {}
+  }
+  return null;
 }
 
 export function getStorageKey(projectId = null) {

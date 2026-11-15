@@ -106,7 +106,7 @@ export function addRootRow() {
   if (!guardConceptLimit(1)) return;
   saveState();
   const newId = '_' + Math.random().toString(36).substr(2, 9);
-  state.treeData.push({
+  const newPartida = {
     id: newId,
     clave: '',
     descripcion: 'NUEVA PARTIDA PRINCIPAL',
@@ -117,9 +117,15 @@ export function addRootRow() {
     expanded: true,
     selected: false,
     children: []
-  });
+  };
+  state.treeData.push(newPartida);
   recalculateClaves(state.treeData);
-  persistLocalData(true, { changeType: 'row_added', highlightId: newId, changeDescription: 'una partida principal' });
+  persistLocalData(true, {
+    changeType: 'row_added',
+    highlightId: newId,
+    changeDescription: 'una partida principal',
+    patch: { type: 'add_root_row', node: newPartida }
+  });
   renderTAB1();
   showToast('Partida agregada', 'success');
 }
@@ -148,7 +154,7 @@ export function addChildRow(parentId, e) {
   if (!parent.children) parent.children = [];
   parent.unidad = 'lote';
   const newId = '_' + Math.random().toString(36).substr(2, 9);
-  parent.children.push({
+  const newNode = {
     id: newId,
     clave: '',
     descripcion: 'Nuevo Sub-concepto',
@@ -159,7 +165,8 @@ export function addChildRow(parentId, e) {
     expanded: true,
     selected: false,
     children: []
-  });
+  };
+  parent.children.push(newNode);
   parent.expanded = true;
 
   // RESTRICCIÓN: Al tener ahora una sub-fila, no mostrar la tabla de matrices para este padre
@@ -171,7 +178,12 @@ export function addChildRow(parentId, e) {
   }
 
   recalculateClaves(state.treeData);
-  persistLocalData(true, { changeType: 'row_added', highlightId: newId, changeDescription: 'un nuevo concepto' });
+  persistLocalData(true, {
+    changeType: 'row_added',
+    highlightId: newId,
+    changeDescription: 'un nuevo concepto',
+    patch: { type: 'add_child_row', parentId, node: newNode }
+  });
   renderTAB1();
   showToast('Sub-renglón agregado', 'success');
 }
@@ -216,7 +228,12 @@ export function duplicarNode(id, e) {
     const index = parentList.findIndex(n => n.id === id);
     parentList.splice(index + 1, 0, cloned);
     recalculateClaves(state.treeData);
-    persistLocalData(true, { changeType: 'row_added', highlightId: cloned.id, changeDescription: 'renglón duplicado' });
+    persistLocalData(true, {
+      changeType: 'row_added',
+      highlightId: cloned.id,
+      changeDescription: 'renglón duplicado',
+      patch: { type: 'duplicate_node', id, clonedNode: cloned }
+    });
     renderTAB1();
     showToast('Renglón duplicado', 'success');
   }
@@ -511,7 +528,12 @@ export function moverNode(id, direction, e) {
   }
 
   recalculateClaves(state.treeData);
-  persistLocalData(true, { changeType: 'row_moved', highlightId: id, changeDescription: 'orden de filas' });
+  persistLocalData(true, {
+    changeType: 'row_moved',
+    highlightId: id,
+    changeDescription: 'orden de filas',
+    patch: { type: 'move_node', id, direction }
+  });
   renderTAB1();
 
   if (state.activeSelectedId === id) {
@@ -557,7 +579,11 @@ export function deleteNode(id, e) {
   state.treeData = removeRecursive(state.treeData);
   if (state.activeSelectedId === id) closeApuPanel();
   recalculateClaves(state.treeData);
-  persistLocalData(true, { changeType: 'row_deleted', changeDescription: 'una fila del catálogo' });
+  persistLocalData(true, {
+    changeType: 'row_deleted',
+    changeDescription: 'una fila del catálogo',
+    patch: { type: 'delete_node', id }
+  });
   renderTAB1();
   showToast('Fila eliminada', 'info');
 }
@@ -584,6 +610,15 @@ export function deleteSelectedRow() {
     if (!confirm(`¿Deseas eliminar las ${checkedTotal} filas marcadas con Checkbox?`)) return;
     saveState();
 
+    const deletedIds = [];
+    function collectCheckedIds(nodes) {
+      nodes.forEach(n => {
+        if (n.selected) deletedIds.push(n.id);
+        if (n.children) collectCheckedIds(n.children);
+      });
+    }
+    collectCheckedIds(state.treeData);
+
     function filterOutChecked(nodes) {
       return nodes.filter(n => {
         if (n.selected) return false;
@@ -600,7 +635,11 @@ export function deleteSelectedRow() {
     }
 
     recalculateClaves(state.treeData);
-    persistLocalData(true, { changeType: 'row_deleted', changeDescription: `${checkedTotal} fila(s) del catálogo` });
+    persistLocalData(true, {
+      changeType: 'row_deleted',
+      changeDescription: `${checkedTotal} fila(s) del catálogo`,
+      patch: { type: 'delete_nodes', ids: deletedIds }
+    });
     renderTAB1();
     showToast(`${checkedTotal} filas eliminadas`, 'info');
   } else if (state.activeSelectedId) {
@@ -630,7 +669,12 @@ export function updateNode(id, field, value) {
     } else {
       node[field] = value;
     }
-    persistLocalData(false, { changeType: 'text_edit', highlightId: id, changeDescription: `el concepto "${node.clave || ''}"` });
+    persistLocalData(false, {
+      changeType: 'text_edit',
+      highlightId: id,
+      changeDescription: `el concepto "${node.clave || ''}"`,
+      patch: { type: 'update_field', id, field, value: node[field] }
+    });
     renderTAB1();
     if (state.activeSelectedId === id) {
       renderInsumosUnitarios(node);
@@ -726,7 +770,12 @@ export function updateNodeColor(id, newColor, event) {
   if (!node) return;
   saveState();
   node.color = newColor;
-  persistLocalData(false, { changeType: 'color_updated', highlightId: id, changeDescription: `color de ${node.clave || 'partida'}` });
+  persistLocalData(false, {
+    changeType: 'color_updated',
+    highlightId: id,
+    changeDescription: `color de ${node.clave || 'partida'}`,
+    patch: { type: 'update_color', id, color: newColor }
+  });
   renderTAB1();
   showToast(`Color asignado a ${node.clave || 'partida'}`, 'success');
 }

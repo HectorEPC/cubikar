@@ -26,6 +26,152 @@ let broadcastDebounceTimer = null;
 let onRemoteConceptUpdated = null;
 let onPresenceSyncCallback = null;
 
+// Canal de transmisión local de baja latencia (0ms) entre pestañas y ventanas del mismo navegador
+export const localBroadcastChannel = (typeof window !== 'undefined' && typeof window.BroadcastChannel === 'function')
+  ? new window.BroadcastChannel('cubikar_realtime_local_v1')
+  : null;
+
+if (localBroadcastChannel) {
+  localBroadcastChannel.onmessage = (event) => {
+    if (!event || !event.data) return;
+    const { type, payload } = event.data;
+    if (type === 'proyecto_actualizado') {
+      handleIncomingProjectUpdate(payload);
+    } else if (type === 'chat_mensaje_nuevo') {
+      handleIncomingChatMessage(payload);
+    } else if (type === 'chat_mensaje_eliminado') {
+      handleIncomingChatDelete(payload);
+    }
+  };
+}
+
+/**
+ * Aplicar mutación granular a un árbol de conceptos en memoria o almacenamiento local
+ */
+export function applyTreePatch(tree, patch) {
+  if (!Array.isArray(tree) || !patch || typeof patch !== 'object') return false;
+
+  const type = patch.type;
+  if (type === 'update_field') {
+    const node = findNodeById(tree, patch.id);
+    if (!node) return false;
+    const f = patch.field;
+    if (f === 'cantidad' || f === 'precioUnitario' || f === 'costoDirecto') {
+      node[f] = Math.round(((Number(patch.value) || 0) + Number.EPSILON) * 100) / 100;
+    } else {
+      node[f] = patch.value;
+    }
+    return true;
+  }
+
+  if (type === 'add_root_row') {
+    if (patch.node && patch.node.id) {
+      const exists = tree.some(n => n.id === patch.node.id);
+      if (!exists) {
+        tree.push(patch.node);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  if (type === 'add_child_row') {
+    const parent = findNodeById(tree, patch.parentId);
+    if (parent && patch.node && patch.node.id) {
+      if (!Array.isArray(parent.children)) parent.children = [];
+      const exists = parent.children.some(n => n.id === patch.node.id);
+      if (!exists) {
+        parent.children.push(patch.node);
+        parent.expanded = true;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  if (type === 'delete_node') {
+    function removeRecursive(nodes) {
+      const idx = nodes.findIndex(n => n.id === patch.id);
+      if (idx !== -1) {
+        nodes.splice(idx, 1);
+        return true;
+      }
+      for (let n of nodes) {
+        if (Array.isArray(n.children) && removeRecursive(n.children)) return true;
+      }
+      return false;
+    }
+    return removeRecursive(tree);
+  }
+
+  if (type === 'delete_nodes') {
+    const idsSet = new Set(Array.isArray(patch.ids) ? patch.ids : []);
+    function removeMultiple(nodes) {
+      let changed = false;
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        if (idsSet.has(nodes[i].id)) {
+          nodes.splice(i, 1);
+          changed = true;
+        } else if (Array.isArray(nodes[i].children)) {
+          if (removeMultiple(nodes[i].children)) changed = true;
+        }
+      }
+      return changed;
+    }
+    return removeMultiple(tree);
+  }
+
+  if (type === 'duplicate_node') {
+    function insertCloned(nodes) {
+      const idx = nodes.findIndex(n => n.id === patch.id);
+      if (idx !== -1 && patch.clonedNode) {
+        nodes.splice(idx + 1, 0, patch.clonedNode);
+        return true;
+      }
+      for (let n of nodes) {
+        if (Array.isArray(n.children) && insertCloned(n.children)) return true;
+      }
+      return false;
+    }
+    return insertCloned(tree);
+  }
+
+  if (type === 'move_node') {
+    function moveInArray(nodes) {
+      const idx = nodes.findIndex(n => n.id === patch.id);
+      if (idx !== -1) {
+        if (patch.direction === 'up' && idx > 0) {
+          const temp = nodes[idx - 1];
+          nodes[idx - 1] = nodes[idx];
+          nodes[idx] = temp;
+          return true;
+        } else if (patch.direction === 'down' && idx < nodes.length - 1) {
+          const temp = nodes[idx + 1];
+          nodes[idx + 1] = nodes[idx];
+          nodes[idx] = temp;
+          return true;
+        }
+        return false;
+      }
+      for (let n of nodes) {
+        if (Array.isArray(n.children) && moveInArray(n.children)) return true;
+      }
+      return false;
+    }
+    return moveInArray(tree);
+  }
+
+  if (type === 'update_color') {
+    const node = findNodeById(tree, patch.id);
+    if (node) {
+      node.customColor = patch.color;
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function registerRealtimeCallbacks({ onConceptUpdate, onPresenceSync }) {
   if (onConceptUpdate) onRemoteConceptUpdated = onConceptUpdate;
   if (onPresenceSync) onPresenceSyncCallback = onPresenceSync;
@@ -79,6 +225,7 @@ export function subscribeToProjectRealtime(projectId) {
 
   activeChannel = sb.channel(channelName, {
     config: {
+      broadcast: { ack: true },
       presence: {
         key: getCurrentUser()?.id || `user_${Math.random().toString(36).substring(2, 7)}`
       }
@@ -182,13 +329,11 @@ export function broadcastProjectMutation({
   immediate = false,
   changeType = 'general',
   highlightId = null,
-  changeDescription = 'cambios en el catálogo'
+  changeDescription = 'cambios en el catálogo',
+  patch = null
 } = {}) {
   const pId = projectId || currentSubscribedProjectId || (typeof getActiveProjectId === 'function' ? getActiveProjectId() : null);
   if (!pId) return;
-
-  const sb = getSupabaseClient();
-  if (!isSupabaseConfigured() || !sb) return;
 
   const currentUser = getCurrentUser();
   const author = {
@@ -199,9 +344,20 @@ export function broadcastProjectMutation({
   };
 
   const sendPayload = () => {
+    let safeTreeData = null;
+    if (Array.isArray(treeData)) {
+      try {
+        const raw = JSON.stringify(treeData);
+        if (raw.length < 180000) {
+          safeTreeData = treeData;
+        }
+      } catch (_) {}
+    }
+
     const payload = {
       projectId: pId,
-      treeData: Array.isArray(treeData) ? treeData : null,
+      treeData: safeTreeData,
+      patch: patch || null,
       settings: settings && typeof settings === 'object' ? settings : null,
       summary: {
         totalPresupuesto: typeof calculateTreeTotal === 'function' && Array.isArray(treeData) ? calculateTreeTotal(treeData) : 0,
@@ -216,6 +372,19 @@ export function broadcastProjectMutation({
       timestamp: Date.now()
     };
 
+    // 0. Enviar localmente a otras pestañas/ventanas del navegador (0ms latencia)
+    if (localBroadcastChannel) {
+      try {
+        localBroadcastChannel.postMessage({
+          type: 'proyecto_actualizado',
+          payload
+        });
+      } catch (_) {}
+    }
+
+    const sb = getSupabaseClient();
+    if (!isSupabaseConfigured() || !sb) return;
+
     // 1. Enviar vía canal de la obra activa (latencia < 30ms para quienes tienen la obra abierta)
     if (activeChannel && currentSubscribedProjectId === pId) {
       try {
@@ -229,7 +398,7 @@ export function broadcastProjectMutation({
       }
     }
 
-    // 2. Enviar vía canal global para sincronizar ventanas, dashboard y propietarios
+    // 2. Enviar vía canal global para sincronizar ventanas, dashboard y todos los colaboradores
     if (!globalSyncChannel) initGlobalRealtimeSync();
     if (globalSyncChannel) {
       try {
@@ -280,49 +449,81 @@ export function handleIncomingProjectUpdate(data) {
   const currentPId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
 
   const allProjects = getProjectsList();
-  const projIdx = allProjects.findIndex(p => p.id === projectId);
-  if (projIdx < 0) {
-    return;
+  let projIdx = allProjects.findIndex(p => p.id === projectId || (p.cloudId && p.cloudId === projectId));
+
+  // Si el proyecto no está aún en la lista pero fue emitido por un colaborador o anfitrión, agregarlo
+  if (projIdx < 0 && data.project && data.project.id) {
+    allProjects.unshift(data.project);
+    projIdx = 0;
   }
 
-  const proj = allProjects[projIdx];
-  const isOwner = (proj.ownerEmail || '').toLowerCase().trim() === myEmail;
-  const isMember = Array.isArray(proj.members) && proj.members.some(m => (m.email || '').toLowerCase().trim() === myEmail);
-  if (!isOwner && !isMember) return;
+  let proj = projIdx >= 0 ? allProjects[projIdx] : null;
 
   // Actualizar resumen en la lista de proyectos
-  if (data.summary) {
-    if (data.summary.totalPresupuesto !== undefined) proj.totalPresupuesto = data.summary.totalPresupuesto;
-    if (data.summary.conceptCount !== undefined) proj.conceptCount = data.summary.conceptCount;
-    if (data.summary.partidasCount !== undefined) proj.partidasCount = data.summary.partidasCount;
-    if (data.summary.factorSobrecosto !== undefined) proj.factorSobrecosto = data.summary.factorSobrecosto;
+  if (proj) {
+    if (data.summary) {
+      if (data.summary.totalPresupuesto !== undefined) proj.totalPresupuesto = data.summary.totalPresupuesto;
+      if (data.summary.conceptCount !== undefined) proj.conceptCount = data.summary.conceptCount;
+      if (data.summary.partidasCount !== undefined) proj.partidasCount = data.summary.partidasCount;
+      if (data.summary.factorSobrecosto !== undefined) proj.factorSobrecosto = data.summary.factorSobrecosto;
+    }
+    proj.updatedAt = new Date().toISOString();
+    saveProjectsList(allProjects);
   }
-  proj.updatedAt = new Date().toISOString();
-  saveProjectsList(allProjects);
 
-  // Guardar en el almacenamiento local de este navegador
+  const isCurrentActive = Boolean(currentPId && (currentPId === projectId || (proj && proj.cloudId === currentPId)));
+
+  // 1. Aplicar mutación al árbol local (memoria y localStorage)
+  let treeMutated = false;
+  if (data.patch) {
+    if (isCurrentActive && Array.isArray(state.treeData)) {
+      treeMutated = applyTreePatch(state.treeData, data.patch);
+    }
+    try {
+      const storageKey = getStorageKey(projectId);
+      const rawTree = localStorage.getItem(storageKey);
+      if (rawTree) {
+        const parsedTree = JSON.parse(rawTree);
+        if (Array.isArray(parsedTree)) {
+          if (applyTreePatch(parsedTree, data.patch)) {
+            localStorage.setItem(storageKey, JSON.stringify(parsedTree));
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   if (Array.isArray(data.treeData)) {
     try {
       localStorage.setItem(getStorageKey(projectId), JSON.stringify(data.treeData));
     } catch (_) {}
+    if (isCurrentActive) {
+      state.treeData = JSON.parse(JSON.stringify(data.treeData));
+      treeMutated = true;
+    }
   }
+
   if (data.settings && typeof data.settings === 'object') {
     try {
       localStorage.setItem(getSettingsKey(projectId), JSON.stringify(data.settings));
     } catch (_) {}
+    if (isCurrentActive) {
+      state.settings = Object.assign({}, state.settings, data.settings);
+    }
   }
 
   // Si el usuario tiene actualmente abierta esta misma obra en el espacio de trabajo
-  if (currentPId && currentPId === projectId) {
-    if (Array.isArray(data.treeData)) {
-      state.treeData = JSON.parse(JSON.stringify(data.treeData));
+  if (isCurrentActive) {
+    if (typeof window.recalculateClaves === 'function' && Array.isArray(state.treeData)) {
+      try { window.recalculateClaves(state.treeData); } catch (_) {}
     }
-    if (data.settings && typeof data.settings === 'object') {
-      state.settings = Object.assign({}, state.settings, data.settings);
-    }
-
     if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
     if (typeof window.renderTAB1 === 'function') window.renderTAB1();
+
+    const targetHighlight = data.highlightId || (data.patch && data.patch.id);
+    if (targetHighlight && typeof window.highlightCatalogRowInPlace === 'function') {
+      window.highlightCatalogRowInPlace(targetHighlight);
+    }
 
     if (state.activeSelectedId) {
       const stillExists = typeof findNodeById === 'function' ? findNodeById(state.treeData, state.activeSelectedId) : null;
@@ -331,10 +532,6 @@ export function handleIncomingProjectUpdate(data) {
       } else {
         if (typeof window.closeApuPanel === 'function') window.closeApuPanel();
       }
-    }
-
-    if (data.highlightId && typeof window.highlightCatalogRowInPlace === 'function') {
-      window.highlightCatalogRowInPlace(data.highlightId);
     }
   }
 
@@ -347,6 +544,7 @@ export function handleIncomingProjectUpdate(data) {
   showToast(`🔄 ${authorName} actualizó ${desc} en tiempo real`, 'info');
 
   // Si somos el anfitrión/propietario, respaldar automáticamente el nuevo estado en la nube
+  const isOwner = proj && (proj.ownerEmail || '').toLowerCase().trim() === myEmail;
   if (isOwner) {
     try {
       if (typeof window.triggerDebouncedCloudStateSync === 'function') {
@@ -1322,6 +1520,8 @@ export async function hydrateProjectChatFromCloud(projectId) {
 if (typeof window !== 'undefined') {
   window.CubikarRealtime = {
     initGlobalRealtimeSync,
+    subscribeToProjectRealtime,
+    unsubscribeFromProjectRealtime,
     broadcastNewInvitation,
     broadcastInvitationAccepted,
     broadcastInvitationRejected,
@@ -1335,6 +1535,8 @@ if (typeof window !== 'undefined') {
     hydrateProjectChatFromCloud,
     requestPeerSync
   };
+  window.subscribeToProjectRealtime = subscribeToProjectRealtime;
+  window.unsubscribeFromProjectRealtime = unsubscribeFromProjectRealtime;
   window.broadcastProjectMutation = broadcastProjectMutation;
   window.handleIncomingProjectUpdate = handleIncomingProjectUpdate;
   window.broadcastChatMessage = broadcastChatMessage;

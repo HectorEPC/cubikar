@@ -2483,6 +2483,31 @@ export function canUserCreateProject(user = null, targetScope = null) {
   };
 }
 
+const SYSTEM_EXCLUDED_EMAILS = new Set([
+  'admin.general@constructora.com',
+  'admin@constructora.com',
+  'demo@cubikar.com',
+  'demo@constructora.com'
+]);
+
+const GENERIC_BLACKLIST = new Set([
+  'sistema de control de obra',
+  'sistema de control de obras',
+  'sistema de arquitectura',
+  'cubikar construccion',
+  'cubikar construcción',
+  'cubikar arquitectura',
+  'propietario de obra',
+  'anfitrión',
+  'anfitrion',
+  'administrador',
+  'administrador de obra',
+  'editor de obra',
+  'usuario',
+  'null',
+  'undefined'
+]);
+
 // Obtener lista de anfitriones/organizaciones que han invitado al usuario
 export function getWorkspaceInviters(user = null, allProjectsList = null) {
   const u = user || getCurrentUser();
@@ -2491,31 +2516,6 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
   const userProjects = allProjectsList || getProjectsForUser(u);
 
   const map = new Map();
-
-  const SYSTEM_EXCLUDED_EMAILS = new Set([
-    'admin.general@constructora.com',
-    'admin@constructora.com',
-    'demo@cubikar.com',
-    'demo@constructora.com'
-  ]);
-
-  const GENERIC_BLACKLIST = new Set([
-    'sistema de control de obra',
-    'sistema de control de obras',
-    'sistema de arquitectura',
-    'cubikar construccion',
-    'cubikar construcción',
-    'cubikar arquitectura',
-    'propietario de obra',
-    'anfitrión',
-    'anfitrion',
-    'administrador',
-    'administrador de obra',
-    'editor de obra',
-    'usuario',
-    'null',
-    'undefined'
-  ]);
 
   const formatEmailToName = (em) => {
     return (em || '').split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()).trim();
@@ -2768,8 +2768,20 @@ export function getUserRoleInProject(projectId, user = null) {
 
   if (Array.isArray(proj.members)) {
     const mem = proj.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
-    return mem ? mem.role : null;
+    if (mem && mem.role) return mem.role;
   }
+
+  try {
+    const allPlanInvs = getStoredPlanInvitations();
+    const planInv = allPlanInvs.find(inv =>
+      (inv.ownerEmail || '').toLowerCase().trim() === (proj.ownerEmail || '').toLowerCase().trim() &&
+      (inv.email || '').toLowerCase().trim() === uEmail &&
+      inv.status !== 'pending'
+    );
+    if (planInv && planInv.role) {
+      return planInv.role;
+    }
+  } catch (_) {}
 
   return null;
 }
@@ -2789,8 +2801,9 @@ export function canCurrentUserEditProject(projectId = null, user = null) {
 
   const role = getUserRoleInProject(pId, u);
   if (!role || role === 'owner') return true;
-  if (role === 'editar' || role === 'escribir') return true;
-  if (role === 'leer') return false;
+  const normalizedRole = String(role).toLowerCase().trim();
+  if (normalizedRole === 'editar' || normalizedRole === 'escribir' || normalizedRole === 'editor' || normalizedRole === 'escritura') return true;
+  if (normalizedRole === 'leer' || normalizedRole === 'lector' || normalizedRole === 'view' || normalizedRole === 'viewer') return false;
   return true;
 }
 
