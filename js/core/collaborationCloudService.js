@@ -14,7 +14,7 @@ import {
   getProjectsList,
   saveProjectsList,
   getUserPlanId
-} from '../modules/portal/projectService.js';
+} from '../modules/portal/projectService.js?v=20261115_v14';
 
 function getDeletedProjectsList() {
   try {

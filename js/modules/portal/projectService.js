@@ -15,7 +15,7 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261115_v12';
+} from '../../config/constants.js?v=20261115_v14';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
 import { defaultTreeData, defaultSettings } from '../../config/defaultData.js';
