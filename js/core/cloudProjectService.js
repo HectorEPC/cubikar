@@ -297,7 +297,18 @@ export async function fetchCloudProjects() {
 
     if (!Array.isArray(cloudList)) return [];
 
-    return cloudList.map(cp => {
+    let deletedList = [];
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const rawDel = localStorage.getItem('cubikar_deleted_projects_v1');
+        if (rawDel) deletedList = JSON.parse(rawDel);
+      }
+    } catch (_) {}
+    const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
+
+    return cloudList
+      .filter(cp => !isDeleted(cp.id))
+      .map(cp => {
       const ind = parseFloat(cp.pct_indirectos) || 0;
       const fin = parseFloat(cp.pct_financiamiento) || 0;
       const uti = parseFloat(cp.pct_utilidad) || 0;

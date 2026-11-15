@@ -9,6 +9,8 @@ import {
   STORAGE_KEY_ACTIVE_WORKSPACE,
   STORAGE_KEY_AUTH_SESSION_VERSION,
   CURRENT_AUTH_SESSION_VERSION,
+  STORAGE_KEY_DELETED_PROJECTS,
+  setActiveProjectId,
   getStorageKey,
   getSettingsKey,
   getActiveProjectId,
@@ -754,20 +756,65 @@ export function saveCurrentUser(user, remember = null) {
 }
 
 // ==========================================
+// REGISTRO DE PROYECTOS ELIMINADOS
+// ==========================================
+export function getDeletedProjectsList() {
+  try {
+    if (typeof localStorage === 'undefined') return [];
+    const raw = localStorage.getItem(STORAGE_KEY_DELETED_PROJECTS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+export function markProjectDeleted(projectId) {
+  if (!projectId) return;
+  try {
+    const list = getDeletedProjectsList();
+    if (!list.includes(projectId)) {
+      list.push(projectId);
+      localStorage.setItem(STORAGE_KEY_DELETED_PROJECTS, JSON.stringify(list));
+    }
+  } catch (_) {}
+}
+
+export function isProjectMarkedDeleted(projectId) {
+  if (!projectId) return false;
+  return getDeletedProjectsList().includes(projectId);
+}
+
+// ==========================================
 // GESTIÓN DE PROYECTOS
 // ==========================================
 export function getProjectsList() {
   try {
+    const deletedList = getDeletedProjectsList();
+    const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
+
     const raw = localStorage.getItem(STORAGE_KEY_PROJECTS);
     if (raw) {
-      const list = JSON.parse(raw);
+      let list = JSON.parse(raw);
+      if (!Array.isArray(list)) list = [];
+
+      // Filtrar inmediatamente cualquier proyecto eliminado
+      if (deletedList.length > 0) {
+        const initialLen = list.length;
+        list = list.filter(p => !isDeleted(p.id) && !isDeleted(p.cloudId));
+        if (list.length !== initialLen) {
+          localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(list));
+        }
+      }
+
       // Asegurar que cada proyecto tenga su lista de colaboradores con permisos
       const currentUser = getCurrentUser();
       let changed = false;
 
-      // Asegurar que el proyecto auténtico Catálogo Muestra - Proyecto Residencial esté siempre registrado
+      // Asegurar que el proyecto auténtico Catálogo Muestra - Proyecto Residencial esté siempre registrado, salvo si fue eliminado
       const hasCasaLaura = list.some(p => p.id === 'proj-opus-casa-laura' || (p.projectName && (p.projectName.toLowerCase().includes('casa laura') || p.projectName.toLowerCase().includes('proyecto residencial'))));
-      if (!hasCasaLaura) {
+      if (!hasCasaLaura && !isDeleted('proj-opus-casa-laura')) {
         const proj3Id = 'proj-opus-casa-laura';
         const proj3Settings = Object.assign({}, defaultSettings, {
           companyName: 'Constructora Opus México',
@@ -960,8 +1007,9 @@ export function getProjectsForUser(user) {
 }
 
 export function getProjectById(id) {
+  if (!id) return null;
   const list = getProjectsList();
-  return list.find(p => p.id === id) || null;
+  return list.find(p => p.id === id || p.cloudId === id) || null;
 }
 
 // Inicializar proyectos por defecto o migrar datos existentes
@@ -1532,17 +1580,68 @@ export function getTabAssignedMembers(projectId, tabId) {
   });
 }
 
-// Eliminar proyecto
-export function deleteProject(projectId) {
+// Eliminar proyecto definitivamente
+export async function deleteProject(projectId) {
+  if (!projectId) return false;
+  markProjectDeleted(projectId);
+
   try {
     localStorage.removeItem(getSettingsKey(projectId));
     localStorage.removeItem(getStorageKey(projectId));
     localStorage.removeItem(`estimaciones_data_${projectId}`);
-    deleteProjectFromCloud(projectId);
-  } catch(e) {}
+    localStorage.removeItem(`adm_const_chat_${projectId}`);
+    localStorage.removeItem(`control_obra_chat_${projectId}`);
+    localStorage.removeItem(`adm_const_signatures_${projectId}`);
+    localStorage.removeItem(`adm_const_bitacora_${projectId}`);
+    localStorage.removeItem(`adm_const_expenses_${projectId}`);
+    localStorage.removeItem(`adm_const_suppliers_${projectId}`);
+  } catch (e) {}
 
-  const list = getProjectsList().filter(p => p.id !== projectId);
+  // 1. Limpiar proyecto de la lista en memoria y localStorage
+  const currentList = getProjectsList();
+  const list = currentList.filter(p => p.id !== projectId && p.cloudId !== projectId);
   saveProjectsList(list);
+
+  // 2. Si el proyecto eliminado estaba activo en el workspace, resetearlo
+  if (typeof getActiveProjectId === 'function' && (getActiveProjectId() === projectId)) {
+    if (typeof setActiveProjectId === 'function') setActiveProjectId(null);
+  }
+
+  // 3. Purgar del estado sincronizado del usuario en user_metadata (cubikar_cloud_state_v2)
+  const user = getCurrentUser();
+  if (user && user.user_metadata?.cubikar_cloud_state_v2) {
+    const cs = user.user_metadata.cubikar_cloud_state_v2;
+    let modified = false;
+    if (Array.isArray(cs.ownedProjects)) {
+      const prevLen = cs.ownedProjects.length;
+      cs.ownedProjects = cs.ownedProjects.filter(p => p.id !== projectId && p.cloudId !== projectId);
+      if (cs.ownedProjects.length !== prevLen) modified = true;
+    }
+    if (Array.isArray(cs.collaboratedProjects)) {
+      const prevLen = cs.collaboratedProjects.length;
+      cs.collaboratedProjects = cs.collaboratedProjects.filter(p => p.id !== projectId && p.cloudId !== projectId);
+      if (cs.collaboratedProjects.length !== prevLen) modified = true;
+    }
+    if (modified) {
+      saveCurrentUser(user);
+    }
+  }
+
+  // 4. Eliminar de la base de datos Supabase
+  try {
+    await deleteProjectFromCloud(projectId);
+  } catch (err) {
+    console.warn('[deleteProject] Aviso al eliminar en Supabase:', err);
+  }
+
+  // 5. Respaldar estado limpio a la nube inmediatamente
+  try {
+    if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
+      await window.syncUserCollaborationToCloud(user);
+    }
+  } catch (_) {}
+
+  return true;
 }
 
 // Sincronizar el resumen del proyecto activo

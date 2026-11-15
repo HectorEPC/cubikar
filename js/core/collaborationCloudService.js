@@ -13,6 +13,7 @@ import {
   saveStoredPlanInvitations,
   getProjectsList,
   saveProjectsList,
+  getDeletedProjectsList,
   getUserPlanId
 } from '../modules/portal/projectService.js';
 import { getSettingsKey, getStorageKey } from '../config/constants.js';
@@ -249,12 +250,15 @@ export function restoreUserCollaborationFromCloud(user = null) {
   }
 
   // 2. Restaurar proyectos propios y colaborados en STORAGE_KEY_PROJECTS
+  const deletedList = typeof getDeletedProjectsList === 'function' ? getDeletedProjectsList() : [];
+  const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
+
   const cloudProjectsToRestore = [];
   if (Array.isArray(state.ownedProjects)) {
-    cloudProjectsToRestore.push(...state.ownedProjects);
+    cloudProjectsToRestore.push(...state.ownedProjects.filter(p => !isDeleted(p.id) && !isDeleted(p.cloudId)));
   }
   if (Array.isArray(state.collaboratedProjects)) {
-    cloudProjectsToRestore.push(...state.collaboratedProjects);
+    cloudProjectsToRestore.push(...state.collaboratedProjects.filter(p => !isDeleted(p.id) && !isDeleted(p.cloudId)));
   }
 
   if (cloudProjectsToRestore.length > 0) {

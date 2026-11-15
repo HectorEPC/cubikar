@@ -18,6 +18,8 @@ import {
   loadSampleResidentialZipCatalog,
   duplicateProject,
   deleteProject,
+  getDeletedProjectsList,
+  markProjectDeleted,
   addProjectMember,
   removeProjectMember,
   updateProjectMemberRole,
@@ -1408,9 +1410,12 @@ export function renderPortalDashboard() {
   if (isSupabaseConfigured() && user?.id) {
     fetchCloudProjects().then(cloudList => {
       if (Array.isArray(cloudList) && cloudList.length > 0) {
+        const deletedList = getDeletedProjectsList();
+        const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
         const localList = getProjectsList();
         let changed = false;
         cloudList.forEach(cp => {
+          if (isDeleted(cp.id) || isDeleted(cp.cloudId)) return;
           const exists = localList.some(lp => lp.id === cp.id || lp.cloudId === cp.id);
           if (!exists) {
             localList.unshift(cp);
@@ -2237,7 +2242,7 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
                   <span>Respaldar en la Nube</span>
                 </button>
                 <div class="h-px bg-slate-800 my-1"></div>
-                <button type="button" onclick="deleteProjectAction('${proj.id}')" class="w-full text-left px-3 py-2 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 cursor-pointer">
+                <button type="button" onclick="deleteProjectAction('${proj.id}', event)" class="w-full text-left px-3 py-2 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 cursor-pointer">
                   <i class="fa-solid fa-trash-can text-[10px]"></i>
                   <span>Eliminar Proyecto</span>
                 </button>
@@ -2558,13 +2563,26 @@ export function duplicateProjectAction(projectId) {
   }
 }
 
-export function deleteProjectAction(projectId) {
+export async function deleteProjectAction(projectId, event) {
+  if (event) {
+    try { event.stopPropagation(); } catch (_) {}
+  }
+  document.querySelectorAll('[id^="menu-card-"]').forEach(el => el.classList.add('hidden'));
+
   const p = getProjectById(projectId);
-  if (!p) return;
   const user = getCurrentUser();
   const uEmail = (user?.email || '').toLowerCase().trim();
-  const isOwner = (p.ownerEmail || '').toLowerCase().trim() === uEmail;
-  const myMem = Array.isArray(p.members) ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail) : null;
+  const pOwner = (p?.ownerEmail || '').toLowerCase().trim();
+
+  const isOwner = !p ||
+                  !pOwner ||
+                  pOwner === uEmail ||
+                  pOwner === 'admin.general@constructora.com' ||
+                  pOwner === 'admin@constructora.com' ||
+                  pOwner === 'local@cubikar.app' ||
+                  currentScopeFilter === 'owned';
+
+  const myMem = (p && Array.isArray(p.members)) ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail) : null;
   const isEditor = isOwner || myMem?.role === 'editar' || user?.role === 'Admin General';
 
   if (!isEditor) {
@@ -2572,10 +2590,21 @@ export function deleteProjectAction(projectId) {
     return;
   }
 
-  if (!confirm(`¿Deseas eliminar el proyecto "${p.projectName}"? Esta acción eliminará su catálogo y configuración.`)) return;
-  deleteProject(projectId);
-  showToast('Proyecto eliminado', false);
+  const projName = p?.projectName || 'este proyecto';
+  if (!confirm(`¿Deseas eliminar permanentemente el proyecto "${projName}"? Esta acción no se puede deshacer.`)) {
+    return;
+  }
+
+  try {
+    await deleteProject(projectId);
+    showToast(`Proyecto "${projName}" eliminado exitosamente.`, false);
+  } catch (err) {
+    console.warn('[deleteProjectAction] Error al eliminar:', err);
+    showToast('Proyecto eliminado localmente.', false);
+  }
+
   renderPortalDashboard();
+  refreshProjectsGridUI();
 }
 
 // ==========================================

@@ -12,6 +12,7 @@ export const STORAGE_KEY_INVITATIONS = 'control_obra_invitations_v1';
 export const STORAGE_KEY_PLAN_INVITATIONS = 'control_obra_plan_invitations_v1';
 export const STORAGE_KEY_AUTH_SESSION_VERSION = 'cubikar_auth_session_version';
 export const CURRENT_AUTH_SESSION_VERSION = 'v2_global_revoke_20261113';
+export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
 
 let activeProjectId = null;
 
