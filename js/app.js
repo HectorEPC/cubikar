@@ -66,7 +66,7 @@ import { hydrateProjectModulesFromCloud } from './core/cloudModulesSyncService.j
 import { syncPendingMediaUploads } from './services/s3StorageService.js';
 import { initAuthListener, hasPendingIncomingSsoSession, hydrateIncomingSsoSession, isSsoHydrationPending, syncLocalUserSession } from './core/authService.js?v=20261115_v10';
 import { isRecentInternalCloudAuthUpdate } from './core/collaborationCloudService.js';
-import { getCurrentUser } from './modules/portal/projectService.js?v=20261115_v14';
+import { getCurrentUser } from './modules/portal/projectService.js?v=20261115_v16';
 import { initAppSwitcher } from './ui/appSwitcher.js?v=20261115_v10';
 
 import {
@@ -597,7 +597,7 @@ import {
   resetFilters,
   exportProjectToExcelAction,
   logoutAllDevices
-} from './modules/portal/portalController.js?v=20261115_v14';
+} from './modules/portal/portalController.js?v=20261115_v16';
 
 import {
   openCubikarAdminModal,

@@ -5,7 +5,7 @@ import {
   setActiveProjectId,
   getActiveProjectId,
   getSettingsKey
-} from '../../config/constants.js?v=20261115_v14';
+} from '../../config/constants.js?v=20261115_v16';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -60,7 +60,7 @@ import {
   SAMPLE_LOGOS,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261115_v14';
+} from './projectService.js?v=20261115_v16';
 import { showToast } from '../../ui/notifications.js';
 import { persistLocalData, state, initStore } from '../../state/store.js';
 import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js';

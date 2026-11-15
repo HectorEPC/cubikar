@@ -16,7 +16,7 @@ import {
   getUserPlanId,
   isInvalidUserName,
   resolveCleanHostName
-} from '../modules/portal/projectService.js?v=20261115_v15';
+} from '../modules/portal/projectService.js?v=20261115_v16';
 
 function getDeletedProjectsList() {
   try {
