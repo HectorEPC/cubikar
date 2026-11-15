@@ -15,7 +15,7 @@ import {
   saveProjectsList,
   getDeletedProjectsList,
   getUserPlanId
-} from '../modules/portal/projectService.js';
+} from '../modules/portal/projectService.js?v=20261115_v12';
 import { getSettingsKey, getStorageKey } from '../config/constants.js';
 import { getChatStorageKey } from '../modules/chat/projectChat.js';
 
