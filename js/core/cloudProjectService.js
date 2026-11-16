@@ -402,16 +402,7 @@ export async function fetchCloudProjects() {
           budgetSignatures: cfg.budgetSignatures || [],
           createdAt: cp.created_at ? cp.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
           updatedAt: cp.updated_at || new Date().toISOString(),
-          members: reconstructedMembers.length > 0 ? reconstructedMembers : [
-            {
-              id: 'mem-' + user.id,
-              name: user.name || user.email,
-              email: myEmail,
-              role: ownerEmail === myEmail ? 'owner' : 'editar',
-              status: 'accepted',
-              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
-            }
-          ]
+          members: reconstructedMembers
         };
       });
   } catch (err) {

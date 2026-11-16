@@ -311,8 +311,8 @@ export function restoreUserCollaborationFromCloud(user = null) {
         filteredLocal.unshift(cp);
         projChanged = true;
       } else {
-        // Actualizar miembros y datos si la nube tiene información más completa
-        if (Array.isArray(cp.members) && cp.members.length > 0) {
+        // Respetar la lista de miembros de cp (incluso si está vacía, no restaurar miembros viejos)
+        if (Array.isArray(cp.members)) {
           filteredLocal[idx].members = cp.members;
           projChanged = true;
         }

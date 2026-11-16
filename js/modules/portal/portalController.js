@@ -3722,22 +3722,10 @@ export async function logoutUser(skipConfirm = false) {
   // 3. Limpiar almacenamiento de usuario activo
   saveCurrentUser(null);
 
-  // 4. Limpiar tokens residuales de Supabase y perfiles de sesión en esta computadora
+  // 4. Purga completa y definitiva de localStorage y sessionStorage al cerrar sesión
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY_ACTIVE_WORKSPACE);
-      localStorage.removeItem('control_obra_active_workspace_v1');
-      localStorage.removeItem('control_obra_user_profile_v1');
-      localStorage.removeItem('control_obra_user_profile_v1_last');
-      localStorage.removeItem('cubikar_remember_device');
-
-      // Purgar todos los tokens sb-* en localStorage
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const k = localStorage.key(i);
-        if (k && (k.startsWith('sb-') || k.includes('auth-token'))) {
-          localStorage.removeItem(k);
-        }
-      }
+      localStorage.clear();
     }
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.clear();
@@ -3747,7 +3735,7 @@ export async function logoutUser(skipConfirm = false) {
   currentScopeFilter = 'owned';
   updatePortalHeaderUserArea(null);
   renderSidebarNotificationsUI();
-  showToast('Has cerrado sesión exitosamente.');
+  showToast('Has cerrado sesión y se limpió el caché local.');
 
   const isLocalhost = typeof window !== 'undefined' && (
     window.location.hostname === 'localhost' || 
