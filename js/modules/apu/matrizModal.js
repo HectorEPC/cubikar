@@ -1,15 +1,15 @@
-// js/modules/apu/matrizModal.js
-// Controlador de la Ventana Maximizada de Matriz APU (Estilo Configuración del Sistema)
+﻿// js/modules/apu/matrizModal.js
+// Controlador de la Ventana Maximizada de Matriz APU (Estilo ConfiguraciÃ³n del Sistema)
 
-import { state, persistLocalData } from '../../state/store.js';
-import { saveState } from '../../state/history.js';
-import { showToast } from '../../ui/notifications.js';
-import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js';
-import { getFactorSobrecosto } from '../../core/calculations.js';
-import { findNodeById } from '../catalog/treeService.js';
-import { renderTAB1 } from '../catalog/catalogView.js';
-import { renderAPUInsumos, renderInsumosUnitarios } from './apuView.js';
-import { addInsumo, removeInsumo, updateInsumo, filterMatriz } from './apuService.js';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf3';
+import { saveState } from '../../state/history.js?v=20261116_cf3';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
+import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261116_cf3';
+import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf3';
+import { findNodeById } from '../catalog/treeService.js?v=20261116_cf3';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf3';
+import { renderAPUInsumos, renderInsumosUnitarios } from './apuView.js?v=20261116_cf3';
+import { addInsumo, removeInsumo, updateInsumo, filterMatriz } from './apuService.js?v=20261116_cf3';
 
 let currentMatrizModalTab = 'matriz'; // 'matriz' | 'explosion'
 let selectedModalApuRowIdx = null;
@@ -30,7 +30,7 @@ export function openMatrizModal() {
 
   const node = findNodeById(state.treeData, state.activeSelectedId);
   if (!node) {
-    showToast('No se encontró el concepto seleccionado.', 'error');
+    showToast('No se encontrÃ³ el concepto seleccionado.', 'error');
     return;
   }
 
@@ -64,7 +64,7 @@ export function closeMatrizModal() {
   renderTAB1();
 }
 
-// Cambiar de pestaña dentro de la ventana maximizada (Estilo Configuración del Sistema)
+// Cambiar de pestaÃ±a dentro de la ventana maximizada (Estilo ConfiguraciÃ³n del Sistema)
 export function switchMatrizModalTab(tab) {
   currentMatrizModalTab = tab;
   const viewMatriz = document.getElementById('modal-view-matriz');
@@ -132,7 +132,7 @@ export function renderModalMatriz(node) {
   if (claveEl) claveEl.innerText = node.clave || '---';
 
   const descEl = document.getElementById('modal-matriz-desc');
-  if (descEl) descEl.innerText = node.descripcion || 'Sin descripción';
+  if (descEl) descEl.innerText = node.descripcion || 'Sin descripciÃ³n';
 
   const badgeUnidad = document.getElementById('modal-matriz-badge-unidad');
   if (badgeUnidad) badgeUnidad.innerText = `Unidad: ${node.unidad || 'pza'}`;
@@ -147,7 +147,7 @@ export function renderModalMatriz(node) {
     thCant.title = `Consumo o rendimiento unitario necesario para elaborar exactamente 1 ${cUnid} de concepto`;
   }
 
-  // 2. Cálculos de subtotales por rubro
+  // 2. CÃ¡lculos de subtotales por rubro
   let sumMat = 0, sumMO = 0, sumHerr = 0, sumEq = 0, sumMaq = 0, sumSub = 0;
   let visibleCount = 0;
 
@@ -230,7 +230,7 @@ export function renderModalMatriz(node) {
         <td class="p-2 align-top min-w-[260px]">
           <textarea onchange="updateModalInsumo(${idx}, 'descripcion', this.value)" 
                     class="desc-input w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white px-2 py-1 rounded text-xs font-sans text-justify leading-snug break-words whitespace-normal font-medium block" 
-                    rows="2" placeholder="Descripción detallada del insumo">${ins.descripcion || ''}</textarea>
+                    rows="2" placeholder="DescripciÃ³n detallada del insumo">${ins.descripcion || ''}</textarea>
         </td>
         <td class="p-2 align-top pt-2.5 text-center">
           <input type="text" value="${ins.unidad || 'pza'}" 
@@ -269,7 +269,7 @@ export function renderModalMatriz(node) {
       const emptyTr = document.createElement('tr');
       emptyTr.innerHTML = `
         <td colspan="8" class="p-6 text-center text-slate-400 italic text-xs">
-          ${node.insumos.length === 0 ? 'Sin insumos en la matriz. Haz clic en "+ Insumo", "+ Catálogo" o "Google IA" para agregar.' : `No hay insumos del tipo "${state.currentMatrizFilter}".`}
+          ${node.insumos.length === 0 ? 'Sin insumos en la matriz. Haz clic en "+ Insumo", "+ CatÃ¡logo" o "Google IA" para agregar.' : `No hay insumos del tipo "${state.currentMatrizFilter}".`}
         </td>
       `;
       fragment.appendChild(emptyTr);
@@ -313,7 +313,7 @@ export function renderModalMatriz(node) {
   const obraEl = document.getElementById('modal-apu-calculated-total-obra');
   if (obraEl) obraEl.innerText = formatMoney(totalPartidaObra);
 
-  // 5. Renderizar vista TAB 2 (Explosión de Insumos en Obra)
+  // 5. Renderizar vista TAB 2 (ExplosiÃ³n de Insumos en Obra)
   renderModalExplosion(node);
 
   // 6. Sincronizar recuadro de Google Search Grounding si existe
@@ -322,7 +322,7 @@ export function renderModalMatriz(node) {
   updateModalFilterButtons(state.currentMatrizFilter || 'Todos');
 }
 
-// Renderizar tabla de Explosión de Obra dentro de la ventana maximizada
+// Renderizar tabla de ExplosiÃ³n de Obra dentro de la ventana maximizada
 function renderModalExplosion(node) {
   const tbody = document.getElementById('modal-insumos-unitarios-body');
   const txtVolumen = document.getElementById('modal-explosion-volumen-txt');
@@ -377,7 +377,7 @@ function renderModalExplosion(node) {
         </span>
       </td>
       <td class="p-2.5 text-xs text-slate-800 text-justify leading-snug font-sans align-middle">
-        ${ins.descripcion || 'Sin descripción'}
+        ${ins.descripcion || 'Sin descripciÃ³n'}
       </td>
       <td class="p-2.5 text-right text-xs font-bold text-blue-900 align-middle font-mono">
         ${formatQty(cantidadTotalObra)}
@@ -478,7 +478,7 @@ export function removeModalInsumo(index) {
   }
 }
 
-// Helper para sincronizar la ventana maximizada si está abierta mientras se actualiza el APU desde otra acción
+// Helper para sincronizar la ventana maximizada si estÃ¡ abierta mientras se actualiza el APU desde otra acciÃ³n
 export function updateModalIfOpen(node) {
   const modalEl = document.getElementById('matriz-modal');
   if (modalEl && !modalEl.classList.contains('hidden')) {

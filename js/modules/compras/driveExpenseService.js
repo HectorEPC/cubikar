@@ -1,20 +1,20 @@
-// js/modules/compras/driveExpenseService.js
-// Servicio de Almacenamiento Unificado (AWS S3 + Caché IndexedDB + Cuotas) para Comprobantes de Compras y Gastos.
-// Reemplaza por completo la antigua integración con Google Drive.
+﻿// js/modules/compras/driveExpenseService.js
+// Servicio de Almacenamiento Unificado (AWS S3 + CachÃ© IndexedDB + Cuotas) para Comprobantes de Compras y Gastos.
+// Reemplaza por completo la antigua integraciÃ³n con Google Drive.
 
-import { showToast } from '../../ui/notifications.js';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
 import {
   deleteManagedFile,
   resolveManagedFileUrl,
   uploadManagedFile
-} from '../../services/s3StorageService.js';
+} from '../../services/s3StorageService.js?v=20261116_cf3';
 
 /**
- * Procesa, comprime (imágenes <canvas> 1280px @ 75%) o conserva intactos (PDF/XML),
- * valida la cuota del Anfitrión y almacena el comprobante en IndexedDB + AWS S3.
+ * Procesa, comprime (imÃ¡genes <canvas> 1280px @ 75%) o conserva intactos (PDF/XML),
+ * valida la cuota del AnfitriÃ³n y almacena el comprobante en IndexedDB + AWS S3.
  */
 export async function processExpenseEvidenceUpload(file, projectName = 'Obra_General', recordId = '') {
-  if (!file) throw new Error('Archivo no válido.');
+  if (!file) throw new Error('Archivo no vÃ¡lido.');
 
   const result = await uploadManagedFile({
     file,

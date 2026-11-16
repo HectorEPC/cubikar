@@ -1,13 +1,13 @@
-// js/modules/calendario/calendarioAiService.js
-// Motor Experto + Asistente IA (Gemini) de Proceso Constructivo y Ruta Crítica (CPM)
-// Analiza el Tipo de Obra, partidas, volúmenes, matrices APU y días inhábiles para proponer
-// duraciones realistas, dependencias Fin-a-Inicio libres de ciclos y frentes simultáneos.
+﻿// js/modules/calendario/calendarioAiService.js
+// Motor Experto + Asistente IA (Gemini) de Proceso Constructivo y Ruta CrÃ­tica (CPM)
+// Analiza el Tipo de Obra, partidas, volÃºmenes, matrices APU y dÃ­as inhÃ¡biles para proponer
+// duraciones realistas, dependencias Fin-a-Inicio libres de ciclos y frentes simultÃ¡neos.
 
-import { state, persistSettings } from '../../state/store.js';
-import { getActiveProjectId } from '../../config/constants.js';
-import { getSupabaseClient } from '../../core/supabaseClient.js';
-import { getProjectById } from '../portal/projectService.js';
-import { extractJsonFromAiResponse } from '../ai/geminiClient.js';
+import { state, persistSettings } from '../../state/store.js?v=20261116_cf3';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf3';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf3';
+import { getProjectById } from '../portal/projectService.js?v=20261116_cf3';
+import { extractJsonFromAiResponse } from '../ai/geminiClient.js?v=20261116_cf3';
 import {
   extractScheduleItems,
   getScheduleSettings,
@@ -19,44 +19,44 @@ import {
   formatDate,
   addDays,
   diffDays
-} from './calendarioModel.js';
+} from './calendarioModel.js?v=20261116_cf3';
 
 export const WORK_TYPE_PROFILES = {
   edificacion: {
     id: 'edificacion',
-    label: '🏠 Edificación / Residencial y Comercial',
-    shortLabel: 'Edificación',
+    label: 'ðŸ  EdificaciÃ³n / Residencial y Comercial',
+    shortLabel: 'EdificaciÃ³n',
     reasoningParallel:
-      'En Edificación, el proceso constructivo inicia con Preliminares y Trazo → Excavación → Cimentación, habilitando Drenaje subterráneo/Cisterna en paralelo antes de cerrar firmes. Posteriormente levanta Estructura Vertical (Muros/Columnas/Castillos) → Losas y Cubiertas, abre frentes simultáneos de Instalaciones Ocultas (Eléctrica, Hidrosanitaria y Especiales), continúa con Albañilería/Aplanados/Impermeabilización → Pisos y Plafones, ejecuta en paralelo Carpintería, Cancelería y Herrería, y cierra con Pintura, Muebles de baño y Limpieza fina.',
+      'En EdificaciÃ³n, el proceso constructivo inicia con Preliminares y Trazo â†’ ExcavaciÃ³n â†’ CimentaciÃ³n, habilitando Drenaje subterrÃ¡neo/Cisterna en paralelo antes de cerrar firmes. Posteriormente levanta Estructura Vertical (Muros/Columnas/Castillos) â†’ Losas y Cubiertas, abre frentes simultÃ¡neos de Instalaciones Ocultas (ElÃ©ctrica, Hidrosanitaria y Especiales), continÃºa con AlbaÃ±ilerÃ­a/Aplanados/ImpermeabilizaciÃ³n â†’ Pisos y Plafones, ejecuta en paralelo CarpinterÃ­a, CancelerÃ­a y HerrerÃ­a, y cierra con Pintura, Muebles de baÃ±o y Limpieza fina.',
     reasoningSerial:
-      'Estrategia conservadora secuencial para Edificación: una cuadrilla avanza etapa por etapa esperando el término total del concepto anterior antes de iniciar el siguiente, sin traslapar especialidades.'
+      'Estrategia conservadora secuencial para EdificaciÃ³n: una cuadrilla avanza etapa por etapa esperando el tÃ©rmino total del concepto anterior antes de iniciar el siguiente, sin traslapar especialidades.'
   },
   infraestructura: {
     id: 'infraestructura',
-    label: '🛣️ Infraestructura / Vialidad y Urbanización',
+    label: 'ðŸ›£ï¸ Infraestructura / Vialidad y UrbanizaciÃ³n',
     shortLabel: 'Infraestructura',
     reasoningParallel:
-      'En Infraestructura y Vialidades, la secuencia constructiva protege las capas compactadas: ejecuta Topografía y Preliminares → Despalme y Cortes en Caja → Redes Subterráneas profundas (Agua Potable, Drenaje Sanitario y Pluvial) ANTES de cerrar Subrasante, evitando reabrir zanjas sobre pavimento. Una vez lista la Subrasante, avanza en paralelo con Guarniciones/Banquetas y Base Hidráulica, seguidas de Carpeta de Rodamiento y Alumbrado Público simultáneo, cerrando con Señalamiento Vial y Limpieza.',
+      'En Infraestructura y Vialidades, la secuencia constructiva protege las capas compactadas: ejecuta TopografÃ­a y Preliminares â†’ Despalme y Cortes en Caja â†’ Redes SubterrÃ¡neas profundas (Agua Potable, Drenaje Sanitario y Pluvial) ANTES de cerrar Subrasante, evitando reabrir zanjas sobre pavimento. Una vez lista la Subrasante, avanza en paralelo con Guarniciones/Banquetas y Base HidrÃ¡ulica, seguidas de Carpeta de Rodamiento y Alumbrado PÃºblico simultÃ¡neo, cerrando con SeÃ±alamiento Vial y Limpieza.',
     reasoningSerial:
-      'Estrategia conservadora secuencial para Infraestructura: terracerías, líneas hidrosanitarias, guarniciones, pavimentos, alumbrado y señalamiento se ejecutan estrictamente en serie.'
+      'Estrategia conservadora secuencial para Infraestructura: terracerÃ­as, lÃ­neas hidrosanitarias, guarniciones, pavimentos, alumbrado y seÃ±alamiento se ejecutan estrictamente en serie.'
   },
   industrial: {
     id: 'industrial',
-    label: '🏭 Nave Industrial / Estructura Metálica',
+    label: 'ðŸ­ Nave Industrial / Estructura MetÃ¡lica',
     shortLabel: 'Industrial',
     reasoningParallel:
-      'En Nave Industrial Metálica, se optimiza la Ruta Crítica adelantando desde el día 1 el Habilitado y Fabricación de Acero en Taller en paralelo con Plataforma/Terracerías y Cimentación (Zapatas, Dados y Anclas). El Montaje con grúa de Columnas y Armaduras arranca en cuanto coinciden dados fraguados y acero de taller, seguido de Cubierta Laminada para techar el área y permitir simultáneamente Firme Industrial de concreto e Instalaciones Electromecánicas/Contra Incendio, cerrando con Andenes y Acabados.',
+      'En Nave Industrial MetÃ¡lica, se optimiza la Ruta CrÃ­tica adelantando desde el dÃ­a 1 el Habilitado y FabricaciÃ³n de Acero en Taller en paralelo con Plataforma/TerracerÃ­as y CimentaciÃ³n (Zapatas, Dados y Anclas). El Montaje con grÃºa de Columnas y Armaduras arranca en cuanto coinciden dados fraguados y acero de taller, seguido de Cubierta Laminada para techar el Ã¡rea y permitir simultÃ¡neamente Firme Industrial de concreto e Instalaciones ElectromecÃ¡nicas/Contra Incendio, cerrando con Andenes y Acabados.',
     reasoningSerial:
       'Estrategia conservadora secuencial para Nave Industrial: cada etapa espera al cierre completo de la anterior sin fabricar estructura en paralelo con las cimentaciones.'
   },
   remodelacion: {
     id: 'remodelacion',
-    label: '🔨 Remodelación / Interiores y Adecuaciones',
-    shortLabel: 'Remodelación',
+    label: 'ðŸ”¨ RemodelaciÃ³n / Interiores y Adecuaciones',
+    shortLabel: 'RemodelaciÃ³n',
     reasoningParallel:
-      'En Remodelación e Interiores, se inicia con Protecciones, Desmantelamientos y Demoliciones → Muros Divisorios/Tablaroca y Albañilería → tendido simultáneo de Instalaciones Eléctricas, Voz/Datos, Hidrosanitarias y Aire Acondicionado → Plafones, Pastas y Pisos → montaje paralelo de Carpintería, Cancelería de cristal y Herrería → Pintura final, Iluminación y Limpieza fina de entrega.',
+      'En RemodelaciÃ³n e Interiores, se inicia con Protecciones, Desmantelamientos y Demoliciones â†’ Muros Divisorios/Tablaroca y AlbaÃ±ilerÃ­a â†’ tendido simultÃ¡neo de Instalaciones ElÃ©ctricas, Voz/Datos, Hidrosanitarias y Aire Acondicionado â†’ Plafones, Pastas y Pisos â†’ montaje paralelo de CarpinterÃ­a, CancelerÃ­a de cristal y HerrerÃ­a â†’ Pintura final, IluminaciÃ³n y Limpieza fina de entrega.',
     reasoningSerial:
-      'Estrategia conservadora secuencial para Remodelación: demoliciones, muros, instalaciones, recubrimientos, carpinterías y pintura avanzan uno tras otro con una sola cuadrilla activa.'
+      'Estrategia conservadora secuencial para RemodelaciÃ³n: demoliciones, muros, instalaciones, recubrimientos, carpinterÃ­as y pintura avanzan uno tras otro con una sola cuadrilla activa.'
   }
 };
 
@@ -68,7 +68,7 @@ function normalizeText(str = '') {
     .trim();
 }
 
-// Detecta automáticamente el giro / Tipo de Obra configurado en el proyecto activo
+// Detecta automÃ¡ticamente el giro / Tipo de Obra configurado en el proyecto activo
 export function detectProjectWorkType() {
   try {
     const activeId = getActiveProjectId();
@@ -90,9 +90,9 @@ export function detectProjectWorkType() {
       return 'edificacion';
     }
 
-    // Inspeccionar partidas raíz si el nombre es genérico
+    // Inspeccionar partidas raÃ­z si el nombre es genÃ©rico
     const partNames = (state.treeData || []).map(n => normalizeText(n.descripcion)).join(' ');
-    if (/subrasante|base hidraulica|carpeta asfaltica|guarnicion|señalamiento vial/.test(partNames)) {
+    if (/subrasante|base hidraulica|carpeta asfaltica|guarnicion|seÃ±alamiento vial/.test(partNames)) {
       return 'infraestructura';
     }
     if (/estructura metalica|cubierta kr|andenes|firme industrial/.test(partNames)) {
@@ -103,7 +103,7 @@ export function detectProjectWorkType() {
   return 'edificacion';
 }
 
-// Clasifica cada concepto dentro de su etapa constructiva lógica y subfrente paralelo según el Tipo de Obra
+// Clasifica cada concepto dentro de su etapa constructiva lÃ³gica y subfrente paralelo segÃºn el Tipo de Obra
 export function classifyConceptConstructiveStage(item, workType = 'edificacion', fallbackOrder = 0) {
   const desc = normalizeText(item.descripcion);
   const part = normalizeText(item.parentPartidaName);
@@ -111,14 +111,14 @@ export function classifyConceptConstructiveStage(item, workType = 'edificacion',
   const full = `${desc} ${part}`;
 
   if (workType === 'infraestructura') {
-    if (/trazo|nivelacion|topograf|banco de nivel|seccionamiento|preliminar|señalamiento preventivo|demolicion/.test(full)) {
-      return { stageOrder: 10, stageName: '1. Preliminares y Topografía', subFront: 'prelim', canStartEarly: false };
+    if (/trazo|nivelacion|topograf|banco de nivel|seccionamiento|preliminar|seÃ±alamiento preventivo|demolicion/.test(full)) {
+      return { stageOrder: 10, stageName: '1. Preliminares y TopografÃ­a', subFront: 'prelim', canStartEarly: false };
     }
     if (/despalme|corte en caja|excavacion en caja|terraceria|terraplen|prestamo|acarreo/.test(desc) || (/terraceria/.test(part) && !/subrasante|base/.test(desc))) {
-      return { stageOrder: 20, stageName: '2. Despalme y Terracerías', subFront: 'terracerias', canStartEarly: false };
+      return { stageOrder: 20, stageName: '2. Despalme y TerracerÃ­as', subFront: 'terracerias', canStartEarly: false };
     }
     if (/colector|drenaje|sanitari|agua potable|toma domiciliaria|pozo de visita|pluvial|bocatormenta|zanja|cama de arena|tuberia pvc|tuberia pead/.test(full)) {
-      return { stageOrder: 30, stageName: '3. Redes Subterráneas (Agua/Drenaje/Pluvial)', subFront: 'redes_sub', canStartEarly: false };
+      return { stageOrder: 30, stageName: '3. Redes SubterrÃ¡neas (Agua/Drenaje/Pluvial)', subFront: 'redes_sub', canStartEarly: false };
     }
     if (/subrasante|sub-base|subbase|mejoramiento|compactacion al 95/.test(full)) {
       return { stageOrder: 40, stageName: '4. Capa Subrasante y Sub-base', subFront: 'subrasante', canStartEarly: false };
@@ -127,16 +127,16 @@ export function classifyConceptConstructiveStage(item, workType = 'edificacion',
       return { stageOrder: 50, stageName: '5A. Guarniciones y Banquetas', subFront: 'obras_civiles', parallelGroup: 50, canStartEarly: false };
     }
     if (/base hidraulica|grava controlada|riego de impregnacion|riego de liga/.test(full)) {
-      return { stageOrder: 50, stageName: '5B. Base Hidráulica', subFront: 'base_pav', parallelGroup: 50, canStartEarly: false };
+      return { stageOrder: 50, stageName: '5B. Base HidrÃ¡ulica', subFront: 'base_pav', parallelGroup: 50, canStartEarly: false };
     }
     if (/carpeta|concreto hidraulico|mr-|mr45|mr-42|losa de rodamiento|adoquin|empedrado|pavimento/.test(full)) {
       return { stageOrder: 60, stageName: '6. Pavimento / Carpeta de Rodamiento', subFront: 'carpeta', canStartEarly: false };
     }
     if (/alumbrado|luminaria|poste|registro electrico|mobiliario urbano|bolardo|arborizacion|jardineria/.test(full)) {
-      return { stageOrder: 65, stageName: '7. Alumbrado Público y Mobiliario', subFront: 'alumbrado', waitsForStage: 50, canStartEarly: false };
+      return { stageOrder: 65, stageName: '7. Alumbrado PÃºblico y Mobiliario', subFront: 'alumbrado', waitsForStage: 50, canStartEarly: false };
     }
-    if (/señalamiento|pintura trafico|termoplastica|vialeta|boya|raya|limpieza|entrega/.test(full)) {
-      return { stageOrder: 80, stageName: '8. Señalamiento Vial y Cierre', subFront: 'cierre_vial', canStartEarly: false };
+    if (/seÃ±alamiento|pintura trafico|termoplastica|vialeta|boya|raya|limpieza|entrega/.test(full)) {
+      return { stageOrder: 80, stageName: '8. SeÃ±alamiento Vial y Cierre', subFront: 'cierre_vial', canStartEarly: false };
     }
   } else if (workType === 'industrial') {
     if (/taller|fabricacion|habilitado de acero|habilitado y pintura|placa base en taller/.test(desc)) {
@@ -146,10 +146,10 @@ export function classifyConceptConstructiveStage(item, workType = 'edificacion',
       return { stageOrder: 10, stageName: '1A. Preliminares y Plataforma', subFront: 'plataforma', canStartEarly: false };
     }
     if (/excavacion|plantilla|zapata|dado|pedestal|ancla|contratrabe|grout|cimentacion|pilote/.test(full)) {
-      return { stageOrder: 20, stageName: '2. Cimentación, Dados y Anclas', subFront: 'cimentacion_ind', waitsForStage: 10, canStartEarly: false };
+      return { stageOrder: 20, stageName: '2. CimentaciÃ³n, Dados y Anclas', subFront: 'cimentacion_ind', waitsForStage: 10, canStartEarly: false };
     }
     if (/montaje|columna metalica|armadura|cabrilla|larguero|polin|contraventeo|estructura metalica|grua/.test(full)) {
-      return { stageOrder: 30, stageName: '3. Montaje de Estructura Metálica', subFront: 'montaje_acero', waitsForStages: [15, 20], canStartEarly: false };
+      return { stageOrder: 30, stageName: '3. Montaje de Estructura MetÃ¡lica', subFront: 'montaje_acero', waitsForStages: [15, 20], canStartEarly: false };
     }
     if (/cubierta|lamina|kr-18|kr18|r-101|traslucida|colchoneta|canalon|faldon|multipanel|fachada/.test(full)) {
       return { stageOrder: 40, stageName: '4. Cubierta y Fachadas Laminadas', subFront: 'cubierta_ind', canStartEarly: false };
@@ -167,11 +167,11 @@ export function classifyConceptConstructiveStage(item, workType = 'edificacion',
     if (/proteccion|desmantelamiento|demolicion|retiro|acarreo de escombro|preliminar/.test(full)) {
       return { stageOrder: 10, stageName: '1. Protecciones y Demoliciones', subFront: 'demolicion', canStartEarly: false };
     }
-    if (/tablaroca|durock|muro|albañileria|vano|refuerzo/.test(full)) {
-      return { stageOrder: 20, stageName: '2. Muros Divisorios y Albañilería', subFront: 'muros_rem', canStartEarly: false };
+    if (/tablaroca|durock|muro|albaÃ±ileria|vano|refuerzo/.test(full)) {
+      return { stageOrder: 20, stageName: '2. Muros Divisorios y AlbaÃ±ilerÃ­a', subFront: 'muros_rem', canStartEarly: false };
     }
     if (/electric|cableado|salida|voz y datos|red/.test(full) && !/luminaria|apagador/.test(desc)) {
-      return { stageOrder: 30, stageName: '3A. Instalación Eléctrica y Datos', subFront: 'elec_rem', parallelGroup: 30, canStartEarly: false };
+      return { stageOrder: 30, stageName: '3A. InstalaciÃ³n ElÃ©ctrica y Datos', subFront: 'elec_rem', parallelGroup: 30, canStartEarly: false };
     }
     if (/hidraulic|sanitari|plomeria|aire acondicionado|hvac|gas/.test(full) && !/mueble|wc|lavabo/.test(desc)) {
       return { stageOrder: 30, stageName: '3B. Instalaciones Hidrosanitarias / HVAC', subFront: 'hidro_rem', parallelGroup: 30, canStartEarly: false };
@@ -180,28 +180,28 @@ export function classifyConceptConstructiveStage(item, workType = 'edificacion',
       return { stageOrder: 40, stageName: '4. Plafones, Pastas y Pisos', subFront: 'acabados_base', canStartEarly: false };
     }
     if (/carpinteria|puerta|closet|cocina|mueble fijo/.test(full)) {
-      return { stageOrder: 50, stageName: '5A. Carpintería y Mobiliario', subFront: 'carp_rem', parallelGroup: 50, canStartEarly: false };
+      return { stageOrder: 50, stageName: '5A. CarpinterÃ­a y Mobiliario', subFront: 'carp_rem', parallelGroup: 50, canStartEarly: false };
     }
     if (/canceleria|cristal|vidrio|aluminio|templado|herreria/.test(full)) {
-      return { stageOrder: 50, stageName: '5B. Cancelería y Herrería', subFront: 'canc_rem', parallelGroup: 50, canStartEarly: false };
+      return { stageOrder: 50, stageName: '5B. CancelerÃ­a y HerrerÃ­a', subFront: 'canc_rem', parallelGroup: 50, canStartEarly: false };
     }
     if (/pintura|luminaria|iluminacion|apagador|contacto|wc|inodoro|lavabo|accesorio|limpieza/.test(full)) {
       return { stageOrder: 60, stageName: '6. Pintura, Equipos y Limpieza Fina', subFront: 'cierre_rem', canStartEarly: false };
     }
   }
 
-  // Perfil general Edificación / Residencial / Comercial (también respaldo universal para conceptos mixtos)
+  // Perfil general EdificaciÃ³n / Residencial / Comercial (tambiÃ©n respaldo universal para conceptos mixtos)
   if (/limpieza de terreno|desmonte|despalme|trazo|nivelacion|tapial|bodega provisional|demolicion previa|preliminar/.test(full) && !/limpieza final|limpieza fina|limpieza general de obra/.test(desc)) {
     return { stageOrder: 10, stageName: '1. Preliminares y Trazo', subFront: 'preliminares', canStartEarly: false };
   }
   if (/excavacion|cepa|afine de fondo|corte de terreno/.test(desc)) {
-    return { stageOrder: 20, stageName: '2. Excavación en Cepas', subFront: 'excavacion', canStartEarly: false };
+    return { stageOrder: 20, stageName: '2. ExcavaciÃ³n en Cepas', subFront: 'excavacion', canStartEarly: false };
   }
-  if (/drenaje subterraneo|albañal|registro sanitario|cisterna|fosa septica|bajo firme/.test(desc)) {
-    return { stageOrder: 30, stageName: '3B. Drenaje Subterráneo y Registros', subFront: 'drenaje_sub', parallelGroup: 30, waitsForStage: 20, canStartEarly: false };
+  if (/drenaje subterraneo|albaÃ±al|registro sanitario|cisterna|fosa septica|bajo firme/.test(desc)) {
+    return { stageOrder: 30, stageName: '3B. Drenaje SubterrÃ¡neo y Registros', subFront: 'drenaje_sub', parallelGroup: 30, waitsForStage: 20, canStartEarly: false };
   }
   if (/plantilla|zapata|contratrabe|cadena de desplante|dala de desplante|mamposteria|pilote|losa de cimentacion|relleno compactado|cimentacion/.test(full)) {
-    return { stageOrder: 30, stageName: '3A. Cimentación', subFront: 'cimentacion', parallelGroup: 30, canStartEarly: false };
+    return { stageOrder: 30, stageName: '3A. CimentaciÃ³n', subFront: 'cimentacion', parallelGroup: 30, canStartEarly: false };
   }
   if (/muro|tabique|block|castillo|columna|dala|cerramiento|enrase/.test(desc) && !/aplanado|pintura|azulejo|pasta/.test(desc)) {
     return { stageOrder: 40, stageName: '4. Estructura Vertical (Muros y Columnas)', subFront: 'estructura_vert', canStartEarly: false };
@@ -210,34 +210,34 @@ export function classifyConceptConstructiveStage(item, workType = 'edificacion',
     return { stageOrder: 50, stageName: '5. Losas, Trabes y Cubiertas', subFront: 'losas', canStartEarly: false };
   }
   if ((/electric|poliducto|cableado|canalizacion|centro de carga|tablero|tierra fisica|voz y datos|cctv/.test(full)) && !/luminaria|lampara|reflector/.test(desc)) {
-    return { stageOrder: 60, stageName: '6A. Instalación Eléctrica Oculta', subFront: 'inst_electrica', parallelGroup: 60, canStartEarly: false };
+    return { stageOrder: 60, stageName: '6A. InstalaciÃ³n ElÃ©ctrica Oculta', subFront: 'inst_electrica', parallelGroup: 60, canStartEarly: false };
   }
   if ((/hidraulic|sanitari|cpvc|ppr|termofusion|cobre|ramaleo|bajada pluvial|tinaco|bomba/.test(full)) && !/wc|inodoro|lavabo|regadera|mezcladora|monomando/.test(desc)) {
-    return { stageOrder: 60, stageName: '6B. Instalación Hidrosanitaria', subFront: 'inst_hidro', parallelGroup: 60, canStartEarly: false };
+    return { stageOrder: 60, stageName: '6B. InstalaciÃ³n Hidrosanitaria', subFront: 'inst_hidro', parallelGroup: 60, canStartEarly: false };
   }
   if (/gas|aire acondicionado|hvac|extraccion|especial|contra incendio/.test(full)) {
     return { stageOrder: 60, stageName: '6C. Instalaciones Especiales / Gas', subFront: 'inst_especial', parallelGroup: 60, canStartEarly: false };
   }
-  if (/firme|aplanado|zarpeo|repello|afine|yeso|pasta|estuco|impermeabil|entortado|chaflan|boquilla|albañileria/.test(full)) {
-    return { stageOrder: 70, stageName: '7. Albañilería, Aplanados e Impermeabilización', subFront: 'albanileria', canStartEarly: false };
+  if (/firme|aplanado|zarpeo|repello|afine|yeso|pasta|estuco|impermeabil|entortado|chaflan|boquilla|albaÃ±ileria/.test(full)) {
+    return { stageOrder: 70, stageName: '7. AlbaÃ±ilerÃ­a, Aplanados e ImpermeabilizaciÃ³n', subFront: 'albanileria', canStartEarly: false };
   }
   if (/piso|loseta|porcelanato|ceramica|azulejo|lambrin|zoclo|marmol|granito|plafon|recubrimiento/.test(full)) {
     return { stageOrder: 80, stageName: '8. Pisos, Recubrimientos y Plafones', subFront: 'pisos_plafones', canStartEarly: false };
   }
   if (/carpinteria|puerta de madera|puerta tambor|closet|vestidor|cocina/.test(full)) {
-    return { stageOrder: 90, stageName: '9A. Carpintería de Madera', subFront: 'carpinteria', parallelGroup: 90, canStartEarly: false };
+    return { stageOrder: 90, stageName: '9A. CarpinterÃ­a de Madera', subFront: 'carpinteria', parallelGroup: 90, canStartEarly: false };
   }
   if (/canceleria|ventana|aluminio|cristal|vidrio|domo|templado/.test(full)) {
-    return { stageOrder: 90, stageName: '9B. Cancelería y Aluminio', subFront: 'canceleria', parallelGroup: 90, canStartEarly: false };
+    return { stageOrder: 90, stageName: '9B. CancelerÃ­a y Aluminio', subFront: 'canceleria', parallelGroup: 90, canStartEarly: false };
   }
   if (/herreria|barandal|porton|reja|proteccion metalica|escalera marina/.test(full)) {
-    return { stageOrder: 90, stageName: '9C. Herrería', subFront: 'herreria', parallelGroup: 90, canStartEarly: false };
+    return { stageOrder: 90, stageName: '9C. HerrerÃ­a', subFront: 'herreria', parallelGroup: 90, canStartEarly: false };
   }
-  if (/pintura|vinilica|esmalte|sellador|wc|inodoro|lavabo|regadera|mezcladora|monomando|mueble de baño|luminaria|lampara|apagador|contacto|jardin|limpieza|entrega/.test(full)) {
+  if (/pintura|vinilica|esmalte|sellador|wc|inodoro|lavabo|regadera|mezcladora|monomando|mueble de baÃ±o|luminaria|lampara|apagador|contacto|jardin|limpieza|entrega/.test(full)) {
     return { stageOrder: 100, stageName: '10. Pintura, Muebles, Equipos y Limpieza Final', subFront: 'acabados_finales', canStartEarly: false };
   }
 
-  // Respaldo ordenado según posición de partida en el presupuesto
+  // Respaldo ordenado segÃºn posiciÃ³n de partida en el presupuesto
   const fallbackStage = 45 + Math.min(40, Math.floor(fallbackOrder * 2));
   return {
     stageOrder: fallbackStage,
@@ -247,7 +247,7 @@ export function classifyConceptConstructiveStage(item, workType = 'edificacion',
   };
 }
 
-// Estima días de ejecución realistas a partir de matriz APU (jornadas MO/Maq), cantidad, unidad e importe
+// Estima dÃ­as de ejecuciÃ³n realistas a partir de matriz APU (jornadas MO/Maq), cantidad, unidad e importe
 export function estimateConceptDuration(item) {
   const cant = Math.max(0, Number(item.cantidad) || 0);
   const imp = Math.max(0, Number(item.importe) || 0);
@@ -269,18 +269,18 @@ export function estimateConceptDuration(item) {
       }
     });
     if (totalJornadas > 0.5) {
-      // Asumir entre 1 y 3 cuadrillas según magnitud de jornadas totales
+      // Asumir entre 1 y 3 cuadrillas segÃºn magnitud de jornadas totales
       const crews = totalJornadas > 45 ? 3 : (totalJornadas > 18 ? 2 : 1);
       const estFromApu = Math.round(totalJornadas / crews);
       return Math.max(3, Math.min(30, estFromApu));
     }
   }
 
-  // 2. Rendimientos típicos constructivos por unidad y especialidad
+  // 2. Rendimientos tÃ­picos constructivos por unidad y especialidad
   let daysByQty = 0;
   if (cant > 0) {
     if (unit === 'm3') {
-      const rate = /excavacion|corte|despalme|relleno|terraplen/.test(desc) ? 35 : 8; // m3/día
+      const rate = /excavacion|corte|despalme|relleno|terraplen/.test(desc) ? 35 : 8; // m3/dÃ­a
       daysByQty = Math.ceil(cant / rate);
     } else if (unit === 'm2') {
       let rate = 22;
@@ -315,7 +315,7 @@ export function estimateConceptDuration(item) {
   return Math.max(3, Math.min(30, blended || 4));
 }
 
-// Simula el cálculo CPM sobre una lista de tareas candidatas sin modificar state.treeData
+// Simula el cÃ¡lculo CPM sobre una lista de tareas candidatas sin modificar state.treeData
 export function simulateProposalCPM(candidateTasks, startDateStr = '2026-05-01', respectWorkdays = true) {
   const workdaysCfg = getWorkdaysSettings();
   const baseStartDt = getNextWorkingDate(startDateStr, workdaysCfg, respectWorkdays);
@@ -446,7 +446,7 @@ export function simulateProposalCPM(candidateTasks, startDateStr = '2026-05-01',
   };
 }
 
-// Construye los enlaces constructivos lógicos (Frentes simultáneos o Serie)
+// Construye los enlaces constructivos lÃ³gicos (Frentes simultÃ¡neos o Serie)
 function buildTasksForStrategy(concepts, workType, strategy = 'parallel', scaleFactor = 1) {
   const enriched = concepts.map((item, idx) => {
     const stageInfo = classifyConceptConstructiveStage(item, workType, idx);
@@ -472,7 +472,7 @@ function buildTasksForStrategy(concepts, workType, strategy = 'parallel', scaleF
     };
   });
 
-  // Orden constructivo lógico respetando orden de catálogo dentro de cada etapa
+  // Orden constructivo lÃ³gico respetando orden de catÃ¡logo dentro de cada etapa
   const ordered = [...enriched].sort((a, b) => {
     if (a.stageOrder !== b.stageOrder) return a.stageOrder - b.stageOrder;
     return a.catalogIndex - b.catalogIndex;
@@ -490,7 +490,7 @@ function buildTasksForStrategy(concepts, workType, strategy = 'parallel', scaleF
       stageTasksMap.set(sn, ordered.filter(t => t.stageOrder === sn));
     });
 
-    // Para cada etapa obtener sus tareas "cierre de frente" (las últimas de cada subfrente en esa etapa)
+    // Para cada etapa obtener sus tareas "cierre de frente" (las Ãºltimas de cada subfrente en esa etapa)
     function getStageTerminalIds(sn) {
       const list = stageTasksMap.get(sn) || [];
       if (list.length === 0) return [];
@@ -499,7 +499,7 @@ function buildTasksForStrategy(concepts, workType, strategy = 'parallel', scaleF
         lastBySubFront.set(t.subFront, t.id);
       });
       const terminals = [...lastBySubFront.values()];
-      // Limitar a máximo 3 predecesoras representativas para mantener diagrama limpio
+      // Limitar a mÃ¡ximo 3 predecesoras representativas para mantener diagrama limpio
       return terminals.slice(-3);
     }
 
@@ -555,13 +555,13 @@ function buildTasksForStrategy(concepts, workType, strategy = 'parallel', scaleF
     });
   }
 
-  // Devolver en el mismo orden original del catálogo para visualización natural en la tabla
+  // Devolver en el mismo orden original del catÃ¡logo para visualizaciÃ³n natural en la tabla
   const byId = new Map();
   ordered.forEach(t => byId.set(t.id, t));
   return enriched.map(orig => byId.get(orig.id));
 }
 
-// Genera instantáneamente la propuesta experta local basada en el Proceso Constructivo del Tipo de Obra
+// Genera instantÃ¡neamente la propuesta experta local basada en el Proceso Constructivo del Tipo de Obra
 export function generateLocalConstructiveProposal(options = {}) {
   const cfg = getScheduleSettings();
   const workType = WORK_TYPE_PROFILES[options.workType] ? options.workType : detectProjectWorkType();
@@ -579,7 +579,7 @@ export function generateLocalConstructiveProposal(options = {}) {
   if (concepts.length === 0) {
     return {
       ok: false,
-      error: 'No hay conceptos en el Catálogo Base para programar.',
+      error: 'No hay conceptos en el CatÃ¡logo Base para programar.',
       tasks: []
     };
   }
@@ -588,14 +588,14 @@ export function generateLocalConstructiveProposal(options = {}) {
   let mainTasks = buildTasksForStrategy(concepts, workType, strategy, 1);
   let simMain = simulateProposalCPM(mainTasks, startDateStr, respectWorkdays);
 
-  // Si el usuario indicó un plazo meta opcional (ej. 90 días), escalar duraciones proporcionalmente
+  // Si el usuario indicÃ³ un plazo meta opcional (ej. 90 dÃ­as), escalar duraciones proporcionalmente
   if (targetDays >= 10 && simMain.totalNaturalDays > 0) {
     const ratio = Math.max(0.35, Math.min(3.0, targetDays / simMain.totalNaturalDays));
     mainTasks = buildTasksForStrategy(concepts, workType, strategy, ratio);
     simMain = simulateProposalCPM(mainTasks, startDateStr, respectWorkdays);
   }
 
-  // Comparar contra estrategia en serie para reportar días ahorrados
+  // Comparar contra estrategia en serie para reportar dÃ­as ahorrados
   const serialTasks = buildTasksForStrategy(concepts, workType, 'serial', 1);
   const simSerial = simulateProposalCPM(serialTasks, startDateStr, respectWorkdays);
   const savingsDays = strategy === 'parallel'
@@ -605,7 +605,7 @@ export function generateLocalConstructiveProposal(options = {}) {
   return {
     ok: true,
     source: 'local_expert',
-    modelUsed: 'Motor Experto de Ingeniería Constructiva',
+    modelUsed: 'Motor Experto de IngenierÃ­a Constructiva',
     workType,
     workTypeLabel: profile.label,
     strategy,
@@ -624,13 +624,13 @@ export function generateLocalConstructiveProposal(options = {}) {
 // Genera una propuesta avanzada consultando Gemini IA en tiempo real (con respaldo seguro al motor experto)
 export async function generateGeminiConstructiveProposal(options = {}) {
   const apiKey = String(options.apiKey || state.settings?.apiKey || '').trim();
-  const { checkStandardAiQuota, recordAiQuotaConsumption, applyServerQuotaSnapshot } = await import('../ai/aiQuotaAndCacheService.js');
+  const { checkStandardAiQuota, recordAiQuotaConsumption, applyServerQuotaSnapshot } = await import('../ai/aiQuotaAndCacheService.js?v=20261116_cf3');
   const quotaCheck = checkStandardAiQuota(1, null, apiKey);
   if (!quotaCheck.allowed) {
-    throw new Error(quotaCheck.reason || 'Cuota mensual de IA estándar agotada para tu plan.');
+    throw new Error(quotaCheck.reason || 'Cuota mensual de IA estÃ¡ndar agotada para tu plan.');
   }
 
-  // Guardar API Key en ajustes si el usuario la capturó en el modal
+  // Guardar API Key en ajustes si el usuario la capturÃ³ en el modal
   if (apiKey && state.settings && state.settings.apiKey !== apiKey) {
     state.settings.apiKey = apiKey;
     persistSettings();
@@ -656,32 +656,32 @@ export async function generateGeminiConstructiveProposal(options = {}) {
     duracionBase: t.durationDays
   }));
 
-  const promptText = `Eres un Ingeniero Civil Director de Planeación y Control de Obra en México experto en Ruta Crítica (CPM) y procesos constructivos reales.
+  const promptText = `Eres un Ingeniero Civil Director de PlaneaciÃ³n y Control de Obra en MÃ©xico experto en Ruta CrÃ­tica (CPM) y procesos constructivos reales.
 
-Analiza el siguiente catálogo de conceptos y genera una programación de obra lógica Fin-a-Inicio (Finish-to-Start):
+Analiza el siguiente catÃ¡logo de conceptos y genera una programaciÃ³n de obra lÃ³gica Fin-a-Inicio (Finish-to-Start):
 - Giro / Tipo de Obra: "${profile.shortLabel}" (${profile.label})
-- Estrategia solicitada: "${strategy === 'parallel' ? 'Optimizada con frentes simultáneos reales donde el proceso constructivo lo permita' : 'Secuencial conservadora con una sola cuadrilla'}"
-${targetDays >= 10 ? `- Plazo objetivo aproximado deseado por el cliente: ~${targetDays} días naturales.` : ''}
+- Estrategia solicitada: "${strategy === 'parallel' ? 'Optimizada con frentes simultÃ¡neos reales donde el proceso constructivo lo permita' : 'Secuencial conservadora con una sola cuadrilla'}"
+${targetDays >= 10 ? `- Plazo objetivo aproximado deseado por el cliente: ~${targetDays} dÃ­as naturales.` : ''}
 
-Catálogo de conceptos del proyecto (JSON):
+CatÃ¡logo de conceptos del proyecto (JSON):
 ${JSON.stringify(compactCatalog)}
 
 Reglas obligatorias:
-1. Respeta estrictamente el proceso constructivo real de "${profile.shortLabel}" (por ejemplo: trazo antes de excavación, cimentación antes de estructura, instalaciones ocultas antes de cerrar acabados/pintura, redes subterráneas antes de pavimentar, etc.).
+1. Respeta estrictamente el proceso constructivo real de "${profile.shortLabel}" (por ejemplo: trazo antes de excavaciÃ³n, cimentaciÃ³n antes de estructura, instalaciones ocultas antes de cerrar acabados/pintura, redes subterrÃ¡neas antes de pavimentar, etc.).
 2. Cada tarea debe usar exactamente el mismo "id" recibido en el JSON.
-3. "durationDays" debe ser un número entero realista mayor o igual a 3.
+3. "durationDays" debe ser un nÃºmero entero realista mayor o igual a 3.
 4. "predecessors" debe ser un arreglo de "id" de conceptos que DEBEN TERMINAR antes de poder iniciar ese concepto. PROHIBIDO crear ciclos o auto-referencias.
-5. Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura exacta:
+5. Devuelve ÃšNICAMENTE un objeto JSON vÃ¡lido con esta estructura exacta:
 \`\`\`json
 {
-  "reasoning": "Explicación ejecutiva breve en español (2 a 4 oraciones) del criterio constructivo y ruta crítica propuestos para esta obra...",
+  "reasoning": "ExplicaciÃ³n ejecutiva breve en espaÃ±ol (2 a 4 oraciones) del criterio constructivo y ruta crÃ­tica propuestos para esta obra...",
   "tasks": [
     { "id": "...", "durationDays": 5, "stageName": "Etapa constructiva", "predecessors": [] }
   ]
 }
 \`\`\``;
 
-  // Intentar primero vía endpoint proxy /api/gemini-apu si no hay key propia o para respaldo unificado
+  // Intentar primero vÃ­a endpoint proxy /api/gemini-apu si no hay key propia o para respaldo unificado
   let lastError = 'No fue posible conectar con Gemini.';
   let usedModelName = 'gemini-2.5-flash';
   try {
@@ -728,13 +728,13 @@ Reglas obligatorias:
       const errJson = await proxyRes.json().catch(() => ({}));
       if (errJson?.quotaSnapshot) applyServerQuotaSnapshot(quotaCheck.ctx?.ownerEmail, errJson.quotaSnapshot);
       if (apiKey && (proxyRes.status === 401 || proxyRes.status === 403)) {
-        console.warn(`[Calendario IA] Proxy respondió HTTP ${proxyRes.status}; usando API Key propia en cliente.`);
+        console.warn(`[Calendario IA] Proxy respondiÃ³ HTTP ${proxyRes.status}; usando API Key propia en cliente.`);
       } else {
-        throw new Error(errJson?.error || 'Cuota mensual de IA agotada o sesión requerida.');
+        throw new Error(errJson?.error || 'Cuota mensual de IA agotada o sesiÃ³n requerida.');
       }
     }
   } catch (proxyErr) {
-    if (proxyErr && /cuota|sesi[oó]n|api key|401|403|429/i.test(proxyErr.message || '')) {
+    if (proxyErr && /cuota|sesi[oÃ³]n|api key|401|403|429/i.test(proxyErr.message || '')) {
       throw proxyErr;
     }
   }
@@ -766,7 +766,7 @@ Reglas obligatorias:
       const parsed = extractJsonFromAiResponse(rawText);
 
       if (!parsed || !Array.isArray(parsed.tasks)) {
-        lastError = 'Formato JSON de programación incompleto.';
+        lastError = 'Formato JSON de programaciÃ³n incompleto.';
         continue;
       }
 

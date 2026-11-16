@@ -1,1 +1,1 @@
-export { onRequest, default } from '../../api/admin-users.js';
+export { onRequest } from '../../api/admin-users.js';

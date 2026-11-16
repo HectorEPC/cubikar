@@ -1,21 +1,21 @@
-// js/modules/bitacora/bitacoraView.js
-// Interfaz completa de Bitácora de Obra Digital y Legal (LOPSRM / BESOP)
-// Incluye: KPIs de obra, Timeline cronológico con filtros, Redacción con conceptos y fotos,
-// Canvas táctil de firma digital, Configuración S3 del Anfitrión y Lightbox de evidencias.
+﻿// js/modules/bitacora/bitacoraView.js
+// Interfaz completa de BitÃ¡cora de Obra Digital y Legal (LOPSRM / BESOP)
+// Incluye: KPIs de obra, Timeline cronolÃ³gico con filtros, RedacciÃ³n con conceptos y fotos,
+// Canvas tÃ¡ctil de firma digital, ConfiguraciÃ³n S3 del AnfitriÃ³n y Lightbox de evidencias.
 
-import { state } from '../../state/store.js';
-import { showToast } from '../../ui/notifications.js';
-import { guardTabUnlocked, isTabLocked, toggleTabLock } from '../../ui/tabLockController.js';
-import { getCurrentUser, resolveWorkspacePlanContext } from '../portal/projectService.js';
+import { state } from '../../state/store.js?v=20261116_cf3';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
+import { guardTabUnlocked, isTabLocked, toggleTabLock } from '../../ui/tabLockController.js?v=20261116_cf3';
+import { getCurrentUser, resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf3';
 
 function isLegalBitacoraAllowed() {
   const planId = resolveWorkspacePlanContext()?.planId || 'free';
   return planId === 'plus' || planId === 'pro';
 }
-import { renderTabAssignedAvatars } from '../portal/portalController.js';
-import { formatDate } from '../calendario/calendarioModel.js';
-import { mountStorageMeter } from '../../services/storageQuotaService.js';
-import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf3';
+import { formatDate } from '../calendario/calendarioModel.js?v=20261116_cf3';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf3';
+import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261116_cf3';
 import {
   BITACORA_NOTE_TYPES,
   BITACORA_WEATHER_OPTIONS,
@@ -34,7 +34,7 @@ import {
   sealAndSignBitacoraNote,
   getCatalogConceptsForBitacora,
   getBitacoraWorkSummary
-} from './bitacoraModel.js';
+} from './bitacoraModel.js?v=20261116_cf3';
 import {
   getStorageConnectionSummary,
   uploadBitacoraEvidenceFile,
@@ -42,12 +42,12 @@ import {
   openBitacoraPdfArtifact,
   resolveBitacoraPhotoUrl,
   syncPendingBitacoraArtifactsToCloud
-} from './bitacoraDriveService.js';
+} from './bitacoraDriveService.js?v=20261116_cf3';
 import {
   generateNotePdfArtifact,
   downloadSingleNotePdf,
   generateAndDownloadFullBitacoraBook
-} from './bitacoraPdfService.js';
+} from './bitacoraPdfService.js?v=20261116_cf3';
 
 // Estado de UI y filtros del Timeline
 let searchFilter = '';
@@ -55,14 +55,14 @@ let typeFilter = 'all';
 let statusFilter = 'all';
 let dateFromFilter = '';
 let dateToFilter = '';
-let sortOrder = 'desc'; // 'desc' (más recientes) | 'asc' (orden correlativo #001)
+let sortOrder = 'desc'; // 'desc' (mÃ¡s recientes) | 'asc' (orden correlativo #001)
 
-// Estado del modal de descargas de bitácoras
+// Estado del modal de descargas de bitÃ¡coras
 let downloadsSearchFilter = '';
 let downloadsStatusFilter = 'all'; // 'all' | 'sealed' | 'draft'
 let downloadsTypeFilter = 'all';
 
-// Estado temporal del modal de creación/edición de nota
+// Estado temporal del modal de creaciÃ³n/ediciÃ³n de nota
 let activeDraftId = null;
 let tempSelectedConcepts = [];
 let tempEvidences = [];
@@ -86,7 +86,7 @@ function escapeHtml(str) {
 }
 
 /**
- * Hidrata de forma asíncrona imágenes cargadas en IndexedDB / AWS S3 dentro de un contenedor DOM.
+ * Hidrata de forma asÃ­ncrona imÃ¡genes cargadas en IndexedDB / AWS S3 dentro de un contenedor DOM.
  */
 async function hydrateBitacoraMediaImages(rootEl) {
   if (!rootEl) return;
@@ -108,7 +108,7 @@ async function hydrateBitacoraMediaImages(rootEl) {
 }
 
 /**
- * Filtrar y ordenar notas según controles de barra superior
+ * Filtrar y ordenar notas segÃºn controles de barra superior
  */
 function getFilteredBitacoraNotes() {
   const all = getBitacoraNotes();
@@ -158,7 +158,7 @@ function getFilteredBitacoraNotes() {
 }
 
 /**
- * Asegurar que exista el contenedor global de modales de Bitácora en document.body
+ * Asegurar que exista el contenedor global de modales de BitÃ¡cora en document.body
  */
 function ensureBitacoraModalsRoot() {
   if (typeof document === 'undefined') return null;
@@ -172,7 +172,7 @@ function ensureBitacoraModalsRoot() {
 }
 
 /**
- * Renderizado principal de la pestaña BITÁCORA DE OBRA
+ * Renderizado principal de la pestaÃ±a BITÃCORA DE OBRA
  */
 export function renderBitacoraView() {
   const container = document.getElementById('view-bitacora');
@@ -186,7 +186,7 @@ export function renderBitacoraView() {
   container.innerHTML = `
     <div class="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden rounded-xl border border-slate-200/90 shadow-xs">
       
-      <!-- 1. BARRA DE TÍTULO, COLABORADORES Y ESTADO S3 -->
+      <!-- 1. BARRA DE TÃTULO, COLABORADORES Y ESTADO S3 -->
       <div class="px-4 py-2.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-600 to-emerald-700 text-white flex items-center justify-center shadow-sm shrink-0">
@@ -195,7 +195,7 @@ export function renderBitacoraView() {
           <div class="min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
               <h2 class="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight truncate">
-                Bitácora de Obra Digital y Legal
+                BitÃ¡cora de Obra Digital y Legal
               </h2>
               <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-teal-50 text-teal-800 border border-teal-200 uppercase tracking-wide">
                 LOPSRM / BESOP
@@ -210,8 +210,8 @@ export function renderBitacoraView() {
         </div>
 
         <div class="flex items-center gap-2 flex-wrap">
-          <!-- Candado general de pestaña -->
-          <button type="button" onclick="toggleTabLock('bitacora')" class="${locked ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-700' : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'} border text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold shadow-2xs transition cursor-pointer" title="${locked ? 'Desbloquear creación de borradores' : 'Bloquear pestaña en modo consulta'}">
+          <!-- Candado general de pestaÃ±a -->
+          <button type="button" onclick="toggleTabLock('bitacora')" class="${locked ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-700' : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'} border text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold shadow-2xs transition cursor-pointer" title="${locked ? 'Desbloquear creaciÃ³n de borradores' : 'Bloquear pestaÃ±a en modo consulta'}">
             <i class="fa-solid ${locked ? 'fa-lock' : 'fa-lock-open'} text-[10px]"></i>
           </button>
 
@@ -220,7 +220,7 @@ export function renderBitacoraView() {
             <span class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
               <i class="fa-solid fa-users text-teal-600 text-[10px]"></i> Asignados:
             </span>
-            <div id="tab-avatars-bitacora" class="flex -space-x-1.5 overflow-hidden items-center cursor-pointer" onclick="openTabMembersAssignModal('bitacora')" title="Ver colaboradores con acceso a Bitácora de Obra"></div>
+            <div id="tab-avatars-bitacora" class="flex -space-x-1.5 overflow-hidden items-center cursor-pointer" onclick="openTabMembersAssignModal('bitacora')" title="Ver colaboradores con acceso a BitÃ¡cora de Obra"></div>
             <button type="button" onclick="openTabMembersAssignModal('bitacora')" class="text-[10px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded px-1.5 py-0.5 transition flex items-center gap-1 cursor-pointer">
               <i class="fa-solid fa-user-gear text-[9px]"></i> Asignar
             </button>
@@ -232,7 +232,7 @@ export function renderBitacoraView() {
       <div class="px-4 py-3 bg-gradient-to-r from-slate-50 via-white to-slate-50 border-b border-slate-200 shrink-0">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           
-          <!-- KPI 1: Días Transcurridos vs Programados -->
+          <!-- KPI 1: DÃ­as Transcurridos vs Programados -->
           <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs flex flex-col justify-between">
             <div class="flex items-center justify-between text-[11px] text-slate-500 font-semibold">
               <span class="flex items-center gap-1.5">
@@ -244,7 +244,7 @@ export function renderBitacoraView() {
             </div>
             <div class="mt-1.5 flex items-baseline justify-between gap-2">
               <div class="text-lg font-extrabold text-slate-900 font-mono">
-                ${summary.elapsedDays} <span class="text-xs font-semibold text-slate-500">días transcurridos</span>
+                ${summary.elapsedDays} <span class="text-xs font-semibold text-slate-500">dÃ­as transcurridos</span>
               </div>
               ${summary.totalProgrammedDays
                 ? `<span class="text-[11px] font-bold text-slate-600 font-mono">/ ${summary.totalProgrammedDays} prog.</span>`
@@ -278,7 +278,7 @@ export function renderBitacoraView() {
                 `).join('')}
               </select>
             </div>
-            <p class="text-[10px] text-slate-400 mt-1.5">Se asignará automáticamente a nuevas notas de hoy</p>
+            <p class="text-[10px] text-slate-400 mt-1.5">Se asignarÃ¡ automÃ¡ticamente a nuevas notas de hoy</p>
           </div>
 
           <!-- KPI 3: Notas Asentadas -->
@@ -288,12 +288,12 @@ export function renderBitacoraView() {
                 <i class="fa-solid fa-lock text-emerald-600"></i> Notas Asentadas (Legales)
               </span>
               <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-mono">
-                Último: ${escapeHtml(summary.lastFolioCode)}
+                Ãšltimo: ${escapeHtml(summary.lastFolioCode)}
               </span>
             </div>
             <div class="mt-1.5 flex items-baseline justify-between">
               <div class="text-2xl font-extrabold text-emerald-700 font-mono">${summary.sealedCount}</div>
-              <span class="text-[11px] text-slate-500 font-medium">Próximo folio: <strong class="font-mono text-slate-800">${escapeHtml(summary.nextFolioCode)}</strong></span>
+              <span class="text-[11px] text-slate-500 font-medium">PrÃ³ximo folio: <strong class="font-mono text-slate-800">${escapeHtml(summary.nextFolioCode)}</strong></span>
             </div>
             <p class="text-[10px] text-slate-400 mt-1">Inmutables con PDF foliado y firma digital</p>
           </div>
@@ -324,7 +324,7 @@ export function renderBitacoraView() {
 
         </div>
 
-        <!-- BOTONES PRINCIPALES DE ACCIÓN -->
+        <!-- BOTONES PRINCIPALES DE ACCIÃ“N -->
         <div class="flex flex-wrap items-center justify-between gap-2.5">
           <div class="flex flex-wrap items-center gap-2">
             <button type="button" onclick="openBitacoraNoteModal()" class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-98 text-white text-xs font-extrabold shadow-sm transition flex items-center gap-1.5 cursor-pointer">
@@ -334,12 +334,12 @@ export function renderBitacoraView() {
 
             <button type="button" onclick="openBitacoraDownloadsModal()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white text-xs font-extrabold shadow-sm transition flex items-center gap-1.5 cursor-pointer" title="Ver notas cargadas y descargar individuales o libro completo">
               <i class="fa-solid fa-folder-arrow-down"></i>
-              <span>Bitácoras</span>
+              <span>BitÃ¡coras</span>
             </button>
 
             <button type="button" onclick="downloadFullBitacoraBookAction()" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-98 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer" title="${isLegalBitacoraAllowed() ? 'Compilar todas las notas asentadas en un libro oficial PDF' : 'Disponible desde Plan Plus'}">
               <i class="fa-solid fa-book-open text-amber-400"></i>
-              <span>Descargar Libro Completo de Bitácora (PDF Compilado)</span>
+              <span>Descargar Libro Completo de BitÃ¡cora (PDF Compilado)</span>
               ${!isLegalBitacoraAllowed() ? '<i class="fa-solid fa-lock text-[10px] text-amber-400 ml-0.5"></i>' : ''}
             </button>
 
@@ -353,12 +353,12 @@ export function renderBitacoraView() {
 
           <button type="button" onclick="openBitacoraConfigModal()" class="px-3 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer">
             <i class="fa-solid fa-sliders text-slate-500"></i>
-            <span>Configuración de Obra y Nube S3</span>
+            <span>ConfiguraciÃ³n de Obra y Nube S3</span>
           </button>
         </div>
       </div>
 
-      <!-- 3. BARRA DE BÚSQUEDA Y FILTROS DEL TIMELINE -->
+      <!-- 3. BARRA DE BÃšSQUEDA Y FILTROS DEL TIMELINE -->
       <div class="px-4 py-2 bg-slate-100/80 border-b border-slate-200 flex flex-wrap items-center gap-2 shrink-0">
         <div class="relative flex-1 min-w-[200px]">
           <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs absolute left-3 top-1/2 -translate-y-1/2"></i>
@@ -372,8 +372,8 @@ export function renderBitacoraView() {
 
         <select id="bitacora-filter-status" onchange="onBitacoraStatusFilterChange(this.value)" class="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 cursor-pointer">
           <option value="all" ${statusFilter === 'all' ? 'selected' : ''}>Todos los estatus</option>
-          <option value="sealed" ${statusFilter === 'sealed' ? 'selected' : ''}>🔒 Asentadas (Solo Lectura)</option>
-          <option value="draft" ${statusFilter === 'draft' ? 'selected' : ''}>📝 Borradores</option>
+          <option value="sealed" ${statusFilter === 'sealed' ? 'selected' : ''}>ðŸ”’ Asentadas (Solo Lectura)</option>
+          <option value="draft" ${statusFilter === 'draft' ? 'selected' : ''}>ðŸ“ Borradores</option>
         </select>
 
         <div class="flex items-center gap-1 text-xs">
@@ -382,7 +382,7 @@ export function renderBitacoraView() {
           <input type="date" value="${escapeHtml(dateToFilter)}" onchange="onBitacoraDateToChange(this.value)" class="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700" title="Fecha hasta">
         </div>
 
-        <button type="button" onclick="toggleBitacoraSortOrder()" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer" title="Cambiar orden cronológico">
+        <button type="button" onclick="toggleBitacoraSortOrder()" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer" title="Cambiar orden cronolÃ³gico">
           <i class="fa-solid ${sortOrder === 'desc' ? 'fa-arrow-down-wide-short' : 'fa-arrow-up-short-wide'} text-teal-600"></i>
           <span>${sortOrder === 'desc' ? 'Recientes primero' : 'Folio #001 -> N'}</span>
         </button>
@@ -397,7 +397,7 @@ export function renderBitacoraView() {
       <!-- Medidor unificado de cuota AWS S3 -->
       <div id="bitacora-storage-meter" class="px-4 pt-2 bg-slate-50 border-b border-slate-200 shrink-0 pb-2"></div>
 
-      <!-- 4. LÍNEA DE TIEMPO (TIMELINE CRONOLÓGICO) -->
+      <!-- 4. LÃNEA DE TIEMPO (TIMELINE CRONOLÃ“GICO) -->
       <div id="bitacora-timeline-scroll" class="flex-1 overflow-y-auto custom-scroll p-4 sm:p-6">
         ${renderBitacoraTimelineHtml(notes)}
       </div>
@@ -417,7 +417,7 @@ export function renderBitacoraView() {
       syncPendingBitacoraArtifactsToCloud({ generatePdfFn: generateNotePdfArtifact, silent: true })
         .then(res => {
           if (res?.syncedCount > 0) {
-            showToast(`☁️ Sincronizados ${res.syncedCount} artefacto(s) pendientes en AWS S3.`, 'success');
+            showToast(`â˜ï¸ Sincronizados ${res.syncedCount} artefacto(s) pendientes en AWS S3.`, 'success');
             renderBitacoraView();
           }
         })
@@ -427,7 +427,7 @@ export function renderBitacoraView() {
 }
 
 /**
- * Renderizar tarjetas de notas en formato Línea de Tiempo (Timeline)
+ * Renderizar tarjetas de notas en formato LÃ­nea de Tiempo (Timeline)
  */
 function renderBitacoraTimelineHtml(notes) {
   if (!notes || notes.length === 0) {
@@ -438,12 +438,12 @@ function renderBitacoraTimelineHtml(notes) {
           <i class="fa-solid ${hasAnyNotes ? 'fa-filter-circle-xmark' : 'fa-book-journal-whills'} text-2xl"></i>
         </div>
         <h3 class="text-base font-extrabold text-slate-800">
-          ${hasAnyNotes ? 'Ninguna nota coincide con los filtros actuales' : 'Bitácora de Obra lista para Apertura'}
+          ${hasAnyNotes ? 'Ninguna nota coincide con los filtros actuales' : 'BitÃ¡cora de Obra lista para Apertura'}
         </h3>
         <p class="text-xs text-slate-500 mt-1.5 max-w-md mx-auto leading-relaxed">
           ${hasAnyNotes
-            ? 'Ajusta la búsqueda, fechas o tipo de nota para visualizar los asientos registrados.'
-            : 'Inicia registrando la <strong>Nota de Apertura</strong> de la obra. Cada nota asentada y firmada quedará protegida de forma inmutable con folio correlativo y respaldo PDF seguro en AWS S3.'}
+            ? 'Ajusta la bÃºsqueda, fechas o tipo de nota para visualizar los asientos registrados.'
+            : 'Inicia registrando la <strong>Nota de Apertura</strong> de la obra. Cada nota asentada y firmada quedarÃ¡ protegida de forma inmutable con folio correlativo y respaldo PDF seguro en AWS S3.'}
         </p>
         <div class="mt-5 flex items-center justify-center gap-2">
           ${hasAnyNotes ? `
@@ -497,9 +497,9 @@ function renderTimelineNoteCard(note) {
              <i class="fa-solid fa-cloud-arrow-down"></i>
              <span>PDF en AWS S3</span>
            </button>`
-        : `<span class="px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold flex items-center gap-1.5" title="Guardado en caché local; se sincronizará con AWS S3 en cuanto haya conexión">
+        : `<span class="px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold flex items-center gap-1.5" title="Guardado en cachÃ© local; se sincronizarÃ¡ con AWS S3 en cuanto haya conexiÃ³n">
              <i class="fa-solid fa-clock text-[10px]"></i>
-             <span>PDF en caché local</span>
+             <span>PDF en cachÃ© local</span>
            </span>`)
     : '';
 
@@ -533,7 +533,7 @@ function renderTimelineNoteCard(note) {
               <i class="fa-regular fa-calendar text-slate-500"></i> ${escapeHtml(note.fecha)}
               <i class="fa-regular fa-clock text-slate-500 ml-1"></i> ${escapeHtml(note.hora)} hrs
             </span>
-            <span class="flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded" title="Condición climática">
+            <span class="flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded" title="CondiciÃ³n climÃ¡tica">
               <span>${weatherMeta.emoji}</span>
               <span>${escapeHtml(weatherMeta.label)}</span>
             </span>
@@ -545,7 +545,7 @@ function renderTimelineNoteCard(note) {
           <div class="flex flex-wrap items-center gap-2 text-xs">
             <span class="font-bold text-slate-700 flex items-center gap-1">
               <i class="fa-solid fa-location-crosshairs text-teal-600 text-[11px]"></i>
-              Frente / Ubicación:
+              Frente / UbicaciÃ³n:
             </span>
             <span class="text-slate-800 font-semibold">${escapeHtml(note.ubicacion || 'Frente general de obra')}</span>
           </div>
@@ -565,15 +565,15 @@ function renderTimelineNoteCard(note) {
           ` : ''}
         </div>
 
-        <!-- Cuerpo Técnico -->
+        <!-- Cuerpo TÃ©cnico -->
         <div class="mt-3 p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/80 text-xs sm:text-[13px] text-slate-800 leading-relaxed whitespace-pre-wrap">${escapeHtml(note.descripcion || '')}</div>
 
-        <!-- Galería de Evidencias Fotográficas -->
+        <!-- GalerÃ­a de Evidencias FotogrÃ¡ficas -->
         ${evidencias.length > 0 ? `
           <div class="mt-3.5">
             <div class="text-[11px] font-bold text-slate-600 mb-2 flex items-center gap-1.5">
               <i class="fa-solid fa-camera text-teal-600"></i>
-              <span>Evidencia Fotográfica (${evidencias.length})</span>
+              <span>Evidencia FotogrÃ¡fica (${evidencias.length})</span>
             </div>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
               ${evidencias.map((ev, idx) => `
@@ -584,7 +584,7 @@ function renderTimelineNoteCard(note) {
                       <i class="fa-solid fa-magnifying-glass-plus text-white opacity-0 group-hover:opacity-100 transition text-lg drop-shadow"></i>
                     </div>
                     ${ev.s3Key ? `
-                      <span class="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-indigo-600/90 text-white text-[9px] font-bold" title="Respaldada en AWS S3 del Anfitrión">
+                      <span class="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-indigo-600/90 text-white text-[9px] font-bold" title="Respaldada en AWS S3 del AnfitriÃ³n">
                         <i class="fa-solid fa-cloud"></i>
                       </span>
                     ` : ''}
@@ -598,7 +598,7 @@ function renderTimelineNoteCard(note) {
           </div>
         ` : ''}
 
-        <!-- Bloque de Firma (solo si está asentada) -->
+        <!-- Bloque de Firma (solo si estÃ¡ asentada) -->
         ${isSealed && note.firma ? `
           <div class="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
@@ -609,7 +609,7 @@ function renderTimelineNoteCard(note) {
               ` : ''}
               <div class="text-[11px]">
                 <div class="font-extrabold text-slate-900">${escapeHtml(note.firma.autorNombre)}</div>
-                <div class="font-semibold text-teal-700">${escapeHtml(note.firma.autorCargo)} ${note.firma.autorCedula ? `&bull; Céd./Reg: <span class="font-mono">${escapeHtml(note.firma.autorCedula)}</span>` : ''}</div>
+                <div class="font-semibold text-teal-700">${escapeHtml(note.firma.autorCargo)} ${note.firma.autorCedula ? `&bull; CÃ©d./Reg: <span class="font-mono">${escapeHtml(note.firma.autorCedula)}</span>` : ''}</div>
                 <div class="text-[10px] text-slate-500 font-mono mt-0.5">
                   Sellada el ${new Date(note.firma.firmadoEn).toLocaleString('es-MX')}
                   ${note.firma.selloHash ? ` &bull; Hash: ${escapeHtml(note.firma.selloHash.slice(0, 14))}...` : ''}
@@ -636,9 +636,9 @@ function renderTimelineNoteCard(note) {
                 <i class="fa-solid fa-file-pdf text-rose-600"></i>
                 <span>Descargar PDF</span>
               </button>
-              <button type="button" onclick="createFeDeErratasAction('${note.id}')" class="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer" title="Crear nota subsecuente de aclaración o fe de erratas">
+              <button type="button" onclick="createFeDeErratasAction('${note.id}')" class="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer" title="Crear nota subsecuente de aclaraciÃ³n o fe de erratas">
                 <i class="fa-solid fa-file-pen"></i>
-                <span>Aclaración / Fe de Erratas</span>
+                <span>AclaraciÃ³n / Fe de Erratas</span>
               </button>
             ` : `
               <button type="button" onclick="openBitacoraNoteModal('${note.id}')" class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer">
@@ -662,7 +662,7 @@ function renderTimelineNoteCard(note) {
 }
 
 // ============================================================================
-// CONTROLES DE FILTRO Y CONFIGURACIÓN RÁPIDA DE CLIMA
+// CONTROLES DE FILTRO Y CONFIGURACIÃ“N RÃPIDA DE CLIMA
 // ============================================================================
 
 export function onBitacoraTodayWeatherChange(clima) {
@@ -738,7 +738,7 @@ export function openBitacoraNoteModal(noteId = null, options = {}) {
 
   const existing = noteId ? getBitacoraNoteById(noteId) : null;
   if (existing && existing.estado === 'sealed') {
-    showToast('🔒 Esta nota ya fue asentada y es de solo lectura. Crea una nota de Fe de Erratas para aclarar.', 'warning');
+    showToast('ðŸ”’ Esta nota ya fue asentada y es de solo lectura. Crea una nota de Fe de Erratas para aclarar.', 'warning');
     return;
   }
 
@@ -758,7 +758,7 @@ export function openBitacoraNoteModal(noteId = null, options = {}) {
   const defaultTipo = existing?.tipo || options.defaultTipo || 'Avance de Obra';
   const defaultUbicacion = existing?.ubicacion || '';
   const defaultDesc = existing?.descripcion || (tempFeDeErratasSource
-    ? `En referencia y aclaración (Fe de Erratas) a la Nota ${tempFeDeErratasSource.folioCode}, se hace constar lo siguiente:\n\n`
+    ? `En referencia y aclaraciÃ³n (Fe de Erratas) a la Nota ${tempFeDeErratasSource.folioCode}, se hace constar lo siguiente:\n\n`
     : '');
 
   const root = ensureBitacoraModalsRoot();
@@ -776,10 +776,10 @@ export function openBitacoraNoteModal(noteId = null, options = {}) {
             </div>
             <div>
               <h3 class="font-extrabold text-sm text-white">
-                ${existing ? 'Editar Borrador de Bitácora' : (tempFeDeErratasSource ? `Nueva Nota de Aclaración / Fe de Erratas (${tempFeDeErratasSource.folioCode})` : 'Nueva Nota en Bitácora de Obra')}
+                ${existing ? 'Editar Borrador de BitÃ¡cora' : (tempFeDeErratasSource ? `Nueva Nota de AclaraciÃ³n / Fe de Erratas (${tempFeDeErratasSource.folioCode})` : 'Nueva Nota en BitÃ¡cora de Obra')}
               </h3>
               <p class="text-[11px] text-teal-200/80">
-                Próximo folio oficial al firmar: <strong class="font-mono text-white">${formatFolioCode(getNextFolioNumber())}</strong> &bull; Estado actual: Borrador editable
+                PrÃ³ximo folio oficial al firmar: <strong class="font-mono text-white">${formatFolioCode(getNextFolioNumber())}</strong> &bull; Estado actual: Borrador editable
               </p>
             </div>
           </div>
@@ -795,7 +795,7 @@ export function openBitacoraNoteModal(noteId = null, options = {}) {
             <div class="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex items-center gap-2.5">
               <i class="fa-solid fa-scale-balanced text-amber-600 text-base"></i>
               <div>
-                <strong>Aclaración / Fe de Erratas:</strong> Esta nota quedará vinculada legalmente a la <strong>Nota ${escapeHtml(tempFeDeErratasSource.folioCode)}</strong> sin alterar el asiento original.
+                <strong>AclaraciÃ³n / Fe de Erratas:</strong> Esta nota quedarÃ¡ vinculada legalmente a la <strong>Nota ${escapeHtml(tempFeDeErratasSource.folioCode)}</strong> sin alterar el asiento original.
               </div>
             </div>
           ` : ''}
@@ -820,7 +820,7 @@ export function openBitacoraNoteModal(noteId = null, options = {}) {
             </div>
 
             <div>
-              <label class="block font-bold text-slate-700 mb-1">Condición Climática *</label>
+              <label class="block font-bold text-slate-700 mb-1">CondiciÃ³n ClimÃ¡tica *</label>
               <select id="bitacora-form-clima" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white">
                 ${BITACORA_WEATHER_OPTIONS.map(w => `<option value="${w.id}" ${defaultWeather === w.id ? 'selected' : ''}>${w.emoji} ${w.label}</option>`).join('')}
               </select>
@@ -829,25 +829,25 @@ export function openBitacoraNoteModal(noteId = null, options = {}) {
 
           <!-- Fila 2: Frente de trabajo -->
           <div>
-            <label class="block font-bold text-slate-700 mb-1">Ubicación o Frente de Trabajo (Ejes, Nivel, Tramo) *</label>
-            <input type="text" id="bitacora-form-ubicacion" value="${escapeHtml(defaultUbicacion)}" placeholder="Ej: Ejes A-D / Nivel Planta Baja / Frente de Cimentación Zapatas Z-1 a Z-4" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-800 font-semibold focus:outline-none focus:border-teal-500 focus:bg-white">
+            <label class="block font-bold text-slate-700 mb-1">UbicaciÃ³n o Frente de Trabajo (Ejes, Nivel, Tramo) *</label>
+            <input type="text" id="bitacora-form-ubicacion" value="${escapeHtml(defaultUbicacion)}" placeholder="Ej: Ejes A-D / Nivel Planta Baja / Frente de CimentaciÃ³n Zapatas Z-1 a Z-4" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-800 font-semibold focus:outline-none focus:border-teal-500 focus:bg-white">
           </div>
 
-          <!-- Fila 3: Cuerpo descriptivo técnico -->
+          <!-- Fila 3: Cuerpo descriptivo tÃ©cnico -->
           <div>
             <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-              <label class="font-bold text-slate-700">Cuerpo Técnico Descriptivo de la Nota *</label>
+              <label class="font-bold text-slate-700">Cuerpo TÃ©cnico Descriptivo de la Nota *</label>
               <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="text-[10px] text-slate-400 font-semibold">Plantillas rápidas:</span>
+                <span class="text-[10px] text-slate-400 font-semibold">Plantillas rÃ¡pidas:</span>
                 <button type="button" onclick="insertBitacoraTemplate('avance')" class="px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold cursor-pointer">+ Avance / Fuerza</button>
-                <button type="button" onclick="insertBitacoraTemplate('supervision')" class="px-2 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-bold cursor-pointer">+ Instrucción Sup.</button>
+                <button type="button" onclick="insertBitacoraTemplate('supervision')" class="px-2 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-bold cursor-pointer">+ InstrucciÃ³n Sup.</button>
                 <button type="button" onclick="insertBitacoraTemplate('incidencia')" class="px-2 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-bold cursor-pointer">+ Incidencia / Clima</button>
               </div>
             </div>
-            <textarea id="bitacora-form-descripcion" rows="6" placeholder="Redacta de forma clara, objetiva y técnica los hechos, instrucciones, volúmenes ejecutados, fuerza de trabajo, acuerdos o incidencias..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs sm:text-[13px] text-slate-800 leading-relaxed focus:outline-none focus:border-teal-500 focus:bg-white resize-y">${escapeHtml(defaultDesc)}</textarea>
+            <textarea id="bitacora-form-descripcion" rows="6" placeholder="Redacta de forma clara, objetiva y tÃ©cnica los hechos, instrucciones, volÃºmenes ejecutados, fuerza de trabajo, acuerdos o incidencias..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs sm:text-[13px] text-slate-800 leading-relaxed focus:outline-none focus:border-teal-500 focus:bg-white resize-y">${escapeHtml(defaultDesc)}</textarea>
           </div>
 
-          <!-- Fila 4: Selector de Conceptos del Catálogo de Presupuesto -->
+          <!-- Fila 4: Selector de Conceptos del CatÃ¡logo de Presupuesto -->
           <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <label class="font-bold text-slate-700 flex items-center gap-1.5">
@@ -863,21 +863,21 @@ export function openBitacoraNoteModal(noteId = null, options = {}) {
 
             <div class="relative">
               <i class="fa-solid fa-magnifying-glass text-slate-400 text-[11px] absolute left-2.5 top-1/2 -translate-y-1/2"></i>
-              <input type="text" id="bitacora-concept-search" oninput="onBitacoraConceptSearch(this.value)" placeholder="Buscar concepto en el Catálogo Base por clave o descripción..." class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-blue-500">
+              <input type="text" id="bitacora-concept-search" oninput="onBitacoraConceptSearch(this.value)" placeholder="Buscar concepto en el CatÃ¡logo Base por clave o descripciÃ³n..." class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-blue-500">
             </div>
 
             <div id="bitacora-concept-results" class="max-h-36 overflow-y-auto custom-scroll border border-slate-200 rounded-lg bg-white divide-y divide-slate-100"></div>
           </div>
 
-          <!-- Fila 5: Galería de Evidencias Fotográficas -->
+          <!-- Fila 5: GalerÃ­a de Evidencias FotogrÃ¡ficas -->
           <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <label class="font-bold text-slate-700 flex items-center gap-1.5">
                   <i class="fa-solid fa-images text-teal-600"></i>
-                  <span>Galería de Evidencias Fotográficas</span>
+                  <span>GalerÃ­a de Evidencias FotogrÃ¡ficas</span>
                 </label>
-                <p class="text-[10.5px] text-slate-500">Se optimizan automáticamente (máx. 1280px, 75%) y se respaldan en AWS S3 dentro de la cuota del Anfitrión.</p>
+                <p class="text-[10.5px] text-slate-500">Se optimizan automÃ¡ticamente (mÃ¡x. 1280px, 75%) y se respaldan en AWS S3 dentro de la cuota del AnfitriÃ³n.</p>
               </div>
               <label class="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs">
                 <i class="fa-solid fa-camera"></i>
@@ -938,9 +938,9 @@ export function insertBitacoraTemplate(tplType) {
   const textarea = document.getElementById('bitacora-form-descripcion');
   if (!textarea) return;
   const templates = {
-    avance: '• Estado de fuerza en obra: [X] oficiales, [Y] ayudantes.\n• Trabajos ejecutados durante la jornada: \n• Cumplimiento de especificaciones y calidad de materiales: Conforme a proyecto.',
-    supervision: '• Se realiza recorrido conjunto con Supervisión y Residencia de Obra.\n• Instrucción técnica emitida: \n• Plazo / fecha límite de atención: ',
-    incidencia: '• Descripción de la incidencia / condición extraordinaria: \n• Impacto en ruta crítica o frente de trabajo: \n• Acciones preventivas / correctivas inmediatas: '
+    avance: 'â€¢ Estado de fuerza en obra: [X] oficiales, [Y] ayudantes.\nâ€¢ Trabajos ejecutados durante la jornada: \nâ€¢ Cumplimiento de especificaciones y calidad de materiales: Conforme a proyecto.',
+    supervision: 'â€¢ Se realiza recorrido conjunto con SupervisiÃ³n y Residencia de Obra.\nâ€¢ InstrucciÃ³n tÃ©cnica emitida: \nâ€¢ Plazo / fecha lÃ­mite de atenciÃ³n: ',
+    incidencia: 'â€¢ DescripciÃ³n de la incidencia / condiciÃ³n extraordinaria: \nâ€¢ Impacto en ruta crÃ­tica o frente de trabajo: \nâ€¢ Acciones preventivas / correctivas inmediatas: '
   };
   const snippet = templates[tplType] || '';
   if (!snippet) return;
@@ -960,7 +960,7 @@ function renderSelectedConceptsPills() {
   if (!container) return;
 
   if (tempSelectedConcepts.length === 0) {
-    container.innerHTML = `<span class="text-[11px] text-slate-400 italic">Ningún concepto vinculado todavía.</span>`;
+    container.innerHTML = `<span class="text-[11px] text-slate-400 italic">NingÃºn concepto vinculado todavÃ­a.</span>`;
     return;
   }
 
@@ -981,7 +981,7 @@ function renderCatalogConceptsPicker() {
 
   const allConcepts = getCatalogConceptsForBitacora();
   if (allConcepts.length === 0) {
-    container.innerHTML = `<div class="p-3 text-center text-slate-400 text-[11px]">El catálogo de presupuesto aún no tiene conceptos cargados.</div>`;
+    container.innerHTML = `<div class="p-3 text-center text-slate-400 text-[11px]">El catÃ¡logo de presupuesto aÃºn no tiene conceptos cargados.</div>`;
     return;
   }
 
@@ -1075,7 +1075,7 @@ function renderTempEvidencesGrid() {
     grid.innerHTML = `
       <div class="col-span-full p-4 border-2 border-dashed border-slate-300 rounded-xl text-center text-slate-400 text-xs cursor-pointer hover:bg-white transition" onclick="document.getElementById('bitacora-photos-input')?.click()">
         <i class="fa-solid fa-cloud-arrow-up text-lg mb-1 block text-slate-400"></i>
-        Haz clic en "Agregar Fotos" para adjuntar evidencias fotográficas optimizadas (.jpg, .png, .webp)
+        Haz clic en "Agregar Fotos" para adjuntar evidencias fotogrÃ¡ficas optimizadas (.jpg, .png, .webp)
       </div>
     `;
     return;
@@ -1087,14 +1087,14 @@ function renderTempEvidencesGrid() {
       <div class="flex-1 min-w-0 space-y-1.5">
         <div class="flex items-center justify-between gap-1">
           <span class="font-bold text-[11px] text-slate-800 truncate">Foto ${idx + 1}: ${escapeHtml(ev.fileName)}</span>
-          <button type="button" onclick="removeTempBitacoraEvidence('${escapeHtml(ev.id)}')" class="text-rose-500 hover:text-rose-700 p-0.5 cursor-pointer" title="Quitar fotografía">
+          <button type="button" onclick="removeTempBitacoraEvidence('${escapeHtml(ev.id)}')" class="text-rose-500 hover:text-rose-700 p-0.5 cursor-pointer" title="Quitar fotografÃ­a">
             <i class="fa-solid fa-trash-can text-[11px]"></i>
           </button>
         </div>
         ${ev.summaryText || ev.sizeLabel ? `
           <div class="text-[10px] text-slate-500 flex items-center gap-1.5">
-            <span>${ev.cloudSynced ? '☁️ S3' : '💾 Local'}</span>
-            <span>·</span>
+            <span>${ev.cloudSynced ? 'â˜ï¸ S3' : 'ðŸ’¾ Local'}</span>
+            <span>Â·</span>
             <span class="font-mono">${escapeHtml(ev.summaryText || ev.sizeLabel)}</span>
           </div>
         ` : ''}
@@ -1117,12 +1117,12 @@ export function saveBitacoraNoteFormAction(proceedToSign = false) {
   const descripcion = document.getElementById('bitacora-form-descripcion')?.value.trim() || '';
 
   if (!ubicacion) {
-    showToast('Indica la ubicación o frente de trabajo (ejes, nivel o tramo).', 'warning');
+    showToast('Indica la ubicaciÃ³n o frente de trabajo (ejes, nivel o tramo).', 'warning');
     document.getElementById('bitacora-form-ubicacion')?.focus();
     return;
   }
   if (!descripcion) {
-    showToast('Redacta la descripción técnica de la nota antes de guardar.', 'warning');
+    showToast('Redacta la descripciÃ³n tÃ©cnica de la nota antes de guardar.', 'warning');
     document.getElementById('bitacora-form-descripcion')?.focus();
     return;
   }
@@ -1154,7 +1154,7 @@ export function saveBitacoraNoteFormAction(proceedToSign = false) {
       openSignBitacoraNoteModal(saved.id);
     } else {
       tempEvidences = [];
-      showToast('Borrador guardado correctamente en la Bitácora.', 'success');
+      showToast('Borrador guardado correctamente en la BitÃ¡cora.', 'success');
       closeBitacoraModal(false);
       renderBitacoraView();
     }
@@ -1168,10 +1168,10 @@ export function deleteBitacoraDraftAction(noteId) {
   const note = getBitacoraNoteById(noteId);
   if (!note) return;
   if (note.estado === 'sealed') {
-    showToast('🔒 Esta nota está asentada y firmada; por disposición legal no puede eliminarse.', 'error');
+    showToast('ðŸ”’ Esta nota estÃ¡ asentada y firmada; por disposiciÃ³n legal no puede eliminarse.', 'error');
     return;
   }
-  if (!confirm('¿Deseas eliminar este borrador de nota de bitácora? Esta acción solo aplica para borradores no firmados.')) {
+  if (!confirm('Â¿Deseas eliminar este borrador de nota de bitÃ¡cora? Esta acciÃ³n solo aplica para borradores no firmados.')) {
     return;
   }
   try {
@@ -1187,7 +1187,7 @@ export function createFeDeErratasAction(sourceNoteId) {
   if (!guardTabUnlocked('bitacora')) return;
   const sourceNote = getBitacoraNoteById(sourceNoteId);
   if (!sourceNote || sourceNote.estado !== 'sealed') {
-    showToast('Solo es posible crear Aclaración / Fe de Erratas sobre notas previamente asentadas.', 'warning');
+    showToast('Solo es posible crear AclaraciÃ³n / Fe de Erratas sobre notas previamente asentadas.', 'warning');
     return;
   }
   openBitacoraNoteModal(null, {
@@ -1206,14 +1206,14 @@ export function createFeDeErratasAction(sourceNoteId) {
 export function openSignBitacoraNoteModal(noteId) {
   if (!guardTabUnlocked('bitacora')) return;
   if (!isLegalBitacoraAllowed()) {
-    showToast('🔒 La Firma Digital Legal e Inmutabilidad LOPSRM/BESOP está disponible desde el Plan Plus. Tu Plan Gratuita te permite registrar notas básicas de bitácora.', 'warning');
+    showToast('ðŸ”’ La Firma Digital Legal e Inmutabilidad LOPSRM/BESOP estÃ¡ disponible desde el Plan Plus. Tu Plan Gratuita te permite registrar notas bÃ¡sicas de bitÃ¡cora.', 'warning');
     if (typeof window !== 'undefined') window.openSubscriptionModal?.();
     return;
   }
   const note = getBitacoraNoteById(noteId);
   if (!note) return;
   if (note.estado === 'sealed') {
-    showToast('🔒 Esta nota ya fue asentada y firmada.', 'warning');
+    showToast('ðŸ”’ Esta nota ya fue asentada y firmada.', 'warning');
     return;
   }
 
@@ -1243,8 +1243,8 @@ export function openSignBitacoraNoteModal(noteId) {
               <i class="fa-solid fa-file-shield text-sm"></i>
             </div>
             <div>
-              <h3 class="font-extrabold text-sm text-white">Asentar y Firmar Nota de Bitácora</h3>
-              <p class="text-[11px] text-emerald-200/80">Se asignará el folio oficial definitivo: <strong class="font-mono text-white">${escapeHtml(nextFolio)}</strong></p>
+              <h3 class="font-extrabold text-sm text-white">Asentar y Firmar Nota de BitÃ¡cora</h3>
+              <p class="text-[11px] text-emerald-200/80">Se asignarÃ¡ el folio oficial definitivo: <strong class="font-mono text-white">${escapeHtml(nextFolio)}</strong></p>
             </div>
           </div>
           <button type="button" onclick="closeBitacoraModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center justify-center cursor-pointer">
@@ -1261,7 +1261,7 @@ export function openSignBitacoraNoteModal(noteId) {
             <div class="space-y-1">
               <div class="font-extrabold text-xs uppercase tracking-wide text-rose-800">Advertencia Legal de Inviolabilidad (LOPSRM / BESOP)</div>
               <p class="text-[11.5px] leading-relaxed">
-                Una vez asentada y firmada, esta nota quedará <strong>permanentemente bloqueada (🔒 Solo Lectura)</strong>, <strong>NO podrá editarse ni eliminarse</strong>, y se compilará automáticamente en un documento PDF foliado. Si posteriormente requieres corregir algún dato, deberás crear una nueva nota subsecuente de <em>Aclaración / Fe de Erratas</em>.
+                Una vez asentada y firmada, esta nota quedarÃ¡ <strong>permanentemente bloqueada (ðŸ”’ Solo Lectura)</strong>, <strong>NO podrÃ¡ editarse ni eliminarse</strong>, y se compilarÃ¡ automÃ¡ticamente en un documento PDF foliado. Si posteriormente requieres corregir algÃºn dato, deberÃ¡s crear una nueva nota subsecuente de <em>AclaraciÃ³n / Fe de Erratas</em>.
               </p>
             </div>
           </div>
@@ -1280,7 +1280,7 @@ export function openSignBitacoraNoteModal(noteId) {
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label class="block font-bold text-slate-700 mb-1">Nombre del Firmante *</label>
-              <input type="text" id="bitacora-sign-name" value="${escapeHtml(defaultName)}" placeholder="Ing. Juan Pérez" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white">
+              <input type="text" id="bitacora-sign-name" value="${escapeHtml(defaultName)}" placeholder="Ing. Juan PÃ©rez" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white">
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">Cargo en Obra *</label>
@@ -1289,7 +1289,7 @@ export function openSignBitacoraNoteModal(noteId) {
               </select>
             </div>
             <div>
-              <label class="block font-bold text-slate-700 mb-1">Cédula Prof. / Registro</label>
+              <label class="block font-bold text-slate-700 mb-1">CÃ©dula Prof. / Registro</label>
               <input type="text" id="bitacora-sign-cedula" value="${escapeHtml(defaultCedula)}" placeholder="Ej: 8451290" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white">
             </div>
           </div>
@@ -1299,7 +1299,7 @@ export function openSignBitacoraNoteModal(noteId) {
             <div class="flex items-center justify-between mb-1.5">
               <label class="font-bold text-slate-700 flex items-center gap-1.5">
                 <i class="fa-solid fa-pen-fancy text-emerald-600"></i>
-                <span>Firma Autógrafa Digital (Traza con ratón o dedo) *</span>
+                <span>Firma AutÃ³grafa Digital (Traza con ratÃ³n o dedo) *</span>
               </label>
               <button type="button" onclick="clearBitacoraSignatureCanvas()" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-1">
                 <i class="fa-solid fa-eraser"></i> Limpiar Firma
@@ -1308,24 +1308,24 @@ export function openSignBitacoraNoteModal(noteId) {
             <div class="relative bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-inner" style="background-color: #ffffff !important;">
               <canvas id="bitacora-signature-canvas" class="w-full h-40 block cursor-crosshair" style="touch-action: none; background-color: #ffffff;"></canvas>
               <div class="pointer-events-none absolute bottom-2 left-4 right-4 border-b border-dashed border-slate-300 text-[10px] text-slate-400 text-center pb-0.5">
-                Firma sobre esta línea
+                Firma sobre esta lÃ­nea
               </div>
             </div>
           </div>
 
-          <!-- Info de destino AWS S3 del Anfitrión -->
+          <!-- Info de destino AWS S3 del AnfitriÃ³n -->
           <div class="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-[11px] flex items-center gap-2">
             <i class="fa-solid fa-cloud-arrow-up text-sm shrink-0 text-indigo-600"></i>
             <div>
-              Al confirmar, el PDF inmutable y las fotografías optimizadas se respaldarán automáticamente en <strong>AWS S3</strong> dentro de la cuota de <strong>${escapeHtml(storageInfo.hostEmail || 'tu cuenta')}</strong> (${escapeHtml(storageInfo.planLabel)}).
+              Al confirmar, el PDF inmutable y las fotografÃ­as optimizadas se respaldarÃ¡n automÃ¡ticamente en <strong>AWS S3</strong> dentro de la cuota de <strong>${escapeHtml(storageInfo.hostEmail || 'tu cuenta')}</strong> (${escapeHtml(storageInfo.planLabel)}).
             </div>
           </div>
 
-          <!-- Checkbox confirmación obligatoria -->
+          <!-- Checkbox confirmaciÃ³n obligatoria -->
           <label class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-300 cursor-pointer select-none">
             <input type="checkbox" id="bitacora-sign-confirm-check" class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
             <span class="text-[11.5px] font-semibold text-slate-700 leading-snug">
-              Confirmo bajo mi responsabilidad técnica que el contenido de esta nota es verídico y acepto que quedará <strong>bloqueada de manera permanente (Solo Lectura)</strong> al ser asentada.
+              Confirmo bajo mi responsabilidad tÃ©cnica que el contenido de esta nota es verÃ­dico y acepto que quedarÃ¡ <strong>bloqueada de manera permanente (Solo Lectura)</strong> al ser asentada.
             </span>
           </label>
 
@@ -1433,7 +1433,7 @@ export function clearBitacoraSignatureCanvas() {
 
 export async function confirmAndSealBitacoraNoteAction() {
   if (!isLegalBitacoraAllowed()) {
-    showToast('🔒 La Firma Digital Legal está disponible desde el Plan Plus.', 'warning');
+    showToast('ðŸ”’ La Firma Digital Legal estÃ¡ disponible desde el Plan Plus.', 'warning');
     if (typeof window !== 'undefined') window.openSubscriptionModal?.();
     return;
   }
@@ -1455,7 +1455,7 @@ export async function confirmAndSealBitacoraNoteAction() {
     return;
   }
   if (!confirmChecked) {
-    showToast('Marca la casilla de confirmación legal de inviolabilidad.', 'warning');
+    showToast('Marca la casilla de confirmaciÃ³n legal de inviolabilidad.', 'warning');
     return;
   }
 
@@ -1493,8 +1493,8 @@ export async function confirmAndSealBitacoraNoteAction() {
     provisionalFirma.selloHash = await computeNoteIntegrityHash(noteForHash);
     noteForHash.firma = provisionalFirma;
 
-    // 1. Verificar sincronización pendiente de fotografías en AWS S3
-    if (progressText) progressText.textContent = '1/3 Verificando evidencias fotográficas en caché y AWS S3...';
+    // 1. Verificar sincronizaciÃ³n pendiente de fotografÃ­as en AWS S3
+    if (progressText) progressText.textContent = '1/3 Verificando evidencias fotogrÃ¡ficas en cachÃ© y AWS S3...';
     await syncPendingBitacoraArtifactsToCloud({ generatePdfFn: null, silent: true }).catch(() => {});
 
     const updatedEvidences = (note.evidencias || []).map(ev => Object.assign({}, ev, {
@@ -1506,7 +1506,7 @@ export async function confirmAndSealBitacoraNoteAction() {
     const pdfArtifact = await generateNotePdfArtifact(noteForHash);
 
     // 3. Respaldar PDF oficial en AWS S3 + IndexedDB
-    if (progressText) progressText.textContent = '3/3 Respaldando PDF oficial en AWS S3 del Anfitrión...';
+    if (progressText) progressText.textContent = '3/3 Respaldando PDF oficial en AWS S3 del AnfitriÃ³n...';
     const pdfUploadRes = await uploadBitacoraOfficialPdf(pdfArtifact.blob, pdfArtifact.fileName, noteForHash);
 
     const pdfDocRecord = {
@@ -1530,9 +1530,9 @@ export async function confirmAndSealBitacoraNoteAction() {
     renderBitacoraView();
 
     if (pdfUploadRes.uploaded) {
-      showToast(`🔒 Nota ${nextFolioCode} asentada, firmada y respaldada en AWS S3.`, 'success');
+      showToast(`ðŸ”’ Nota ${nextFolioCode} asentada, firmada y respaldada en AWS S3.`, 'success');
     } else {
-      showToast(`🔒 Nota ${nextFolioCode} asentada y firmada. PDF guardado en caché local (pendiente sincronización S3).`, 'info');
+      showToast(`ðŸ”’ Nota ${nextFolioCode} asentada y firmada. PDF guardado en cachÃ© local (pendiente sincronizaciÃ³n S3).`, 'info');
     }
   } catch (err) {
     console.error('[Bitacora] Error al firmar y asentar nota:', err);
@@ -1572,7 +1572,7 @@ export async function openBitacoraPdfAction(noteId) {
 
 export async function downloadFullBitacoraBookAction() {
   if (!isLegalBitacoraAllowed()) {
-    showToast('🔒 La compilación del Libro Completo de Bitácora PDF foliado está disponible desde el Plan Plus.', 'warning');
+    showToast('ðŸ”’ La compilaciÃ³n del Libro Completo de BitÃ¡cora PDF foliado estÃ¡ disponible desde el Plan Plus.', 'warning');
     if (typeof window !== 'undefined') window.openSubscriptionModal?.();
     return;
   }
@@ -1583,9 +1583,9 @@ export async function downloadFullBitacoraBookAction() {
     return;
   }
   try {
-    showToast(`Compilando Libro Completo de Bitácora (${sealedCount} notas)...`, 'info');
+    showToast(`Compilando Libro Completo de BitÃ¡cora (${sealedCount} notas)...`, 'info');
     const res = await generateAndDownloadFullBitacoraBook(notes);
-    showToast(`📘 Libro "${res.fileName}" descargado con ${res.notesCount} nota(s) oficiales.`, 'success');
+    showToast(`ðŸ“˜ Libro "${res.fileName}" descargado con ${res.notesCount} nota(s) oficiales.`, 'success');
   } catch (err) {
     showToast(`Error compilando libro PDF: ${err.message}`, 'error');
   }
@@ -1593,7 +1593,7 @@ export async function downloadFullBitacoraBookAction() {
 
 export async function syncPendingBitacoraCloudAction() {
   try {
-    showToast('Sincronizando notas y fotografías pendientes con AWS S3...', 'info');
+    showToast('Sincronizando notas y fotografÃ­as pendientes con AWS S3...', 'info');
     const res = await syncPendingBitacoraArtifactsToCloud({
       generatePdfFn: generateNotePdfArtifact,
       silent: false
@@ -1607,7 +1607,7 @@ export async function syncPendingBitacoraCloudAction() {
 }
 
 // ============================================================================
-// MODAL 3: CONFIGURACIÓN DE OBRA Y ALMACENAMIENTO AWS S3 DEL ANFITRIÓN
+// MODAL 3: CONFIGURACIÃ“N DE OBRA Y ALMACENAMIENTO AWS S3 DEL ANFITRIÃ“N
 // ============================================================================
 
 export function openBitacoraConfigModal() {
@@ -1628,8 +1628,8 @@ export function openBitacoraConfigModal() {
               <i class="fa-solid fa-sliders text-sm"></i>
             </div>
             <div>
-              <h3 class="font-extrabold text-sm text-white">Configuración de Bitácora y Nube AWS S3</h3>
-              <p class="text-[11px] text-slate-300">Datos contractuales de carátula y cuota unificada del Anfitrión</p>
+              <h3 class="font-extrabold text-sm text-white">ConfiguraciÃ³n de BitÃ¡cora y Nube AWS S3</h3>
+              <p class="text-[11px] text-slate-300">Datos contractuales de carÃ¡tula y cuota unificada del AnfitriÃ³n</p>
             </div>
           </div>
           <button type="button" onclick="closeBitacoraModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center justify-center cursor-pointer">
@@ -1639,7 +1639,7 @@ export function openBitacoraConfigModal() {
 
         <div class="p-5 overflow-y-auto custom-scroll space-y-5 text-xs flex-1">
           
-          <!-- Sección 1: Datos Contractuales -->
+          <!-- SecciÃ³n 1: Datos Contractuales -->
           <div class="space-y-3">
             <h4 class="font-extrabold text-slate-800 uppercase tracking-wider text-[11px] border-b border-slate-200 pb-1.5">
               1. Datos Contractuales y Fechas de Obra
@@ -1650,28 +1650,28 @@ export function openBitacoraConfigModal() {
                 <input type="date" id="bitacora-cfg-inicio" value="${escapeHtml(cfg.obraInicio || summary.startDate || '')}" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono">
               </div>
               <div>
-                <label class="block font-bold text-slate-700 mb-1">Fecha Programada de Término</label>
+                <label class="block font-bold text-slate-700 mb-1">Fecha Programada de TÃ©rmino</label>
                 <input type="date" id="bitacora-cfg-fin" value="${escapeHtml(cfg.obraFinProgramada || summary.endDate || '')}" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono">
               </div>
               <div>
-                <label class="block font-bold text-slate-700 mb-1">Número de Contrato</label>
+                <label class="block font-bold text-slate-700 mb-1">NÃºmero de Contrato</label>
                 <input type="text" id="bitacora-cfg-contrato" value="${escapeHtml(cfg.contratoNumero || '')}" placeholder="Ej: OP-2026-045" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono">
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">Contratista / Constructora</label>
-                <input type="text" id="bitacora-cfg-contratista" value="${escapeHtml(cfg.contratistaNombre || summary.companyName || '')}" placeholder="Razón social del contratista" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs">
+                <input type="text" id="bitacora-cfg-contratista" value="${escapeHtml(cfg.contratistaNombre || summary.companyName || '')}" placeholder="RazÃ³n social del contratista" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs">
               </div>
               <div class="sm:col-span-2">
-                <label class="block font-bold text-slate-700 mb-1">Supervisión Técnica / Dependencia</label>
-                <input type="text" id="bitacora-cfg-supervision" value="${escapeHtml(cfg.supervisionNombre || '')}" placeholder="Ej: Supervisión Externa / Dirección de Obras" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs">
+                <label class="block font-bold text-slate-700 mb-1">SupervisiÃ³n TÃ©cnica / Dependencia</label>
+                <input type="text" id="bitacora-cfg-supervision" value="${escapeHtml(cfg.supervisionNombre || '')}" placeholder="Ej: SupervisiÃ³n Externa / DirecciÃ³n de Obras" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs">
               </div>
             </div>
           </div>
 
-          <!-- Sección 2: Almacenamiento Unificado AWS S3 del Anfitrión -->
+          <!-- SecciÃ³n 2: Almacenamiento Unificado AWS S3 del AnfitriÃ³n -->
           <div class="space-y-3">
             <h4 class="font-extrabold text-slate-800 uppercase tracking-wider text-[11px] border-b border-slate-200 pb-1.5 flex items-center justify-between">
-              <span>2. Almacenamiento en Nube AWS S3 (Cuota del Anfitrión)</span>
+              <span>2. Almacenamiento en Nube AWS S3 (Cuota del AnfitriÃ³n)</span>
               <span class="px-2 py-0.5 rounded-full text-[10px] bg-indigo-100 text-indigo-800 font-bold">
                 ${escapeHtml(storageInfo.planLabel)}
               </span>
@@ -1679,11 +1679,11 @@ export function openBitacoraConfigModal() {
 
             <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-[11px]">
               <div class="flex flex-wrap items-center justify-between gap-2">
-                <span><strong>Anfitrión del Proyecto:</strong> ${escapeHtml(storageInfo.hostName)} (${escapeHtml(storageInfo.hostEmail || 'Cuenta local')})</span>
-                <span class="text-slate-500">Límite máx/archivo: <strong>${storageInfo.maxFileMb} MB</strong></span>
+                <span><strong>AnfitriÃ³n del Proyecto:</strong> ${escapeHtml(storageInfo.hostName)} (${escapeHtml(storageInfo.hostEmail || 'Cuenta local')})</span>
+                <span class="text-slate-500">LÃ­mite mÃ¡x/archivo: <strong>${storageInfo.maxFileMb} MB</strong></span>
               </div>
               <p class="text-[10.5px] text-slate-500 leading-relaxed">
-                Las fotografías se comprimen automáticamente en el navegador (máx. 1280px, JPEG/WebP 75%) y los PDFs oficiales foliados se respaldan intactos en AWS S3 + caché local IndexedDB.
+                Las fotografÃ­as se comprimen automÃ¡ticamente en el navegador (mÃ¡x. 1280px, JPEG/WebP 75%) y los PDFs oficiales foliados se respaldan intactos en AWS S3 + cachÃ© local IndexedDB.
               </p>
             </div>
 
@@ -1698,7 +1698,7 @@ export function openBitacoraConfigModal() {
           </button>
           <button type="button" onclick="saveBitacoraConfigModalAction()" class="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer">
             <i class="fa-solid fa-floppy-disk"></i>
-            <span>Guardar Configuración</span>
+            <span>Guardar ConfiguraciÃ³n</span>
           </button>
         </div>
 
@@ -1724,7 +1724,7 @@ export function saveBitacoraConfigModalAction() {
     supervisionNombre
   });
 
-  showToast('Configuración de Bitácora guardada.', 'success');
+  showToast('ConfiguraciÃ³n de BitÃ¡cora guardada.', 'success');
   closeBitacoraModal();
   renderBitacoraView();
 }
@@ -1737,7 +1737,7 @@ export function downloadBitacoraLightboxEvidenceAction(noteId, photoIdx) {
 }
 
 // ============================================================================
-// MODAL 4: LIGHTBOX DE EVIDENCIA FOTOGRÁFICA
+// MODAL 4: LIGHTBOX DE EVIDENCIA FOTOGRÃFICA
 // ============================================================================
 
 export function openBitacoraPhotoLightbox(noteId, photoIdx) {
@@ -1769,7 +1769,7 @@ export function openBitacoraPhotoLightbox(noteId, photoIdx) {
           <img src="${ev.localDataUrl || ''}" data-media-id="${escapeHtml(ev.mediaId || '')}" data-s3-key="${escapeHtml(ev.s3Key || '')}" alt="${escapeHtml(ev.caption || ev.fileName)}" class="max-w-full max-h-[75vh] object-contain rounded-lg">
         </div>
         <div class="px-4 py-3 bg-slate-900 border-t border-slate-800 text-xs text-slate-200">
-          <strong class="text-teal-400">Descripción / Pie de foto:</strong> ${escapeHtml(ev.caption || 'Sin pie de foto registrado.')}
+          <strong class="text-teal-400">DescripciÃ³n / Pie de foto:</strong> ${escapeHtml(ev.caption || 'Sin pie de foto registrado.')}
         </div>
       </div>
     </div>
@@ -1779,7 +1779,7 @@ export function openBitacoraPhotoLightbox(noteId, photoIdx) {
 }
 
 // ============================================================================
-// MODAL 5: CENTRO DE DESCARGAS DE BITÁCORA DE OBRA
+// MODAL 5: CENTRO DE DESCARGAS DE BITÃCORA DE OBRA
 // ============================================================================
 
 function getFilteredDownloadsNotes() {
@@ -1828,12 +1828,12 @@ function renderBitacoraDownloadsItemsHtml(notes) {
           <i class="fa-solid fa-folder-open"></i>
         </div>
         <h4 class="font-extrabold text-sm text-slate-800">
-          ${totalAll > 0 ? 'Ninguna bitácora coincide con los filtros' : 'No hay notas de bitácora cargadas aún'}
+          ${totalAll > 0 ? 'Ninguna bitÃ¡cora coincide con los filtros' : 'No hay notas de bitÃ¡cora cargadas aÃºn'}
         </h4>
         <p class="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
           ${totalAll > 0
-            ? 'Prueba modificando el texto de búsqueda o los selectores de estatus y tipo.'
-            : 'Comienza redactando notas en la bitácora para visualizarlas en este panel y poder descargarlas de forma individual o en libro completo.'}
+            ? 'Prueba modificando el texto de bÃºsqueda o los selectores de estatus y tipo.'
+            : 'Comienza redactando notas en la bitÃ¡cora para visualizarlas en este panel y poder descargarlas de forma individual o en libro completo.'}
         </p>
         ${totalAll > 0 ? `
           <button type="button" onclick="onBitacoraDownloadsSearchChange(''); onBitacoraDownloadsStatusFilterChange('all'); onBitacoraDownloadsTypeFilterChange('all');" class="mt-4 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition cursor-pointer">
@@ -1882,7 +1882,7 @@ function renderBitacoraDownloadsItemsHtml(notes) {
         
         <!-- Info Principal -->
         <div class="space-y-2 flex-1 min-w-0">
-          <!-- Línea 1: Folio, Tipo, Estatus, Fecha -->
+          <!-- LÃ­nea 1: Folio, Tipo, Estatus, Fecha -->
           <div class="flex items-center gap-2 flex-wrap text-xs">
             ${folioHtml}
             <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${typeMeta.badgeClass}">
@@ -1902,31 +1902,31 @@ function renderBitacoraDownloadsItemsHtml(notes) {
             </span>
           </div>
 
-          <!-- Línea 2: Ubicación / Frente -->
+          <!-- LÃ­nea 2: UbicaciÃ³n / Frente -->
           <div class="text-xs text-slate-700 font-medium flex items-center gap-1.5 truncate">
             <i class="fa-solid fa-location-dot text-[11px] text-teal-600 shrink-0"></i>
-            <span class="font-bold text-slate-800">Frente / Ubicación:</span>
+            <span class="font-bold text-slate-800">Frente / UbicaciÃ³n:</span>
             <span class="text-slate-600 truncate">${escapeHtml(note.ubicacion || 'Frente general de obra')}</span>
           </div>
 
-          <!-- Línea 3: Resumen descriptivo -->
+          <!-- LÃ­nea 3: Resumen descriptivo -->
           <p class="text-xs text-slate-600 line-clamp-2 leading-relaxed bg-slate-50/80 p-2 rounded-lg border border-slate-100">
-            ${escapeHtml(note.descripcion || 'Sin descripción técnica capturada.')}
+            ${escapeHtml(note.descripcion || 'Sin descripciÃ³n tÃ©cnica capturada.')}
           </p>
 
-          <!-- Línea 4: Metadatos adicionales (Conceptos, Evidencias, Firmante) -->
+          <!-- LÃ­nea 4: Metadatos adicionales (Conceptos, Evidencias, Firmante) -->
           <div class="flex items-center gap-3 flex-wrap text-[11px] text-slate-500 pt-0.5">
             ${conceptos.length > 0 ? `
               <span class="inline-flex items-center gap-1 text-slate-600 font-medium">
                 <i class="fa-solid fa-layer-group text-indigo-500 text-[10px]"></i>
-                <strong>${conceptos.length}</strong> concepto(s) de catálogo
+                <strong>${conceptos.length}</strong> concepto(s) de catÃ¡logo
               </span>
             ` : ''}
 
             ${evidencias.length > 0 ? `
               <span class="inline-flex items-center gap-1 text-slate-600 font-medium">
                 <i class="fa-solid fa-camera text-teal-500 text-[10px]"></i>
-                <strong>${evidencias.length}</strong> fotografía(s) de evidencia
+                <strong>${evidencias.length}</strong> fotografÃ­a(s) de evidencia
               </span>
             ` : ''}
 
@@ -1934,13 +1934,13 @@ function renderBitacoraDownloadsItemsHtml(notes) {
               <span class="inline-flex items-center gap-1 text-emerald-800 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/80">
                 <i class="fa-solid fa-signature text-emerald-600 text-[10px]"></i>
                 Firmado: <strong>${escapeHtml(note.firma.autorNombre || '')}</strong>
-                ${note.firma.autorCedula ? `&bull; Céd. ${escapeHtml(note.firma.autorCedula)}` : ''}
+                ${note.firma.autorCedula ? `&bull; CÃ©d. ${escapeHtml(note.firma.autorCedula)}` : ''}
               </span>
             ` : ''}
           </div>
         </div>
 
-        <!-- Botones de Acción de Descarga -->
+        <!-- Botones de AcciÃ³n de Descarga -->
         <div class="flex flex-row md:flex-col items-stretch sm:items-end justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
           <button type="button" onclick="downloadSingleNotePdfAction('${note.id}')" class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-98 text-white font-extrabold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" title="${isSealed ? 'Descargar documento PDF foliado oficial' : 'Descargar PDF de vista previa'}">
             <i class="fa-solid fa-file-arrow-down text-sm"></i>
@@ -2024,7 +2024,7 @@ export function openBitacoraDownloadsModal() {
             <div>
               <div class="flex items-center gap-2">
                 <h3 class="font-extrabold text-sm sm:text-base text-white tracking-tight">
-                  Centro de Descargas de Bitácora de Obra
+                  Centro de Descargas de BitÃ¡cora de Obra
                 </h3>
                 <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 uppercase tracking-wide">
                   Expediente PDF
@@ -2053,13 +2053,13 @@ export function openBitacoraDownloadsModal() {
               </div>
               <div class="space-y-1">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <h4 class="font-extrabold text-sm text-white">Libro Completo de Bitácora (PDF Compilado)</h4>
+                  <h4 class="font-extrabold text-sm text-white">Libro Completo de BitÃ¡cora (PDF Compilado)</h4>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
                     ${sealedNotes.length} nota(s) oficial(es)
                   </span>
                 </div>
                 <p class="text-[11px] text-slate-300 max-w-xl leading-relaxed">
-                  Compila la carátula institucional de obra, índice foliado, firmas digitales y todas las evidencias en un solo expediente PDF oficial inmutable.
+                  Compila la carÃ¡tula institucional de obra, Ã­ndice foliado, firmas digitales y todas las evidencias en un solo expediente PDF oficial inmutable.
                 </p>
               </div>
             </div>
@@ -2070,11 +2070,11 @@ export function openBitacoraDownloadsModal() {
             </button>
           </div>
 
-          <!-- 2. Barra de Búsqueda y Filtros de la Lista -->
+          <!-- 2. Barra de BÃºsqueda y Filtros de la Lista -->
           <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center gap-2.5">
             <div class="relative flex-1 min-w-[220px]">
               <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs absolute left-3 top-1/2 -translate-y-1/2"></i>
-              <input type="text" id="bitacora-downloads-search" value="${escapeHtml(downloadsSearchFilter)}" oninput="onBitacoraDownloadsSearchChange(this.value)" placeholder="Buscar por folio (#001), tipo, ubicación, responsable o texto..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition">
+              <input type="text" id="bitacora-downloads-search" value="${escapeHtml(downloadsSearchFilter)}" oninput="onBitacoraDownloadsSearchChange(this.value)" placeholder="Buscar por folio (#001), tipo, ubicaciÃ³n, responsable o texto..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition">
             </div>
 
             <div class="flex items-center gap-2 flex-wrap">
@@ -2091,7 +2091,7 @@ export function openBitacoraDownloadsModal() {
             </div>
           </div>
 
-          <!-- 3. Contenedor de la lista de bitácoras cargadas -->
+          <!-- 3. Contenedor de la lista de bitÃ¡coras cargadas -->
           <div id="bitacora-downloads-list-container" class="space-y-2.5">
             ${renderBitacoraDownloadsItemsHtml(getFilteredDownloadsNotes())}
           </div>
@@ -2124,7 +2124,7 @@ export function openBitacoraDownloadsModal() {
   }
 }
 
-// Auto-registro directo en window para máxima resiliencia contra caché del navegador
+// Auto-registro directo en window para mÃ¡xima resiliencia contra cachÃ© del navegador
 if (typeof window !== 'undefined') {
   Object.assign(window, {
     renderBitacoraView,

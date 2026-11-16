@@ -1,12 +1,12 @@
-// js/modules/portal/portalController.js
-// Controlador integral para la pantalla de inicio, perfil, proyectos y navegación multi-obra
+﻿// js/modules/portal/portalController.js
+// Controlador integral para la pantalla de inicio, perfil, proyectos y navegaciÃ³n multi-obra
 
 import {
   setActiveProjectId,
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js';
+} from '../../config/constants.js?v=20261116_cf3';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -66,15 +66,15 @@ import {
   SAMPLE_LOGOS,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js';
-import { showToast } from '../../ui/notifications.js';
-import { persistLocalData, state, initStore } from '../../state/store.js';
-import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js';
-import { renderTAB1 } from '../catalog/catalogView.js';
-import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js';
-import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js';
-import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js';
+} from './projectService.js?v=20261116_cf3';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
+import { persistLocalData, state, initStore } from '../../state/store.js?v=20261116_cf3';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261116_cf3';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf3';
+import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf3';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261116_cf3';
+import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261116_cf3';
+import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261116_cf3';
 import {
   signUp,
   signInWithPassword,
@@ -84,18 +84,18 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js';
-import { mountStorageMeter } from '../../services/storageQuotaService.js';
+} from '../../core/authService.js?v=20261116_cf3';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261116_cf3';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf3';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf3';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf3';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
   openCubikarAdminModal
-} from '../admin/cubikarAdmin.js';
-import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js';
-import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js';
+} from '../admin/cubikarAdmin.js?v=20261116_cf3';
+import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf3';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261116_cf3';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -126,7 +126,7 @@ let wizardData = {
 };
 
 // ==========================================
-// INICIALIZACIÓN DEL PORTAL
+// INICIALIZACIÃ“N DEL PORTAL
 // ==========================================
 export function initPortal() {
   enforceGlobalSessionRevocation();
@@ -142,11 +142,11 @@ export function initPortal() {
     } catch (_) {}
   }
 
-  // Detectar retorno desde Stripe Checkout sin confiar en parámetros manipulables de URL (?plan=)
+  // Detectar retorno desde Stripe Checkout sin confiar en parÃ¡metros manipulables de URL (?plan=)
   const pagoStatus = urlParams.get('pago');
   if (pagoStatus === 'exitoso') {
     window.history.replaceState({}, document.title, window.location.pathname);
-    showToast('🔄 Retorno desde Stripe recibido. Verificando suscripción activa desde el servidor...', 'info');
+    showToast('ðŸ”„ Retorno desde Stripe recibido. Verificando suscripciÃ³n activa desde el servidor...', 'info');
     if (user?.id) {
       Promise.resolve()
         .then(async () => {
@@ -162,13 +162,13 @@ export function initPortal() {
         .catch(() => {});
     }
   } else if (pagoStatus === 'cancelado') {
-    showToast('Proceso de pago cancelado. No se realizó ningún cargo.', 'info');
+    showToast('Proceso de pago cancelado. No se realizÃ³ ningÃºn cargo.', 'info');
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
   if (projIdFromUrl) {
     if (!user) {
-      // Si intenta abrir un proyecto sin haber iniciado sesión
+      // Si intenta abrir un proyecto sin haber iniciado sesiÃ³n
       showPortalView('login', projIdFromUrl);
       return false;
     }
@@ -198,16 +198,16 @@ export function initPortal() {
             window.openProjectInWorkspace(downloadedProj.id);
           }
         } else {
-          showToast('No se encontró el proyecto especificado. Mostrando lista de proyectos.', 'error');
+          showToast('No se encontrÃ³ el proyecto especificado. Mostrando lista de proyectos.', 'error');
           showPortalView('dashboard');
         }
       }).catch(() => {
-        showToast('No se encontró el proyecto especificado. Mostrando lista de proyectos.', 'error');
+        showToast('No se encontrÃ³ el proyecto especificado. Mostrando lista de proyectos.', 'error');
         showPortalView('dashboard');
       });
       return false;
     } else {
-      showToast('No se encontró el proyecto especificado. Mostrando lista de proyectos.', 'error');
+      showToast('No se encontrÃ³ el proyecto especificado. Mostrando lista de proyectos.', 'error');
       showPortalView('dashboard');
       return false;
     }
@@ -271,7 +271,7 @@ function showWorkspaceView(user, project) {
 
   if (project && project.id) {
     setActiveProjectId(project.id);
-    // Si el usuario es un invitado abriendo la obra, promover automáticamente su membresía a 'active' / 'accepted'
+    // Si el usuario es un invitado abriendo la obra, promover automÃ¡ticamente su membresÃ­a a 'active' / 'accepted'
     const myEmail = (user?.email || '').toLowerCase().trim();
     const ownerEmail = (project.ownerEmail || '').toLowerCase().trim();
     if (myEmail && ownerEmail && myEmail !== ownerEmail) {
@@ -348,7 +348,7 @@ function showWorkspaceView(user, project) {
 }
 
 // ==========================================
-// PORTADA DE INICIO (INICIAR SESIÓN / REGISTRO)
+// PORTADA DE INICIO (INICIAR SESIÃ“N / REGISTRO)
 // ==========================================
 export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
   updatePortalHeaderUserArea(null);
@@ -373,7 +373,7 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans">cubikar<span class="text-rose-500 font-black">.</span></h1>
       </div>
 
-      <!-- Botón Rápido: Registrarse / Conectar con Gmail (Google Identity Services) -->
+      <!-- BotÃ³n RÃ¡pido: Registrarse / Conectar con Gmail (Google Identity Services) -->
       <div class="px-6 sm:px-8 pt-5 pb-1">
         <div id="google-signin-gsi-slot" class="w-full min-h-[42px] flex items-center justify-center"></div>
         <button id="google-signin-fallback-btn" type="button" onclick="triggerGoogleSignIn()" class="w-full bg-white hover:bg-slate-50 active:scale-98 text-slate-800 border-2 border-slate-200 hover:border-slate-300 font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition flex items-center justify-center gap-2.5 group cursor-pointer">
@@ -394,11 +394,11 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
         </div>
       </div>
 
-      <!-- Selector de Modo: Iniciar Sesión vs Registrarse -->
+      <!-- Selector de Modo: Iniciar SesiÃ³n vs Registrarse -->
       <div class="px-6 sm:px-8">
         <div class="flex p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
           <button type="button" onclick="switchAuthTab('login')" id="btn-tab-login" class="flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${initialTab === 'login' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'}">
-            <i class="fa-solid fa-right-to-bracket text-[11px]"></i> Iniciar Sesión
+            <i class="fa-solid fa-right-to-bracket text-[11px]"></i> Iniciar SesiÃ³n
           </button>
           <button type="button" onclick="switchAuthTab('register')" id="btn-tab-register" class="flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${initialTab === 'register' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'}">
             <i class="fa-solid fa-user-plus text-[11px]"></i> Registrarse
@@ -407,12 +407,12 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
       </div>
 
       <!-- ============================================== -->
-      <!-- SECCIÓN: INICIAR SESIÓN -->
+      <!-- SECCIÃ“N: INICIAR SESIÃ“N -->
       <!-- ============================================== -->
       <div id="section-login" class="${initialTab === 'login' ? '' : 'hidden'} px-6 sm:px-8 py-5 space-y-4">
         
         ${featuredProfiles && featuredProfiles.length > 0 ? `
-          <!-- Perfiles destacados con sesión abierta en este dispositivo -->
+          <!-- Perfiles destacados con sesiÃ³n abierta en este dispositivo -->
           <div id="section-featured-profiles" class="space-y-2.5">
             <div class="flex items-center justify-between px-0.5">
               <span class="text-[11px] text-blue-700 font-bold uppercase tracking-wider flex items-center gap-1.5">
@@ -441,7 +441,7 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
                       </div>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
-                      <button type="button" onclick="removeFeaturedUserAccount('${safeEmail}', '${safeName}', '${returnProjectId || ''}')" title="Quitar cuenta y cerrar su sesión" class="bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-200 font-bold text-xs px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 cursor-pointer">
+                      <button type="button" onclick="removeFeaturedUserAccount('${safeEmail}', '${safeName}', '${returnProjectId || ''}')" title="Quitar cuenta y cerrar su sesiÃ³n" class="bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-200 font-bold text-xs px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 cursor-pointer">
                         <i class="fa-solid fa-user-xmark text-xs"></i>
                         <span class="hidden sm:inline">Quitar cuenta</span>
                       </button>
@@ -453,13 +453,13 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
                 `;
               }).join('')}
             </div>
-            <div class="text-center text-[11px] text-slate-400 pt-1">O ingresa con otro correo electrónico:</div>
+            <div class="text-center text-[11px] text-slate-400 pt-1">O ingresa con otro correo electrÃ³nico:</div>
           </div>
         ` : ''}
 
         <form onsubmit="handleLoginSubmit(event, '${returnProjectId || ''}')" class="space-y-3.5">
           <div>
-            <label class="block font-bold text-xs text-slate-700 mb-1">Correo Electrónico *</label>
+            <label class="block font-bold text-xs text-slate-700 mb-1">Correo ElectrÃ³nico *</label>
             <div class="relative">
               <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                 <i class="fa-solid fa-envelope text-xs"></i>
@@ -471,46 +471,46 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
 
           <div>
             <div class="flex items-center justify-between mb-1">
-              <label class="block font-bold text-xs text-slate-700">Contraseña *</label>
-              <button type="button" onclick="promptResetPassword()" class="text-[11px] text-blue-600 hover:underline cursor-pointer">¿Olvidaste tu contraseña?</button>
+              <label class="block font-bold text-xs text-slate-700">ContraseÃ±a *</label>
+              <button type="button" onclick="promptResetPassword()" class="text-[11px] text-blue-600 hover:underline cursor-pointer">Â¿Olvidaste tu contraseÃ±a?</button>
             </div>
             <div class="relative">
               <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                 <i class="fa-solid fa-lock text-xs"></i>
               </span>
-              <input type="password" id="login-password" required placeholder="Tu contraseña" 
+              <input type="password" id="login-password" required placeholder="Tu contraseÃ±a" 
                      class="w-full pl-9 pr-10 py-2 border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs font-mono text-slate-800 transition">
-              <button type="button" onclick="togglePasswordVisibility('login-password', 'login-pass-eye')" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 cursor-pointer" title="Mostrar/Ocultar contraseña">
+              <button type="button" onclick="togglePasswordVisibility('login-password', 'login-pass-eye')" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 cursor-pointer" title="Mostrar/Ocultar contraseÃ±a">
                 <i id="login-pass-eye" class="fa-solid fa-eye text-xs"></i>
               </button>
             </div>
           </div>
 
-          <!-- Opción de Recordar Sesión (Si no se marca, al cerrar el navegador no queda iniciada) -->
+          <!-- OpciÃ³n de Recordar SesiÃ³n (Si no se marca, al cerrar el navegador no queda iniciada) -->
           <div class="flex items-center gap-2 pt-0.5">
             <label class="flex items-center gap-2 text-xs text-slate-600 hover:text-slate-900 cursor-pointer select-none">
               <input type="checkbox" id="login-remember-me" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
-              <span>Mantener sesión iniciada en esta computadora</span>
+              <span>Mantener sesiÃ³n iniciada en esta computadora</span>
             </label>
           </div>
 
           <button type="submit" id="btn-login-submit" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold text-xs py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 active:scale-98 cursor-pointer">
             <i class="fa-solid fa-right-to-bracket text-xs"></i>
-            <span>Iniciar sesión</span>
+            <span>Iniciar sesiÃ³n</span>
           </button>
         </form>
 
         <p class="text-center text-xs text-slate-500 pt-1">
-          ¿No tienes una cuenta aún? <button type="button" onclick="switchAuthTab('register')" class="text-blue-600 font-bold hover:underline cursor-pointer">Regístrate aquí</button>
+          Â¿No tienes una cuenta aÃºn? <button type="button" onclick="switchAuthTab('register')" class="text-blue-600 font-bold hover:underline cursor-pointer">RegÃ­strate aquÃ­</button>
         </p>
       </div>
 
       <!-- ============================================== -->
-      <!-- SECCIÓN: REGISTRARSE (NUEVO USUARIO) -->
+      <!-- SECCIÃ“N: REGISTRARSE (NUEVO USUARIO) -->
       <!-- ============================================== -->
       <div id="section-register" class="${initialTab === 'register' ? '' : 'hidden'} px-6 sm:px-8 py-5 space-y-3.5">
         
-        <!-- Banner Dinámico de Google Auto-fill -->
+        <!-- Banner DinÃ¡mico de Google Auto-fill -->
         <div id="google-autofill-banner" class="hidden p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-xs flex items-start gap-2.5 animate-in fade-in">
           <i class="fa-brands fa-google text-emerald-600 text-base mt-0.5 shrink-0"></i>
           <div class="space-y-0.5 flex-1 min-w-0">
@@ -526,18 +526,18 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
 
         <form onsubmit="handleRegisterSubmit(event, '${returnProjectId || ''}')" class="space-y-3.5">
           
-          <!-- 1. SEXO (Determina automáticamente el avatar inicial) -->
+          <!-- 1. SEXO (Determina automÃ¡ticamente el avatar inicial) -->
           <div>
-            <label class="block font-bold text-xs text-slate-700 mb-1.5">1. Selecciona tu Sexo * (Asigna tu Avatar temático)</label>
+            <label class="block font-bold text-xs text-slate-700 mb-1.5">1. Selecciona tu Sexo * (Asigna tu Avatar temÃ¡tico)</label>
             <div class="grid grid-cols-3 gap-2">
               <button type="button" onclick="setRegSexo('Masculino')" id="btn-sexo-masc" class="p-2 border-2 border-blue-600 bg-blue-50/60 rounded-xl text-xs font-bold text-blue-900 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>👷‍♂️</span> Masculino
+                <span>ðŸ‘·â€â™‚ï¸</span> Masculino
               </button>
               <button type="button" onclick="setRegSexo('Femenino')" id="btn-sexo-fem" class="p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-medium text-slate-700 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>👷‍♀️</span> Femenino
+                <span>ðŸ‘·â€â™€ï¸</span> Femenino
               </button>
               <button type="button" onclick="setRegSexo('Otro')" id="btn-sexo-otro" class="p-2 border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-medium text-slate-700 flex items-center justify-center gap-1.5 transition cursor-pointer">
-                <span>👷</span> Otro
+                <span>ðŸ‘·</span> Otro
               </button>
             </div>
           </div>
@@ -549,10 +549,10 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
             </div>
             <div class="space-y-1 flex-1 min-w-0">
               <div class="flex items-center justify-between">
-                <strong class="font-bold text-xs text-slate-800" id="reg-avatar-label">Avatar asignado según sexo</strong>
+                <strong class="font-bold text-xs text-slate-800" id="reg-avatar-label">Avatar asignado segÃºn sexo</strong>
                 <span class="text-[9px] text-blue-700 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">Auto</span>
               </div>
-              <p class="text-[10px] text-slate-500">Puedes conservar este avatar temático o subir tu propia fotografía.</p>
+              <p class="text-[10px] text-slate-500">Puedes conservar este avatar temÃ¡tico o subir tu propia fotografÃ­a.</p>
               <label class="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 cursor-pointer pt-0.5">
                 <i class="fa-solid fa-camera text-[10px]"></i> Subir mi propia foto
                 <input type="file" accept="image/*" class="hidden" onchange="handleCustomPhotoUpload(event)">
@@ -567,14 +567,14 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
               <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                 <i class="fa-solid fa-user text-xs"></i>
               </span>
-              <input type="text" id="reg-fullname" required placeholder="Ej. Arq. Carlos Alberto Gómez" 
+              <input type="text" id="reg-fullname" required placeholder="Ej. Arq. Carlos Alberto GÃ³mez" 
                      class="w-full pl-9 pr-3 py-2 border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs font-semibold text-slate-800 transition">
             </div>
           </div>
 
-          <!-- 4. CORREO ELECTRÓNICO -->
+          <!-- 4. CORREO ELECTRÃ“NICO -->
           <div>
-            <label class="block font-bold text-xs text-slate-700 mb-1">3. Correo Electrónico *</label>
+            <label class="block font-bold text-xs text-slate-700 mb-1">3. Correo ElectrÃ³nico *</label>
             <div class="relative">
               <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                 <i class="fa-solid fa-envelope text-xs"></i>
@@ -584,41 +584,41 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
             </div>
           </div>
 
-          <!-- 4. CONTRASEÑA -->
+          <!-- 4. CONTRASEÃ‘A -->
           <div>
-            <label class="block font-bold text-xs text-slate-700 mb-1">4. Contraseña de Acceso * (mínimo 6 caracteres)</label>
+            <label class="block font-bold text-xs text-slate-700 mb-1">4. ContraseÃ±a de Acceso * (mÃ­nimo 6 caracteres)</label>
             <div class="relative">
               <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                 <i class="fa-solid fa-lock text-xs"></i>
               </span>
-              <input type="password" id="reg-password" required minlength="6" placeholder="Mínimo 6 caracteres" oninput="checkPasswordMatchLive()"
+              <input type="password" id="reg-password" required minlength="6" placeholder="MÃ­nimo 6 caracteres" oninput="checkPasswordMatchLive()"
                      class="w-full pl-9 pr-10 py-2 border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs font-mono text-slate-800 transition">
-              <button type="button" onclick="togglePasswordVisibility('reg-password', 'reg-pass-eye')" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 cursor-pointer" title="Mostrar/Ocultar contraseña">
+              <button type="button" onclick="togglePasswordVisibility('reg-password', 'reg-pass-eye')" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 cursor-pointer" title="Mostrar/Ocultar contraseÃ±a">
                 <i id="reg-pass-eye" class="fa-solid fa-eye text-xs"></i>
               </button>
             </div>
           </div>
 
-          <!-- 5. CONFIRMAR CONTRASEÑA -->
+          <!-- 5. CONFIRMAR CONTRASEÃ‘A -->
           <div>
             <div class="flex items-center justify-between mb-1">
-              <label class="block font-bold text-xs text-slate-700">5. Confirmar Contraseña *</label>
+              <label class="block font-bold text-xs text-slate-700">5. Confirmar ContraseÃ±a *</label>
               <span id="pass-match-indicator" class="hidden items-center gap-1 text-[11px] font-bold text-emerald-600 animate-in fade-in duration-150">
                 <i class="fa-solid fa-circle-check text-xs"></i>
-                <span>Las contraseñas coinciden</span>
+                <span>Las contraseÃ±as coinciden</span>
               </span>
             </div>
             <div class="relative">
               <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                 <i id="pass-match-shield" class="fa-solid fa-shield-check text-xs transition-colors duration-200"></i>
               </span>
-              <input type="password" id="reg-password-confirm" required minlength="6" placeholder="Repite tu contraseña" oninput="checkPasswordMatchLive()"
+              <input type="password" id="reg-password-confirm" required minlength="6" placeholder="Repite tu contraseÃ±a" oninput="checkPasswordMatchLive()"
                      class="w-full pl-9 pr-16 py-2 border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-xs font-mono text-slate-800 transition">
               <div class="absolute inset-y-0 right-0 flex items-center pr-3 gap-1.5">
                 <span id="pass-match-check-icon" class="hidden text-emerald-600 font-bold text-sm">
                   <i class="fa-solid fa-check"></i>
                 </span>
-                <button type="button" onclick="togglePasswordVisibility('reg-password-confirm', 'reg-confirm-pass-eye')" class="text-slate-400 hover:text-slate-600 cursor-pointer" title="Mostrar/Ocultar contraseña">
+                <button type="button" onclick="togglePasswordVisibility('reg-password-confirm', 'reg-confirm-pass-eye')" class="text-slate-400 hover:text-slate-600 cursor-pointer" title="Mostrar/Ocultar contraseÃ±a">
                   <i id="reg-confirm-pass-eye" class="fa-solid fa-eye text-xs"></i>
                 </button>
               </div>
@@ -631,11 +631,11 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
             <input type="date" id="reg-dob" required value="1992-06-15" class="w-full border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl p-2 text-xs font-sans bg-white text-slate-800" style="color-scheme: light;">
           </div>
 
-          <!-- Opción de Recordar Sesión -->
+          <!-- OpciÃ³n de Recordar SesiÃ³n -->
           <div class="flex items-center gap-2 pt-0.5">
             <label class="flex items-center gap-2 text-xs text-slate-600 hover:text-slate-900 cursor-pointer select-none">
               <input type="checkbox" id="reg-remember-me" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
-              <span>Mantener sesión iniciada en esta computadora</span>
+              <span>Mantener sesiÃ³n iniciada en esta computadora</span>
             </label>
           </div>
 
@@ -646,7 +646,7 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
         </form>
 
         <p class="text-center text-xs text-slate-500 pt-1">
-          ¿Ya tienes una cuenta? <button type="button" onclick="switchAuthTab('login')" class="text-blue-600 font-bold hover:underline cursor-pointer">Inicia sesión aquí</button>
+          Â¿Ya tienes una cuenta? <button type="button" onclick="switchAuthTab('login')" class="text-blue-600 font-bold hover:underline cursor-pointer">Inicia sesiÃ³n aquÃ­</button>
         </p>
       </div>
 
@@ -656,7 +656,7 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
   mountPortalGoogleButton(returnProjectId, true);
 }
 
-// Cambiar entre Iniciar Sesión y Registrarse
+// Cambiar entre Iniciar SesiÃ³n y Registrarse
 export function switchAuthTab(tab) {
   const secLogin = document.getElementById('section-login');
   const secReg = document.getElementById('section-register');
@@ -696,7 +696,7 @@ export function setRegSexo(sexo) {
     preview.src = AVATARS_BY_SEX[sexo] || AVATARS_BY_SEX['Masculino'];
   }
   if (label) {
-    label.innerText = customPhotoTemp ? 'Foto personalizada cargada' : `Avatar temático (${sexo})`;
+    label.innerText = customPhotoTemp ? 'Foto personalizada cargada' : `Avatar temÃ¡tico (${sexo})`;
   }
 }
 
@@ -749,7 +749,7 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
   const avatar = customPhotoTemp || AVATARS_BY_SEX[sexo] || AVATARS_BY_SEX['Masculino'];
 
   if (password !== confirmPassword) {
-    showToast('Las contraseñas no coinciden. Por favor verifica que sean iguales.', 'error');
+    showToast('Las contraseÃ±as no coinciden. Por favor verifica que sean iguales.', 'error');
     const confirmInput = document.getElementById('reg-password-confirm');
     if (confirmInput) confirmInput.focus();
     return;
@@ -820,7 +820,7 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
       saveCurrentUser(localAccount, remember);
       saveRegisteredUserAccount(localAccount);
 
-      showToast(`¡Bienvenido a Cubikar, ${name}! Tu cuenta fue creada exitosamente.`, 'success');
+      showToast(`Â¡Bienvenido a Cubikar, ${name}! Tu cuenta fue creada exitosamente.`, 'success');
 
       const proceedSb = () => {
         if (returnProjectId) {
@@ -837,7 +837,7 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
     } catch (err) {
       console.warn('[Registro Supabase] Error:', err);
 
-      // Si Supabase excede el límite de correos (rate limit) u ocurre un fallo de red/servidor,
+      // Si Supabase excede el lÃ­mite de correos (rate limit) u ocurre un fallo de red/servidor,
       // permitir registrar y guardar localmente en localStorage sin bloquear al usuario
       const isRateLimit = err?.message && (
         err.message.toLowerCase().includes('rate limit') ||
@@ -846,7 +846,7 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
       );
 
       if (isRateLimit) {
-        showToast('Límite temporal de correos en la nube. Tu cuenta se creó y guardó localmente.', 'info');
+        showToast('LÃ­mite temporal de correos en la nube. Tu cuenta se creÃ³ y guardÃ³ localmente.', 'info');
         // Continuar al guardado local de abajo
       } else {
         showToast('Aviso de registro: ' + (err.message || 'Intente nuevamente'), 'error');
@@ -873,7 +873,7 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
   };
   const remember = document.getElementById('reg-remember-me')?.checked ?? false;
   saveCurrentUser(newUser, remember);
-  showToast(`¡Bienvenido, ${name}! Tu perfil ha sido creado.`);
+  showToast(`Â¡Bienvenido, ${name}! Tu perfil ha sido creado.`);
 
   if (returnProjectId) {
     openProjectInWorkspace(returnProjectId);
@@ -884,7 +884,7 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
   }
 }
 
-// Iniciar Sesión con correo existente y contraseña
+// Iniciar SesiÃ³n con correo existente y contraseÃ±a
 export async function handleLoginSubmit(e, returnProjectId = '') {
   e.preventDefault();
   const email = document.getElementById('login-email').value.trim().toLowerCase();
@@ -908,7 +908,7 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
       const { user, perfil } = await signInWithPassword({ email, password, remember });
       const displayName = perfil?.nombre_completo || user?.user_metadata?.full_name || email;
 
-      // Resolver suscripción persistida en la nube de Supabase (user_metadata o empresas)
+      // Resolver suscripciÃ³n persistida en la nube de Supabase (user_metadata o empresas)
       let userSub = user?.user_metadata?.subscription || null;
       if (!userSub && perfil?.empresas?.plan && perfil.empresas.plan !== 'free') {
         userSub = { planId: perfil.empresas.plan, billingCycle: 'monthly', updatedAt: new Date().toISOString() };
@@ -941,7 +941,7 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
       updatePortalHeaderUserArea(loggedUser);
       updateWorkspaceHeaderUser(loggedUser);
       saveRegisteredUserAccount(loggedUser);
-      showToast(`¡Hola de nuevo, ${resolvedDisplayName}!`, 'success');
+      showToast(`Â¡Hola de nuevo, ${resolvedDisplayName}!`, 'success');
 
       const proceedSb = () => {
         if (returnProjectId) {
@@ -959,8 +959,8 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
       console.warn('[Login Supabase] Error:', err);
       const isInvalid = err?.message && err.message.includes('Invalid login credentials');
       const msg = isInvalid
-        ? 'Correo o contraseña incorrectos. Verifica tus datos o crea una cuenta.'
-        : (err.message || 'Error al iniciar sesión');
+        ? 'Correo o contraseÃ±a incorrectos. Verifica tus datos o crea una cuenta.'
+        : (err.message || 'Error al iniciar sesiÃ³n');
       showToast(msg, 'error');
       if (submitBtn) {
         submitBtn.disabled = false;
@@ -982,7 +982,7 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
   if (savedUser && (savedUser.email || '').toLowerCase().trim() === cleanEmail) {
     currentScopeFilter = 'owned';
     setActiveWorkspaceData(cleanEmail, savedUser.name || cleanEmail);
-    showToast(`¡Hola de nuevo, ${savedUser.name}!`);
+    showToast(`Â¡Hola de nuevo, ${savedUser.name}!`);
     const proceedSaved = () => {
       if (returnProjectId) {
         openProjectInWorkspace(returnProjectId);
@@ -995,12 +995,12 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
     proceedSaved();
   } else {
     // Si no existe la cuenta ni localmente ni en nube
-    showToast('No se encontró una cuenta con ese correo. Por favor regístrate.', 'error');
+    showToast('No se encontrÃ³ una cuenta con ese correo. Por favor regÃ­strate.', 'error');
   }
 }
 
 export async function promptResetPassword() {
-  const email = prompt('Introduce tu correo electrónico registrado para enviarte las instrucciones de restablecimiento:');
+  const email = prompt('Introduce tu correo electrÃ³nico registrado para enviarte las instrucciones de restablecimiento:');
   if (!email || !email.trim()) return;
 
   const sb = getSupabaseClient();
@@ -1008,12 +1008,12 @@ export async function promptResetPassword() {
     try {
       showToast('Enviando enlace a tu correo...', 'info');
       await resetPasswordForEmail(email.trim());
-      showToast('¡Listo! Revisa tu bandeja de entrada.', 'success');
+      showToast('Â¡Listo! Revisa tu bandeja de entrada.', 'success');
     } catch (err) {
       showToast('Error: ' + err.message, 'error');
     }
   } else {
-    showToast('En modo local no se requiere restablecer contraseña.', 'info');
+    showToast('En modo local no se requiere restablecer contraseÃ±a.', 'info');
   }
 }
 
@@ -1150,7 +1150,7 @@ export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
     updateWorkspaceHeaderUser(user);
     addFeaturedProfile(user);
     markSessionOpen(user.email);
-    showToast(`Sesión iniciada como ${user.name}`);
+    showToast(`SesiÃ³n iniciada como ${user.name}`);
     const proceedNormal = () => {
       if (returnProjectId) {
         openProjectInWorkspace(returnProjectId);
@@ -1163,20 +1163,20 @@ export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
 
     proceedNormal();
   } else {
-    showToast('No se encontró el perfil seleccionado.', 'error');
+    showToast('No se encontrÃ³ el perfil seleccionado.', 'error');
   }
 }
 
-// Quitar un perfil específico de los perfiles destacados y cerrar su sesión automáticamente
+// Quitar un perfil especÃ­fico de los perfiles destacados y cerrar su sesiÃ³n automÃ¡ticamente
 export function removeFeaturedUserAccount(email, name = 'la cuenta', returnProjectId = '') {
   if (!email) return;
   const displayName = name || 'la cuenta';
-  if (!confirm(`¿Deseas quitar a "${displayName}" de los perfiles destacados? Se cerrará su sesión automáticamente en este dispositivo.`)) {
+  if (!confirm(`Â¿Deseas quitar a "${displayName}" de los perfiles destacados? Se cerrarÃ¡ su sesiÃ³n automÃ¡ticamente en este dispositivo.`)) {
     return;
   }
 
   removeFeaturedProfile(email);
-  showToast(`Cuenta de "${displayName}" retirada y sesión cerrada.`, 'info');
+  showToast(`Cuenta de "${displayName}" retirada y sesiÃ³n cerrada.`, 'info');
   renderPortalAuth('login', returnProjectId);
 }
 
@@ -1192,7 +1192,7 @@ export function quickLoginWithSavedUser(returnProjectId = '') {
   }
 }
 
-// Quitar la cuenta recordada del acceso rápido de la portada
+// Quitar la cuenta recordada del acceso rÃ¡pido de la portada
 export function removeSavedUserQuickProfile(returnProjectId = '') {
   const list = getFeaturedProfilesList();
   if (list && list.length > 0) {
@@ -1212,7 +1212,7 @@ if (typeof window !== 'undefined') {
   window.removeSavedUserQuickProfile = removeSavedUserQuickProfile;
 }
 
-// Purgar y eliminar permanentemente todas las cuentas de usuario e información registrada
+// Purgar y eliminar permanentemente todas las cuentas de usuario e informaciÃ³n registrada
 export function purgeAllUsersAndAccountsAction() {
   purgeAllRegisteredAccountsAndUsers();
   updatePortalHeaderUserArea(null);
@@ -1241,7 +1241,7 @@ async function handleGoogleLoginSuccess(result, returnProjectId = null) {
     addFeaturedProfile(activeUser);
     markSessionOpen(activeUser.email);
   }
-  showToast(`Sesión iniciada con Google como ${activeUser?.name || cleanEmail || 'usuario'}`, 'success');
+  showToast(`SesiÃ³n iniciada con Google como ${activeUser?.name || cleanEmail || 'usuario'}`, 'success');
 
   const proceedNormal = () => {
     if (returnProjectId) {
@@ -1271,7 +1271,7 @@ export async function mountPortalGoogleButton(returnProjectId = null, forceRefre
     onStart: () => showToast('Validando acceso con Google...', 'info'),
     onSuccess: (result) => handleGoogleLoginSuccess(result, returnProjectId),
     onError: (err) => {
-      console.error('Error al iniciar sesión con Google GIS:', err);
+      console.error('Error al iniciar sesiÃ³n con Google GIS:', err);
       showToast('Error al conectar con Google: ' + (err?.message || 'Intente de nuevo'), 'error');
     }
   });
@@ -1279,17 +1279,17 @@ export async function mountPortalGoogleButton(returnProjectId = null, forceRefre
 
 export async function triggerGoogleSignIn() {
   if (!isSupabaseConfigured()) {
-    showToast('Supabase no está configurado para autenticación con Google.', 'error');
+    showToast('Supabase no estÃ¡ configurado para autenticaciÃ³n con Google.', 'error');
     return;
   }
 
   try {
-    showToast('Cargando botón seguro de Google...', 'info');
+    showToast('Cargando botÃ³n seguro de Google...', 'info');
     const mounted = await mountPortalGoogleButton(activePortalReturnProjectId, true);
     if (mounted) {
-      showToast('Botón oficial de Google listo. Haz clic para continuar.', 'info');
+      showToast('BotÃ³n oficial de Google listo. Haz clic para continuar.', 'info');
     } else {
-      showToast('No se pudo cargar Google Sign-In. Verifica tu conexión o bloqueadores para accounts.google.com.', 'error');
+      showToast('No se pudo cargar Google Sign-In. Verifica tu conexiÃ³n o bloqueadores para accounts.google.com.', 'error');
     }
   } catch (err) {
     console.error('Error al cargar Google Sign-In:', err);
@@ -1320,7 +1320,7 @@ export function submitCustomGoogleAccount() {
     return;
   }
   if (!email.toLowerCase().includes('@')) {
-    alert('Por favor ingresa un correo electrónico válido.');
+    alert('Por favor ingresa un correo electrÃ³nico vÃ¡lido.');
     return;
   }
 
@@ -1375,7 +1375,7 @@ export function applyGoogleDataToAuth(account) {
   showToast(`Datos auto-rellenados desde ${account.email}. Puedes editarlos abajo.`);
 }
 
-// Helper: Indicador visual del modo y membresía activa en el dashboard
+// Helper: Indicador visual del modo y membresÃ­a activa en el dashboard
 export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allProjectsList = null) {
   const u = user || getCurrentUser();
   if (!u || !u.email) return '';
@@ -1384,7 +1384,7 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
   const allProjects = allProjectsList || getProjectsForUser(u);
   const inviters = invitersList || getWorkspaceInviters(u, allProjects);
 
-  // Obtener suscripción oficial priorizando el plan activo en modal/nube
+  // Obtener suscripciÃ³n oficial priorizando el plan activo en modal/nube
   const sub = (typeof getCurrentSubscription === 'function') ? getCurrentSubscription() : null;
   const userPlanId = sub?.planId || getUserPlanId(u);
   const userPlanLimits = getPlanLimits(userPlanId);
@@ -1395,7 +1395,7 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
     return `
       <div class="flex items-center gap-2 bg-slate-900/90 border border-amber-500/40 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
         <i class="fa-solid fa-crown text-amber-400"></i>
-        <span class="text-slate-300">🏷️ Membresía activa: <strong class="text-white">Plan ${userPlanLimits.name}</strong></span>
+        <span class="text-slate-300">ðŸ·ï¸ MembresÃ­a activa: <strong class="text-white">Plan ${userPlanLimits.name}</strong></span>
         <span class="text-amber-300 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/30 font-bold">(${ownedCount}/${userPlanLimits.maxProjects} obras)</span>
       </div>
     `;
@@ -1419,16 +1419,16 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
       return `
         <div class="flex items-center gap-2 bg-emerald-950/70 border border-emerald-500/50 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
           <i class="fa-solid fa-circle-check text-emerald-400"></i>
-          <span class="text-emerald-200">🏷️ Membresía: <strong class="text-white">Plan ${planName}</strong> (${hostCount}/${maxProjects} obras)</span>
-          <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-md font-bold text-[10.5px]">⭐ Editor (Puedes crear obras)</span>
+          <span class="text-emerald-200">ðŸ·ï¸ MembresÃ­a: <strong class="text-white">Plan ${planName}</strong> (${hostCount}/${maxProjects} obras)</span>
+          <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-md font-bold text-[10.5px]">â­ Editor (Puedes crear obras)</span>
         </div>
       `;
     } else {
       return `
         <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
           <i class="fa-solid fa-user-lock text-slate-400"></i>
-          <span class="text-slate-300">🏷️ Membresía: <strong class="text-white">Plan ${planName}</strong> (${hostCount}/${maxProjects} obras)</span>
-          <span class="bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-md font-medium text-[10.5px]">🔒 Rol: ${roleDisplay} (Solo lectura / colaborador)</span>
+          <span class="text-slate-300">ðŸ·ï¸ MembresÃ­a: <strong class="text-white">Plan ${planName}</strong> (${hostCount}/${maxProjects} obras)</span>
+          <span class="bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-md font-medium text-[10.5px]">ðŸ”’ Rol: ${roleDisplay} (Solo lectura / colaborador)</span>
         </div>
       `;
     }
@@ -1438,18 +1438,18 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
   return `
     <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
       <i class="fa-solid fa-globe text-blue-400"></i>
-      <span class="text-slate-300">🌐 Vista Global &bull; <strong class="text-white">${allProjects.length} obras accesibles</strong></span>
+      <span class="text-slate-300">ðŸŒ Vista Global &bull; <strong class="text-white">${allProjects.length} obras accesibles</strong></span>
     </div>
   `;
 }
 
-// Helper: Botón de Crear Proyecto adaptado al Modo y Permiso actual
+// Helper: BotÃ³n de Crear Proyecto adaptado al Modo y Permiso actual
 export function renderHeaderCreateButtonHTML(user, scope) {
   const u = user || getCurrentUser();
   const check = canUserCreateProject(u, scope);
 
   if (check.allowed) {
-    const btnTooltip = check.isHostContext ? `Crear proyecto en la organización de ${check.hostName} consumiendo su membresía Plan ${getPlanLimits(check.planId).name}` : 'Crear un nuevo proyecto propio';
+    const btnTooltip = check.isHostContext ? `Crear proyecto en la organizaciÃ³n de ${check.hostName} consumiendo su membresÃ­a Plan ${getPlanLimits(check.planId).name}` : 'Crear un nuevo proyecto propio';
     return `
       <button id="btn-portal-nuevo-proyecto" onclick="openNuevoProyectoModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer" title="${btnTooltip.replace(/"/g, '&quot;')}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1463,22 +1463,22 @@ export function renderHeaderCreateButtonHTML(user, scope) {
   if (check.isHostContext) {
     if (check.userRole === 'lector/escritor') {
       return `
-        <button onclick="showToast('${(check.reason || 'Solo colaboradores con rol de Editor pueden crear proyectos aquí.').replace(/'/g, "\\'")}', 'warning');" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-medium text-xs transition border border-slate-800 cursor-pointer" title="${(check.reason || '').replace(/"/g, '&quot;')}">
+        <button onclick="showToast('${(check.reason || 'Solo colaboradores con rol de Editor pueden crear proyectos aquÃ­.').replace(/'/g, "\\'")}', 'warning');" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-medium text-xs transition border border-slate-800 cursor-pointer" title="${(check.reason || '').replace(/"/g, '&quot;')}">
           <i class="fa-solid fa-lock text-xs text-amber-400"></i>
           <span>Solo Editores Pueden Crear</span>
         </button>
       `;
     }
     return `
-      <button onclick="showToast('${(check.reason || 'Límite de proyectos del anfitrión alcanzado.').replace(/'/g, "\\'")}', 'warning');" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-medium text-xs transition border border-slate-800 cursor-pointer" title="${(check.reason || '').replace(/"/g, '&quot;')}">
+      <button onclick="showToast('${(check.reason || 'LÃ­mite de proyectos del anfitriÃ³n alcanzado.').replace(/'/g, "\\'")}', 'warning');" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-medium text-xs transition border border-slate-800 cursor-pointer" title="${(check.reason || '').replace(/"/g, '&quot;')}">
         <i class="fa-solid fa-lock text-xs text-amber-400"></i>
-        <span>Límite del Anfitrión (${check.currentProjects}/${check.maxProjects})</span>
+        <span>LÃ­mite del AnfitriÃ³n (${check.currentProjects}/${check.maxProjects})</span>
       </button>
     `;
   }
 
   return `
-    <button onclick="showToast('${(check.reason || 'Límite de proyectos alcanzado para tu suscripción.').replace(/'/g, "\\'")}', 'warning'); openSubscriptionModal();" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-sm transition border border-slate-700 active:scale-95 cursor-pointer" title="${(check.reason || 'Límite de proyectos alcanzado').replace(/"/g, '&quot;')}">
+    <button onclick="showToast('${(check.reason || 'LÃ­mite de proyectos alcanzado para tu suscripciÃ³n.').replace(/'/g, "\\'")}', 'warning'); openSubscriptionModal();" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-sm transition border border-slate-700 active:scale-95 cursor-pointer" title="${(check.reason || 'LÃ­mite de proyectos alcanzado').replace(/"/g, '&quot;')}">
       <i class="fa-solid fa-lock text-xs text-amber-400"></i>
       <span>Nuevo Proyecto (${check.currentProjects || 0}/${check.maxProjects || 2})</span>
     </button>
@@ -1507,7 +1507,7 @@ export function renderPortalDashboard() {
     }
   } catch (_) {}
 
-  // Sincronizar en segundo plano proyectos desde Supabase si hay sesión activa
+  // Sincronizar en segundo plano proyectos desde Supabase si hay sesiÃ³n activa
   if (isSupabaseConfigured() && user?.id) {
     fetchCloudProjects().then(cloudList => {
       if (Array.isArray(cloudList)) {
@@ -1520,8 +1520,8 @@ export function renderPortalDashboard() {
         let changed = false;
 
         // 1. REGLA DE ORO / CONFIRMACIONES 1 Y 2:
-        // Purgar de localList cualquier proyecto que pertenezca a un anfitrión externo
-        // pero que YA NO exista en la lista autorizada de la nube (fue eliminado o revocada la invitación).
+        // Purgar de localList cualquier proyecto que pertenezca a un anfitriÃ³n externo
+        // pero que YA NO exista en la lista autorizada de la nube (fue eliminado o revocada la invitaciÃ³n).
         const cleanedList = localList.filter(lp => {
           if (isDeleted(lp.id) || isDeleted(lp.cloudId)) {
             changed = true;
@@ -1531,12 +1531,12 @@ export function renderPortalDashboard() {
           const owner = (lp.ownerEmail || '').toLowerCase().trim();
           const isMyOwnProject = (!owner || owner === myEmail || owner === 'admin@constructora.com' || owner === 'local@cubikar.app');
 
-          // Si es proyecto de un anfitrión (colaboración externa):
+          // Si es proyecto de un anfitriÃ³n (colaboraciÃ³n externa):
           if (!isMyOwnProject) {
             const existsInCloud = cloudIds.has(lp.id) || cloudIds.has(lp.cloudId);
             const hasLocalInvite = Array.isArray(lp.members) && lp.members.some(m => (m.email || '').toLowerCase().trim() === myEmail && (m.status === 'active' || m.status === 'accepted' || m.status === 'pending'));
             if (!existsInCloud && !hasLocalInvite) {
-              console.info(`[PortalReconcile] Purgando proyecto fantasma/eliminado de anfitrión: ${lp.projectName} (${lp.id})`);
+              console.info(`[PortalReconcile] Purgando proyecto fantasma/eliminado de anfitriÃ³n: ${lp.projectName} (${lp.id})`);
               changed = true;
               try {
                 localStorage.removeItem(getSettingsKey(lp.id));
@@ -1545,12 +1545,12 @@ export function renderPortalDashboard() {
               return false;
             }
 
-            // Confirmación 2: El usuario actual DEBE tener invitación activa, aceptada o pendiente
+            // ConfirmaciÃ³n 2: El usuario actual DEBE tener invitaciÃ³n activa, aceptada o pendiente
             const cloudProj = cloudList.find(cp => cp.id === lp.id || cp.id === lp.cloudId);
             if (cloudProj && Array.isArray(cloudProj.members)) {
               const myMem = cloudProj.members.find(m => (m.email || '').toLowerCase().trim() === myEmail);
               if (!myMem || (myMem.status !== 'accepted' && myMem.status !== 'active' && myMem.status !== 'pending')) {
-                console.info(`[PortalReconcile] Purgando proyecto sin membresía activa: ${lp.projectName} (${lp.id})`);
+                console.info(`[PortalReconcile] Purgando proyecto sin membresÃ­a activa: ${lp.projectName} (${lp.id})`);
                 changed = true;
                 return false;
               }
@@ -1600,7 +1600,7 @@ export function renderPortalDashboard() {
   const userPlanId = sub?.planId || getUserPlanId(user);
   const userPlanLimits = getPlanLimits(userPlanId);
 
-  // Sincronizar membresía activa de Supabase Auth en segundo plano
+  // Sincronizar membresÃ­a activa de Supabase Auth en segundo plano
   try {
     if (typeof syncSubscriptionFromCloud === 'function' && userEmail) {
       syncSubscriptionFromCloud(userEmail).then(cloudSub => {
@@ -1612,14 +1612,14 @@ export function renderPortalDashboard() {
     }
   } catch (_) {}
 
-  // Restaurar el modo de trabajo persistido si el usuario estaba en el espacio de un anfitrión
+  // Restaurar el modo de trabajo persistido si el usuario estaba en el espacio de un anfitriÃ³n
   const activeWs = getActiveWorkspaceData();
   const uEmail = (user.email || '').toLowerCase().trim();
   if (activeWs && activeWs.ownerEmail && activeWs.ownerEmail !== uEmail) {
     currentScopeFilter = `owner:${activeWs.ownerEmail}`;
   }
 
-  // Sincronizar y purgar proyectos eliminados del anfitrión si estamos en su espacio de trabajo
+  // Sincronizar y purgar proyectos eliminados del anfitriÃ³n si estamos en su espacio de trabajo
   try {
     if (typeof window !== 'undefined' && typeof window.syncHostWorkspaceProjects === 'function') {
       if (currentScopeFilter && currentScopeFilter.startsWith('owner:')) {
@@ -1642,12 +1642,12 @@ export function renderPortalDashboard() {
       <div>
         <div class="flex items-center gap-2 text-xs font-medium text-blue-400 mb-1">
           <span>PORTAL DE PROYECTOS</span>
-          <span>•</span>
+          <span>â€¢</span>
           <span class="text-emerald-400 font-semibold" id="activeProjectsCount">${activeCount} Obra${activeCount === 1 ? '' : 's'} Activa${activeCount === 1 ? '' : 's'}</span>
         </div>
         <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Mis Proyectos de Obra</h1>
         <p class="text-sm text-slate-400 mt-1 max-w-2xl">
-          Supervisión integral de presupuestos base, análisis de precios unitarios (APU), matrices de insumos y control de sobrecostos.
+          SupervisiÃ³n integral de presupuestos base, anÃ¡lisis de precios unitarios (APU), matrices de insumos y control de sobrecostos.
         </p>
       </div>
 
@@ -1657,7 +1657,7 @@ export function renderPortalDashboard() {
       </div>
     </div>
 
-    <!-- Menú Desplegable: Selector de Espacio de Trabajo con Botón de Invitaciones al Plan -->
+    <!-- MenÃº Desplegable: Selector de Espacio de Trabajo con BotÃ³n de Invitaciones al Plan -->
     <div class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 border border-slate-800 rounded-2xl p-3 sm:p-3.5 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
       <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0">
         <div class="flex items-center gap-2 shrink-0">
@@ -1670,7 +1670,7 @@ export function renderPortalDashboard() {
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-          <!-- Menú desplegable de Modo de Trabajo -->
+          <!-- MenÃº desplegable de Modo de Trabajo -->
           <div class="relative w-40 sm:w-52 min-w-0">
             <select id="projectScopeModeSelect" onchange="setProjectScopeFilter(this.value)"
                     class="w-full appearance-none bg-slate-950 border border-slate-700 hover:border-blue-500 focus:border-blue-500 text-white font-semibold text-xs sm:text-sm rounded-xl pl-3 pr-8 py-2.5 transition outline-none cursor-pointer shadow-inner truncate">
@@ -1688,19 +1688,19 @@ export function renderPortalDashboard() {
             </div>
           </div>
 
-          <!-- Botón de Invitaciones al Plan al lado derecho del menú desplegable -->
+          <!-- BotÃ³n de Invitaciones al Plan al lado derecho del menÃº desplegable -->
           <button type="button" 
                   id="btn-workspace-plan-invite"
                   onclick="openPlanInviteModal()" 
                   class="shrink-0 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer border border-blue-400/30"
-                  title="Invitar usuarios a tu plan de suscripción">
+                  title="Invitar usuarios a tu plan de suscripciÃ³n">
             <i class="fa-solid fa-user-plus text-xs"></i>
             <span class="whitespace-nowrap">Invitaciones</span>
           </button>
         </div>
       </div>
 
-      <!-- Indicador visual del modo actual y membresía gobernante -->
+      <!-- Indicador visual del modo actual y membresÃ­a gobernante -->
       <div id="mode-status-badge" class="shrink-0 flex items-center gap-2 text-xs">
         ${renderModeStatusBadgeHTML(currentScopeFilter, user, invitersList, projects)}
       </div>
@@ -1724,7 +1724,7 @@ export function renderPortalDashboard() {
           value="${currentSearchQuery}"
           class="w-full pl-9 pr-8 py-2 bg-slate-900 border border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-slate-200 placeholder-slate-500 transition outline-none"
         >
-        <span class="absolute right-2.5 top-2.5 text-[10px] bg-slate-800 border border-slate-700 text-slate-400 px-1.5 py-0.5 rounded pointer-events-none">⌘K</span>
+        <span class="absolute right-2.5 top-2.5 text-[10px] bg-slate-800 border border-slate-700 text-slate-400 px-1.5 py-0.5 rounded pointer-events-none">âŒ˜K</span>
       </div>
 
       <!-- Filters & Sorting Group -->
@@ -1746,10 +1746,10 @@ export function renderPortalDashboard() {
           <select id="tipoFilter" onchange="setTipoObraFilter(this.value)" class="appearance-none bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-xl pl-3 pr-8 py-2 hover:border-slate-700 focus:border-blue-500 transition outline-none cursor-pointer">
             <option value="all" ${currentTipoObraFilter === 'all' ? 'selected' : ''}>Todos los tipos</option>
             <option value="Vivienda" ${currentTipoObraFilter === 'Vivienda' ? 'selected' : ''}>Vivienda</option>
-            <option value="Edificación" ${currentTipoObraFilter === 'Edificación' ? 'selected' : ''}>Edificación</option>
+            <option value="EdificaciÃ³n" ${currentTipoObraFilter === 'EdificaciÃ³n' ? 'selected' : ''}>EdificaciÃ³n</option>
             <option value="Infraestructura" ${currentTipoObraFilter === 'Infraestructura' ? 'selected' : ''}>Infraestructura</option>
             <option value="Obra Civil" ${currentTipoObraFilter === 'Obra Civil' ? 'selected' : ''}>Obra Civil</option>
-            <option value="Remodelación" ${currentTipoObraFilter === 'Remodelación' ? 'selected' : ''}>Remodelación</option>
+            <option value="RemodelaciÃ³n" ${currentTipoObraFilter === 'RemodelaciÃ³n' ? 'selected' : ''}>RemodelaciÃ³n</option>
             <option value="Industrial" ${currentTipoObraFilter === 'Industrial' ? 'selected' : ''}>Industrial</option>
           </select>
           <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
@@ -1775,16 +1775,16 @@ export function renderPortalDashboard() {
         <div class="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl p-1">
           <span class="text-[11px] text-slate-500 font-medium px-1.5 hidden sm:inline">Ordenar:</span>
           <!-- Sort by Date -->
-          <button id="sortByDateBtn" onclick="toggleSort('date')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium ${currentSortMode.startsWith('date') ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:text-white'} hover:text-white transition flex items-center gap-1 shadow-sm cursor-pointer" title="Ordenar por fecha de creación">
+          <button id="sortByDateBtn" onclick="toggleSort('date')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium ${currentSortMode.startsWith('date') ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:text-white'} hover:text-white transition flex items-center gap-1 shadow-sm cursor-pointer" title="Ordenar por fecha de creaciÃ³n">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <span>Fecha</span>
-            <span id="dateSortDir" class="text-[10px]">${currentSortMode === 'date-desc' ? '↓' : '↑'}</span>
+            <span id="dateSortDir" class="text-[10px]">${currentSortMode === 'date-desc' ? 'â†“' : 'â†‘'}</span>
           </button>
 
           <!-- Sort by A-Z -->
-          <button id="sortByNameBtn" onclick="toggleSort('name')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium ${currentSortMode.startsWith('az') ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:text-white'} hover:bg-slate-800/60 transition flex items-center gap-1 cursor-pointer" title="Ordenar alfabéticamente (A-Z)">
+          <button id="sortByNameBtn" onclick="toggleSort('name')" class="px-2.5 py-1.5 rounded-lg text-xs font-medium ${currentSortMode.startsWith('az') ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:text-white'} hover:bg-slate-800/60 transition flex items-center gap-1 cursor-pointer" title="Ordenar alfabÃ©ticamente (A-Z)">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
             </svg>
@@ -1823,7 +1823,7 @@ export function renderPortalDashboard() {
           <thead class="bg-slate-900/90 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-800">
             <tr>
               <th class="px-5 py-3.5">Proyecto & Empresa</th>
-              <th class="px-4 py-3.5">Ubicación</th>
+              <th class="px-4 py-3.5">UbicaciÃ³n</th>
               <th class="px-4 py-3.5">Tipo</th>
               <th class="px-4 py-3.5 text-right">Presupuesto Base</th>
               <th class="px-4 py-3.5 text-center">Salud / Sobrecosto</th>
@@ -1843,13 +1843,13 @@ export function renderPortalDashboard() {
     <div id="noResults" class="hidden text-center py-12 bg-slate-950/50 border border-dashed border-slate-800 rounded-2xl">
       <svg class="w-12 h-12 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       <h4 id="noResultsTitle" class="text-white font-semibold text-base">No se encontraron proyectos</h4>
-      <p id="noResultsText" class="text-xs text-slate-400 mt-1">Prueba con otros términos de búsqueda o limpia los filtros seleccionados.</p>
+      <p id="noResultsText" class="text-xs text-slate-400 mt-1">Prueba con otros tÃ©rminos de bÃºsqueda o limpia los filtros seleccionados.</p>
       <div id="noResultsActions" class="mt-4">
         <button onclick="resetProjectFilters()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium transition cursor-pointer">Limpiar Filtros</button>
       </div>
     </div>
 
-    <!-- Medidor de Cuota Unificada AWS S3 del Anfitrión -->
+    <!-- Medidor de Cuota Unificada AWS S3 del AnfitriÃ³n -->
     <div id="portal-dashboard-storage-meter" class="mt-6 mb-2"></div>
   `;
 
@@ -1942,7 +1942,7 @@ export function setProjectScopeFilter(scope) {
     const inv = inviters.find(i => (i.email || '').toLowerCase().trim() === targetEmail);
     setActiveWorkspaceData(targetEmail, inv?.name || targetEmail);
 
-    // Sincronizar y purgar proyectos eliminados del anfitrión en segundo plano
+    // Sincronizar y purgar proyectos eliminados del anfitriÃ³n en segundo plano
     if (typeof window !== 'undefined' && typeof window.syncHostWorkspaceProjects === 'function') {
       window.syncHostWorkspaceProjects(targetEmail).then(() => {
         refreshProjectsGridUI();
@@ -2037,7 +2037,7 @@ export function setStatusFilter(status) {
 export function toggleSort(field) {
   if (field === 'date') {
     currentSortMode = currentSortMode === 'date-desc' ? 'date-asc' : 'date-desc';
-    showToast(currentSortMode === 'date-desc' ? 'Acomodado: Más recientes primero' : 'Acomodado: Más antiguos primero');
+    showToast(currentSortMode === 'date-desc' ? 'Acomodado: MÃ¡s recientes primero' : 'Acomodado: MÃ¡s antiguos primero');
   } else if (field === 'name') {
     currentSortMode = currentSortMode === 'az-asc' ? 'az-desc' : 'az-asc';
     showToast(currentSortMode === 'az-asc' ? 'Acomodado: De la A a la Z' : 'Acomodado: De la Z a la A');
@@ -2136,7 +2136,7 @@ export function getFilteredProjectsList(allProjects) {
     } else if (currentScopeFilter.startsWith('owner:')) {
       const targetOwner = currentScopeFilter.replace('owner:', '').toLowerCase().trim();
 
-      // Consultar manifiesto del anfitrión (en memoria o en sessionStorage)
+      // Consultar manifiesto del anfitriÃ³n (en memoria o en sessionStorage)
       let hostManifest = null;
       if (typeof window !== 'undefined' && window.__hostActiveManifest && window.__hostActiveManifest[targetOwner] !== undefined) {
         hostManifest = window.__hostActiveManifest[targetOwner];
@@ -2156,21 +2156,21 @@ export function getFilteredProjectsList(allProjects) {
       }
 
       filtered = filtered.filter(p => {
-        // CONFIRMACIÓN 1: El proyecto debe pertenecer efectivamente al anfitrión seleccionado
+        // CONFIRMACIÃ“N 1: El proyecto debe pertenecer efectivamente al anfitriÃ³n seleccionado
         const isHost = (p.ownerEmail || '').toLowerCase().trim() === targetOwner;
         if (!isHost) return false;
 
         // Si fue marcado como eliminado, excluir
         if (isProjectMarkedDeleted(p.id) || isProjectMarkedDeleted(p.cloudId)) return false;
 
-        // CONFIRMACIÓN 2: El usuario invitado DEBE tener una invitación activa aceptada en este proyecto
+        // CONFIRMACIÃ“N 2: El usuario invitado DEBE tener una invitaciÃ³n activa aceptada en este proyecto
         const members = Array.isArray(p.members) ? p.members : [];
         const myMem = members.find(m => (m.email || '').toLowerCase().trim() === uEmail);
         if (!myMem) return false;
         const status = (myMem.status || '').toLowerCase().trim();
         if (status !== 'active' && status !== 'accepted') return false;
 
-        // Verificación con el manifiesto autoritativo de Supabase
+        // VerificaciÃ³n con el manifiesto autoritativo de Supabase
         if (Array.isArray(hostManifest)) {
           const existsInHost = hostManifest.some(activeId => activeId === p.id || (p.cloudId && activeId === p.cloudId));
           if (!existsInHost) {
@@ -2237,13 +2237,13 @@ export function refreshProjectsGridUI() {
     modeSelect.value = currentScopeFilter;
   }
 
-  // Actualizar el indicador visual de estado y membresía
+  // Actualizar el indicador visual de estado y membresÃ­a
   const statusBadge = document.getElementById('mode-status-badge');
   if (statusBadge) {
     statusBadge.innerHTML = renderModeStatusBadgeHTML(currentScopeFilter, user, invitersList, allProjects);
   }
 
-  // Actualizar el botón de acción principal de Nuevo Proyecto
+  // Actualizar el botÃ³n de acciÃ³n principal de Nuevo Proyecto
   const headerActionArea = document.getElementById('portal-header-action-area');
   if (headerActionArea) {
     headerActionArea.innerHTML = renderHeaderCreateButtonHTML(user, currentScopeFilter);
@@ -2273,8 +2273,8 @@ export function refreshProjectsGridUI() {
       const actEl = document.getElementById('noResultsActions');
 
       if (currentScopeFilter === 'owned') {
-        if (titleEl) titleEl.textContent = 'Aún no tienes proyectos propios creados';
-        if (textEl) textEl.textContent = 'En este modo se muestran las obras creadas bajo tu perfil y membresía activa. Puedes crear una nueva obra ahora.';
+        if (titleEl) titleEl.textContent = 'AÃºn no tienes proyectos propios creados';
+        if (textEl) textEl.textContent = 'En este modo se muestran las obras creadas bajo tu perfil y membresÃ­a activa. Puedes crear una nueva obra ahora.';
         if (actEl) {
           actEl.innerHTML = `
             <button onclick="openNuevoProyectoModal()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs text-white font-bold transition shadow cursor-pointer">
@@ -2287,7 +2287,7 @@ export function refreshProjectsGridUI() {
         const hostInv = invitersList.find(i => (i.email || '').toLowerCase().trim() === inviterEmail);
         const hName = hostInv?.name || inviterEmail;
         if (titleEl) titleEl.textContent = `No hay proyectos visibles en el espacio de ${hName}`;
-        if (textEl) textEl.textContent = 'No se encontraron obras asignadas o creadas para este anfitrión.';
+        if (textEl) textEl.textContent = 'No se encontraron obras asignadas o creadas para este anfitriÃ³n.';
         if (actEl) {
           actEl.innerHTML = `
             <button onclick="setProjectScopeFilter('owned')" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium transition cursor-pointer">
@@ -2297,7 +2297,7 @@ export function refreshProjectsGridUI() {
         }
       } else {
         if (titleEl) titleEl.textContent = 'No se encontraron proyectos';
-        if (textEl) textEl.textContent = 'Prueba con otros términos de búsqueda o limpia los filtros seleccionados.';
+        if (textEl) textEl.textContent = 'Prueba con otros tÃ©rminos de bÃºsqueda o limpia los filtros seleccionados.';
         if (actEl) {
           actEl.innerHTML = `
             <button onclick="resetProjectFilters()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium transition cursor-pointer">Limpiar Filtros</button>
@@ -2321,7 +2321,7 @@ function updateSortButtonsUI() {
   if (dateBtn && dateDirSpan) {
     if (currentSortMode.startsWith('date')) {
       dateBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-medium text-blue-400 bg-slate-800 hover:text-white transition flex items-center gap-1 shadow-sm cursor-pointer';
-      dateDirSpan.textContent = currentSortMode === 'date-desc' ? '↓' : '↑';
+      dateDirSpan.textContent = currentSortMode === 'date-desc' ? 'â†“' : 'â†‘';
     } else {
       dateBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition flex items-center gap-1 cursor-pointer';
     }
@@ -2360,11 +2360,11 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
         <div class="w-16 h-16 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center text-2xl mx-auto border border-blue-500/20">
           <i class="fa-solid fa-folder-open"></i>
         </div>
-        <h3 class="font-bold text-base text-white">Aún no tienes proyectos asignados ni creados</h3>
+        <h3 class="font-bold text-base text-white">AÃºn no tienes proyectos asignados ni creados</h3>
         <p class="text-xs text-slate-400 max-w-sm mx-auto">
           ${userCanCreate 
-            ? 'Crea tu primer proyecto para comenzar a registrar partidas, APU e insumos con configuración personalizada.' 
-            : 'En cuanto seas invitado y aceptes una invitación a un proyecto, aparecerá listado aquí.'}
+            ? 'Crea tu primer proyecto para comenzar a registrar partidas, APU e insumos con configuraciÃ³n personalizada.' 
+            : 'En cuanto seas invitado y aceptes una invitaciÃ³n a un proyecto, aparecerÃ¡ listado aquÃ­.'}
         </p>
         ${userCanCreate ? `
           <button onclick="openNuevoProyectoModal()" class="mt-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition cursor-pointer">
@@ -2372,7 +2372,7 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
           </button>
         ` : `
           <button onclick="openSubscriptionModal()" class="mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition cursor-pointer">
-            <i class="fa-solid fa-crown mr-1 text-amber-300"></i> Ver Planes de Suscripción Plus y Pro
+            <i class="fa-solid fa-crown mr-1 text-amber-300"></i> Ver Planes de SuscripciÃ³n Plus y Pro
           </button>
         `}
       </div>
@@ -2395,7 +2395,7 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
     let sobrecostoBadge = '';
     if (isWarning) {
       sobrecostoBadge = `
-        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 animate-pulse" title="Alerta: Desviación presupuestal del +${sobrecostoFormatted}%">
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 animate-pulse" title="Alerta: DesviaciÃ³n presupuestal del +${sobrecostoFormatted}%">
           <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
           Sobrecosto: +${sobrecostoFormatted}%
         </span>
@@ -2425,7 +2425,7 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
     <div class="project-card group bg-slate-950/70 hover:bg-slate-950/90 border border-slate-800/90 ${isWarning ? 'hover:border-amber-500/50' : 'hover:border-blue-500/50'} rounded-2xl p-5 transition duration-200 shadow-lg flex flex-col justify-between"
          data-name="${(proj.projectName || '').replace(/"/g, '&quot;')}" 
          data-company="${(proj.companyName || '').replace(/"/g, '&quot;')}" 
-         data-type="${proj.tipoObra || 'Edificación'}" 
+         data-type="${proj.tipoObra || 'EdificaciÃ³n'}" 
          data-status="${isWarning ? 'warning' : 'ok'}"
          data-date="${proj.createdAt || '2026-01-01'}">
       
@@ -2444,7 +2444,7 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
 
           <div class="flex items-center gap-1.5 shrink-0">
             <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
-              ${proj.tipoObra || 'Edificación'}
+              ${proj.tipoObra || 'EdificaciÃ³n'}
             </span>
             <!-- Quick 3-Dots Action Menu -->
             <div class="relative">
@@ -2454,7 +2454,7 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
               <div id="menu-card-${proj.id}" class="hidden absolute right-0 mt-1 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-30 py-1 text-xs">
                 <button type="button" onclick="openProjectInNewTab('${proj.id}')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 cursor-pointer">
                   <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-blue-400"></i>
-                  <span>Abrir en pestaña nueva</span>
+                  <span>Abrir en pestaÃ±a nueva</span>
                 </button>
                 <button type="button" onclick="openEditarProyectoModal('${proj.id}')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 cursor-pointer">
                   <i class="fa-solid fa-pen-to-square text-[10px] text-blue-400"></i>
@@ -2482,7 +2482,7 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
           </div>
         </div>
 
-        <!-- Metadata: Ubicación, Fecha y Etiqueta de Origen/Permiso -->
+        <!-- Metadata: UbicaciÃ³n, Fecha y Etiqueta de Origen/Permiso -->
         <div class="flex flex-wrap items-center justify-between gap-y-1 gap-x-3 text-xs text-slate-400 mb-4 pb-3 border-b border-slate-800/80">
           <div class="flex items-center gap-3 min-w-0">
             <span class="flex items-center gap-1.5 text-slate-300 truncate max-w-[200px]" title="${proj.projectLocation}">
@@ -2490,7 +2490,7 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <span class="truncate">${proj.projectLocation || 'Sin ubicación'}</span>
+              <span class="truncate">${proj.projectLocation || 'Sin ubicaciÃ³n'}</span>
             </span>
             <span class="flex items-center gap-1.5 shrink-0 hidden sm:flex">
               <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2512,7 +2512,7 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
                       <i class="fa-solid fa-cloud text-[9px]"></i> Nube
                     </span>
                   ` : ''}
-                  <span class="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1" title="Proyecto propio creado bajo tu membresía">
+                  <span class="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1" title="Proyecto propio creado bajo tu membresÃ­a">
                     <i class="fa-solid fa-crown text-[9px]"></i> Mi Proyecto
                   </span>
                 </div>
@@ -2521,7 +2521,7 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
             const myMem = Array.isArray(proj.members) ? proj.members.find(m => (m.email || '').toLowerCase().trim() === uEmail) : null;
             const role = myMem?.role || 'editar';
             const roleBadgeMap = {
-              editar: '<span class="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30 flex items-center gap-1" title="Invitado con rol Editor (Control total de catálogo y equipo)"><i class="fa-solid fa-pen-ruler text-[9px]"></i> Invitado: Editor</span>',
+              editar: '<span class="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30 flex items-center gap-1" title="Invitado con rol Editor (Control total de catÃ¡logo y equipo)"><i class="fa-solid fa-pen-ruler text-[9px]"></i> Invitado: Editor</span>',
               escribir: '<span class="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1" title="Invitado con rol Escribir (Captura de conceptos e insumos)"><i class="fa-solid fa-pen-to-square text-[9px]"></i> Invitado: Escribir</span>',
               leer: '<span class="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1" title="Invitado con rol Leer (Solo consulta y reportes)"><i class="fa-solid fa-eye text-[9px]"></i> Invitado: Leer</span>'
             };
@@ -2612,7 +2612,7 @@ export function renderProjectTableRowsHTML(filteredProjects) {
       <tr class="table-project-row hover:bg-slate-900/50 transition"
           data-name="${(proj.projectName || '').replace(/"/g, '&quot;')}" 
           data-company="${(proj.companyName || '').replace(/"/g, '&quot;')}" 
-          data-type="${proj.tipoObra || 'Edificación'}" 
+          data-type="${proj.tipoObra || 'EdificaciÃ³n'}" 
           data-status="${isWarning ? 'warning' : 'ok'}"
           data-date="${proj.createdAt || '2026-01-01'}">
         <td class="px-5 py-4">
@@ -2620,10 +2620,10 @@ export function renderProjectTableRowsHTML(filteredProjects) {
           <div class="text-[11px] text-blue-400 font-medium">${proj.companyName}</div>
         </td>
         <td class="px-4 py-4 text-slate-400 max-w-xs truncate" title="${proj.projectLocation}">
-          ${proj.projectLocation || 'Sin ubicación'}
+          ${proj.projectLocation || 'Sin ubicaciÃ³n'}
         </td>
         <td class="px-4 py-4">
-          <span class="px-2 py-0.5 rounded-full text-[11px] bg-blue-500/10 text-blue-300 border border-blue-500/20">${proj.tipoObra || 'Edificación'}</span>
+          <span class="px-2 py-0.5 rounded-full text-[11px] bg-blue-500/10 text-blue-300 border border-blue-500/20">${proj.tipoObra || 'EdificaciÃ³n'}</span>
         </td>
         <td class="px-4 py-4 text-right font-mono font-bold text-white whitespace-nowrap">
           ${proj.currencySymbol || '$'}${Number(proj.totalPresupuesto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span class="text-[10px] text-slate-400">${proj.currency || 'MXN'}</span>
@@ -2660,7 +2660,7 @@ export function renderProjectTableRowsHTML(filteredProjects) {
 export function exportProjectToExcelAction(projectId) {
   const p = getProjectById(projectId);
   if (!p) {
-    showToast('No se encontró el proyecto para exportar', 'error');
+    showToast('No se encontrÃ³ el proyecto para exportar', 'error');
     return;
   }
 
@@ -2677,7 +2677,7 @@ export function exportProjectToExcelAction(projectId) {
 
   try {
     const rows = [];
-    rows.push(['Clave', 'Nivel', 'Descripción', 'Unidad', 'Cantidad', 'Precio Unitario', 'Importe Total']);
+    rows.push(['Clave', 'Nivel', 'DescripciÃ³n', 'Unidad', 'Cantidad', 'Precio Unitario', 'Importe Total']);
 
     function walk(nodes, lvl) {
       for (const node of nodes) {
@@ -2716,7 +2716,7 @@ export function exportProjectToExcelAction(projectId) {
     }
   } catch (err) {
     console.error('Error exportando Excel:', err);
-    showToast('Ocurrió un error al exportar el archivo Excel', 'error');
+    showToast('OcurriÃ³ un error al exportar el archivo Excel', 'error');
   }
 }
 
@@ -2725,7 +2725,7 @@ export function filterProjectCards(query) {
 }
 
 // ==========================================
-// ACCIONES DE NAVEGACIÓN Y APERTURA DE OBRAS
+// ACCIONES DE NAVEGACIÃ“N Y APERTURA DE OBRAS
 // ==========================================
 export function openProjectInWorkspace(projectId) {
   try {
@@ -2738,7 +2738,7 @@ export function openProjectInWorkspace(projectId) {
       }));
     }
   } catch (_) {}
-  // Redirigir en la misma pestaña con parámetro ?project=ID
+  // Redirigir en la misma pestaÃ±a con parÃ¡metro ?project=ID
   const url = `${window.location.pathname}?project=${encodeURIComponent(projectId)}`;
   window.location.href = url;
 }
@@ -2746,7 +2746,7 @@ export function openProjectInWorkspace(projectId) {
 export function openProjectInNewTab(projectId) {
   const url = `${window.location.pathname}?project=${encodeURIComponent(projectId)}`;
   window.open(url, '_blank');
-  showToast('Proyecto abierto en una nueva pestaña del navegador');
+  showToast('Proyecto abierto en una nueva pestaÃ±a del navegador');
 }
 
 export function goToProjectsDashboard() {
@@ -2815,7 +2815,7 @@ export function duplicateProjectAction(projectId) {
   const isEditor = isOwner || myMem?.role === 'editar';
 
   if (!isEditor) {
-    showToast('🔒 Solo el propietario o colaboradores con rol de Editor pueden duplicar proyectos.', 'warning');
+    showToast('ðŸ”’ Solo el propietario o colaboradores con rol de Editor pueden duplicar proyectos.', 'warning');
     return;
   }
 
@@ -2846,12 +2846,12 @@ export async function deleteProjectAction(projectId, event) {
   const isEditor = isOwner || myMem?.role === 'editar';
 
   if (!isEditor) {
-    showToast('🔒 Solo el propietario o colaboradores con rol de Editor pueden eliminar este proyecto.', 'warning');
+    showToast('ðŸ”’ Solo el propietario o colaboradores con rol de Editor pueden eliminar este proyecto.', 'warning');
     return;
   }
 
   const projName = p?.projectName || 'este proyecto';
-  if (!confirm(`¿Deseas eliminar permanentemente el proyecto "${projName}"? Esta acción no se puede deshacer.`)) {
+  if (!confirm(`Â¿Deseas eliminar permanentemente el proyecto "${projName}"? Esta acciÃ³n no se puede deshacer.`)) {
     return;
   }
 
@@ -2868,7 +2868,7 @@ export async function deleteProjectAction(projectId, event) {
 }
 
 // ==========================================
-// GESTIÓN Y EDICIÓN DE PROYECTO EXISTENTE
+// GESTIÃ“N Y EDICIÃ“N DE PROYECTO EXISTENTE
 // ==========================================
 
 let editingProjectLogo = '';
@@ -2876,7 +2876,7 @@ let editingProjectLogo = '';
 export function openEditarProyectoModal(projectId) {
   const p = getProjectById(projectId);
   if (!p) {
-    showToast('No se encontró el proyecto seleccionado.', 'warning');
+    showToast('No se encontrÃ³ el proyecto seleccionado.', 'warning');
     return;
   }
 
@@ -2890,7 +2890,7 @@ export function openEditarProyectoModal(projectId) {
   const isEditor = isOwner || myMem?.role === 'editar';
 
   if (!isEditor) {
-    showToast('🔒 Solo el propietario o colaboradores con rol de Editor pueden modificar este proyecto.', 'warning');
+    showToast('ðŸ”’ Solo el propietario o colaboradores con rol de Editor pueden modificar este proyecto.', 'warning');
     return;
   }
 
@@ -2906,7 +2906,7 @@ export function openEditarProyectoModal(projectId) {
   if (nameInput) nameInput.value = p.projectName || '';
   if (locInput) locInput.value = p.projectLocation || '';
   if (compInput) compInput.value = p.companyName || '';
-  if (tipoInput) tipoInput.value = p.tipoObra || 'Edificación';
+  if (tipoInput) tipoInput.value = p.tipoObra || 'EdificaciÃ³n';
   if (dateInput) dateInput.value = p.createdAt || new Date().toISOString().slice(0, 10);
 
   if (currSelect) {
@@ -2930,7 +2930,7 @@ export function openEditarProyectoModal(projectId) {
     modal.classList.add('flex');
   }
 
-  // Cerrar cualquier menú de tarjeta desplegado
+  // Cerrar cualquier menÃº de tarjeta desplegado
   document.querySelectorAll('[id^="menu-card-"]').forEach(el => el.classList.add('hidden'));
 }
 
@@ -2999,7 +2999,7 @@ export function saveEditedProjectAction() {
   const projectName = nameInput ? nameInput.value.trim() : '';
   const projectLocation = locInput ? locInput.value.trim() : '';
   const companyName = compInput ? compInput.value.trim() : '';
-  const tipoObra = tipoInput ? tipoInput.value : 'Edificación';
+  const tipoObra = tipoInput ? tipoInput.value : 'EdificaciÃ³n';
   const createdAt = dateInput ? dateInput.value : '';
 
   let currency = 'MXN';
@@ -3016,7 +3016,7 @@ export function saveEditedProjectAction() {
     return;
   }
   if (!projectLocation) {
-    showToast('Por favor ingresa la ubicación de la obra.', 'warning');
+    showToast('Por favor ingresa la ubicaciÃ³n de la obra.', 'warning');
     if (locInput) locInput.focus();
     return;
   }
@@ -3029,7 +3029,7 @@ export function saveEditedProjectAction() {
   const list = getProjectsList();
   const idx = list.findIndex(p => p.id === pId);
   if (idx === -1) {
-    showToast('No se encontró el proyecto en la lista.', 'error');
+    showToast('No se encontrÃ³ el proyecto en la lista.', 'error');
     return;
   }
 
@@ -3060,7 +3060,7 @@ export function saveEditedProjectAction() {
     console.warn('[EditProject] Error actualizando settings locales:', err);
   }
 
-  // Si el proyecto modificado está actualmente activo en el workspace
+  // Si el proyecto modificado estÃ¡ actualmente activo en el workspace
   const activePid = (typeof getActiveProjectId === 'function') ? getActiveProjectId() : (state.activeProjectId || null);
   if (activePid === pId && typeof state !== 'undefined' && state.settings) {
     state.settings.projectName = projectName;
@@ -3096,7 +3096,7 @@ export function openNuevoProyectoModal() {
 
   const check = canUserCreateProject(user, currentScopeFilter);
   if (!check.allowed) {
-    showToast(`🔒 ${check.reason || 'No es posible crear más proyectos.'}`, 'warning');
+    showToast(`ðŸ”’ ${check.reason || 'No es posible crear mÃ¡s proyectos.'}`, 'warning');
     if (!check.isHostContext) {
       openSubscriptionModal();
     }
@@ -3123,15 +3123,15 @@ export function openNuevoProyectoModal() {
   if (cName) cName.value = check.isHostContext ? (check.hostName || '') : '';
   if (pName) pName.value = '';
   if (pLoc) pLoc.value = '';
-  if (pTipo) pTipo.value = 'Edificación';
+  if (pTipo) pTipo.value = 'EdificaciÃ³n';
   if (pDate) pDate.value = new Date().toISOString().slice(0, 10);
 
   const subTitle = document.getElementById('wiz-subtitle-text');
   if (subTitle) {
     if (check.isHostContext) {
-      subTitle.innerHTML = `<span class="text-emerald-300 font-bold">🏢 Creando obra para ${check.hostName}</span> • Plan ${getPlanLimits(check.planId).name}`;
+      subTitle.innerHTML = `<span class="text-emerald-300 font-bold">ðŸ¢ Creando obra para ${check.hostName}</span> â€¢ Plan ${getPlanLimits(check.planId).name}`;
     } else {
-      subTitle.textContent = 'Asistente de configuración inicial en 3 pasos';
+      subTitle.textContent = 'Asistente de configuraciÃ³n inicial en 3 pasos';
     }
   }
   
@@ -3170,7 +3170,7 @@ export function goToWizardStep(step) {
     const project = document.getElementById('wiz-project-name')?.value?.trim();
     const location = document.getElementById('wiz-project-location')?.value?.trim();
     if (!company || !project || !location) {
-      alert('Por favor completa el Nombre de Empresa, Nombre de Proyecto y Ubicación antes de avanzar.');
+      alert('Por favor completa el Nombre de Empresa, Nombre de Proyecto y UbicaciÃ³n antes de avanzar.');
       return;
     }
   }
@@ -3300,22 +3300,22 @@ export function renderWizardSignaturesForm() {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div>
             <label class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-              Rol / Título de la Firma:
+              Rol / TÃ­tulo de la Firma:
             </label>
             <input type="text" 
                    value="${escapeHtml(sig.rol)}" 
-                   placeholder="Ej: ELABORÓ, REVISÓ, AUTORIZÓ"
+                   placeholder="Ej: ELABORÃ“, REVISÃ“, AUTORIZÃ“"
                    oninput="onWizardSignatureChange(${idx}, 'rol', this.value)"
                    class="w-full text-xs font-bold uppercase text-slate-800 bg-slate-50 hover:bg-white border border-slate-300 focus:border-blue-500 focus:bg-white rounded-lg px-2.5 py-1.5 outline-none transition">
           </div>
 
           <div>
             <label class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-              Nombre del Responsable que firmará:
+              Nombre del Responsable que firmarÃ¡:
             </label>
             <input type="text" 
                    value="${escapeHtml(sig.nombre)}" 
-                   placeholder="Ej: Ing. Juan Pérez Gómez"
+                   placeholder="Ej: Ing. Juan PÃ©rez GÃ³mez"
                    oninput="onWizardSignatureChange(${idx}, 'nombre', this.value)"
                    class="w-full text-xs font-semibold text-slate-900 bg-slate-50 hover:bg-white border border-slate-300 focus:border-blue-500 focus:bg-white rounded-lg px-2.5 py-1.5 outline-none transition">
           </div>
@@ -3341,10 +3341,10 @@ export function addWizardSignature() {
     wizardData.signatures = [];
   }
   if (wizardData.signatures.length >= 5) {
-    showToast('Se permite un máximo de 5 firmantes', 'info');
+    showToast('Se permite un mÃ¡ximo de 5 firmantes', 'info');
     return;
   }
-  const defaultRoles = ['SUPERVISIÓN', 'RESIDENTE DE OBRA', 'CONTRATISTA', 'CLIENTE'];
+  const defaultRoles = ['SUPERVISIÃ“N', 'RESIDENTE DE OBRA', 'CONTRATISTA', 'CLIENTE'];
   const nextRole = defaultRoles[wizardData.signatures.length % defaultRoles.length] || 'FIRMA';
 
   wizardData.signatures.push({
@@ -3483,7 +3483,7 @@ export function updateTemplateSelection() {
 
 export async function finalizeCreateProject() {
   const finishBtn = document.getElementById('btn-wiz-finish');
-  const origFinishHtml = finishBtn ? finishBtn.innerHTML : '✓ Crear Proyecto y Abrir';
+  const origFinishHtml = finishBtn ? finishBtn.innerHTML : 'âœ“ Crear Proyecto y Abrir';
   if (finishBtn) {
     if (finishBtn.disabled) return;
     finishBtn.disabled = true;
@@ -3500,7 +3500,7 @@ export async function finalizeCreateProject() {
   const company = document.getElementById('wiz-company-name').value.trim();
   const project = document.getElementById('wiz-project-name').value.trim();
   const location = document.getElementById('wiz-project-location').value.trim();
-  const tipoObra = (document.getElementById('wiz-project-tipo') && document.getElementById('wiz-project-tipo').value) || 'Edificación';
+  const tipoObra = (document.getElementById('wiz-project-tipo') && document.getElementById('wiz-project-tipo').value) || 'EdificaciÃ³n';
   const createdAt = (document.getElementById('wiz-project-created-at') && document.getElementById('wiz-project-created-at').value) || new Date().toISOString().slice(0, 10);
   const currency = document.getElementById('wiz-currency-select').value;
   const symbol = document.getElementById('wiz-currency-symbol').value.trim();
@@ -3522,7 +3522,7 @@ export async function finalizeCreateProject() {
   const check = canUserCreateProject(user, currentScopeFilter);
   if (!check.allowed) {
     restoreFinishBtn();
-    showToast(`🔒 ${check.reason || 'No es posible crear más proyectos.'}`, 'warning');
+    showToast(`ðŸ”’ ${check.reason || 'No es posible crear mÃ¡s proyectos.'}`, 'warning');
     if (!check.isHostContext) {
       openSubscriptionModal();
     }
@@ -3531,7 +3531,7 @@ export async function finalizeCreateProject() {
 
   let sampleTree = null;
   if (tpl === 'demo') {
-    showToast('Importando catálogo base de muestra (Proyecto Residencial APU)...', 'info');
+    showToast('Importando catÃ¡logo base de muestra (Proyecto Residencial APU)...', 'info');
     try {
       sampleTree = await loadSampleResidentialZipCatalog();
     } catch (e) {
@@ -3594,7 +3594,7 @@ export async function finalizeCreateProject() {
     }
   } catch (_) {}
 
-  // Sincronizar a Supabase PostgreSQL con timeout máximo de 1200ms para entrada instantánea
+  // Sincronizar a Supabase PostgreSQL con timeout mÃ¡ximo de 1200ms para entrada instantÃ¡nea
   try {
     const rawTree = localStorage.getItem(getStorageKey(newProj.id));
     const rawSettings = localStorage.getItem(getSettingsKey(newProj.id));
@@ -3630,15 +3630,15 @@ export async function finalizeCreateProject() {
   restoreFinishBtn();
   closeNuevoProyectoModal();
   if (check.isHostContext) {
-    showToast(`¡Proyecto "${newProj.projectName}" creado con éxito bajo la cuenta de ${check.hostName}!`);
+    showToast(`Â¡Proyecto "${newProj.projectName}" creado con Ã©xito bajo la cuenta de ${check.hostName}!`);
   } else {
-    showToast('¡Proyecto creado con éxito! Abriendo espacio de trabajo...');
+    showToast('Â¡Proyecto creado con Ã©xito! Abriendo espacio de trabajo...');
   }
   openProjectInWorkspace(newProj.id);
 }
 
 /**
- * Acción manual para sincronizar un proyecto existente hacia Supabase
+ * AcciÃ³n manual para sincronizar un proyecto existente hacia Supabase
  */
 export async function syncProjectToCloudAction(projectId, event) {
   if (event) {
@@ -3651,7 +3651,7 @@ export async function syncProjectToCloudAction(projectId, event) {
     return;
   }
 
-  showToast(`☁️ Respaldando "${proj.projectName}" en Supabase...`, 'info');
+  showToast(`â˜ï¸ Respaldando "${proj.projectName}" en Supabase...`, 'info');
   try {
     let tree = [];
     let settings = {};
@@ -3670,9 +3670,9 @@ export async function syncProjectToCloudAction(projectId, event) {
         saveProjectsList(list);
       }
       refreshProjectsGridUI();
-      showToast(`✅ "${proj.projectName}" respaldado en Supabase con éxito`, 'success');
+      showToast(`âœ… "${proj.projectName}" respaldado en Supabase con Ã©xito`, 'success');
     } else {
-      showToast(`Aviso al respaldar: ${res.reason || 'Verifique sesión'}`, 'warning');
+      showToast(`Aviso al respaldar: ${res.reason || 'Verifique sesiÃ³n'}`, 'warning');
     }
   } catch (err) {
     console.error('[CloudSync] Error manual:', err);
@@ -3815,7 +3815,7 @@ export function saveProfileChanges() {
 export async function deleteCurrentUserAccountAction() {
   const user = getCurrentUser();
   if (!user || !user.email) {
-    showToast('No hay una sesión activa para eliminar.', 'warning');
+    showToast('No hay una sesiÃ³n activa para eliminar.', 'warning');
     closeProfileModal();
     return;
   }
@@ -3824,19 +3824,19 @@ export async function deleteCurrentUserAccountAction() {
   const userName = user.name || cleanEmail;
 
   const confirmMsg =
-    `⚠️ ¿ELIMINAR TU CUENTA DEFINITIVAMENTE?\n\n` +
-    `Estás a punto de eliminar permanentemente la cuenta de "${userName}" (${cleanEmail}).\n\n` +
-    `• Se ELIMINARÁN TODOS TUS ARCHIVOS, proyectos de obra, catálogos y matrices APU vinculados a este usuario.\n` +
-    `• Toda tu información se borrará por completo de este equipo.\n` +
-    `• Si en el futuro te vuelves a registrar con este mismo correo (${cleanEmail}), la cuenta aparecerá en blanco, totalmente nueva.\n\n` +
-    `¿Deseas confirmar la eliminación definitiva ahora?`;
+    `âš ï¸ Â¿ELIMINAR TU CUENTA DEFINITIVAMENTE?\n\n` +
+    `EstÃ¡s a punto de eliminar permanentemente la cuenta de "${userName}" (${cleanEmail}).\n\n` +
+    `â€¢ Se ELIMINARÃN TODOS TUS ARCHIVOS, proyectos de obra, catÃ¡logos y matrices APU vinculados a este usuario.\n` +
+    `â€¢ Toda tu informaciÃ³n se borrarÃ¡ por completo de este equipo.\n` +
+    `â€¢ Si en el futuro te vuelves a registrar con este mismo correo (${cleanEmail}), la cuenta aparecerÃ¡ en blanco, totalmente nueva.\n\n` +
+    `Â¿Deseas confirmar la eliminaciÃ³n definitiva ahora?`;
 
   if (!confirm(confirmMsg)) {
     return;
   }
 
   try {
-    // Si Supabase está activo, eliminar el registro de perfil y desloguear
+    // Si Supabase estÃ¡ activo, eliminar el registro de perfil y desloguear
     const sb = getSupabaseClient();
     if (sb) {
       try {
@@ -3932,12 +3932,12 @@ function purgeLocalAuthSessionOnly() {
 
 export async function logoutUser(skipConfirm = false, options = {}) {
   const { scope = 'local', skipSignOut = false } = options || {};
-  if (!skipConfirm && !confirm('¿Deseas cerrar sesión en esta computadora? Tus proyectos se conservarán intactos.')) return;
+  if (!skipConfirm && !confirm('Â¿Deseas cerrar sesiÃ³n en esta computadora? Tus proyectos se conservarÃ¡n intactos.')) return;
 
   const current = getCurrentUser();
   const cleanEmail = (current?.email || '').toLowerCase().trim();
 
-  // 1. Cerrar sesión en Supabase Auth (por defecto solo alcance local en esta PC)
+  // 1. Cerrar sesiÃ³n en Supabase Auth (por defecto solo alcance local en esta PC)
   if (!skipSignOut) {
     try {
       if (typeof signOut === 'function') {
@@ -3947,16 +3947,16 @@ export async function logoutUser(skipConfirm = false, options = {}) {
         if (sb) await sb.auth.signOut({ scope });
       }
     } catch (err) {
-      console.warn('[Logout] Aviso al cerrar sesión en Supabase:', err);
+      console.warn('[Logout] Aviso al cerrar sesiÃ³n en Supabase:', err);
     }
   }
 
-  // 2. Marcar la sesión cerrada para este correo en esta PC
+  // 2. Marcar la sesiÃ³n cerrada para este correo en esta PC
   if (cleanEmail) {
     markSessionClosed(cleanEmail);
   }
 
-  // 3. Limpiar almacenamiento de usuario activo sin destruir proyectos offline ni lápidas
+  // 3. Limpiar almacenamiento de usuario activo sin destruir proyectos offline ni lÃ¡pidas
   saveCurrentUser(null);
   try {
     purgeLocalAuthSessionOnly();
@@ -3965,7 +3965,7 @@ export async function logoutUser(skipConfirm = false, options = {}) {
   currentScopeFilter = 'owned';
   updatePortalHeaderUserArea(null);
   renderSidebarNotificationsUI();
-  showToast('Has cerrado sesión en esta computadora. Tus datos locales están a salvo.');
+  showToast('Has cerrado sesiÃ³n en esta computadora. Tus datos locales estÃ¡n a salvo.');
 
   const isLocalhost = typeof window !== 'undefined' && (
     window.location.hostname === 'localhost' || 
@@ -3976,9 +3976,9 @@ export async function logoutUser(skipConfirm = false, options = {}) {
   window.location.href = portalUrl;
 }
 
-// Cerrar sesión en absolutamente todas las computadoras y navegadores
+// Cerrar sesiÃ³n en absolutamente todas las computadoras y navegadores
 export async function logoutAllDevices(skipConfirm = false) {
-  if (!skipConfirm && !confirm('¿Deseas cerrar sesión en TODAS las computadoras y dispositivos?')) return;
+  if (!skipConfirm && !confirm('Â¿Deseas cerrar sesiÃ³n en TODAS las computadoras y dispositivos?')) return;
 
   try {
     if (typeof signOut === 'function') {
@@ -3990,11 +3990,11 @@ export async function logoutAllDevices(skipConfirm = false) {
       }
     }
   } catch (err) {
-    console.warn('[LogoutAll] Error revocando sesión global en Supabase:', err);
+    console.warn('[LogoutAll] Error revocando sesiÃ³n global en Supabase:', err);
   }
 
   await logoutUser(true, { skipSignOut: true });
-  showToast('🔒 Has cerrado la sesión en todas las computadoras.', 'info');
+  showToast('ðŸ”’ Has cerrado la sesiÃ³n en todas las computadoras.', 'info');
 }
 
 // Eliminar permanentemente la cuenta del usuario actual y todos sus datos/archivos locales
@@ -4048,7 +4048,7 @@ export function updatePortalHeaderUserArea(user) {
     if (container) {
       container.innerHTML = `
         <button onclick="renderPortalAuth('login')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer">
-          <i class="fa-solid fa-right-to-bracket text-blue-400"></i> Iniciar Sesión
+          <i class="fa-solid fa-right-to-bracket text-blue-400"></i> Iniciar SesiÃ³n
         </button>
         <button onclick="renderPortalAuth('register')" class="text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold px-3 py-1.5 rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer">
           <i class="fa-solid fa-user-plus"></i> Registrarse
@@ -4143,7 +4143,7 @@ export function updatePortalHeaderUserArea(user) {
                   class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-between gap-2 transition cursor-pointer">
             <span class="flex items-center gap-2">
               <i class="fa-solid fa-crown text-amber-400 text-xs"></i>
-              <span>Suscripción</span>
+              <span>SuscripciÃ³n</span>
             </span>
             <span id="portal-dropdown-user-plan-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Gratuita</span>
           </button>
@@ -4170,7 +4170,7 @@ export function updatePortalHeaderUserArea(user) {
           <button type="button" onclick="closePortalUserDropdown(); showPortalView('login')" 
                   class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-2 transition cursor-pointer">
             <i class="fa-solid fa-right-to-bracket text-blue-400 text-xs"></i>
-            <span>Iniciar Sesión / Cambiar Cuenta</span>
+            <span>Iniciar SesiÃ³n / Cambiar Cuenta</span>
           </button>
           <button type="button" onclick="closePortalUserDropdown(); showPortalView('register')" 
                   class="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-2 transition cursor-pointer">
@@ -4181,12 +4181,12 @@ export function updatePortalHeaderUserArea(user) {
           <button type="button" onclick="closePortalUserDropdown(); logoutUser()" 
                   class="w-full text-left px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-400 flex items-center gap-2 transition cursor-pointer">
             <i class="fa-solid fa-power-off text-rose-500 text-xs"></i>
-            <span>Cerrar Sesión</span>
+            <span>Cerrar SesiÃ³n</span>
           </button>
           <button type="button" onclick="closePortalUserDropdown(); logoutAllDevices()" 
-                  class="w-full text-left px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-300 flex items-center gap-2 transition cursor-pointer" title="Cierra la sesión activa en todas las computadoras y dispositivos">
+                  class="w-full text-left px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-300 flex items-center gap-2 transition cursor-pointer" title="Cierra la sesiÃ³n activa en todas las computadoras y dispositivos">
             <i class="fa-solid fa-laptop-slash text-rose-400 text-xs"></i>
-            <span>Cerrar Sesión en Todas las PCs</span>
+            <span>Cerrar SesiÃ³n en Todas las PCs</span>
           </button>
         </div>
       </div>
@@ -4229,7 +4229,7 @@ export function closePortalUserDropdown() {
   }
 }
 
-// Cerrar los menús desplegables si se hace clic fuera de ellos
+// Cerrar los menÃºs desplegables si se hace clic fuera de ellos
 document.addEventListener('click', (e) => {
   const workspaceWrapper = document.getElementById('user-menu-wrapper');
   if (workspaceWrapper && !workspaceWrapper.contains(e.target)) {
@@ -4305,13 +4305,13 @@ export function updateWorkspaceHeaderUser(user) {
 }
 
 // ==========================================
-// GESTIÓN DE COLABORADORES E INVITACIONES POR PROYECTO
+// GESTIÃ“N DE COLABORADORES E INVITACIONES POR PROYECTO
 // ==========================================
 let activeInviteProjectId = null;
 let selectedInviteSexo = 'Masculino';
 let inviteCustomAvatarTemp = null;
 
-// Obtener ID del proyecto activo o fallback para invitación y visualización
+// Obtener ID del proyecto activo o fallback para invitaciÃ³n y visualizaciÃ³n
 export function getActiveOrFallbackProjectId() {
   let pId = getActiveProjectId();
   if (pId) return pId;
@@ -4347,8 +4347,8 @@ export function openInviteModal(projectId, defaultTab = 'members') {
   const currentUser = getCurrentUser();
   const inviteCheck = canUserInviteToProject(activeInviteProjectId, currentUser);
   if (!inviteCheck.allowed) {
-    showToast(`🔒 ${inviteCheck.reason || 'No tienes permiso para invitar colaboradores a este proyecto.'}`, 'warning');
-    if (inviteCheck.reason && inviteCheck.reason.includes('límite')) {
+    showToast(`ðŸ”’ ${inviteCheck.reason || 'No tienes permiso para invitar colaboradores a este proyecto.'}`, 'warning');
+    if (inviteCheck.reason && inviteCheck.reason.includes('lÃ­mite')) {
       openSubscriptionModal();
     }
     return;
@@ -4372,17 +4372,17 @@ export function openInviteModal(projectId, defaultTab = 'members') {
   inviteCustomAvatarTemp = null;
   updateInviteAvatarPreview();
 
-  // Mantener el rol seleccionado si ya había uno elegido, o inicializar en 'editar' por defecto
+  // Mantener el rol seleccionado si ya habÃ­a uno elegido, o inicializar en 'editar' por defecto
   const currentCheckedRole = document.querySelector('input[name="invite-role"]:checked');
   if (!currentCheckedRole) {
     const defaultRadio = document.querySelector('input[name="invite-role"][value="editar"]');
     if (defaultRadio) defaultRadio.checked = true;
   }
 
-  // Resetear checkboxes de pestañas en formulario (deseleccionadas por defecto)
+  // Resetear checkboxes de pestaÃ±as en formulario (deseleccionadas por defecto)
   setInviteTabCheckboxes(false);
 
-  // Activar la pestaña solicitada (por defecto 'members')
+  // Activar la pestaÃ±a solicitada (por defecto 'members')
   switchInviteModalTab(defaultTab);
 
   modal.style.zIndex = '100000';
@@ -4405,24 +4405,24 @@ export function closeInviteModal() {
   renderHeaderCollaborators();
 }
 
-// Copiar enlace directo de invitación al proyecto
+// Copiar enlace directo de invitaciÃ³n al proyecto
 export function copyProjectInviteLink() {
   const pId = activeInviteProjectId || getActiveOrFallbackProjectId();
   const url = `${window.location.origin}${window.location.pathname}?project=${encodeURIComponent(pId)}&invite=1`;
   
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url).then(() => {
-      showToast('¡Enlace de invitación copiado al portapapeles! Compártelo con los colaboradores para darles acceso.');
+      showToast('Â¡Enlace de invitaciÃ³n copiado al portapapeles! CompÃ¡rtelo con los colaboradores para darles acceso.');
     }).catch(() => {
-      prompt('Copia este enlace de invitación para compartirlo:', url);
+      prompt('Copia este enlace de invitaciÃ³n para compartirlo:', url);
     });
   } else {
-    prompt('Copia este enlace de invitación para compartirlo:', url);
+    prompt('Copia este enlace de invitaciÃ³n para compartirlo:', url);
   }
 }
 
 // ==========================================
-// MODAL DE INVITACIONES AL PLAN DE SUSCRIPCIÓN
+// MODAL DE INVITACIONES AL PLAN DE SUSCRIPCIÃ“N
 // ==========================================
 let planInviteSelectedSexo = 'Masculino';
 let planInviteCustomAvatarTemp = null;
@@ -4431,7 +4431,7 @@ export function openPlanInviteModal(defaultTab = 'collaborators') {
   const user = getCurrentUser();
 
   if (!user || !user.email) {
-    showToast('Debes iniciar sesión para invitar usuarios a tu plan.', 'warning');
+    showToast('Debes iniciar sesiÃ³n para invitar usuarios a tu plan.', 'warning');
     return;
   }
 
@@ -4498,7 +4498,7 @@ export function renderPlanInviteModalContent() {
     badgePlan.textContent = `Plan ${planLimits.name}`;
   }
 
-  // Contador de límite
+  // Contador de lÃ­mite
   const counterBanner = document.getElementById('plan-invite-counter-banner');
   if (counterBanner) {
     const isAtLimit = !check.allowed;
@@ -4512,9 +4512,9 @@ export function renderPlanInviteModalContent() {
           <i class="fa-solid ${isAtLimit ? 'fa-triangle-exclamation' : 'fa-users'} text-sm"></i>
         </div>
         <div>
-          <span class="font-bold text-white block text-xs">Cupo de usuarios de tu suscripción:</span>
+          <span class="font-bold text-white block text-xs">Cupo de usuarios de tu suscripciÃ³n:</span>
           <span class="text-[11px] ${isAtLimit ? 'text-amber-300' : 'text-slate-300'}">
-            Tienes <strong class="text-white">${collaborators.length + 1}</strong> de <strong class="text-white">${planLimits.maxMembers === Infinity ? 'Ilimitados' : planLimits.maxMembers}</strong> usuarios en tu plan ${planLimits.name} <span class="text-slate-400">(Tú + ${collaborators.length} colaborador${collaborators.length === 1 ? '' : 'es'})</span>.
+            Tienes <strong class="text-white">${collaborators.length + 1}</strong> de <strong class="text-white">${planLimits.maxMembers === Infinity ? 'Ilimitados' : planLimits.maxMembers}</strong> usuarios en tu plan ${planLimits.name} <span class="text-slate-400">(TÃº + ${collaborators.length} colaborador${collaborators.length === 1 ? '' : 'es'})</span>.
           </span>
         </div>
       </div>
@@ -4542,7 +4542,7 @@ export function renderPlanInviteModalContent() {
       listContainer.innerHTML = `
         <div class="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
           <i class="fa-solid fa-user-group text-3xl text-slate-300 mb-2 block"></i>
-          <p class="font-bold text-slate-700 text-xs">Aún no has invitado usuarios a tu plan</p>
+          <p class="font-bold text-slate-700 text-xs">AÃºn no has invitado usuarios a tu plan</p>
           <p class="text-[11px] text-slate-500 mt-1">Invita a miembros de tu equipo para que colaboren en tus proyectos de obra.</p>
           <button type="button" onclick="switchPlanInviteModalTab('invite')" class="mt-3.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer inline-flex items-center gap-1.5">
             <i class="fa-solid fa-user-plus text-[11px]"></i> Invitar Primer Usuario
@@ -4579,9 +4579,9 @@ export function renderPlanInviteModalContent() {
               <select onchange="changePlanCollaboratorRole('${c.email}', this.value)" 
                       class="text-xs font-semibold py-1.5 pl-2.5 pr-7 rounded-xl border border-slate-300 bg-slate-50 hover:bg-white hover:border-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-700 transition cursor-pointer shadow-2xs appearance-none"
                       title="Editar rol asignado a este usuario en tu plan">
-                <option value="editar" ${c.role === 'editar' ? 'selected' : ''}>✏️ Editar</option>
-                <option value="escribir" ${c.role === 'escribir' ? 'selected' : ''}>📝 Escribir</option>
-                <option value="leer" ${c.role === 'leer' ? 'selected' : ''}>👁️ Leer</option>
+                <option value="editar" ${c.role === 'editar' ? 'selected' : ''}>âœï¸ Editar</option>
+                <option value="escribir" ${c.role === 'escribir' ? 'selected' : ''}>ðŸ“ Escribir</option>
+                <option value="leer" ${c.role === 'leer' ? 'selected' : ''}>ðŸ‘ï¸ Leer</option>
               </select>
               <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
                 <i class="fa-solid fa-chevron-down text-[9px]"></i>
@@ -4600,7 +4600,7 @@ export function renderPlanInviteModalContent() {
     }
   }
 
-  // Previsualización de avatar del formulario
+  // PrevisualizaciÃ³n de avatar del formulario
   updatePlanInviteAvatarPreview();
 }
 
@@ -4655,7 +4655,7 @@ export function submitPlanInviteMember(event) {
   const role = roleRadio ? roleRadio.value : 'editar';
 
   if (!email || !email.includes('@')) {
-    showToast('Por favor introduce un correo electrónico válido.', 'warning');
+    showToast('Por favor introduce un correo electrÃ³nico vÃ¡lido.', 'warning');
     return;
   }
 
@@ -4669,7 +4669,7 @@ export function submitPlanInviteMember(event) {
   });
 
   if (!result.ok) {
-    showToast(result.error || 'No fue posible enviar la invitación.', 'warning');
+    showToast(result.error || 'No fue posible enviar la invitaciÃ³n.', 'warning');
     if (result.limitReached) {
       closePlanInviteModal();
       openSubscriptionModal();
@@ -4677,7 +4677,7 @@ export function submitPlanInviteMember(event) {
     return;
   }
 
-  showToast(`¡Invitación a tu plan enviada exitosamente a ${email}!`, 'success');
+  showToast(`Â¡InvitaciÃ³n a tu plan enviada exitosamente a ${email}!`, 'success');
   if (nameInput) nameInput.value = '';
   if (emailInput) emailInput.value = '';
   planInviteCustomAvatarTemp = null;
@@ -4699,12 +4699,12 @@ export function changePlanCollaboratorRole(collaboratorEmail, newRole) {
 }
 
 export function onRemovePlanCollaboratorClick(email) {
-  if (!confirm(`¿Deseas remover al usuario ${email} de tu plan de suscripción? Perderá el acceso a tus proyectos.`)) {
+  if (!confirm(`Â¿Deseas remover al usuario ${email} de tu plan de suscripciÃ³n? PerderÃ¡ el acceso a tus proyectos.`)) {
     return;
   }
   const ok = removePlanCollaborator(email);
   if (ok) {
-    showToast(`Usuario ${email} removido de tu suscripción.`);
+    showToast(`Usuario ${email} removido de tu suscripciÃ³n.`);
     renderPlanInviteModalContent();
   }
 }
@@ -4717,12 +4717,12 @@ export function copyPlanInviteLink() {
   
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url).then(() => {
-      showToast('¡Enlace de invitación a tu plan copiado al portapapeles!');
+      showToast('Â¡Enlace de invitaciÃ³n a tu plan copiado al portapapeles!');
     }).catch(() => {
-      prompt('Copia este enlace de invitación a tu plan:', url);
+      prompt('Copia este enlace de invitaciÃ³n a tu plan:', url);
     });
   } else {
-    prompt('Copia este enlace de invitación a tu plan:', url);
+    prompt('Copia este enlace de invitaciÃ³n a tu plan:', url);
   }
 }
 
@@ -4763,20 +4763,20 @@ export function renderHeaderCollaborators() {
     
     if (m.avatar && (m.avatar.startsWith('http') || m.avatar.startsWith('data:image'))) {
       return `
-        <div class="relative group/avatar inline-block" title="${m.name} • Permiso: ${roleTxt}">
+        <div class="relative group/avatar inline-block" title="${m.name} â€¢ Permiso: ${roleTxt}">
           <img src="${m.avatar}" class="inline-block h-6 w-6 rounded-full ring-2 ${roleClass} object-cover shadow-xs">
         </div>
       `;
     }
     return `
-      <div class="inline-block h-6 w-6 rounded-full ring-2 ${roleClass} text-[9px] font-bold text-white flex items-center justify-center shadow-xs" title="${m.name} • Permiso: ${roleTxt}">
+      <div class="inline-block h-6 w-6 rounded-full ring-2 ${roleClass} text-[9px] font-bold text-white flex items-center justify-center shadow-xs" title="${m.name} â€¢ Permiso: ${roleTxt}">
         ${inits}
       </div>
     `;
   }).join('');
 
   const extraBadge = extra > 0 
-    ? `<span class="inline-block h-6 w-6 rounded-full ring-2 ring-slate-700 bg-slate-700 text-[9px] font-bold text-slate-300 flex items-center justify-center shadow-xs" title="+${extra} colaboradores más">+${extra}</span>`
+    ? `<span class="inline-block h-6 w-6 rounded-full ring-2 ring-slate-700 bg-slate-700 text-[9px] font-bold text-slate-300 flex items-center justify-center shadow-xs" title="+${extra} colaboradores mÃ¡s">+${extra}</span>`
     : '';
 
   container.innerHTML = html + extraBadge;
@@ -4824,7 +4824,7 @@ export function selectInvitePreset(index) {
   updateInviteAvatarPreview();
 }
 
-// Alternar pestañas dentro del modal de Equipo y Permisos (Miembros con Acceso / Invitar Colaborador)
+// Alternar pestaÃ±as dentro del modal de Equipo y Permisos (Miembros con Acceso / Invitar Colaborador)
 export function switchInviteModalTab(tab = 'members') {
   const btnMembers = document.getElementById('tab-btn-modal-members');
   const btnInvite = document.getElementById('tab-btn-modal-invite');
@@ -4869,13 +4869,13 @@ export function switchInviteModalTab(tab = 'members') {
   }
 }
 
-// Marcar / desmarcar checkboxes de pestañas en el formulario de invitación
+// Marcar / desmarcar checkboxes de pestaÃ±as en el formulario de invitaciÃ³n
 export function setInviteTabCheckboxes(checkAll) {
   const cbs = document.querySelectorAll('input[name="invite-tab-access"]');
   cbs.forEach(cb => { cb.checked = !!checkAll; });
 }
 
-// Quitar o poner autorización de una pestaña específica para un colaborador invitado
+// Quitar o poner autorizaciÃ³n de una pestaÃ±a especÃ­fica para un colaborador invitado
 export function toggleMemberTabPermission(memberId, tabKey) {
   if (!activeInviteProjectId) {
     activeInviteProjectId = getActiveOrFallbackProjectId();
@@ -4894,9 +4894,9 @@ export function toggleMemberTabPermission(memberId, tabKey) {
   if (ok) {
     const tabName = TAB_METADATA[tabKey]?.name || tabKey;
     if (hasTab) {
-      showToast(`Pestaña "${tabName}" retirada para ${mem.name}`, false);
+      showToast(`PestaÃ±a "${tabName}" retirada para ${mem.name}`, false);
     } else {
-      showToast(`Pestaña "${tabName}" autorizada para ${mem.name}`);
+      showToast(`PestaÃ±a "${tabName}" autorizada para ${mem.name}`);
     }
     renderInviteModalMembersList();
     renderAllTabAssignedMembers();
@@ -4904,7 +4904,7 @@ export function toggleMemberTabPermission(memberId, tabKey) {
   }
 }
 
-// Asignar todas o quitar todas las pestañas para un colaborador
+// Asignar todas o quitar todas las pestaÃ±as para un colaborador
 export function setMemberAllTabsPermission(memberId, grantAll) {
   if (!activeInviteProjectId) {
     activeInviteProjectId = getActiveOrFallbackProjectId();
@@ -4918,7 +4918,7 @@ export function setMemberAllTabsPermission(memberId, grantAll) {
   const newTabs = grantAll ? ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'] : [];
   const ok = updateProjectMemberTabs(activeInviteProjectId, memberId, newTabs);
   if (ok) {
-    showToast(grantAll ? `Todas las pestañas autorizadas para ${mem.name}` : `Todas las pestañas retiradas para ${mem.name}`, !grantAll);
+    showToast(grantAll ? `Todas las pestaÃ±as autorizadas para ${mem.name}` : `Todas las pestaÃ±as retiradas para ${mem.name}`, !grantAll);
     renderInviteModalMembersList();
     renderAllTabAssignedMembers();
     updateNavigationTabsAccess();
@@ -4943,7 +4943,7 @@ export function submitInviteMember(e) {
   const role = roleRadio ? roleRadio.value : 'editar';
 
   if (!name || !email) {
-    alert('Por favor completa el nombre y el correo electrónico del colaborador.');
+    alert('Por favor completa el nombre y el correo electrÃ³nico del colaborador.');
     return;
   }
 
@@ -4951,14 +4951,14 @@ export function submitInviteMember(e) {
   const currentUser = getCurrentUser();
   const inviteCheck = canUserInviteToProject(activeInviteProjectId, currentUser, email);
   if (!inviteCheck.allowed) {
-    showToast(`🔒 ${inviteCheck.reason || 'No tienes permitido invitar más colaboradores.'}`, 'warning');
-    if (inviteCheck.limitReached || (inviteCheck.reason && inviteCheck.reason.includes('límite'))) {
+    showToast(`ðŸ”’ ${inviteCheck.reason || 'No tienes permitido invitar mÃ¡s colaboradores.'}`, 'warning');
+    if (inviteCheck.limitReached || (inviteCheck.reason && inviteCheck.reason.includes('lÃ­mite'))) {
       openSubscriptionModal();
     }
     return;
   }
 
-  // Crear la invitación formal persistente para que aparezca en la campana de notificaciones del usuario X
+  // Crear la invitaciÃ³n formal persistente para que aparezca en la campana de notificaciones del usuario X
   const inv = createProjectInvitation({
     projectId: activeInviteProjectId,
     email,
@@ -4969,14 +4969,14 @@ export function submitInviteMember(e) {
   });
 
   if (inv) {
-    showToast(`Invitación enviada a ${email}. Aparecerá en sus notificaciones de campana.`);
+    showToast(`InvitaciÃ³n enviada a ${email}. AparecerÃ¡ en sus notificaciones de campana.`);
     if (nameInput) nameInput.value = '';
     if (emailInput) emailInput.value = '';
     inviteCustomAvatarTemp = null;
     updateInviteAvatarPreview();
     setInviteTabCheckboxes(false);
     
-    // Cambiar automáticamente a la pestaña 1 (Miembros con Acceso) para ver al nuevo miembro
+    // Cambiar automÃ¡ticamente a la pestaÃ±a 1 (Miembros con Acceso) para ver al nuevo miembro
     switchInviteModalTab('members');
     renderHeaderCollaborators();
     renderAllTabAssignedMembers();
@@ -4999,10 +4999,10 @@ export function removeMemberFromProject(memberId, memberName) {
   const currentUser = getCurrentUser();
   const perm = canUserInviteToProject(activeInviteProjectId, currentUser);
   if (!perm?.allowed) {
-    showToast('🔒 Solo el dueño del proyecto o usuarios con rol de Editor pueden remover colaboradores.', 'warning');
+    showToast('ðŸ”’ Solo el dueÃ±o del proyecto o usuarios con rol de Editor pueden remover colaboradores.', 'warning');
     return;
   }
-  if (!confirm(`¿Deseas remover a "${memberName || 'este usuario'}" del proyecto?`)) return;
+  if (!confirm(`Â¿Deseas remover a "${memberName || 'este usuario'}" del proyecto?`)) return;
 
   const ok = removeProjectMember(activeInviteProjectId, memberId);
   if (ok) {
@@ -5033,12 +5033,12 @@ export function renderInviteModalMembersList() {
     tabCountBadge.textContent = `${members.length}`;
   }
 
-  // Actualizar selector de simulación de vista
+  // Actualizar selector de simulaciÃ³n de vista
   if (simulateSelect) {
     const simUser = getSimulatedUserView();
     const simEmail = (simUser?.email || '').toLowerCase().trim();
     simulateSelect.innerHTML = `
-      <option value="admin" ${!simUser ? 'selected' : ''}>👑 Tú (Tu sesión real - Todas)</option>
+      <option value="admin" ${!simUser ? 'selected' : ''}>ðŸ‘‘ TÃº (Tu sesiÃ³n real - Todas)</option>
       ${members.map(m => {
         const tabList = (m.allowedTabs || ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']).map(t => TAB_METADATA[t]?.name).filter(Boolean).join(', ');
         return `<option value="${m.email}" ${simEmail && simEmail === (m.email || '').toLowerCase().trim() ? 'selected' : ''}>${m.name} (${tabList || 'Sin acceso'})</option>`;
@@ -5052,8 +5052,8 @@ export function renderInviteModalMembersList() {
     container.innerHTML = `
       <div class="p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-xs">
         <i class="fa-solid fa-users text-2xl text-slate-300 mb-2 block"></i>
-        <p class="font-semibold text-slate-600">No hay colaboradores asignados todavía a este proyecto.</p>
-        <p class="text-[11px] text-slate-400 mt-1">Usa la pestaña <strong>"Invitar o Agregar Nuevo Colaborador"</strong> para sumar miembros.</p>
+        <p class="font-semibold text-slate-600">No hay colaboradores asignados todavÃ­a a este proyecto.</p>
+        <p class="text-[11px] text-slate-400 mt-1">Usa la pestaÃ±a <strong>"Invitar o Agregar Nuevo Colaborador"</strong> para sumar miembros.</p>
         <button type="button" onclick="switchInviteModalTab('invite')" class="mt-3 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 cursor-pointer shadow-xs">
           <i class="fa-solid fa-user-plus text-[10px]"></i> Invitar Colaborador Ahora
         </button>
@@ -5063,12 +5063,12 @@ export function renderInviteModalMembersList() {
   }
 
   const tabDefs = [
-    { id: 'cat', label: 'Catálogo', icon: 'fa-list-check', activeBg: 'bg-blue-50 text-blue-700 border-blue-400 hover:bg-blue-100', iconColor: 'text-blue-600' },
+    { id: 'cat', label: 'CatÃ¡logo', icon: 'fa-list-check', activeBg: 'bg-blue-50 text-blue-700 border-blue-400 hover:bg-blue-100', iconColor: 'text-blue-600' },
     { id: 'insumos', label: 'Insumos', icon: 'fa-boxes-stacked', activeBg: 'bg-purple-50 text-purple-700 border-purple-400 hover:bg-purple-100', iconColor: 'text-purple-600' },
     { id: 'calendario', label: 'Calendario', icon: 'fa-calendar-days', activeBg: 'bg-amber-50 text-amber-700 border-amber-400 hover:bg-amber-100', iconColor: 'text-amber-500' },
     { id: 'estimaciones', label: 'Estimaciones', icon: 'fa-file-invoice-dollar', activeBg: 'bg-emerald-50 text-emerald-700 border-emerald-400 hover:bg-emerald-100', iconColor: 'text-emerald-600' },
     { id: 'compras', label: 'Compras', icon: 'fa-cart-shopping', activeBg: 'bg-indigo-50 text-indigo-700 border-indigo-400 hover:bg-indigo-100', iconColor: 'text-indigo-600' },
-    { id: 'bitacora', label: 'Bitácora', icon: 'fa-book-bookmark', activeBg: 'bg-teal-50 text-teal-700 border-teal-400 hover:bg-teal-100', iconColor: 'text-teal-600' }
+    { id: 'bitacora', label: 'BitÃ¡cora', icon: 'fa-book-bookmark', activeBg: 'bg-teal-50 text-teal-700 border-teal-400 hover:bg-teal-100', iconColor: 'text-teal-600' }
   ];
 
   container.innerHTML = members.map(m => {
@@ -5090,32 +5090,32 @@ export function renderInviteModalMembersList() {
           <div class="flex items-center gap-2 shrink-0">
             <!-- Selector de Rol General -->
             <select onchange="changeMemberRole('${m.id}', this.value)" class="text-xs font-semibold py-1 px-2 rounded-lg border border-slate-300 bg-white text-slate-700 focus:border-blue-500 focus:outline-none cursor-pointer" title="Modificar rol de acceso">
-              <option value="editar" ${m.role === 'editar' ? 'selected' : ''}>✏️ Editar</option>
-              <option value="escribir" ${m.role === 'escribir' ? 'selected' : ''}>📝 Escribir</option>
-              <option value="leer" ${m.role === 'leer' ? 'selected' : ''}>👁️ Leer</option>
+              <option value="editar" ${m.role === 'editar' ? 'selected' : ''}>âœï¸ Editar</option>
+              <option value="escribir" ${m.role === 'escribir' ? 'selected' : ''}>ðŸ“ Escribir</option>
+              <option value="leer" ${m.role === 'leer' ? 'selected' : ''}>ðŸ‘ï¸ Leer</option>
             </select>
 
-            <!-- Botón Eliminar -->
+            <!-- BotÃ³n Eliminar -->
             <button type="button" onclick="removeMemberFromProject('${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition cursor-pointer" title="Remover del proyecto">
               <i class="fa-solid fa-trash-can text-xs"></i>
             </button>
           </div>
         </div>
 
-        <!-- Fila Inferior: Pestañas de Autorización (Quitar o Poner) -->
+        <!-- Fila Inferior: PestaÃ±as de AutorizaciÃ³n (Quitar o Poner) -->
         <div class="pt-2 border-t border-slate-100">
           <div class="flex items-center justify-between gap-2 mb-1.5">
             <span class="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
-              <i class="fa-solid fa-sliders text-blue-600 text-[10px]"></i> Pestañas autorizadas:
+              <i class="fa-solid fa-sliders text-blue-600 text-[10px]"></i> PestaÃ±as autorizadas:
             </span>
             <div class="flex items-center gap-1.5 text-[10px]">
-              <button type="button" onclick="setMemberAllTabsPermission('${m.id}', true)" class="text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Autorizar todas las pestañas">Todas</button>
+              <button type="button" onclick="setMemberAllTabsPermission('${m.id}', true)" class="text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Autorizar todas las pestaÃ±as">Todas</button>
               <span class="text-slate-300">|</span>
-              <button type="button" onclick="setMemberAllTabsPermission('${m.id}', false)" class="text-slate-500 hover:text-rose-600 font-bold hover:underline cursor-pointer" title="Quitar todas las pestañas">Ninguna</button>
+              <button type="button" onclick="setMemberAllTabsPermission('${m.id}', false)" class="text-slate-500 hover:text-rose-600 font-bold hover:underline cursor-pointer" title="Quitar todas las pestaÃ±as">Ninguna</button>
             </div>
           </div>
 
-          <!-- Botones interactivos para Quitar o Poner cada pestaña -->
+          <!-- Botones interactivos para Quitar o Poner cada pestaÃ±a -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
             ${tabDefs.map(t => {
               const isAllowed = tabs.includes(t.id);
@@ -5123,7 +5123,7 @@ export function renderInviteModalMembersList() {
                 return `
                   <button type="button" onclick="toggleMemberTabPermission('${m.id}', '${t.id}')"
                           class="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition flex items-center justify-between gap-1 cursor-pointer shadow-2xs ${t.activeBg}"
-                          title="Acceso autorizado a ${t.label}. Haz clic para QUITAR autorización.">
+                          title="Acceso autorizado a ${t.label}. Haz clic para QUITAR autorizaciÃ³n.">
                     <span class="flex items-center gap-1.5 truncate">
                       <i class="fa-solid ${t.icon} ${t.iconColor} text-[10px]"></i>
                       <span class="truncate">${t.label}</span>
@@ -5135,7 +5135,7 @@ export function renderInviteModalMembersList() {
                 return `
                   <button type="button" onclick="toggleMemberTabPermission('${m.id}', '${t.id}')"
                           class="px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition flex items-center justify-between gap-1 cursor-pointer bg-slate-100 text-slate-400 border-slate-200 hover:border-slate-300 hover:text-slate-700 opacity-60 hover:opacity-100"
-                          title="Sin acceso a ${t.label}. Haz clic para PONER autorización.">
+                          title="Sin acceso a ${t.label}. Haz clic para PONER autorizaciÃ³n.">
                     <span class="flex items-center gap-1.5 truncate">
                       <i class="fa-solid ${t.icon} text-slate-400 text-[10px]"></i>
                       <span class="truncate line-through decoration-slate-300">${t.label}</span>
@@ -5184,21 +5184,21 @@ if (typeof window !== 'undefined') {
 }
 
 // ==========================================
-// ASIGNACIÓN Y GESTIÓN DE ACCESO A PESTAÑAS POR PROYECTO
+// ASIGNACIÃ“N Y GESTIÃ“N DE ACCESO A PESTAÃ‘AS POR PROYECTO
 // ==========================================
 
 export const TAB_METADATA = {
-  cat: { id: 'cat', name: 'Catálogo Base', icon: 'fa-solid fa-list-check', color: 'blue' },
+  cat: { id: 'cat', name: 'CatÃ¡logo Base', icon: 'fa-solid fa-list-check', color: 'blue' },
   insumos: { id: 'insumos', name: 'Insumos Base', icon: 'fa-solid fa-boxes-stacked', color: 'purple' },
   calendario: { id: 'calendario', name: 'Calendario de Obra', icon: 'fa-solid fa-calendar-days', color: 'amber' },
   estimaciones: { id: 'estimaciones', name: 'Estimaciones', icon: 'fa-solid fa-file-invoice-dollar', color: 'emerald' },
   compras: { id: 'compras', name: 'Compras y Pagos', icon: 'fa-solid fa-cart-shopping', color: 'indigo' },
-  bitacora: { id: 'bitacora', name: 'Bitácora de Obra', icon: 'fa-solid fa-book-bookmark', color: 'teal' }
+  bitacora: { id: 'bitacora', name: 'BitÃ¡cora de Obra', icon: 'fa-solid fa-book-bookmark', color: 'teal' }
 };
 
 let activeConfiguringTabId = null;
 
-// Determinar si el usuario actual tiene acceso a la pestaña especificada
+// Determinar si el usuario actual tiene acceso a la pestaÃ±a especificada
 export function canCurrentUserAccessTab(tabId) {
   const user = getCurrentUser();
   const pId = getActiveOrFallbackProjectId();
@@ -5211,7 +5211,7 @@ export function canCurrentUserAccessTab(tabId) {
 
   if (!proj) return false;
 
-  // El propietario del proyecto SIEMPRE tiene acceso completo a todas las pestañas de su obra
+  // El propietario del proyecto SIEMPRE tiene acceso completo a todas las pestaÃ±as de su obra
   const ownerEmail = (proj.ownerEmail || '').toLowerCase().trim();
   if (ownerEmail && ownerEmail === uEmail) return true;
 
@@ -5229,7 +5229,7 @@ export function canCurrentUserAccessTab(tabId) {
   return mem.role === 'editar';
 }
 
-// Actualizar iconos de candado y estado visual de las pestañas en el encabezado
+// Actualizar iconos de candado y estado visual de las pestaÃ±as en el encabezado
 export function updateNavigationTabsAccess() {
   const tabDomMap = {
     presupuesto: 'tab-btn-presupuesto',
@@ -5253,7 +5253,7 @@ export function updateNavigationTabsAccess() {
         btn.dataset.origTitle = btn.title || '';
       }
       btn.classList.add('opacity-50');
-      btn.title = 'Pestaña restringida: No estás asignado a esta pestaña';
+      btn.title = 'PestaÃ±a restringida: No estÃ¡s asignado a esta pestaÃ±a';
       if (!lockIcon) {
         const iconSpan = document.createElement('i');
         iconSpan.className = 'fa-solid fa-lock text-[10px] text-amber-400 ml-1 tab-lock-indicator';
@@ -5270,7 +5270,7 @@ export function updateNavigationTabsAccess() {
   });
 }
 
-// Renderizar avatares de miembros asignados a una pestaña
+// Renderizar avatares de miembros asignados a una pestaÃ±a
 export function renderTabAssignedAvatars(tabId) {
   const container = document.getElementById(`tab-avatars-${tabId}`);
   if (!container) return;
@@ -5303,20 +5303,20 @@ export function renderTabAssignedAvatars(tabId) {
   }).join('');
 
   const extraBadge = extra > 0
-    ? `<span class="inline-block h-5 w-5 rounded-full ring-2 ring-slate-400 bg-slate-600 text-[8px] font-bold text-white flex items-center justify-center shadow-2xs" title="+${extra} más">+${extra}</span>`
+    ? `<span class="inline-block h-5 w-5 rounded-full ring-2 ring-slate-400 bg-slate-600 text-[8px] font-bold text-white flex items-center justify-center shadow-2xs" title="+${extra} mÃ¡s">+${extra}</span>`
     : '';
 
   container.innerHTML = html + extraBadge;
 }
 
-// Renderizar todos los widgets de miembros asignados a cada pestaña
+// Renderizar todos los widgets de miembros asignados a cada pestaÃ±a
 export function renderAllTabAssignedMembers() {
   ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'].forEach(tabId => {
     renderTabAssignedAvatars(tabId);
   });
 }
 
-// Abrir modal para asignar miembros a una pestaña específica
+// Abrir modal para asignar miembros a una pestaÃ±a especÃ­fica
 export function openTabMembersAssignModal(tabId) {
   activeConfiguringTabId = tabId || 'cat';
   const meta = TAB_METADATA[activeConfiguringTabId] || TAB_METADATA.cat;
@@ -5358,7 +5358,7 @@ export function renderTabMembersModalList() {
     container.innerHTML = `
       <div class="p-4 text-center text-slate-500 bg-slate-50 rounded-xl border border-slate-200 text-xs">
         <i class="fa-solid fa-users-slash text-2xl text-slate-400 mb-2 block"></i>
-        No hay colaboradores invitados a este proyecto todavía.<br>
+        No hay colaboradores invitados a este proyecto todavÃ­a.<br>
         <button type="button" onclick="closeTabMembersAssignModal(); openInviteModal();" class="mt-2 text-xs text-blue-600 font-bold hover:underline cursor-pointer">
           + Invitar colaboradores ahora
         </button>
@@ -5427,21 +5427,21 @@ export function saveTabMembersAssignment() {
   setTabAssignedMembers(pId, activeConfiguringTabId, selectedMemberIds);
 
   const tabName = TAB_METADATA[activeConfiguringTabId]?.name || activeConfiguringTabId;
-  showToast(`✅ Asignación guardada: ${selectedMemberIds.length} miembros tienen acceso a ${tabName}`, 'success');
+  showToast(`âœ… AsignaciÃ³n guardada: ${selectedMemberIds.length} miembros tienen acceso a ${tabName}`, 'success');
 
   closeTabMembersAssignModal();
   renderAllTabAssignedMembers();
   updateNavigationTabsAccess();
 }
 
-// Simular vista como un colaborador específico sin sobrescribir la sesión real en localStorage
+// Simular vista como un colaborador especÃ­fico sin sobrescribir la sesiÃ³n real en localStorage
 export function simulateUserView(emailOrRole) {
   if (emailOrRole === 'admin') {
     setSimulatedUserView(null);
     const realUser = getCurrentUser(true);
     updateWorkspaceHeaderUser(realUser);
     updateNavigationTabsAccess();
-    showToast('👁️ Vista restablecida a tu usuario real (Acceso completo)', 'info');
+    showToast('ðŸ‘ï¸ Vista restablecida a tu usuario real (Acceso completo)', 'info');
     return;
   }
 
@@ -5461,8 +5461,8 @@ export function simulateUserView(emailOrRole) {
     setSimulatedUserView(simUser);
     updateWorkspaceHeaderUser(simUser);
     updateNavigationTabsAccess();
-    const tabNames = (mem.allowedTabs || []).map(t => TAB_METADATA[t]?.name).join(', ') || 'Ninguna pestaña';
-    showToast(`🎭 Simulación en memoria: ${mem.name} (Pestañas accesibles: ${tabNames})`, 'info');
+    const tabNames = (mem.allowedTabs || []).map(t => TAB_METADATA[t]?.name).join(', ') || 'Ninguna pestaÃ±a';
+    showToast(`ðŸŽ­ SimulaciÃ³n en memoria: ${mem.name} (PestaÃ±as accesibles: ${tabNames})`, 'info');
   }
 }
 

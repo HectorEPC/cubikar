@@ -1,7 +1,7 @@
-import { getActiveProjectId } from '../config/constants.js';
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
-import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js';
-import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js';
+﻿import { getActiveProjectId } from '../config/constants.js?v=20261116_cf3';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf3';
+import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261116_cf3';
+import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261116_cf3';
 
 const pendingTimers = new Map();
 
@@ -17,7 +17,7 @@ function unscopeRowId(projectId, storedId) {
 
 /**
  * Elimina dataUrl/base64 pesados de objetos de evidencia antes de persistir en JSONB/Postgres.
- * Conserva s3Key, mediaId, archivoId y metadatos para resolución desde IndexedDB/S3.
+ * Conserva s3Key, mediaId, archivoId y metadatos para resoluciÃ³n desde IndexedDB/S3.
  */
 export function stripInlineBinaryPayloads(evidence) {
   if (!evidence || typeof evidence !== 'object') return evidence;
@@ -82,7 +82,7 @@ function scheduleDebouncedTask(key, delayMs, taskFn) {
 }
 
 // ============================================================================
-// 1. BITÁCORA DE OBRA
+// 1. BITÃCORA DE OBRA
 // ============================================================================
 
 export function scheduleBitacoraCloudSync(projectId = '') {
@@ -149,7 +149,7 @@ export async function syncBitacoraNow(projectIdOverride = '') {
       fecha: note.fecha || null,
       tipo: String(note.tipo || 'seguimiento'),
       clasificacion: String(note.folioCode || 'BORRADOR'),
-      titulo: String(note.folioCode || note.tipo || 'Nota de Bitácora'),
+      titulo: String(note.folioCode || note.tipo || 'Nota de BitÃ¡cora'),
       contenido: String(note.descripcion || ''),
       autor_nombre: String(note.autorNombre || ''),
       autor_email: String(note.autorEmail || ctx.user.email || ''),
@@ -342,7 +342,7 @@ export async function syncEstimacionesNow(projectIdOverride = '') {
     return {
       proyecto_id: estProjectId,
       numero: estNumero,
-      nombre: String(est.nombre || `Estimación No. ${estNumero}`),
+      nombre: String(est.nombre || `EstimaciÃ³n No. ${estNumero}`),
       fecha_inicio: est.fechaInicio || today,
       fecha_fin: est.fechaFin || today,
       fecha_corte: est.fechaCorte || est.fechaFin || today,
@@ -393,7 +393,7 @@ export async function syncEstimacionesNow(projectIdOverride = '') {
 }
 
 // ============================================================================
-// 4. CRONOGRAMA DE OBRA (Configuración y Jornadas)
+// 4. CRONOGRAMA DE OBRA (ConfiguraciÃ³n y Jornadas)
 // ============================================================================
 
 export function scheduleCronogramaCloudSync(projectId = '') {
@@ -486,7 +486,7 @@ export async function syncChatNow(projectIdOverride = '') {
 }
 
 // ============================================================================
-// HIDRATACIÓN DESDE SUPABASE AL ABRIR PROYECTO
+// HIDRATACIÃ“N DESDE SUPABASE AL ABRIR PROYECTO
 // ============================================================================
 
 export async function hydrateProjectModulesFromCloud(projectIdOverride = '') {
@@ -526,7 +526,7 @@ export async function hydrateProjectModulesFromCloud(projectIdOverride = '') {
           mergedMap.set(n.id, n);
           continue;
         }
-        // Proteger notas asentadas/firmadas: jamás sobrescribir una nota 'sealed' con un borrador local
+        // Proteger notas asentadas/firmadas: jamÃ¡s sobrescribir una nota 'sealed' con un borrador local
         if (remote.estado === 'sealed') continue;
         if (n.estado === 'sealed') {
           mergedMap.set(n.id, n);
@@ -554,7 +554,7 @@ export async function hydrateProjectModulesFromCloud(projectIdOverride = '') {
       hydrated.bitacora = nextBitacora.notes.length;
     }
   } catch (err) {
-    console.warn('[cloudModulesSyncService] Error hidratando bitácora:', err?.message);
+    console.warn('[cloudModulesSyncService] Error hidratando bitÃ¡cora:', err?.message);
   }
 
   try {
@@ -589,7 +589,7 @@ export async function hydrateProjectModulesFromCloud(projectIdOverride = '') {
           const remoteTs = Date.parse(remoteRec.updatedAt || '') || 0;
           mergedRecMap.set(cid, (localRec && localTs > remoteTs) ? localRec : remoteRec);
         }
-        // Conservar únicamente registros locales nuevos aún no enviados a la nube tras la última sincronización
+        // Conservar Ãºnicamente registros locales nuevos aÃºn no enviados a la nube tras la Ãºltima sincronizaciÃ³n
         for (const [cid, rec] of localRecMap.entries()) {
           if (mergedRecMap.has(cid)) continue;
           const localTs = Date.parse(rec.updatedAt || rec.createdAt || '') || 0;

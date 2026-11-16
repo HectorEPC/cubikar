@@ -1,7 +1,7 @@
-import { state, persistLocalData } from './store.js';
-import { showToast } from '../ui/notifications.js';
-import { isTabLocked, guardTabUnlocked } from '../ui/tabLockController.js';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js';
+﻿import { state, persistLocalData } from './store.js?v=20261116_cf3';
+import { showToast } from '../ui/notifications.js?v=20261116_cf3';
+import { isTabLocked, guardTabUnlocked } from '../ui/tabLockController.js?v=20261116_cf3';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261116_cf3';
 
 export let undoStack = [];
 export let redoStack = [];
@@ -42,7 +42,7 @@ export function updateUndoRedoButtons() {
 
 export function undoAction() {
   if (!canCurrentUserEditProject()) {
-    showToast('🔒 Modo lectura: tu rol no permite deshacer cambios.', 'warning');
+    showToast('ðŸ”’ Modo lectura: tu rol no permite deshacer cambios.', 'warning');
     return;
   }
   const viewInsumos = typeof document !== 'undefined' ? document.getElementById('view-insumos') : null;
@@ -60,7 +60,7 @@ export function undoAction() {
 
 export function redoAction() {
   if (!canCurrentUserEditProject()) {
-    showToast('🔒 Modo lectura: tu rol no permite rehacer cambios.', 'warning');
+    showToast('ðŸ”’ Modo lectura: tu rol no permite rehacer cambios.', 'warning');
     return;
   }
   const viewInsumos = typeof document !== 'undefined' ? document.getElementById('view-insumos') : null;

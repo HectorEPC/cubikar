@@ -1,14 +1,14 @@
-import { state } from '../../state/store.js';
-import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js';
-import { getHierarchyColor } from '../../core/colors.js';
-import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js';
-import { findNodeById } from './treeService.js';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js';
-import { APU_WIDTH_KEY } from '../../config/constants.js';
-import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js';
-import { getClampedApuWidth } from '../../ui/resizer.js';
-import { canCurrentUserEditProject } from '../portal/projectService.js';
+﻿import { state } from '../../state/store.js?v=20261116_cf3';
+import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js?v=20261116_cf3';
+import { getHierarchyColor } from '../../core/colors.js?v=20261116_cf3';
+import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js?v=20261116_cf3';
+import { findNodeById } from './treeService.js?v=20261116_cf3';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf3';
+import { APU_WIDTH_KEY } from '../../config/constants.js?v=20261116_cf3';
+import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf3';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf3';
+import { getClampedApuWidth } from '../../ui/resizer.js?v=20261116_cf3';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf3';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -20,12 +20,12 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// Renderizado de la tabla principal de catálogo (TAB1-CAT-BASE)
+// Renderizado de la tabla principal de catÃ¡logo (TAB1-CAT-BASE)
 export function renderTAB1() {
   const tbody = document.getElementById('tb1-body');
   if (!tbody) return;
 
-  // Bloqueo estricto del candado explícito y permisos de edición en la obra
+  // Bloqueo estricto del candado explÃ­cito y permisos de ediciÃ³n en la obra
   const isExplicitLocked = isTabLocked('cat');
   const isReadOnly = !canCurrentUserEditProject();
   const isCatLocked = isExplicitLocked || isReadOnly;
@@ -49,7 +49,7 @@ export function renderTAB1() {
         ? calculateParentTotal(node) 
         : round2((node.cantidad || 0) * (node.precioUnitario || 0));
 
-      // Color jerárquico progresivo (con caché memoizada)
+      // Color jerÃ¡rquico progresivo (con cachÃ© memoizada)
       const activeColor = node.color || inheritedColor;
       const colorOriginLevel = node.color ? level : parentColorLevel;
       const depthOffset = activeColor ? Math.max(0, level - colorOriginLevel) : 0;
@@ -151,7 +151,7 @@ export function renderTAB1() {
         <td class="p-1.5 text-center align-top pt-2">
           <div class="flex items-center justify-center space-x-1">
             <button onclick="addChildRow('${escapeHtml(node.id)}', event)" ${isCatLocked ? 'disabled' : ''}
-                    title="${isCatLocked ? 'Pestaña bloqueada (Solo consulta e impresión)' : (hasMatriz ? 'Restringido: Este concepto ya cuenta con matriz de insumos. No se pueden agregar sub-filas.' : 'Agregar Sub-renglón')}" 
+                    title="${isCatLocked ? 'PestaÃ±a bloqueada (Solo consulta e impresiÃ³n)' : (hasMatriz ? 'Restringido: Este concepto ya cuenta con matriz de insumos. No se pueden agregar sub-filas.' : 'Agregar Sub-renglÃ³n')}" 
                     class="${hasMatriz || isCatLocked ? 'text-slate-300 p-1 transition disabled:opacity-35 disabled:cursor-not-allowed' : 'text-blue-600 hover:text-blue-800 p-1'}">
               <i class="fa-solid fa-plus-circle text-xs ${hasMatriz || isCatLocked ? 'opacity-35' : ''}"></i>
             </button>
@@ -166,7 +166,7 @@ export function renderTAB1() {
                 <button onclick="duplicarNode('${escapeHtml(node.id)}', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
                   <i class="fa-solid fa-clone text-[10px]"></i> Duplicar
                 </button>
-                <button onclick="copiarNode('${escapeHtml(node.id)}', event); closeAllDropdownMenus();" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2" title="Copiar este concepto junto con toda su matriz APU para pegarlo aquí o en otro proyecto">
+                <button onclick="copiarNode('${escapeHtml(node.id)}', event); closeAllDropdownMenus();" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2" title="Copiar este concepto junto con toda su matriz APU para pegarlo aquÃ­ o en otro proyecto">
                   <i class="fa-solid fa-copy text-[10px]"></i> Copiar con Matriz
                 </button>
                 <button onclick="pegarNode('${escapeHtml(node.id)}', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 ${!state.clipboardNode || isCatLocked ? 'opacity-40 cursor-not-allowed' : ''}" title="${state.clipboardNode ? `Pegar concepto copiado [${escapeHtml(state.clipboardNode.clave || '')}] con su matriz APU` : 'No hay concepto en el portapapeles'}">
@@ -238,7 +238,7 @@ export function renderTAB1() {
   updateSobrecostoBadge();
 }
 
-// Resaltar fila en Catálogo Base sin recrear el DOM (preserva el foco al hacer clic dentro de un input/textarea)
+// Resaltar fila en CatÃ¡logo Base sin recrear el DOM (preserva el foco al hacer clic dentro de un input/textarea)
 export function highlightCatalogRowInPlace(id) {
   state.activeSelectedId = id;
   const tbody = document.getElementById('tb1-body');
@@ -282,7 +282,7 @@ export function selectRow(id) {
   const apuPanel = document.getElementById('apu-panel');
   const panelResizer = document.getElementById('panel-resizer');
 
-  // Restricción: Si la fila tiene sub-filas (partida agrupada), NO mostrar la tabla de matrices
+  // RestricciÃ³n: Si la fila tiene sub-filas (partida agrupada), NO mostrar la tabla de matrices
   const hasChildren = node.children && node.children.length > 0;
   if (hasChildren) {
     if (apuPanel) apuPanel.classList.add('hidden');
@@ -294,7 +294,7 @@ export function selectRow(id) {
   if (apuPanel) apuPanel.classList.remove('hidden');
   if (panelResizer) panelResizer.classList.remove('hidden');
 
-  // Restaurar ancho guardado adaptado a la resolución actual de la pantalla
+  // Restaurar ancho guardado adaptado a la resoluciÃ³n actual de la pantalla
   if (apuPanel) {
     const savedWidth = localStorage.getItem(APU_WIDTH_KEY);
     const clampedWidth = getClampedApuWidth(savedWidth);
@@ -305,7 +305,7 @@ export function selectRow(id) {
   const apuClave = document.getElementById('apu-clave');
   if (apuClave) apuClave.innerText = node.clave || '';
   const apuTitle = document.getElementById('apu-title');
-  if (apuTitle) apuTitle.innerText = node.descripcion || 'Sin descripción';
+  if (apuTitle) apuTitle.innerText = node.descripcion || 'Sin descripciÃ³n';
   const apuDesc = document.getElementById('apu-desc');
   if (apuDesc) apuDesc.innerText = `Unidad: ${node.unidad || 'pza'} | Cantidad: ${node.cantidad || 0}`;
 
@@ -325,7 +325,7 @@ export function closeApuPanel() {
   renderTAB1();
 }
 
-// Abrir / cerrar menú desplegable de opciones de fila
+// Abrir / cerrar menÃº desplegable de opciones de fila
 export function toggleDropdownMenu(id, event) {
   if (event) {
     event.stopPropagation();
@@ -337,11 +337,11 @@ export function toggleDropdownMenu(id, event) {
 
   const wasOpen = menu.classList.contains('show') || container.classList.contains('is-open');
 
-  // Cerrar cualquier otro menú antes de abrir
+  // Cerrar cualquier otro menÃº antes de abrir
   closeAllDropdownMenus();
 
   if (!wasOpen) {
-    // Detectar si está cerca del límite inferior para desplegar hacia arriba
+    // Detectar si estÃ¡ cerca del lÃ­mite inferior para desplegar hacia arriba
     const rect = container.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     if (spaceBelow < 220 && rect.top > 200) {
@@ -355,7 +355,7 @@ export function toggleDropdownMenu(id, event) {
   }
 }
 
-// Cerrar todos los menús desplegables abiertos
+// Cerrar todos los menÃºs desplegables abiertos
 export function closeAllDropdownMenus() {
   document.querySelectorAll('.dropdown-menu.show').forEach((menu) => {
     menu.classList.remove('show', 'dropdown-menu-up');
@@ -365,7 +365,7 @@ export function closeAllDropdownMenus() {
   });
 }
 
-// Manejadores globales para cerrar menús al hacer clic fuera o presionar Escape
+// Manejadores globales para cerrar menÃºs al hacer clic fuera o presionar Escape
 if (typeof document !== 'undefined') {
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.dropdown-container')) {

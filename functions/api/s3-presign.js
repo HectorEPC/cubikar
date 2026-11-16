@@ -1,1 +1,1 @@
-export { onRequest, default } from '../../api/s3-presign.js';
+export { onRequest } from '../../api/s3-presign.js';

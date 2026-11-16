@@ -1,1 +1,1 @@
-export { onRequest, default } from '../../api/gemini-apu.js';
+export { onRequest } from '../../api/gemini-apu.js';

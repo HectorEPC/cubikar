@@ -1,17 +1,17 @@
-import { printCalendarioObraFormat } from '../io/printService.js';
-import { renderTabAssignedAvatars } from '../portal/portalController.js';
-import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js';
-import { getActiveProjectId } from '../../config/constants.js';
+﻿import { printCalendarioObraFormat } from '../io/printService.js?v=20261116_cf3';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf3';
+import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf3';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf3';
 // js/modules/calendario/calendarioView.js
-// Renderizador y controlador de la pestaña CALENDARIO DE OBRA
-// Diseño ejecutivo de alta fidelidad, interactivo y sincronizado 100% con Catálogo Base
+// Renderizador y controlador de la pestaÃ±a CALENDARIO DE OBRA
+// DiseÃ±o ejecutivo de alta fidelidad, interactivo y sincronizado 100% con CatÃ¡logo Base
 
-import { state } from '../../state/store.js';
-import { formatCurrency, formatNumber } from '../../core/formatters.js';
-import { showToast } from '../../ui/notifications.js';
-import { isNightMode } from '../../ui/themeController.js';
-import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js';
+import { state } from '../../state/store.js?v=20261116_cf3';
+import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261116_cf3';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf3';
+import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf3';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf3';
 import {
   extractScheduleItems,
   ensureInitialDates,
@@ -52,14 +52,14 @@ import {
   hasScheduleRedoSnapshot,
   undoLastScheduleChange,
   redoLastScheduleChange
-} from './calendarioModel.js';
+} from './calendarioModel.js?v=20261116_cf3';
 import {
   WORK_TYPE_PROFILES,
   detectProjectWorkType,
   generateLocalConstructiveProposal,
   generateGeminiConstructiveProposal
-} from './calendarioAiService.js';
-import { exportScheduleToExcel } from './calendarioExporter.js';
+} from './calendarioAiService.js?v=20261116_cf3';
+import { exportScheduleToExcel } from './calendarioExporter.js?v=20261116_cf3';
 
 let currentScheduleData = null;
 let calendarioLinkClickMode = false;
@@ -70,7 +70,7 @@ let calendarioInitTimer = null;
 let isPremiereResizeListenerAttached = false;
 let selectedCalendarioRowId = null;
 
-// Seleccionar y pintar fila en Calendario de Obra (Vista Gantt, Programa Financiero y Curva S) igual que en Catálogo Base
+// Seleccionar y pintar fila en Calendario de Obra (Vista Gantt, Programa Financiero y Curva S) igual que en CatÃ¡logo Base
 export function selectCalendarioRow(rowId, event = null) {
   selectedCalendarioRowId = String(rowId);
   if (typeof document === 'undefined') return;
@@ -135,10 +135,10 @@ export function renderCalendarioObra() {
   // Asegurar fechas iniciales
   ensureInitialDates(rawItems, cfg.startDate);
 
-  // Generar períodos según escala seleccionada (días, semanas, meses)
+  // Generar perÃ­odos segÃºn escala seleccionada (dÃ­as, semanas, meses)
   const periods = generateTimePeriods(rawItems, cfg.scale, cfg.startDate);
 
-  // Calcular distribución y totales
+  // Calcular distribuciÃ³n y totales
   const scheduleData = calculateScheduleDistribution(rawItems, periods);
   currentScheduleData = scheduleData;
 
@@ -151,10 +151,10 @@ export function renderCalendarioObra() {
     });
   }
 
-  // Filtrar según el estado agrupado/desagrupado (visibleItems)
+  // Filtrar segÃºn el estado agrupado/desagrupado (visibleItems)
   const visibleItems = filteredItems.filter(item => isItemVisible(item, scheduleData.items));
 
-  // Métricas generales
+  // MÃ©tricas generales
   let minDate = null;
   let maxDate = null;
   rawItems.forEach(it => {
@@ -206,7 +206,7 @@ export function renderCalendarioObra() {
             <button type="button" onclick="setCalendarioViewMode('financiero')" class="px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${effectiveViewMode === 'financiero' ? 'bg-blue-600 text-white shadow-xs' : (!advCalAllowed ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100')}" title="${advCalAllowed ? 'Programa Financiero de Obra' : 'Disponible desde Plan Plus'}">
               <i class="fa-solid fa-table-columns ${cfg.viewMode === 'financiero' ? 'text-white' : 'text-blue-600'}"></i> <span>Programa Financiero</span>
             </button>
-            <button type="button" onclick="setCalendarioViewMode('curva_s')" class="px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${effectiveViewMode === 'curva_s' ? 'bg-blue-600 text-white shadow-xs' : (!advCalAllowed ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100')}" title="${advCalAllowed ? 'Curva S de Inversión Acumulada' : 'Disponible desde Plan Plus'}">
+            <button type="button" onclick="setCalendarioViewMode('curva_s')" class="px-2.5 py-1 rounded text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 ${effectiveViewMode === 'curva_s' ? 'bg-blue-600 text-white shadow-xs' : (!advCalAllowed ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100')}" title="${advCalAllowed ? 'Curva S de InversiÃ³n Acumulada' : 'Disponible desde Plan Plus'}">
               <i class="fa-solid fa-chart-line ${cfg.viewMode === 'curva_s' ? 'text-white' : 'text-blue-600'}"></i> <span>Curva "S" y Flujo</span>
             </button>
           </div>
@@ -224,14 +224,14 @@ export function renderCalendarioObra() {
           </select>
 
           <!-- 5. "%" Auto-Programar -->
-          <button type="button" onclick="triggerAutoDistributeSchedule()" id="btn-calendario-auto-pct" ${isCalLocked ? 'disabled' : ''} class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] p-1.5 rounded flex items-center justify-center font-medium shadow-sm transition active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0" title="${isCalLocked ? 'Calendario bloqueado (Solo consulta e impresión)' : 'Auto-Programar conceptos secuencialmente (%)'}">
+          <button type="button" onclick="triggerAutoDistributeSchedule()" id="btn-calendario-auto-pct" ${isCalLocked ? 'disabled' : ''} class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] p-1.5 rounded flex items-center justify-center font-medium shadow-sm transition active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0" title="${isCalLocked ? 'Calendario bloqueado (Solo consulta e impresiÃ³n)' : 'Auto-Programar conceptos secuencialmente (%)'}">
             <i class="fa-solid fa-percent text-xs text-amber-600"></i>
           </button>
 
           <!-- 6. Solo icono Deshacer -->
           <button type="button" onclick="undoCalendarioScheduleAction()" id="btn-calendario-undo" ${(!canUndo || isCalLocked) ? 'disabled' : ''}
                   class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] p-1.5 rounded flex items-center justify-center font-medium shadow-sm transition active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white shrink-0"
-                  title="Deshacer último cambio en Calendario de Obra (Ctrl+Z)">
+                  title="Deshacer Ãºltimo cambio en Calendario de Obra (Ctrl+Z)">
             <i class="fa-solid fa-rotate-left text-xs"></i>
           </button>
 
@@ -242,17 +242,17 @@ export function renderCalendarioObra() {
             <i class="fa-solid fa-rotate-right text-xs"></i>
           </button>
 
-          <!-- Botón Justificar Textos de la columna Conceptos de Obra (Al lado izquierdo del candado) -->
+          <!-- BotÃ³n Justificar Textos de la columna Conceptos de Obra (Al lado izquierdo del candado) -->
           <button type="button" onclick="toggleCalendarioJustifyText()" id="btn-calendario-justify"
                   class="${isJustifyConcepts ? 'bg-blue-600 hover:bg-blue-500 text-white border border-blue-700 font-bold' : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 font-medium'} text-[11px] p-1.5 rounded flex items-center justify-center shadow-sm transition active:scale-95 cursor-pointer shrink-0"
-                  title="${isJustifyConcepts ? 'Justificar textos activo en Conceptos de Obra — Haz clic para contraer a 1 línea' : 'Justificar textos de la columna Conceptos de Obra'}">
+                  title="${isJustifyConcepts ? 'Justificar textos activo en Conceptos de Obra â€” Haz clic para contraer a 1 lÃ­nea' : 'Justificar textos de la columna Conceptos de Obra'}">
             <i class="fa-solid fa-align-justify ${isJustifyConcepts ? 'text-white' : 'text-slate-600'} text-xs"></i>
           </button>
 
-          <!-- Botón Candado de Bloqueo (Al lado izquierdo de Agrupar) -->
+          <!-- BotÃ³n Candado de Bloqueo (Al lado izquierdo de Agrupar) -->
           <button type="button" onclick="toggleTabLock('calendario')" id="btn-lock-calendario"
                   class="${isCalLocked ? 'bg-amber-600 hover:bg-amber-500 text-white border border-amber-700 font-bold' : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 font-medium'} text-[11px] p-1.5 rounded flex items-center justify-center shadow-sm transition active:scale-95 cursor-pointer shrink-0"
-                  title="${isCalLocked ? '🔒 Calendario de Obra bloqueado (Solo consulta e impresión) — Haz clic para desbloquear' : 'Bloquear Calendario de Obra (Permitir solo consulta e impresión)'}">
+                  title="${isCalLocked ? 'ðŸ”’ Calendario de Obra bloqueado (Solo consulta e impresiÃ³n) â€” Haz clic para desbloquear' : 'Bloquear Calendario de Obra (Permitir solo consulta e impresiÃ³n)'}">
             <i class="fa-solid ${isCalLocked ? 'fa-lock text-white' : 'fa-lock-open text-slate-600'} text-xs"></i>
           </button>
 
@@ -275,16 +275,16 @@ export function renderCalendarioObra() {
             <i class="fa-solid fa-print text-[10px]"></i> <span>Imprimir</span>
           </button>
 
-          <!-- 11. Días Inhábiles (Jornada Laboral, Festivos, Lluvias) -->
+          <!-- 11. DÃ­as InhÃ¡biles (Jornada Laboral, Festivos, Lluvias) -->
           <button type="button" onclick="openCalendarioJornadaModal()" id="btn-calendario-jornada" ${isCalLocked ? 'disabled' : ''}
                   class="bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2 py-1 rounded flex items-center gap-1 font-medium shadow-sm transition active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0" 
-                  title="${isCalLocked ? 'Calendario bloqueado (Solo consulta e impresión)' : 'Configurar Jornada Laboral, Días Inhábiles, Festivos y Lluvias'}">
-            <i class="fa-solid fa-calendar-xmark text-amber-600 text-xs"></i> <span>Días Inhábiles</span>
+                  title="${isCalLocked ? 'Calendario bloqueado (Solo consulta e impresiÃ³n)' : 'Configurar Jornada Laboral, DÃ­as InhÃ¡biles, Festivos y Lluvias'}">
+            <i class="fa-solid fa-calendar-xmark text-amber-600 text-xs"></i> <span>DÃ­as InhÃ¡biles</span>
           </button>
 
-          <!-- 13. Días, Semanas, Meses (Selector de Escala Temporal) -->
+          <!-- 13. DÃ­as, Semanas, Meses (Selector de Escala Temporal) -->
           <div id="calendario-scale-selector" class="flex items-center bg-white p-0.5 rounded border border-slate-300 text-[11px] font-semibold shadow-2xs shrink-0">
-            <button type="button" onclick="setCalendarioTimeScale('dias')" class="px-2 py-0.5 rounded transition cursor-pointer ${cfg.scale === 'dias' ? 'bg-blue-600 text-white font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}">Días</button>
+            <button type="button" onclick="setCalendarioTimeScale('dias')" class="px-2 py-0.5 rounded transition cursor-pointer ${cfg.scale === 'dias' ? 'bg-blue-600 text-white font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}">DÃ­as</button>
             <button type="button" onclick="setCalendarioTimeScale('semanas')" class="px-2 py-0.5 rounded transition cursor-pointer ${cfg.scale === 'semanas' ? 'bg-blue-600 text-white font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}">Semanas</button>
             <button type="button" onclick="setCalendarioTimeScale('meses')" class="px-2 py-0.5 rounded transition cursor-pointer ${cfg.scale === 'meses' ? 'bg-blue-600 text-white font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}">Meses</button>
           </div>
@@ -294,7 +294,7 @@ export function renderCalendarioObra() {
             <button type="button" onclick="changeGanttZoom('out')" class="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold transition cursor-pointer" title="Alejar escala diaria (-)">
               <i class="fa-solid fa-minus text-[9px]"></i>
             </button>
-            <button type="button" onclick="changeGanttZoom('reset')" class="px-1.5 py-0.5 rounded text-blue-700 font-mono font-bold text-[11px] hover:bg-blue-50 transition cursor-pointer" title="Restablecer zoom normal (34px/día)">
+            <button type="button" onclick="changeGanttZoom('reset')" class="px-1.5 py-0.5 rounded text-blue-700 font-mono font-bold text-[11px] hover:bg-blue-50 transition cursor-pointer" title="Restablecer zoom normal (34px/dÃ­a)">
               ${Math.round((dayWidthPx / 34) * 100)}%
             </button>
             <button type="button" onclick="changeGanttZoom('in')" class="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold transition cursor-pointer" title="Acercar escala diaria (+)">
@@ -307,16 +307,16 @@ export function renderCalendarioObra() {
                   id="btn-calendario-signatures-modal"
                   onclick="openPresupuestoSignaturesModal()" 
                   class="bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-300 hover:border-blue-400 text-xs font-semibold px-2.5 py-1 rounded-md shadow-2xs transition flex items-center gap-1.5 shrink-0 cursor-pointer" 
-                  title="Configurar los nombres de los responsables que firmarán el formato impreso del calendario de obra y presupuesto">
+                  title="Configurar los nombres de los responsables que firmarÃ¡n el formato impreso del calendario de obra y presupuesto">
             <i class="fa-solid fa-file-signature text-blue-600 text-xs"></i>
             <span>Firmas / Responsables</span>
           </button>
 
-          <!-- 15. Asignados (Miembros Asignados a Calendario de Obra, al extremo derecho del mismo renglón) -->
+          <!-- 15. Asignados (Miembros Asignados a Calendario de Obra, al extremo derecho del mismo renglÃ³n) -->
           <div id="tab-members-calendario" class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2 py-0.5 shadow-2xs shrink-0">
             <i class="fa-solid fa-users text-blue-600 text-[10px]" title="Colaboradores con acceso a Calendario de Obra"></i>
             <div id="tab-avatars-calendario" class="flex -space-x-1.5 overflow-hidden items-center cursor-pointer" onclick="openTabMembersAssignModal('calendario')" title="Ver colaboradores con acceso a Calendario de Obra"></div>
-            <button type="button" onclick="openTabMembersAssignModal('calendario')" class="text-[10px] font-bold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded px-1.5 py-0.5 transition flex items-center gap-1 cursor-pointer" title="Asignar miembros invitados a la pestaña Calendario de Obra">
+            <button type="button" onclick="openTabMembersAssignModal('calendario')" class="text-[10px] font-bold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded px-1.5 py-0.5 transition flex items-center gap-1 cursor-pointer" title="Asignar miembros invitados a la pestaÃ±a Calendario de Obra">
               <i class="fa-solid fa-user-gear text-[9px]"></i> Asignar
             </button>
           </div>
@@ -325,7 +325,7 @@ export function renderCalendarioObra() {
 
       </div>
 
-      <!-- 2. TARJETAS KPI DE RESUMEN EJECUTIVO (Diseño Claro Corporativo estilo Catálogo Base) -->
+      <!-- 2. TARJETAS KPI DE RESUMEN EJECUTIVO (DiseÃ±o Claro Corporativo estilo CatÃ¡logo Base) -->
       <div class="px-2.5 py-2 bg-slate-50 border-b border-slate-200 grid grid-cols-6 gap-2 shrink-0 w-full select-none">
         
         <!-- Tarjeta 1: INICIO DE OBRA -->
@@ -337,36 +337,36 @@ export function renderCalendarioObra() {
           </div>
         </div>
 
-        <!-- Tarjeta 2: DÍA ACTUAL / CORTE -->
+        <!-- Tarjeta 2: DÃA ACTUAL / CORTE -->
         <div class="bg-rose-50/50 border border-rose-200 hover:border-rose-300 rounded-lg px-2.5 py-1.5 flex flex-col justify-between shadow-2xs min-w-0 transition">
           <div class="flex items-center justify-between gap-1">
-            <span class="text-[9.5px] font-bold text-rose-700 uppercase tracking-wider block truncate">DÍA ACTUAL / CORTE</span>
-            <button type="button" onclick="resetGanttTodayDateAction()" class="text-[8px] font-extrabold text-white bg-rose-600 hover:bg-rose-500 rounded-full px-2 py-0.5 transition cursor-pointer shrink-0 shadow-2xs flex items-center gap-1" title="Restablecer al día de hoy actual en tiempo real">
+            <span class="text-[9.5px] font-bold text-rose-700 uppercase tracking-wider block truncate">DÃA ACTUAL / CORTE</span>
+            <button type="button" onclick="resetGanttTodayDateAction()" class="text-[8px] font-extrabold text-white bg-rose-600 hover:bg-rose-500 rounded-full px-2 py-0.5 transition cursor-pointer shrink-0 shadow-2xs flex items-center gap-1" title="Restablecer al dÃ­a de hoy actual en tiempo real">
               <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> Hoy
             </button>
           </div>
           <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
             <i class="fa-solid fa-location-crosshairs text-rose-600 text-xs shrink-0"></i>
-            <input type="date" value="${getGanttTodayDate()}" onchange="changeGanttTodayDateAction(this.value)" class="calendario-date-input text-xs font-bold text-rose-800 bg-transparent outline-none cursor-pointer hover:text-rose-600 font-mono w-full truncate" title="Fecha del día de hoy o fecha de corte desplazada">
+            <input type="date" value="${getGanttTodayDate()}" onchange="changeGanttTodayDateAction(this.value)" class="calendario-date-input text-xs font-bold text-rose-800 bg-transparent outline-none cursor-pointer hover:text-rose-600 font-mono w-full truncate" title="Fecha del dÃ­a de hoy o fecha de corte desplazada">
           </div>
         </div>
 
-        <!-- Tarjeta 3: TÉRMINO ESTIMADO -->
+        <!-- Tarjeta 3: TÃ‰RMINO ESTIMADO -->
         <div class="bg-white border border-slate-200 hover:border-slate-300 rounded-lg px-2.5 py-1.5 flex flex-col justify-between shadow-2xs min-w-0 transition">
-          <span class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider block truncate">TÉRMINO ESTIMADO</span>
+          <span class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider block truncate">TÃ‰RMINO ESTIMADO</span>
           <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
             <i class="fa-solid fa-flag-checkered text-rose-500 text-xs shrink-0"></i>
             <span class="text-xs font-bold text-slate-800 font-mono truncate">${maxDate ? formatDate(maxDate) : '---'}</span>
           </div>
         </div>
 
-        <!-- Tarjeta 4: PLAZO DE EJECUCIÓN -->
+        <!-- Tarjeta 4: PLAZO DE EJECUCIÃ“N -->
         <div class="bg-white border border-slate-200 hover:border-slate-300 rounded-lg px-2.5 py-1.5 flex flex-col justify-between shadow-2xs min-w-0 transition">
-          <span class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider block truncate">PLAZO DE EJECUCIÓN</span>
+          <span class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider block truncate">PLAZO DE EJECUCIÃ“N</span>
           <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
             <i class="fa-regular fa-clock text-amber-600 text-xs shrink-0"></i>
-            <span class="text-xs font-extrabold text-slate-800 font-mono truncate" title="${totalDias} días naturales (${workdaysSummary.workingDays} días hábiles efectivos)">
-              ${totalDias}d naturales <span class="text-[10px] text-emerald-700 font-bold">(${workdaysSummary.workingDays} hábiles)</span>
+            <span class="text-xs font-extrabold text-slate-800 font-mono truncate" title="${totalDias} dÃ­as naturales (${workdaysSummary.workingDays} dÃ­as hÃ¡biles efectivos)">
+              ${totalDias}d naturales <span class="text-[10px] text-emerald-700 font-bold">(${workdaysSummary.workingDays} hÃ¡biles)</span>
             </span>
           </div>
         </div>
@@ -380,9 +380,9 @@ export function renderCalendarioObra() {
           </div>
         </div>
 
-        <!-- Tarjeta 6: MES PICO (MÁX INVERSIÓN) -->
+        <!-- Tarjeta 6: MES PICO (MÃX INVERSIÃ“N) -->
         <div class="bg-white border border-slate-200 hover:border-slate-300 rounded-lg px-2.5 py-1.5 flex flex-col justify-between shadow-2xs min-w-0 transition">
-          <span class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider block truncate">MES PICO (MÁX INVERSIÓN)</span>
+          <span class="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider block truncate">MES PICO (MÃX INVERSIÃ“N)</span>
           <div class="flex items-center gap-1.5 mt-0.5 min-w-0 truncate">
             <i class="fa-solid fa-bolt text-indigo-600 text-xs shrink-0"></i>
             <span class="text-xs font-bold text-slate-800 truncate font-mono" title="${scheduleData.picoPeriod ? scheduleData.picoPeriod.fullLabel : 'N/A'}">
@@ -393,7 +393,7 @@ export function renderCalendarioObra() {
 
       </div>
 
-      <!-- 3. ÁREA DE VISUALIZACIÓN DINÁMICA (Diagrama Gantt / Financiero / Curva S) -->
+      <!-- 3. ÃREA DE VISUALIZACIÃ“N DINÃMICA (Diagrama Gantt / Financiero / Curva S) -->
       <div class="bg-white overflow-hidden flex-1 flex flex-col relative min-h-[380px]" id="calendario-main-content">
         ${renderActiveCalendarioView(isAdvancedCalendarioAllowed() ? cfg.viewMode : 'gantt', visibleItems, periods, scheduleData, currencySymbol, minDate, maxDate)}
       </div>
@@ -401,7 +401,7 @@ export function renderCalendarioObra() {
     </div>
   `;
 
-  // Inicializar resizer arrastrable manual, scroll sincronizado, arrastre de barras, zoom estilo Premiere Pro y líneas de corte (evitando acumulación de timers)
+  // Inicializar resizer arrastrable manual, scroll sincronizado, arrastre de barras, zoom estilo Premiere Pro y lÃ­neas de corte (evitando acumulaciÃ³n de timers)
   if (calendarioInitTimer) clearTimeout(calendarioInitTimer);
   calendarioInitTimer = setTimeout(() => {
     calendarioInitTimer = null;
@@ -418,7 +418,7 @@ export function renderCalendarioObra() {
 }
 
 // ==========================================
-// RENDERIZADO SEGÚN MODO SELECCIONADO
+// RENDERIZADO SEGÃšN MODO SELECCIONADO
 // ==========================================
 function renderActiveCalendarioView(mode, items, periods, scheduleData, currencySymbol, minDate, maxDate) {
   if (mode === 'gantt') {
@@ -446,11 +446,11 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
   const conceptById = new Map();
   allConceptItems.forEach(c => conceptById.set(String(c.id), c));
 
-  // Generar escala según modo seleccionado: Días (3 niveles), Semanas (Semana 1..4 + Mes arriba) o Meses (Nombre del Mes)
+  // Generar escala segÃºn modo seleccionado: DÃ­as (3 niveles), Semanas (Semana 1..4 + Mes arriba) o Meses (Nombre del Mes)
   const scaleData = generateGanttTimeScale(minDate, maxDate, cfg.scale, cfg.dayWidth);
   const { timelineStart, scale, pxPerDay, totalTimelineWidth, monthGroups, days } = scaleData;
 
-  // Cálculo de posición del día actual / fecha de corte
+  // CÃ¡lculo de posiciÃ³n del dÃ­a actual / fecha de corte
   const todayStr = getGanttTodayDate();
   const todayDate = parseDate(todayStr);
   const todayOffsetDays = diffDays(timelineStart, todayDate);
@@ -465,7 +465,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
       ? `background-size: ${7 * pxPerDay}px 100%; background-image: linear-gradient(to right, rgba(${gridLineRgb}, 0.65) 1px, transparent 1px);`
       : `background-size: ${30 * pxPerDay}px 100%; background-image: linear-gradient(to right, rgba(${gridLineRgb}, 0.75) 1px, transparent 1px);`);
 
-  // Precalcular altura de cada fila y geometría exacta (x, y) para trazar flechas SVG Fin-a-Inicio
+  // Precalcular altura de cada fila y geometrÃ­a exacta (x, y) para trazar flechas SVG Fin-a-Inicio
   const visibleGeomMap = new Map();
   const rowHeightsMap = new Map();
   const descColWidthPx = Math.max(110, savedPanelWidth - 255);
@@ -553,21 +553,21 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
   return `
     <div class="flex flex-1 overflow-hidden h-full relative bg-white" id="gantt-root-container">
       
-      <!-- Panel Izquierdo: Conceptos, Predecesoras, Fechas y Holgura (Ancho Ajustable Manualmente mediante Divisor, estilo Catálogo Base) -->
+      <!-- Panel Izquierdo: Conceptos, Predecesoras, Fechas y Holgura (Ancho Ajustable Manualmente mediante Divisor, estilo CatÃ¡logo Base) -->
       <div id="gantt-left-panel" 
            class="shrink-0 flex flex-col bg-white z-10 overflow-y-auto overflow-x-hidden custom-scroll border-r border-slate-200"
            style="width: ${savedPanelWidth}px; min-width: 260px; max-width: 80%;">
         
-        <!-- Encabezado de la tabla izquierda (Idéntico a Catálogo Base: bg-slate-100 text-slate-600 uppercase text-[10px] font-semibold) -->
+        <!-- Encabezado de la tabla izquierda (IdÃ©ntico a CatÃ¡logo Base: bg-slate-100 text-slate-600 uppercase text-[10px] font-semibold) -->
         <div class="bg-slate-100 border-b border-slate-200 text-slate-600 uppercase text-[10px] font-semibold px-2.5 flex items-center sticky top-0 z-20 h-16 shrink-0 shadow-2xs">
           <span class="w-14 shrink-0">Clave</span>
           <span class="flex-1 min-w-0 px-1.5">Concepto de Obra / Unidad</span>
-          <span class="w-24 shrink-0 text-center" title="Concepto(s) predecesores que deben terminar antes de poder iniciar éste (Fin a Inicio)">Predec.</span>
+          <span class="w-24 shrink-0 text-center" title="Concepto(s) predecesores que deben terminar antes de poder iniciar Ã©ste (Fin a Inicio)">Predec.</span>
           <span class="w-24 shrink-0 text-center">Inicio</span>
-          <span class="w-12 shrink-0 text-center">Días</span>
+          <span class="w-12 shrink-0 text-center">DÃ­as</span>
         </div>
 
-        <!-- Renglones de conceptos y partidas (Formato y colores de Catálogo Base) -->
+        <!-- Renglones de conceptos y partidas (Formato y colores de CatÃ¡logo Base) -->
         <div class="divide-y divide-slate-100 font-mono text-xs flex-1">
           ${items.map(item => {
             const rowH = rowHeightsMap.get(String(item.id)) || 40;
@@ -591,7 +591,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                   </div>
                   <div class="flex items-center shrink-0">
                     <span class="w-24 text-center text-[9.5px]">
-                      ${showCpm && item.hasCriticalChildren ? `<span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200 font-sans font-bold" title="Contiene actividades en Ruta Crítica">🔥 Crítica</span>` : `<span class="text-slate-400">—</span>`}
+                      ${showCpm && item.hasCriticalChildren ? `<span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200 font-sans font-bold" title="Contiene actividades en Ruta CrÃ­tica">ðŸ”¥ CrÃ­tica</span>` : `<span class="text-slate-400">â€”</span>`}
                     </span>
                     <span class="w-24 text-center text-[11px] text-slate-600 font-mono">${item.startDate || ''}</span>
                     <span class="w-12 text-center text-[11px] text-slate-800 font-bold">${item.durationDays || 0}d</span>
@@ -615,7 +615,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                 predControlHtml = `
                   <button type="button" onclick="openConceptDependenciesModal('${item.id}')"
                           class="w-full max-w-[90px] px-1.5 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-mono font-bold truncate cursor-pointer transition flex items-center justify-center gap-1"
-                          title="Depende de terminar: ${predConcepts.map(pc => `${pc.clave} (${pc.descripcion})`).join(' | ')} — Clic para editar">
+                          title="Depende de terminar: ${predConcepts.map(pc => `${pc.clave} (${pc.descripcion})`).join(' | ')} â€” Clic para editar">
                     <i class="fa-solid fa-link text-[8px] shrink-0"></i>
                     <span class="truncate">${shortBadges}</span>
                   </button>
@@ -625,12 +625,12 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                   <select onchange="onGanttPredecessorSelect('${item.id}', this.value)"
                           class="w-full max-w-[90px] text-[10px] font-mono rounded border ${singlePredId ? 'bg-blue-50/80 border-blue-200 text-blue-800 font-bold' : 'bg-transparent hover:bg-slate-50 border-slate-200 text-slate-500'} px-1 py-0.5 outline-none focus:border-blue-500 cursor-pointer truncate"
                           title="${singlePredId ? `Depende de terminar ${predClaves[0]} antes de iniciar` : 'Sin dependencia (inicio libre). Selecciona un concepto predecesor'}">
-                    <option value="">— Libre —</option>
+                    <option value="">â€” Libre â€”</option>
                     ${allConceptItems
                       .filter(cand => String(cand.id) !== String(item.id) && (String(cand.id) === singlePredId || !wouldCreateScheduleCycle(item.id, cand.id, allConceptItems)))
-                      .map(cand => `<option value="${cand.id}" ${String(cand.id) === singlePredId ? 'selected' : ''}>${cand.clave} • ${cand.descripcion.slice(0, 24)}</option>`)
+                      .map(cand => `<option value="${cand.id}" ${String(cand.id) === singlePredId ? 'selected' : ''}>${cand.clave} â€¢ ${cand.descripcion.slice(0, 24)}</option>`)
                       .join('')}
-                    <option value="__MULTI__">⚙️ Múltiples...</option>
+                    <option value="__MULTI__">âš™ï¸ MÃºltiples...</option>
                   </select>
                 `;
               }
@@ -644,7 +644,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                     <span class="w-14 mr-1.5 font-mono ${isCrit ? 'text-rose-700 font-bold' : 'text-blue-700 font-semibold'} truncate text-[11px] shrink-0" title="${item.clave}">${item.clave}</span>
                     <div class="min-w-0 flex-1 font-sans">
                       <span class="block ${isJustifyConcepts ? 'whitespace-normal break-words text-justify leading-snug' : 'truncate'} text-slate-800 text-xs font-medium" title="${item.descripcion}">${item.descripcion}</span>
-                      <span class="text-[10px] text-slate-500 font-mono truncate block">${formatNumber(item.cantidad, 2)} ${item.unidad} • ${formatCurrency(item.importe, currencySymbol)}</span>
+                      <span class="text-[10px] text-slate-500 font-mono truncate block">${formatNumber(item.cantidad, 2)} ${item.unidad} â€¢ ${formatCurrency(item.importe, currencySymbol)}</span>
                     </div>
                     <span class="ml-1.5 shrink-0">${renderPartidaNivel1ChatButton(item.id, item.clave, item.descripcion)}</span>
                   </div>
@@ -655,12 +655,12 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                     </div>
                     <!-- Input de Fecha Inicio Editable con Candado si tiene Predecesora -->
                     <div class="w-24 text-center px-0.5 flex items-center justify-center">
-                      ${hasLock ? `<i class="fa-solid fa-lock text-[8.5px] text-amber-600 mr-0.5 shrink-0" title="Inicio condicionado Fin-a-Inicio: requiere terminar ${predClaves.join(', ')} (mínimo ${item.minAllowedStartDate})"></i>` : ''}
+                      ${hasLock ? `<i class="fa-solid fa-lock text-[8.5px] text-amber-600 mr-0.5 shrink-0" title="Inicio condicionado Fin-a-Inicio: requiere terminar ${predClaves.join(', ')} (mÃ­nimo ${item.minAllowedStartDate})"></i>` : ''}
                       <input type="date" value="${item.startDate}" ${hasLock ? `min="${item.minAllowedStartDate}"` : ''} onchange="onGanttDateInput('${item.id}', this.value, ${curDur})" class="calendario-date-input text-[10.5px] bg-transparent hover:bg-white focus:bg-white border-b border-transparent hover:border-slate-300 focus:border-blue-500 rounded-xs px-0.5 py-0.5 outline-none font-mono ${hasLock ? 'text-amber-900 font-semibold' : 'text-slate-800'} w-full text-center cursor-pointer transition" title="${hasLock ? `No puede iniciar antes de ${item.minAllowedStartDate} (depende de ${predClaves.join(', ')})` : 'Fecha de inicio del concepto'}">
                     </div>
-                    <!-- Input de Duración Editable (Mínimo 3 días, Estilo Catálogo Base) -->
+                    <!-- Input de DuraciÃ³n Editable (MÃ­nimo 3 dÃ­as, Estilo CatÃ¡logo Base) -->
                     <div class="w-12 text-center">
-                      <input type="number" min="3" max="999" value="${curDur}" onchange="onGanttDurationInput('${item.id}', '${item.startDate}', this.value)" class="text-[11px] bg-transparent hover:bg-white focus:bg-white border-b border-transparent hover:border-slate-300 focus:border-blue-500 rounded-xs px-0.5 py-0.5 outline-none font-mono text-slate-800 font-bold w-10 text-center transition" title="Duración en días (mínimo 3 días). Al cambiar empuja conceptos dependientes.">
+                      <input type="number" min="3" max="999" value="${curDur}" onchange="onGanttDurationInput('${item.id}', '${item.startDate}', this.value)" class="text-[11px] bg-transparent hover:bg-white focus:bg-white border-b border-transparent hover:border-slate-300 focus:border-blue-500 rounded-xs px-0.5 py-0.5 outline-none font-mono text-slate-800 font-bold w-10 text-center transition" title="DuraciÃ³n en dÃ­as (mÃ­nimo 3 dÃ­as). Al cambiar empuja conceptos dependientes.">
                     </div>
                   </div>
                 </div>
@@ -669,11 +669,11 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
           }).join('')}
         </div>
 
-        <!-- Pie del panel izquierdo sincronizado con la barra de navegación -->
+        <!-- Pie del panel izquierdo sincronizado con la barra de navegaciÃ³n -->
         <div class="h-8 bg-slate-100 border-t border-slate-200 px-3 flex items-center justify-between text-[10.5px] text-slate-600 font-mono shrink-0">
           <span class="flex items-center gap-1.5 font-semibold text-slate-700"><i class="fa-solid fa-list-check text-blue-600 text-[10px]"></i> ${visibleConceptsCount} conc.</span>
           <span class="flex items-center gap-2">
-            <span class="text-rose-700 font-bold" title="Conceptos en Ruta Crítica"><i class="fa-solid fa-fire-flame-curved text-[9px]"></i> ${visibleCriticalCount} crít.</span>
+            <span class="text-rose-700 font-bold" title="Conceptos en Ruta CrÃ­tica"><i class="fa-solid fa-fire-flame-curved text-[9px]"></i> ${visibleCriticalCount} crÃ­t.</span>
             <span class="text-indigo-700 font-semibold" title="Conceptos con dependencia Fin-a-Inicio"><i class="fa-solid fa-link text-[9px]"></i> ${visibleLinksCount} enl.</span>
           </span>
         </div>
@@ -690,14 +690,14 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
       <!-- Panel Derecho: Contenedor con Timeline y Barra de Desplazamiento y Zoom -->
       <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white relative" id="gantt-right-wrapper">
 
-        <!-- Timeline Gráfico Gantt -->
+        <!-- Timeline GrÃ¡fico Gantt -->
         <div id="gantt-timeline-panel" class="flex-1 overflow-x-hidden overflow-y-auto bg-white custom-scroll relative">
         
-        <!-- Encabezado según Escala: Días (3 niveles), Semanas (2 niveles), Meses (Nombre del Mes) en estilo Catálogo Base -->
+        <!-- Encabezado segÃºn Escala: DÃ­as (3 niveles), Semanas (2 niveles), Meses (Nombre del Mes) en estilo CatÃ¡logo Base -->
         <div class="sticky top-0 z-20 min-w-max bg-slate-100 shadow-2xs">
           ${scale === 'dias' ? `
-            <!-- ESCALA DÍAS (3 NIVELES: Mes arriba, día del mes en medio, letra L-D abajo) -->
-            <!-- NIVEL 1 (Arriba): Nombre del Mes Abreviado Inteligentemente según Ancho de Columna -->
+            <!-- ESCALA DÃAS (3 NIVELES: Mes arriba, dÃ­a del mes en medio, letra L-D abajo) -->
+            <!-- NIVEL 1 (Arriba): Nombre del Mes Abreviado Inteligentemente segÃºn Ancho de Columna -->
             <div class="flex border-b border-slate-200 min-w-max h-7">
               ${monthGroups.map(m => {
                 let displayLabel = `${m.monthName.toUpperCase()} ${m.year}`;
@@ -711,31 +711,31 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                 return `
                   <div class="border-r border-slate-200 text-center py-1 px-1 bg-slate-100 font-extrabold text-[11px] text-slate-700 uppercase tracking-wider shrink-0 truncate flex items-center justify-center overflow-hidden"
                        style="width: ${m.widthPx}px;"
-                       title="${m.label} (${m.daysCount} días)">
+                       title="${m.label} (${m.daysCount} dÃ­as)">
                     <span class="truncate">${displayLabel}</span>
                   </div>
                 `;
               }).join('')}
             </div>
 
-            <!-- NIVELES 2 y 3 (En medio: Número de día del mes / Abajo: Primer letra del día L, M, M, J, V, S, D) -->
+            <!-- NIVELES 2 y 3 (En medio: NÃºmero de dÃ­a del mes / Abajo: Primer letra del dÃ­a L, M, M, J, V, S, D) -->
             <div class="flex border-b border-slate-200 min-w-max h-9">
               ${days.map(d => {
                 let cellBgClass = 'bg-slate-50 text-slate-700';
                 let badgeIcon = '';
-                let dayTitle = `${d.dateStr} (Día laboral)`;
+                let dayTitle = `${d.dateStr} (DÃ­a laboral)`;
 
                 if (d.isLluvia) {
                   cellBgClass = 'bg-sky-50 text-sky-700 border-sky-200';
                   badgeIcon = '<i class="fa-solid fa-cloud-rain text-[8px] text-sky-600 leading-none"></i>';
-                  dayTitle = `${d.dateStr} - DÍA DE LLUVIA: ${d.lluviaName || 'Suspensión climática'}`;
+                  dayTitle = `${d.dateStr} - DÃA DE LLUVIA: ${d.lluviaName || 'SuspensiÃ³n climÃ¡tica'}`;
                 } else if (d.isFestivo) {
                   cellBgClass = 'bg-purple-50 text-purple-700 border-purple-200';
                   badgeIcon = '<i class="fa-solid fa-star text-[8px] text-purple-600 leading-none"></i>';
-                  dayTitle = `${d.dateStr} - DÍA FESTIVO: ${d.festivoName}`;
+                  dayTitle = `${d.dateStr} - DÃA FESTIVO: ${d.festivoName}`;
                 } else if (d.isNonWorkingDayOfWeek) {
                   cellBgClass = 'bg-amber-50/90 text-amber-800';
-                  dayTitle = `${d.dateStr} - DÍA NO LABORABLE (Descanso semanal)`;
+                  dayTitle = `${d.dateStr} - DÃA NO LABORABLE (Descanso semanal)`;
                 } else if (d.isWeekend) {
                   cellBgClass = 'bg-slate-100/80 text-slate-500';
                   dayTitle = `${d.dateStr} - Fin de semana`;
@@ -770,7 +770,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                 return `
                   <div class="border-r border-slate-200 text-center py-1 px-1 bg-slate-100 font-extrabold text-[11px] text-slate-700 uppercase tracking-wider shrink-0 truncate flex items-center justify-center overflow-hidden"
                        style="width: ${m.widthPx}px;"
-                       title="${m.label} (${m.daysCount} días)">
+                       title="${m.label} (${m.daysCount} dÃ­as)">
                     <span class="truncate">${displayLabel}</span>
                   </div>
                 `;
@@ -796,7 +796,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                 return `
                   <div class="border-r border-slate-200 text-center flex flex-col justify-center shrink-0 select-none py-0.5 px-0.5 bg-slate-50 text-slate-700 overflow-hidden"
                        style="width: ${w.widthPx}px;"
-                       title="${m.label} - Semana ${w.num} (${w.daysCount} días: del ${w.rangeLabel})">
+                       title="${m.label} - Semana ${w.num} (${w.daysCount} dÃ­as: del ${w.rangeLabel})">
                     <span class="text-[10px] font-bold leading-none text-slate-800 truncate w-full">${weekTitle}</span>
                     <span class="text-[9px] font-mono leading-none text-slate-500 mt-0.5 truncate w-full">${weekSubtitle}</span>
                   </div>
@@ -804,30 +804,30 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
               }).join('')).join('')}
             </div>
           ` : `
-            <!-- ESCALA MESES: Nombre de los Meses Abreviado con Precisión según Ancho de Celda -->
+            <!-- ESCALA MESES: Nombre de los Meses Abreviado con PrecisiÃ³n segÃºn Ancho de Celda -->
             <div class="flex border-b border-slate-200 min-w-max h-16">
               ${monthGroups.map(m => {
                 let monthTitle = `${m.monthName.toUpperCase()} ${m.year}`;
-                let monthSub = `${m.daysCount} días naturales`;
+                let monthSub = `${m.daysCount} dÃ­as naturales`;
 
                 if (m.widthPx < 65) {
                   monthTitle = m.short3 || m.monthName.slice(0, 3).toUpperCase();
                   monthSub = `${m.daysCount}d`;
                 } else if (m.widthPx < 110) {
                   monthTitle = m.shortWithYear || `${m.monthName.slice(0, 3).toUpperCase()} '${String(m.year).slice(-2)}`;
-                  monthSub = `${m.daysCount} días`;
+                  monthSub = `${m.daysCount} dÃ­as`;
                 } else if (m.widthPx < 160) {
                   monthTitle = m.shortLabel || `${m.monthName.slice(0, 3).toUpperCase()} ${m.year}`;
-                  monthSub = `${m.daysCount} días`;
+                  monthSub = `${m.daysCount} dÃ­as`;
                 } else {
                   monthTitle = `${m.monthName.toUpperCase()} ${m.year}`;
-                  monthSub = `${m.daysCount} días naturales`;
+                  monthSub = `${m.daysCount} dÃ­as naturales`;
                 }
 
                 return `
                   <div class="border-r border-slate-200 text-center py-1.5 px-1 bg-slate-100 flex flex-col items-center justify-center shrink-0 overflow-hidden"
                        style="width: ${m.widthPx}px;"
-                       title="${m.label} (${m.daysCount} días naturales)">
+                       title="${m.label} (${m.daysCount} dÃ­as naturales)">
                     <span class="text-xs font-black text-blue-700 uppercase tracking-wider truncate w-full px-1">${monthTitle}</span>
                     <span class="text-[10px] text-slate-500 font-mono mt-0.5 truncate w-full px-1">${monthSub}</span>
                   </div>
@@ -837,10 +837,10 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
           `}
         </div>
 
-        <!-- Filas con las Barras del Gantt, Flechas SVG Fin-a-Inicio y Cuadrícula de Fondo (Estilo Claro Catálogo Base) -->
+        <!-- Filas con las Barras del Gantt, Flechas SVG Fin-a-Inicio y CuadrÃ­cula de Fondo (Estilo Claro CatÃ¡logo Base) -->
         <div class="divide-y divide-slate-100 text-xs min-w-max relative" style="width: ${totalTimelineWidth}px;">
           
-          <!-- Capa SVG de Flechas de Dependencia Fin-a-Inicio y Ruta Crítica -->
+          <!-- Capa SVG de Flechas de Dependencia Fin-a-Inicio y Ruta CrÃ­tica -->
           <svg id="gantt-dependency-svg"
                width="${totalTimelineWidth}"
                height="${totalRowsHeightPx}"
@@ -883,7 +883,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                   <div class="absolute h-6 rounded-md shadow-xs ${parentCrit ? 'bg-slate-800 border-rose-500/80' : 'bg-slate-700 border-slate-800'} hover:bg-slate-600 border hover:border-blue-500 flex items-center justify-between px-2 text-[10px] text-white font-bold truncate transition cursor-pointer select-none z-10" 
                        style="left: ${leftPx}px; width: ${widthPx}px;"
                        onclick="toggleCalendarioNodeGroup('${item.id}', event)"
-                       title="${item.descripcion}: ${item.startDate} al ${item.endDate} (${barDays} días)&#10;Total: ${formatCurrency(item.totalImporte, currencySymbol)}&#10;Clic para ${item.expanded ? 'agrupar' : 'desagrupar'}">
+                       title="${item.descripcion}: ${item.startDate} al ${item.endDate} (${barDays} dÃ­as)&#10;Total: ${formatCurrency(item.totalImporte, currencySymbol)}&#10;Clic para ${item.expanded ? 'agrupar' : 'desagrupar'}">
                     <span class="truncate">${item.descripcion}</span>
                     <span class="shrink-0 text-[9px] font-mono opacity-85 ml-1">${barDays}d</span>
                   </div>
@@ -898,11 +898,11 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
               const preds = Array.isArray(item.predecessors) ? item.predecessors : [];
               const predClaves = preds.map(pid => conceptById.get(String(pid))?.clave).filter(Boolean);
               const predTooltipLine = predClaves.length > 0
-                ? `&#10;🔗 Depende de terminar: ${predClaves.join(', ')} (mín. ${item.minAllowedStartDate})`
+                ? `&#10;ðŸ”— Depende de terminar: ${predClaves.join(', ')} (mÃ­n. ${item.minAllowedStartDate})`
                 : '';
               const cpmTooltipLine = item.isCritical
-                ? `&#10;🔥 RUTA CRÍTICA (Holgura: 0 días)`
-                : `&#10;✓ Holgura disponible: +${item.slackDays || 0} día(s)`;
+                ? `&#10;ðŸ”¥ RUTA CRÃTICA (Holgura: 0 dÃ­as)`
+                : `&#10;âœ“ Holgura disponible: +${item.slackDays || 0} dÃ­a(s)`;
 
               return `
                 <div data-gantt-right-row="${item.id}" onclick="selectCalendarioRow('${item.id}', event)" class="${isJustifyConcepts ? 'min-h-[40px]' : 'h-10'} py-1.5 px-1 relative ${item.rowBgColor ? '' : (isCritBar ? 'bg-rose-50/25 hover:bg-rose-50/50' : 'bg-white hover:bg-slate-50/80')} ${isSelectedRow ? 'selected-row' : ''} transition flex items-center cursor-pointer"
@@ -917,7 +917,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                        data-pred-claves="${predClaves.join(', ')}"
                        data-is-critical="${item.isCritical ? '1' : '0'}"
                        style="left: ${leftPx}px; width: ${widthPx}px; background-color: ${effectiveBarHex}; cursor: ${calendarioLinkClickMode ? 'pointer' : 'grab'};"
-                       title="${item.clave} - ${item.descripcion}&#10;Inicio: ${item.startDate} | Fin: ${item.endDate} (${barDays} días)${predTooltipLine}${cpmTooltipLine}&#10;Monto: ${formatCurrency(item.importe, currencySymbol)}&#10;• Arrastra el centro para mover fecha&#10;• Arrastra los bordes laterales para estirar o reducir">
+                       title="${item.clave} - ${item.descripcion}&#10;Inicio: ${item.startDate} | Fin: ${item.endDate} (${barDays} dÃ­as)${predTooltipLine}${cpmTooltipLine}&#10;Monto: ${formatCurrency(item.importe, currencySymbol)}&#10;â€¢ Arrastra el centro para mover fecha&#10;â€¢ Arrastra los bordes laterales para estirar o reducir">
                     
                     <!-- Manija Izquierda: Reducir / Estirar Inicio -->
                     <div class="gantt-handle-left absolute left-0 top-0 bottom-0 w-2.5 rounded-l-md hover:bg-white/40 cursor-ew-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
@@ -936,7 +936,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
 
                     <!-- Manija Derecha: Reducir / Estirar Fin -->
                     <div class="gantt-handle-right absolute right-0 top-0 bottom-0 w-2.5 rounded-r-md hover:bg-white/40 cursor-ew-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                         title="Arrastra para cambiar duración (reducir o estirar)">
+                         title="Arrastra para cambiar duraciÃ³n (reducir o estirar)">
                       <div class="w-0.5 h-3 bg-white/80 rounded-full pointer-events-none"></div>
                     </div>
                   </div>
@@ -945,7 +945,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
             }
           }).join('')}
 
-          <!-- LÍNEA INDICADORA DE DÍA DE HOY / FECHA DE CORTE (Arrastrable a días anteriores o futuros) -->
+          <!-- LÃNEA INDICADORA DE DÃA DE HOY / FECHA DE CORTE (Arrastrable a dÃ­as anteriores o futuros) -->
           ${showTodayLine ? `
             <div id="gantt-today-line-container" 
                  class="absolute -top-16 bottom-0 z-30 pointer-events-none"
@@ -955,7 +955,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
               <!-- Pin / Marcador Superior en el Encabezado (Arrastrable) -->
               <div id="gantt-today-pin" 
                    class="absolute top-1 -translate-x-1/2 pointer-events-auto cursor-ew-resize z-40 select-none group flex flex-col items-center"
-                   title="Día de Hoy / Fecha de Corte: ${todayStr}&#10;• Arrastra para mover a días anteriores o futuros&#10;• Doble clic para volver al día real"
+                   title="DÃ­a de Hoy / Fecha de Corte: ${todayStr}&#10;â€¢ Arrastra para mover a dÃ­as anteriores o futuros&#10;â€¢ Doble clic para volver al dÃ­a real"
                    data-today-date="${todayStr}">
                 
                 <div class="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-500 active:bg-rose-400 text-white text-[9px] font-black uppercase tracking-wider shadow-md border border-rose-300 flex items-center gap-1 transition-transform group-hover:scale-105">
@@ -965,7 +965,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                 <div class="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-rose-600 -mt-0.5 shadow-sm"></div>
               </div>
 
-              <!-- Línea Vertical que atraviesa todas las filas -->
+              <!-- LÃ­nea Vertical que atraviesa todas las filas -->
               <div class="w-0.5 h-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] -translate-x-1/2 opacity-90"></div>
 
               <!-- Etiqueta Flotante Inferior con la fecha -->
@@ -980,25 +980,25 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
 
       </div>
 
-      <!-- Barra de Desplazamiento y Zoom Inferior (Estilo Claro Catálogo Base) -->
+      <!-- Barra de Desplazamiento y Zoom Inferior (Estilo Claro CatÃ¡logo Base) -->
       <div id="gantt-premiere-zoombar-container" 
            class="h-8 bg-slate-100 border-t border-slate-200 px-2.5 flex items-center justify-between select-none z-20 gap-2 shrink-0">
         
-        <!-- Botón Desplazar Izquierda (Paso suave) -->
+        <!-- BotÃ³n Desplazar Izquierda (Paso suave) -->
         <button type="button" 
                 id="gantt-nav-btn-left" 
                 onclick="scrollGanttTimelineStep(-1)" 
                 class="w-6 h-5 rounded bg-white hover:bg-slate-200 active:bg-blue-600 text-slate-600 hover:text-slate-900 active:text-white flex items-center justify-center text-[10px] transition cursor-pointer border border-slate-300 shadow-2xs shrink-0" 
-                title="Desplazar línea de tiempo hacia la izquierda (◀)">
+                title="Desplazar lÃ­nea de tiempo hacia la izquierda (â—€)">
           <i class="fa-solid fa-chevron-left"></i>
         </button>
 
-        <!-- Pista de Navegación y Zoom (Track) -->
+        <!-- Pista de NavegaciÃ³n y Zoom (Track) -->
         <div id="gantt-premiere-track" 
              class="flex-1 h-5 bg-slate-200/80 hover:bg-slate-200 rounded-md border border-slate-300 relative cursor-pointer overflow-hidden shadow-inner flex items-center"
-             title="Clic para saltar a esta posición en el cronograma">
+             title="Clic para saltar a esta posiciÃ³n en el cronograma">
           
-          <!-- Líneas de referencia sutiles de la pista -->
+          <!-- LÃ­neas de referencia sutiles de la pista -->
           <div class="absolute inset-0 flex items-center justify-between px-3 pointer-events-none opacity-40">
             <div class="h-1.5 w-0.5 bg-slate-400 rounded-full"></div>
             <div class="h-1 w-0.5 bg-slate-400 rounded-full"></div>
@@ -1013,7 +1013,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
           <div id="gantt-premiere-thumb" 
                class="absolute h-3.5 rounded-sm bg-gradient-to-b from-white to-slate-100 hover:from-blue-50 hover:to-blue-100 active:from-blue-600 active:to-blue-700 border border-slate-400 hover:border-blue-500 shadow-2xs flex items-center justify-between transition-colors z-10"
                style="left: 0px; width: 120px; cursor: grab;"
-               title="Arrastra para desplazar la línea de tiempo; usa los bordes laterales para hacer zoom">
+               title="Arrastra para desplazar la lÃ­nea de tiempo; usa los bordes laterales para hacer zoom">
             
             <!-- Manija Extremo Izquierdo: Zoom In / Out desde el inicio -->
             <div id="gantt-premiere-handle-left" 
@@ -1041,16 +1041,16 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
 
         </div>
 
-        <!-- Botón Desplazar Derecha (Paso suave) -->
+        <!-- BotÃ³n Desplazar Derecha (Paso suave) -->
         <button type="button" 
                 id="gantt-nav-btn-right" 
                 onclick="scrollGanttTimelineStep(1)" 
                 class="w-6 h-5 rounded bg-white hover:bg-slate-200 active:bg-blue-600 text-slate-600 hover:text-slate-900 active:text-white flex items-center justify-center text-[10px] transition cursor-pointer border border-slate-300 shadow-2xs shrink-0" 
-                title="Desplazar línea de tiempo hacia la derecha (▶)">
+                title="Desplazar lÃ­nea de tiempo hacia la derecha (â–¶)">
           <i class="fa-solid fa-chevron-right"></i>
         </button>
 
-        <!-- Botón Ver Todo / Ajustar Proyecto (Fit Entire Project) -->
+        <!-- BotÃ³n Ver Todo / Ajustar Proyecto (Fit Entire Project) -->
         <button type="button" 
                 id="gantt-nav-btn-fit" 
                 onclick="fitGanttTimelineEntireProject()" 
@@ -1068,7 +1068,7 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
 }
 
 // ==========================================
-// 2. VISTA PROGRAMA FINANCIERO (FORMATO Y COLORES CATÁLOGO BASE)
+// 2. VISTA PROGRAMA FINANCIERO (FORMATO Y COLORES CATÃLOGO BASE)
 // ==========================================
 function renderFinancialTableView(items, periods, scheduleData, currencySymbol) {
   const { periodTotals, grandTotalObra } = scheduleData;
@@ -1081,7 +1081,7 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
 
   // Anchos fijos en px: Clave(80) + Concepto(260) + Unid(48) + Cant(80) + PU(96) + ImpTot(112) = 676px
   const fixedColsWidth = 676;
-  const periodColWidth = 144; // 144px por período
+  const periodColWidth = 144; // 144px por perÃ­odo
 
   let finTodayLeftPx = fixedColsWidth + 10;
   if (n > 0) {
@@ -1117,7 +1117,7 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
       <div class="relative min-w-max" id="financial-table-wrapper">
         <table class="w-full text-left border-collapse text-xs text-slate-700 bg-white" id="financial-program-table">
           
-          <!-- Encabezado de la Tabla Financiera (Idéntico a Catálogo Base: bg-slate-100 text-slate-600 uppercase text-[10px] font-semibold) -->
+          <!-- Encabezado de la Tabla Financiera (IdÃ©ntico a CatÃ¡logo Base: bg-slate-100 text-slate-600 uppercase text-[10px] font-semibold) -->
           <thead class="bg-slate-100 text-slate-600 uppercase text-[10px] font-semibold sticky top-0 z-20 border-b border-slate-200 shadow-2xs">
             <tr>
               <th class="py-2.5 px-3 font-bold w-20 text-center border-r border-slate-200">Clave</th>
@@ -1127,7 +1127,7 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
               <th class="py-2.5 px-3 font-bold w-24 text-right border-r border-slate-200">P.U. ($)</th>
               <th class="py-2.5 px-3 font-bold w-28 text-right border-r border-slate-300 bg-slate-200/70 text-slate-800">Importe Total</th>
 
-              <!-- Columnas de Períodos -->
+              <!-- Columnas de PerÃ­odos -->
               ${periods.map((p, pIdx) => `
                 <th colspan="2" 
                     id="fin-col-${p.key}"
@@ -1149,7 +1149,7 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
             </tr>
           </thead>
 
-          <!-- Cuerpo con Conceptos y Partidas (Estilo Catálogo Base) -->
+          <!-- Cuerpo con Conceptos y Partidas (Estilo CatÃ¡logo Base) -->
           <tbody class="divide-y divide-slate-100 font-mono text-xs">
             ${items.map(item => {
               const isSelectedRow = String(selectedCalendarioRowId) === String(item.id);
@@ -1174,7 +1174,7 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
                     </td>
                     <td class="py-2 px-3 text-right font-mono font-bold text-slate-900 bg-slate-100/80 border-x border-slate-200">${formatCurrency(item.totalImporte, currencySymbol)}</td>
 
-                    <!-- Importes agrupados por período -->
+                    <!-- Importes agrupados por perÃ­odo -->
                     ${periods.map(p => {
                       const d = item.periodData ? item.periodData[p.key] : null;
                       const imp = d ? d.importe : 0;
@@ -1208,7 +1208,7 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
                     <td class="py-1.5 px-3 text-right font-mono text-slate-600">${formatCurrency(item.precioUnitario, currencySymbol)}</td>
                     <td class="py-1.5 px-3 text-right font-mono font-bold text-slate-900 bg-slate-50/80 border-x border-slate-200">${formatCurrency(item.importe, currencySymbol)}</td>
 
-                    <!-- Celdas Editables por Período (Inputs estilo Catálogo Base) -->
+                    <!-- Celdas Editables por PerÃ­odo (Inputs estilo CatÃ¡logo Base) -->
                     ${periods.map(p => {
                       const d = item.periodData ? item.periodData[p.key] : null;
                       const cant = d ? d.cantidad : 0;
@@ -1237,13 +1237,13 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
             }).join('')}
           </tbody>
 
-          <!-- Totales Físicos y Financieros por Período (Estilo Pie de Tabla de Catálogo Base: bg-slate-50 border-t-2 border-slate-300) -->
+          <!-- Totales FÃ­sicos y Financieros por PerÃ­odo (Estilo Pie de Tabla de CatÃ¡logo Base: bg-slate-50 border-t-2 border-slate-300) -->
           <tfoot class="bg-slate-50 text-slate-800 font-mono sticky bottom-0 z-20 border-t-2 border-slate-300 shadow-md">
             
-            <!-- Renglón 1: Total Período ($) -->
+            <!-- RenglÃ³n 1: Total PerÃ­odo ($) -->
             <tr class="bg-slate-50 font-bold border-b border-slate-200">
               <td colspan="6" class="py-2 px-3 font-bold text-right uppercase text-xs text-slate-700 font-sans">
-                Total Período ($):
+                Total PerÃ­odo ($):
               </td>
               ${periods.map(p => {
                 const tot = periodTotals[p.key];
@@ -1257,10 +1257,10 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
               <td class="py-2 px-2 text-center text-xs font-bold text-emerald-700 bg-emerald-50">100%</td>
             </tr>
 
-            <!-- Renglón 2: % Avance Período -->
+            <!-- RenglÃ³n 2: % Avance PerÃ­odo -->
             <tr class="bg-white font-bold border-b border-slate-200">
               <td colspan="6" class="py-1.5 px-3 font-bold text-right uppercase text-xs text-slate-600 font-sans">
-                % Avance Período:
+                % Avance PerÃ­odo:
               </td>
               ${periods.map(p => {
                 const tot = periodTotals[p.key];
@@ -1274,7 +1274,7 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
               <td class="py-1.5 px-2 text-center text-xs font-bold text-slate-400 bg-blue-50/50">---</td>
             </tr>
 
-            <!-- Renglón 3: Total Acumulado ($) -->
+            <!-- RenglÃ³n 3: Total Acumulado ($) -->
             <tr class="bg-slate-50 font-bold border-b border-slate-200">
               <td colspan="6" class="py-2 px-3 font-bold text-right uppercase text-xs text-slate-700 font-sans">
                 Total Acumulado ($):
@@ -1291,7 +1291,7 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
               <td class="py-2 px-2 text-center text-xs font-bold text-slate-400 bg-emerald-50">---</td>
             </tr>
 
-            <!-- Renglón 4: % Avance Acumulado (Curva S) -->
+            <!-- RenglÃ³n 4: % Avance Acumulado (Curva S) -->
             <tr class="bg-white font-bold">
               <td colspan="6" class="py-1.5 px-3 font-bold text-right uppercase text-xs text-slate-700 font-sans">
                 % Avance Acumulado:
@@ -1311,7 +1311,7 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
           </tfoot>
         </table>
 
-        <!-- LÍNEA Y PIN DE DÍA ACTUAL / CORTE EN PROGRAMA FINANCIERO -->
+        <!-- LÃNEA Y PIN DE DÃA ACTUAL / CORTE EN PROGRAMA FINANCIERO -->
         <div id="financial-today-line-container" 
              class="absolute top-0 bottom-0 z-30 pointer-events-none"
              style="left: ${finTodayLeftPx}px;"
@@ -1320,7 +1320,7 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
           <!-- Pin / Marcador Superior Arrastrable -->
           <div id="financial-today-pin" 
                class="sticky top-1 -translate-x-1/2 pointer-events-auto cursor-ew-resize z-40 select-none group flex flex-col items-center"
-               title="Día de Hoy / Fecha de Corte: ${todayStr}&#10;• Arrastra horizontalmente para mover a días anteriores o futuros&#10;• Doble clic para volver al día real"
+               title="DÃ­a de Hoy / Fecha de Corte: ${todayStr}&#10;â€¢ Arrastra horizontalmente para mover a dÃ­as anteriores o futuros&#10;â€¢ Doble clic para volver al dÃ­a real"
                data-today-date="${todayStr}">
             
             <div class="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-500 active:bg-rose-400 text-white text-[9px] font-black uppercase tracking-wider shadow-md border border-rose-300 flex items-center gap-1 transition-transform group-hover:scale-105">
@@ -1330,7 +1330,7 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
             <div class="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-rose-600 -mt-0.5 shadow-sm"></div>
           </div>
 
-          <!-- Línea Vertical que atraviesa todas las filas de la tabla -->
+          <!-- LÃ­nea Vertical que atraviesa todas las filas de la tabla -->
           <div class="w-0.5 h-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] -translate-x-1/2 opacity-90"></div>
 
           <!-- Etiqueta Flotante en la Base con la fecha de corte -->
@@ -1346,14 +1346,14 @@ function renderFinancialTableView(items, periods, scheduleData, currencySymbol) 
 }
 
 // ==========================================
-// 3. VISTA CURVA "S" Y FLUJO DE EFECTIVO (FORMATO Y COLORES CATÁLOGO BASE)
+// 3. VISTA CURVA "S" Y FLUJO DE EFECTIVO (FORMATO Y COLORES CATÃLOGO BASE)
 // ==========================================
 function renderCurvaSView(periods, scheduleData, currencySymbol) {
   const { periodTotals, grandTotalObra } = scheduleData;
   const n = periods.length;
 
   if (n === 0) {
-    return `<div class="p-8 text-center text-slate-400">No hay períodos para generar la curva.</div>`;
+    return `<div class="p-8 text-center text-slate-400">No hay perÃ­odos para generar la curva.</div>`;
   }
 
   // Generar puntos SVG para la Curva S (Ancho 960 x Alto 380 con margen inferior de 100px para fechas totalmente verticales)
@@ -1363,9 +1363,9 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
   const padTop = 40;
   const padBottom = 100;
   const chartW = W - padX * 2;
-  const chartH = H - padTop - padBottom; // 240px de altura útil para la curva
+  const chartH = H - padTop - padBottom; // 240px de altura Ãºtil para la curva
 
-  // Puntos del gráfico
+  // Puntos del grÃ¡fico
   const points = [];
   periods.forEach((p, idx) => {
     const tot = periodTotals[p.key];
@@ -1388,7 +1388,7 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
   const polylineStr = points.map(pt => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(' ');
   const areaStr = `${points[0].x},${padTop + chartH} ` + polylineStr + ` ${points[points.length - 1].x},${padTop + chartH}`;
 
-  // Cálculo de posición de la línea de Hoy / Corte en la Curva S
+  // CÃ¡lculo de posiciÃ³n de la lÃ­nea de Hoy / Corte en la Curva S
   const todayStr = getGanttTodayDate();
   const todayDate = parseDate(todayStr);
   const pStart0 = periods[0].startDate;
@@ -1416,10 +1416,10 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
         <div>
           <h3 class="font-extrabold text-sm text-slate-800 flex items-center gap-2">
-            <i class="fa-solid fa-chart-line text-blue-600"></i> Curva "S" de Inversión y Avance Programado
+            <i class="fa-solid fa-chart-line text-blue-600"></i> Curva "S" de InversiÃ³n y Avance Programado
           </h3>
           <p class="text-xs text-slate-500 mt-0.5">
-            Proyección acumulada de erogaciones y porcentaje de avance físico/financiero a lo largo del tiempo.
+            ProyecciÃ³n acumulada de erogaciones y porcentaje de avance fÃ­sico/financiero a lo largo del tiempo.
           </p>
         </div>
 
@@ -1430,7 +1430,7 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
           </div>
           <div class="flex items-center gap-1.5">
             <span class="w-3 h-3 rounded-md bg-amber-500 inline-block"></span>
-            <span class="text-slate-700">Erogación del Período ($)</span>
+            <span class="text-slate-700">ErogaciÃ³n del PerÃ­odo ($)</span>
           </div>
           <div class="flex items-center gap-1.5">
             <span class="w-3 h-3 rounded bg-rose-600 inline-block"></span>
@@ -1439,7 +1439,7 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
         </div>
       </div>
 
-      <!-- Gráfico SVG Interactivo con Fondo Claro estilo Catálogo Base -->
+      <!-- GrÃ¡fico SVG Interactivo con Fondo Claro estilo CatÃ¡logo Base -->
       <div class="bg-slate-50/70 border border-slate-200 rounded-xl p-4 shadow-2xs relative overflow-hidden">
         <svg viewBox="0 0 ${W} ${H}" class="w-full h-84 sm:h-96 select-none" id="curva-s-svg">
           
@@ -1450,14 +1450,14 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
             </linearGradient>
           </defs>
 
-          <!-- Líneas de cuadrícula horizontal con porcentajes y montos en ambos ejes (0%, 25%, 50%, 75%, 100%) -->
+          <!-- LÃ­neas de cuadrÃ­cula horizontal con porcentajes y montos en ambos ejes (0%, 25%, 50%, 75%, 100%) -->
           ${[0, 25, 50, 75, 100].map(pct => {
             const y = padTop + chartH - (pct / 100) * chartH;
             return `
               <line x1="${padX}" y1="${y}" x2="${padX + chartW}" y2="${y}" stroke="${svgGridStroke}" stroke-dasharray="3,3" stroke-width="1"/>
               <!-- Eje Y Izquierdo: Porcentaje destacado -->
               <text x="${padX - 12}" y="${y + 4}" fill="${svgAxisTextPrimary}" font-size="11.5" font-family="monospace" font-weight="bold" text-anchor="end">${pct}%</text>
-              <!-- Eje Y Derecho: Monto de Inversión Acumulada estimada -->
+              <!-- Eje Y Derecho: Monto de InversiÃ³n Acumulada estimada -->
               <text x="${padX + chartW + 12}" y="${y + 4}" fill="${svgAxisTextSecondary}" font-size="10" font-family="monospace" text-anchor="start">${formatCurrency((pct / 100) * grandTotalObra, currencySymbol)}</text>
             `;
           }).join('')}
@@ -1465,7 +1465,7 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
           <!-- Eje horizontal base -->
           <line x1="${padX}" y1="${padTop + chartH}" x2="${padX + chartW}" y2="${padTop + chartH}" stroke="${svgBaseLineStroke}" stroke-width="1.5"/>
 
-          <!-- Barras de Inversión del Período -->
+          <!-- Barras de InversiÃ³n del PerÃ­odo -->
           ${periods.map((p, idx) => {
             const tot = periodTotals[p.key];
             const imp = tot ? tot.importe : 0;
@@ -1480,18 +1480,18 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
             `;
           }).join('')}
 
-          <!-- Área sombreada Curva S -->
+          <!-- Ãrea sombreada Curva S -->
           <polygon points="${areaStr}" fill="url(#curvaGradientGlobal)"/>
 
-          <!-- Línea de Curva S -->
+          <!-- LÃ­nea de Curva S -->
           <polyline fill="none" stroke="${svgCurveStroke}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" points="${polylineStr}"/>
 
           <!-- Puntos y Badges de Porcentaje Claramente Visibles -->
           ${points.map(pt => `
             <g class="cursor-pointer">
-              <title>${pt.fullLabel}&#10;• Avance Acumulado: ${pt.pct.toFixed(2)}% (${formatCurrency(pt.importe, currencySymbol)})&#10;• Erogación Período: ${formatCurrency(pt.impMes, currencySymbol)} (${pt.pctPeriodo.toFixed(2)}%)</title>
+              <title>${pt.fullLabel}&#10;â€¢ Avance Acumulado: ${pt.pct.toFixed(2)}% (${formatCurrency(pt.importe, currencySymbol)})&#10;â€¢ ErogaciÃ³n PerÃ­odo: ${formatCurrency(pt.impMes, currencySymbol)} (${pt.pctPeriodo.toFixed(2)}%)</title>
               
-              <!-- Círculo del punto en la curva -->
+              <!-- CÃ­rculo del punto en la curva -->
               <circle cx="${pt.x}" cy="${pt.y}" r="5.5" fill="${svgPointFill}" stroke="${svgCurveStroke}" stroke-width="3" />
               
               <!-- Badge flotante con porcentaje visible -->
@@ -1507,16 +1507,16 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
             </g>
           `).join('')}
 
-          <!-- Eje X: Marcas y Fechas TOTALMENTE VERTICALES (-90°) -->
+          <!-- Eje X: Marcas y Fechas TOTALMENTE VERTICALES (-90Â°) -->
           ${points.map((pt, idx) => {
             const isDense = n > 24;
             const showLabel = !isDense || (idx % 2 === 0) || (idx === n - 1);
             return `
-              <!-- Marca de graduación en el eje X -->
+              <!-- Marca de graduaciÃ³n en el eje X -->
               <line x1="${pt.x}" y1="${padTop + chartH}" x2="${pt.x}" y2="${padTop + chartH + 6}" stroke="${svgTickStroke}" stroke-width="1.5" />
               
               ${showLabel ? `
-                <!-- Etiqueta de Fecha / Período Totalmente Vertical (-90°) -->
+                <!-- Etiqueta de Fecha / PerÃ­odo Totalmente Vertical (-90Â°) -->
                 <g transform="translate(${pt.x}, ${padTop + chartH + 12}) rotate(-90)">
                   <text x="-4" y="0" 
                         fill="${svgAxisTextPrimary}" font-size="10" font-family="monospace" font-weight="bold" 
@@ -1528,9 +1528,9 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
             `;
           }).join('')}
 
-          <!-- LÍNEA Y PIN DE CORTE EN CURVA S (INTERACTIVA Y ARRASTRABLE) -->
+          <!-- LÃNEA Y PIN DE CORTE EN CURVA S (INTERACTIVA Y ARRASTRABLE) -->
           <g id="curva-s-today-group" class="cursor-ew-resize select-none" data-today-date="${todayStr}">
-            <!-- Línea vertical punteada -->
+            <!-- LÃ­nea vertical punteada -->
             <line id="curva-s-today-line" 
                   x1="${todayX.toFixed(1)}" y1="${padTop - 10}" 
                   x2="${todayX.toFixed(1)}" y2="${padTop + chartH + 8}" 
@@ -1538,7 +1538,7 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
             
             <!-- Pin / Marcador Superior Arrastrable (CORTE / HOY) -->
             <g id="curva-s-today-pin" class="cursor-ew-resize group" transform="translate(${todayX.toFixed(1)}, ${padTop - 12})">
-              <title>Día de Hoy / Fecha de Corte: ${todayStr}&#10;• Arrastra para mover la fecha de corte a días anteriores o futuros&#10;• Doble clic para volver al día real</title>
+              <title>DÃ­a de Hoy / Fecha de Corte: ${todayStr}&#10;â€¢ Arrastra para mover la fecha de corte a dÃ­as anteriores o futuros&#10;â€¢ Doble clic para volver al dÃ­a real</title>
               <rect x="-24" y="-18" width="48" height="18" rx="4" fill="#e11d48" stroke="#fda4af" stroke-width="1.5" filter="drop-shadow(0 1px 3px rgba(0,0,0,0.25))" />
               <text x="0" y="-8.5" fill="#ffffff" font-size="9" font-family="sans-serif" font-weight="900" text-anchor="middle" dominant-baseline="middle">
                 CORTE
@@ -1546,7 +1546,7 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
               <polygon points="-5,0 5,0 0,6" fill="#e11d48" />
             </g>
 
-            <!-- Badge de Fecha Flotante en la Base de la Línea de Corte -->
+            <!-- Badge de Fecha Flotante en la Base de la LÃ­nea de Corte -->
             <g id="curva-s-today-badge" transform="translate(${todayX.toFixed(1)}, ${padTop + chartH + 16})">
               <rect x="-32" y="0" width="64" height="17" rx="4" fill="#e11d48" stroke="#be123c" stroke-width="1" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.2))" />
               <text x="0" y="9" fill="#ffffff" font-size="9.5" font-family="monospace" font-weight="bold" text-anchor="middle" dominant-baseline="middle">
@@ -1558,15 +1558,15 @@ function renderCurvaSView(periods, scheduleData, currencySymbol) {
         </svg>
       </div>
 
-      <!-- Tabla Resumen Ejecutivo de Erogaciones (Formato y colores de Catálogo Base) -->
+      <!-- Tabla Resumen Ejecutivo de Erogaciones (Formato y colores de CatÃ¡logo Base) -->
       <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
         <table class="w-full text-left text-xs font-mono">
           <thead class="bg-slate-100 text-slate-600 uppercase text-[10px] font-semibold border-b border-slate-200">
             <tr>
-              <th class="p-2.5">Período de Obra</th>
-              <th class="p-2.5 text-right">Erogación Período ($)</th>
-              <th class="p-2.5 text-center">% Período</th>
-              <th class="p-2.5 text-right">Inversión Acumulada ($)</th>
+              <th class="p-2.5">PerÃ­odo de Obra</th>
+              <th class="p-2.5 text-right">ErogaciÃ³n PerÃ­odo ($)</th>
+              <th class="p-2.5 text-center">% PerÃ­odo</th>
+              <th class="p-2.5 text-right">InversiÃ³n Acumulada ($)</th>
               <th class="p-2.5 text-center">% Acumulado</th>
             </tr>
           </thead>
@@ -1604,7 +1604,7 @@ function isAdvancedCalendarioAllowed() {
 
 export function setCalendarioViewMode(mode) {
   if ((mode === 'financiero' || mode === 'curva_s') && !isAdvancedCalendarioAllowed()) {
-    showToast('🔒 El Programa Financiero y la Curva "S" están disponibles desde el Plan Plus. Tu Plan Gratuita incluye el Diagrama de Gantt básico.', 'warning');
+    showToast('ðŸ”’ El Programa Financiero y la Curva "S" estÃ¡n disponibles desde el Plan Plus. Tu Plan Gratuita incluye el Diagrama de Gantt bÃ¡sico.', 'warning');
     if (typeof window !== 'undefined') window.openSubscriptionModal?.();
     return;
   }
@@ -1648,7 +1648,7 @@ export function resetGanttTodayDateAction(event) {
   if (event && event.stopPropagation) event.stopPropagation();
   if (!guardTabUnlocked('calendario')) return;
   resetGanttTodayDate();
-  showToast(`Fecha de corte restablecida al día de hoy real (${formatDate(new Date())})`);
+  showToast(`Fecha de corte restablecida al dÃ­a de hoy real (${formatDate(new Date())})`);
   renderCalendarioObra();
 }
 
@@ -1662,9 +1662,9 @@ export function onGanttDateInput(conceptId, startDateStr, durationDays) {
   const res = updateConceptDatesInModel(conceptId, startDateStr, dur);
   if (res && res.clampedByPredecessor) {
     const clavesTxt = (res.blockingClaves && res.blockingClaves.length > 0) ? res.blockingClaves.join(', ') : 'su predecesora';
-    showToast(`🔒 Inicio ajustado a ${res.minAllowedDate}: no puede iniciar antes de que termine ${clavesTxt}.`, 'error');
+    showToast(`ðŸ”’ Inicio ajustado a ${res.minAllowedDate}: no puede iniciar antes de que termine ${clavesTxt}.`, 'error');
   } else if (res && res.cascadedCount > 0) {
-    showToast(`Fecha actualizada • ${res.cascadedCount} concepto(s) dependiente(s) actualizados en cascada.`);
+    showToast(`Fecha actualizada â€¢ ${res.cascadedCount} concepto(s) dependiente(s) actualizados en cascada.`);
   }
   renderCalendarioObra();
 }
@@ -1678,7 +1678,7 @@ export function onGanttDurationInput(conceptId, startDateStr, durationDays) {
   const dur = Math.max(3, parseInt(durationDays, 10) || 3);
   const res = updateConceptDatesInModel(conceptId, startDateStr, dur);
   if (res && res.cascadedCount > 0) {
-    showToast(`Duración actualizada (${dur}d) • ${res.cascadedCount} concepto(s) dependiente(s) recorridos automáticamente.`);
+    showToast(`DuraciÃ³n actualizada (${dur}d) â€¢ ${res.cascadedCount} concepto(s) dependiente(s) recorridos automÃ¡ticamente.`);
   }
   renderCalendarioObra();
 }
@@ -1701,7 +1701,7 @@ export function triggerAutoDistributeSchedule() {
   if (!guardTabUnlocked('calendario')) return;
   const cfg = getScheduleSettings();
   autoDistributeAllSchedule(cfg.startDate);
-  showToast('Cronograma re-programado secuencialmente con éxito.');
+  showToast('Cronograma re-programado secuencialmente con Ã©xito.');
   renderCalendarioObra();
 }
 
@@ -1745,8 +1745,8 @@ export function toggleCalendarioJustifyText() {
   renderCalendarioObra();
   showToast(
     nextState
-      ? 'Justificación de textos activada en la columna Conceptos de Obra.'
-      : 'Vista compacta en 1 línea activada para Conceptos de Obra.',
+      ? 'JustificaciÃ³n de textos activada en la columna Conceptos de Obra.'
+      : 'Vista compacta en 1 lÃ­nea activada para Conceptos de Obra.',
     'info'
   );
   return nextState;
@@ -1863,7 +1863,7 @@ export function initGanttResizer() {
     window.addEventListener('mouseup', mouseUpHandler);
   };
 
-  // Eventos Touch para pantallas táctiles
+  // Eventos Touch para pantallas tÃ¡ctiles
   resizer.ontouchstart = (e) => {
     if (e.touches && e.touches.length > 0) {
       onStart(e.touches[0].clientX);
@@ -1967,7 +1967,7 @@ export function initGanttBarDrag() {
       const predClavesStr = bar.getAttribute('data-pred-claves') || '';
       const origStartDate = parseDate(origStartStr);
 
-      // Si está activo el Modo Vincular con Clic en Barras: conectar Predecesora -> Dependiente
+      // Si estÃ¡ activo el Modo Vincular con Clic en Barras: conectar Predecesora -> Dependiente
       if (calendarioLinkClickMode) {
         handleCalendarioBarLinkClick(conceptId, clave);
         return;
@@ -2034,18 +2034,18 @@ export function initGanttBarDrag() {
               <i class="fa-solid fa-lock text-[10px]"></i> Inicio Bloqueado: <span class="text-white">${clave}</span>
             </div>
             <div class="text-[11px] mt-0.5 text-amber-200">
-              Debe terminar primero <strong>${predClavesStr || 'predecesora'}</strong> (mín. ${minStartStr})
+              Debe terminar primero <strong>${predClavesStr || 'predecesora'}</strong> (mÃ­n. ${minStartStr})
             </div>
           ` : `
             <div class="font-bold text-blue-300 flex items-center gap-1.5">
-              <i class="fa-solid fa-arrows-left-right text-[10px]"></i> Mover Período: <span class="text-white">${clave}</span>
+              <i class="fa-solid fa-arrows-left-right text-[10px]"></i> Mover PerÃ­odo: <span class="text-white">${clave}</span>
             </div>
             <div class="text-[11px] mt-0.5 text-slate-300">
-              ${finalStartDateStr} <span class="text-slate-500">→</span> ${formatDate(newEnd)} <span class="text-amber-400 font-bold">(${origDur}d)</span>
+              ${finalStartDateStr} <span class="text-slate-500">â†’</span> ${formatDate(newEnd)} <span class="text-amber-400 font-bold">(${origDur}d)</span>
             </div>
           `);
         } else if (mode === 'resize-right') {
-          // Duración mínima estricta de 3 días
+          // DuraciÃ³n mÃ­nima estricta de 3 dÃ­as
           const newDur = Math.max(3, origDur + dayDelta);
           finalStartDateStr = origStartStr;
           finalDur = newDur;
@@ -2054,14 +2054,14 @@ export function initGanttBarDrag() {
           bar.style.width = `${newDur * pxPerDay}px`;
           updateTooltip(ev.clientX, ev.clientY, `
             <div class="font-bold text-amber-300 flex items-center gap-1.5">
-              <i class="fa-solid fa-up-right-and-down-left-from-center text-[10px]"></i> Duración: <span class="text-white">${clave}</span>
+              <i class="fa-solid fa-up-right-and-down-left-from-center text-[10px]"></i> DuraciÃ³n: <span class="text-white">${clave}</span>
             </div>
             <div class="text-[11px] mt-0.5 text-slate-300">
-              ${origStartStr} <span class="text-slate-500">→</span> ${formatDate(newEnd)} <span class="text-amber-400 font-bold">(${newDur} días)</span>
+              ${origStartStr} <span class="text-slate-500">â†’</span> ${formatDate(newEnd)} <span class="text-amber-400 font-bold">(${newDur} dÃ­as)</span>
             </div>
           `);
         } else if (mode === 'resize-left') {
-          // Cambiar inicio por extremo izquierdo (duración mínima >= 3 días y respetando predecesoras)
+          // Cambiar inicio por extremo izquierdo (duraciÃ³n mÃ­nima >= 3 dÃ­as y respetando predecesoras)
           const maxLeftDelta = origDur - 3;
           let cappedDelta = Math.min(dayDelta, maxLeftDelta);
           wasBlockedByPred = false;
@@ -2094,7 +2094,7 @@ export function initGanttBarDrag() {
               <i class="fa-solid fa-calendar-day text-[10px]"></i> Inicio: <span class="text-white">${clave}</span>
             </div>
             <div class="text-[11px] mt-0.5 text-slate-300">
-              ${finalStartDateStr} <span class="text-slate-500">→</span> ${formatDate(newEnd)} <span class="text-emerald-400 font-bold">(${newDur} días)</span>
+              ${finalStartDateStr} <span class="text-slate-500">â†’</span> ${formatDate(newEnd)} <span class="text-emerald-400 font-bold">(${newDur} dÃ­as)</span>
             </div>
           `);
         }
@@ -2120,7 +2120,7 @@ export function initGanttBarDrag() {
         }
 
         if (wasBlockedByPred && finalStartDateStr === origStartStr && finalDur === origDur) {
-          showToast(`🔒 ${clave} no puede iniciar antes de ${minStartStr} (depende de terminar ${predClavesStr || 'su predecesora'}).`, 'error');
+          showToast(`ðŸ”’ ${clave} no puede iniciar antes de ${minStartStr} (depende de terminar ${predClavesStr || 'su predecesora'}).`, 'error');
           renderCalendarioObra();
           return;
         }
@@ -2128,9 +2128,9 @@ export function initGanttBarDrag() {
         if (currentDayDelta !== 0 || finalDur !== origDur || finalStartDateStr !== origStartStr) {
           const res = updateConceptDatesInModel(conceptId, finalStartDateStr, finalDur);
           if (res && res.cascadedCount > 0) {
-            showToast(`Concepto ${clave} actualizado (${finalDur}d) • ${res.cascadedCount} dependiente(s) recorridos en cascada.`);
+            showToast(`Concepto ${clave} actualizado (${finalDur}d) â€¢ ${res.cascadedCount} dependiente(s) recorridos en cascada.`);
           } else {
-            showToast(`Concepto ${clave} actualizado: ${finalStartDateStr} (${finalDur} días)`);
+            showToast(`Concepto ${clave} actualizado: ${finalStartDateStr} (${finalDur} dÃ­as)`);
           }
           renderCalendarioObra();
         }
@@ -2142,7 +2142,7 @@ export function initGanttBarDrag() {
       }
     };
 
-    // Soporte táctil (Touch)
+    // Soporte tÃ¡ctil (Touch)
     bar.ontouchstart = (e) => {
       if (!e.touches || e.touches.length === 0) return;
       const touch = e.touches[0];
@@ -2176,7 +2176,7 @@ export function initGanttBarDrag() {
         }
         if (currentDayDelta !== 0) {
           updateConceptDatesInModel(conceptId, finalStartDateStr, finalDur);
-          showToast(`Concepto ${clave} actualizado: ${finalStartDateStr} (${finalDur} días)`);
+          showToast(`Concepto ${clave} actualizado: ${finalStartDateStr} (${finalDur} dÃ­as)`);
           renderCalendarioObra();
         }
       }
@@ -2206,7 +2206,7 @@ export function updatePremiereZoomBarUI() {
 
   if (trackW <= 0 || scrollW <= 0) return;
 
-  // Proporción de contenido visible en el viewport
+  // ProporciÃ³n de contenido visible en el viewport
   const visibleRatio = Math.min(1, clientW / scrollW);
   const thumbW = Math.max(34, Math.min(trackW, Math.round(trackW * visibleRatio)));
 
@@ -2226,10 +2226,10 @@ export function initPremiereZoomBar() {
   const thumb = document.getElementById('gantt-premiere-thumb');
   if (!timelinePanel || !track || !thumb) return;
 
-  // Actualizar tamaño y posición inicial del thumb
+  // Actualizar tamaÃ±o y posiciÃ³n inicial del thumb
   updatePremiereZoomBarUI();
 
-  // Sincronizar automáticamente cuando el usuario haga scroll en el timeline
+  // Sincronizar automÃ¡ticamente cuando el usuario haga scroll en el timeline
   timelinePanel.onscroll = () => {
     updatePremiereZoomBarUI();
   };
@@ -2329,7 +2329,7 @@ export function initPremiereZoomBar() {
         showZoomTip(ev.clientX, ev.clientY, `<i class="fa-solid fa-arrows-left-right text-blue-400"></i> Desplazamiento: <span class="font-bold text-white">${pct}%</span>`);
 
       } else if (mode === 'zoom-right') {
-        // Arrastrar extremo derecho: cambiar tamaño del thumb -> ZOOM
+        // Arrastrar extremo derecho: cambiar tamaÃ±o del thumb -> ZOOM
         // Hacia adentro (dx < 0) reduce el thumb -> ZOOM IN
         // Hacia afuera (dx > 0) agranda el thumb -> ZOOM OUT
         const maxW = Math.max(34, trackW - startThumbL);
@@ -2341,10 +2341,10 @@ export function initPremiereZoomBar() {
         hasChangedZoom = (targetDayWidth !== startDayWidth);
 
         const zoomPct = Math.round((targetDayWidth / 34) * 100);
-        showZoomTip(ev.clientX, ev.clientY, `<i class="fa-solid fa-magnifying-glass text-blue-400"></i> Zoom: <span class="font-bold text-white">${zoomPct}%</span> (${targetDayWidth}px/día)`);
+        showZoomTip(ev.clientX, ev.clientY, `<i class="fa-solid fa-magnifying-glass text-blue-400"></i> Zoom: <span class="font-bold text-white">${zoomPct}%</span> (${targetDayWidth}px/dÃ­a)`);
 
       } else if (mode === 'zoom-left') {
-        // Arrastrar extremo izquierdo: cambiar posición y tamaño -> ZOOM
+        // Arrastrar extremo izquierdo: cambiar posiciÃ³n y tamaÃ±o -> ZOOM
         // Hacia adentro (dx > 0) reduce el thumb -> ZOOM IN
         // Hacia afuera (dx < 0) agranda el thumb -> ZOOM OUT
         const maxL = startThumbL + startThumbW - 34;
@@ -2358,7 +2358,7 @@ export function initPremiereZoomBar() {
         hasChangedZoom = (targetDayWidth !== startDayWidth);
 
         const zoomPct = Math.round((targetDayWidth / 34) * 100);
-        showZoomTip(ev.clientX, ev.clientY, `<i class="fa-solid fa-magnifying-glass text-blue-400"></i> Zoom: <span class="font-bold text-white">${zoomPct}%</span> (${targetDayWidth}px/día)`);
+        showZoomTip(ev.clientX, ev.clientY, `<i class="fa-solid fa-magnifying-glass text-blue-400"></i> Zoom: <span class="font-bold text-white">${zoomPct}%</span> (${targetDayWidth}px/dÃ­a)`);
       }
     }
 
@@ -2409,7 +2409,7 @@ export function initPremiereZoomBar() {
   };
 }
 
-// Desplazamiento por pasos suaves (botones ◀ y ▶)
+// Desplazamiento por pasos suaves (botones â—€ y â–¶)
 export function scrollGanttTimelineStep(direction) {
   const timelinePanel = document.getElementById('gantt-timeline-panel');
   if (!timelinePanel) return;
@@ -2457,7 +2457,7 @@ export function fitGanttTimelineEntireProject() {
 }
 
 // ------------------------------------------
-// ARRASTRE INTERACTIVO DE LA LÍNEA DEL DÍA DE HOY / FECHA DE CORTE
+// ARRASTRE INTERACTIVO DE LA LÃNEA DEL DÃA DE HOY / FECHA DE CORTE
 // ------------------------------------------
 export function initGanttTodayLineDrag() {
   const pin = document.getElementById('gantt-today-pin');
@@ -2549,9 +2549,9 @@ export function initGanttTodayLineDrag() {
       if (isRealToday) {
         deltaText = '<span class="text-rose-400 font-bold">(Hoy real)</span>';
       } else if (deltaFromReal > 0) {
-        deltaText = `<span class="text-amber-400 font-bold">(+${deltaFromReal} días al futuro)</span>`;
+        deltaText = `<span class="text-amber-400 font-bold">(+${deltaFromReal} dÃ­as al futuro)</span>`;
       } else {
-        deltaText = `<span class="text-blue-400 font-bold">(${deltaFromReal} días al pasado)</span>`;
+        deltaText = `<span class="text-blue-400 font-bold">(${deltaFromReal} dÃ­as al pasado)</span>`;
       }
 
       updateTooltip(ev.clientX, ev.clientY, `
@@ -2598,7 +2598,7 @@ export function initGanttTodayLineDrag() {
 
 
 // ------------------------------------------
-// ARRASTRE INTERACTIVO DE LÍNEA DE CORTE EN PROGRAMA FINANCIERO
+// ARRASTRE INTERACTIVO DE LÃNEA DE CORTE EN PROGRAMA FINANCIERO
 // ------------------------------------------
 export function initFinancialTodayLineDrag() {
   const pin = typeof document !== 'undefined' ? document.getElementById('financial-today-pin') : null;
@@ -2609,7 +2609,7 @@ export function initFinancialTodayLineDrag() {
   const currentTodayStr = getGanttTodayDate();
   const origTodayDate = parseDate(currentTodayStr);
 
-  // Intentar ajustar la posición inicial de forma exacta al encabezado correspondiente
+  // Intentar ajustar la posiciÃ³n inicial de forma exacta al encabezado correspondiente
   const thCols = (typeof document !== 'undefined' && document.querySelectorAll) ? Array.from(document.querySelectorAll('th[id^="fin-col-"]')) : [];
   if (thCols.length > 0) {
     for (let i = 0; i < thCols.length; i++) {
@@ -2703,9 +2703,9 @@ export function initFinancialTodayLineDrag() {
       if (isRealToday) {
         deltaText = '<span class="text-rose-400 font-bold">(Hoy real)</span>';
       } else if (deltaFromReal > 0) {
-        deltaText = `<span class="text-amber-400 font-bold">(+${deltaFromReal} días al futuro)</span>`;
+        deltaText = `<span class="text-amber-400 font-bold">(+${deltaFromReal} dÃ­as al futuro)</span>`;
       } else {
-        deltaText = `<span class="text-blue-400 font-bold">(${deltaFromReal} días al pasado)</span>`;
+        deltaText = `<span class="text-blue-400 font-bold">(${deltaFromReal} dÃ­as al pasado)</span>`;
       }
 
       updateTooltip(ev.clientX, ev.clientY, `
@@ -2751,7 +2751,7 @@ export function initFinancialTodayLineDrag() {
 }
 
 // ------------------------------------------
-// ARRASTRE INTERACTIVO DE LÍNEA DE CORTE EN CURVA "S" Y FLUJO
+// ARRASTRE INTERACTIVO DE LÃNEA DE CORTE EN CURVA "S" Y FLUJO
 // ------------------------------------------
 export function initCurvaSTodayLineDrag() {
   const pin = typeof document !== 'undefined' ? document.getElementById('curva-s-today-pin') : null;
@@ -2866,9 +2866,9 @@ export function initCurvaSTodayLineDrag() {
       if (isRealToday) {
         deltaText = '<span class="text-rose-400 font-bold">(Hoy real)</span>';
       } else if (deltaFromReal > 0) {
-        deltaText = `<span class="text-amber-400 font-bold">(+${deltaFromReal} días al futuro)</span>`;
+        deltaText = `<span class="text-amber-400 font-bold">(+${deltaFromReal} dÃ­as al futuro)</span>`;
       } else {
-        deltaText = `<span class="text-blue-400 font-bold">(${deltaFromReal} días al pasado)</span>`;
+        deltaText = `<span class="text-blue-400 font-bold">(${deltaFromReal} dÃ­as al pasado)</span>`;
       }
 
       updateTooltip(ev.clientX, ev.clientY, `
@@ -2921,13 +2921,13 @@ export function initCurvaSTodayLineDrag() {
 }
 
 // ============================================================
-// MODAL DE JORNADA LABORAL Y DÍAS INHÁBILES (FESTIVOS, LLUVIAS, DESCANSO)
+// MODAL DE JORNADA LABORAL Y DÃAS INHÃBILES (FESTIVOS, LLUVIAS, DESCANSO)
 // ============================================================
 
 let currentJornadaModalConfig = null;
 let currentJornadaActiveTab = 'semanal';
 
-const DAY_NAMES_ES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const DAY_NAMES_ES = ['Domingo', 'Lunes', 'Martes', 'MiÃ©rcoles', 'Jueves', 'Viernes', 'SÃ¡bado'];
 const DAY_LETTERS_ES = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 
 export function openCalendarioJornadaModal() {
@@ -2935,7 +2935,7 @@ export function openCalendarioJornadaModal() {
   const modal = document.getElementById('modal-calendario-jornada');
   if (!modal) return;
 
-  // Cargar configuración actual de jornada
+  // Cargar configuraciÃ³n actual de jornada
   currentJornadaModalConfig = JSON.parse(JSON.stringify(getWorkdaysSettings()));
   currentJornadaActiveTab = 'semanal';
 
@@ -2963,7 +2963,7 @@ export function openCalendarioJornadaModal() {
 
   const plazoEl = document.getElementById('modal-jornada-plazo-txt');
   if (plazoEl) {
-    plazoEl.textContent = `${totalDias} días naturales (${formatDate(minDate)} al ${formatDate(maxDate)})`;
+    plazoEl.textContent = `${totalDias} dÃ­as naturales (${formatDate(minDate)} al ${formatDate(maxDate)})`;
   }
 
   // Prellenar fecha de hoy o inicio en inputs
@@ -3056,7 +3056,7 @@ export function renderJornadaWeekdaysGrid() {
         <span class="text-[9.5px] font-semibold mt-0.5 px-2 py-0.5 rounded-full ${
           isNonWorking ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'
         }">
-          ${isNonWorking ? 'Inhábil' : 'Hábil'}
+          ${isNonWorking ? 'InhÃ¡bil' : 'HÃ¡bil'}
         </span>
       </div>
     `;
@@ -3081,13 +3081,13 @@ export function setNonWorkingDaysPreset(preset) {
   if (!currentJornadaModalConfig) return;
   if (preset === 'l-s') {
     currentJornadaModalConfig.nonWorkingDaysOfWeek = [0]; // Descanso Domingo
-    showToast('Ajustado: Lunes a Sábado laborables (Descanso Domingo)');
+    showToast('Ajustado: Lunes a SÃ¡bado laborables (Descanso Domingo)');
   } else if (preset === 'l-v') {
-    currentJornadaModalConfig.nonWorkingDaysOfWeek = [0, 6]; // Descanso Sábado y Domingo
-    showToast('Ajustado: Lunes a Viernes laborables (Descanso Sábado y Domingo)');
+    currentJornadaModalConfig.nonWorkingDaysOfWeek = [0, 6]; // Descanso SÃ¡bado y Domingo
+    showToast('Ajustado: Lunes a Viernes laborables (Descanso SÃ¡bado y Domingo)');
   } else if (preset === 'todos') {
-    currentJornadaModalConfig.nonWorkingDaysOfWeek = []; // 7 días laborables
-    showToast('Ajustado: Todos los días laborables (Sin descansos semanales)');
+    currentJornadaModalConfig.nonWorkingDaysOfWeek = []; // 7 dÃ­as laborables
+    showToast('Ajustado: Todos los dÃ­as laborables (Sin descansos semanales)');
   }
   renderJornadaWeekdaysGrid();
   updateJornadaModalSummary();
@@ -3106,7 +3106,7 @@ export function renderJornadaFestivosTable() {
     tbody.innerHTML = `
       <tr>
         <td colspan="4" class="py-6 text-center text-slate-400 italic">
-          No hay días festivos registrados en este proyecto. Puedes agregarlos con el formulario superior o hacer clic en "Cargar Festivos México (LFT)".
+          No hay dÃ­as festivos registrados en este proyecto. Puedes agregarlos con el formulario superior o hacer clic en "Cargar Festivos MÃ©xico (LFT)".
         </td>
       </tr>
     `;
@@ -3125,7 +3125,7 @@ export function renderJornadaFestivosTable() {
         <td class="py-2 px-3 text-slate-600 font-medium">${dayName}</td>
         <td class="py-2 px-3 text-slate-800 font-semibold flex items-center gap-1.5">
           <i class="fa-solid fa-star text-purple-500 text-[10px]"></i>
-          <span>${f.name || 'Día Festivo'}</span>
+          <span>${f.name || 'DÃ­a Festivo'}</span>
         </td>
         <td class="py-2 px-3 text-center">
           <button type="button" onclick="removeFestivoFromModal(${idx})" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 cursor-pointer transition" title="Eliminar festivo">
@@ -3148,7 +3148,7 @@ export function addFestivoFromModal() {
     return;
   }
 
-  const nameVal = (nameInput?.value || '').trim() || 'Día Festivo';
+  const nameVal = (nameInput?.value || '').trim() || 'DÃ­a Festivo';
 
   const list = currentJornadaModalConfig.festivos || [];
   const existingIdx = list.findIndex(f => f.date === dateVal);
@@ -3198,7 +3198,7 @@ export function loadMexicanHolidaysToModal() {
 
   renderJornadaFestivosTable();
   updateJornadaModalSummary();
-  showToast(`Se cargaron ${addedCount} días festivos oficiales de México (${year})`);
+  showToast(`Se cargaron ${addedCount} dÃ­as festivos oficiales de MÃ©xico (${year})`);
 }
 
 export function renderJornadaLluviasTable() {
@@ -3214,7 +3214,7 @@ export function renderJornadaLluviasTable() {
     tbody.innerHTML = `
       <tr>
         <td colspan="4" class="py-6 text-center text-slate-400 italic">
-          No hay suspensiones por lluvia registradas en este proyecto. Puedes registrarlas arriba con la fecha y el motivo de la bitácora.
+          No hay suspensiones por lluvia registradas en este proyecto. Puedes registrarlas arriba con la fecha y el motivo de la bitÃ¡cora.
         </td>
       </tr>
     `;
@@ -3233,7 +3233,7 @@ export function renderJornadaLluviasTable() {
         <td class="py-2 px-3 text-slate-600 font-medium">${dayName}</td>
         <td class="py-2 px-3 text-slate-800 font-semibold flex items-center gap-1.5">
           <i class="fa-solid fa-cloud-rain text-sky-500 text-[10px]"></i>
-          <span>${ll.reason || ll.name || 'Suspensión por lluvia'}</span>
+          <span>${ll.reason || ll.name || 'SuspensiÃ³n por lluvia'}</span>
         </td>
         <td class="py-2 px-3 text-center">
           <button type="button" onclick="removeLluviaFromModal(${idx})" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 cursor-pointer transition" title="Eliminar registro de lluvia">
@@ -3256,7 +3256,7 @@ export function addLluviaFromModal() {
     return;
   }
 
-  const reasonVal = (reasonInput?.value || '').trim() || 'Suspensión por lluvia';
+  const reasonVal = (reasonInput?.value || '').trim() || 'SuspensiÃ³n por lluvia';
 
   const list = currentJornadaModalConfig.lluvias || [];
   const existingIdx = list.findIndex(l => l.date === dateVal);
@@ -3272,7 +3272,7 @@ export function addLluviaFromModal() {
   if (reasonInput) reasonInput.value = '';
   renderJornadaLluviasTable();
   updateJornadaModalSummary();
-  showToast(`Día de lluvia registrado: ${dateVal}`);
+  showToast(`DÃ­a de lluvia registrado: ${dateVal}`);
 }
 
 export function removeLluviaFromModal(index) {
@@ -3281,7 +3281,7 @@ export function removeLluviaFromModal(index) {
   renderJornadaLluviasTable();
   updateJornadaModalSummary();
   if (removed && removed[0]) {
-    showToast(`Día de lluvia eliminado: ${removed[0].date}`);
+    showToast(`DÃ­a de lluvia eliminado: ${removed[0].date}`);
   }
 }
 
@@ -3323,20 +3323,20 @@ export function updateJornadaModalSummary() {
 
 export function saveCalendarioJornadaModal() {
   if (!currentJornadaModalConfig) return;
-  saveScheduleUndoSnapshot('Cambio en días inhábiles');
+  saveScheduleUndoSnapshot('Cambio en dÃ­as inhÃ¡biles');
   saveWorkdaysSettings(currentJornadaModalConfig);
   closeCalendarioJornadaModal();
-  showToast('Jornada laboral y días inhábiles guardados correctamente');
+  showToast('Jornada laboral y dÃ­as inhÃ¡biles guardados correctamente');
   renderCalendarioObra();
 }
 
 // ============================================================
-// CONTROLADORES DE RUTA CRÍTICA (CPM), DEPENDENCIAS FIN-A-INICIO Y PROPUESTA IA
+// CONTROLADORES DE RUTA CRÃTICA (CPM), DEPENDENCIAS FIN-A-INICIO Y PROPUESTA IA
 // ============================================================
 
 export function toggleCalendarioCriticalPath() {
   if (!isAdvancedCalendarioAllowed()) {
-    showToast('🔒 El análisis de Ruta Crítica (CPM) está disponible desde el Plan Plus. Tu Plan Gratuita incluye el Diagrama de Gantt básico.', 'warning');
+    showToast('ðŸ”’ El anÃ¡lisis de Ruta CrÃ­tica (CPM) estÃ¡ disponible desde el Plan Plus. Tu Plan Gratuita incluye el Diagrama de Gantt bÃ¡sico.', 'warning');
     if (typeof window !== 'undefined') window.openSubscriptionModal?.();
     return;
   }
@@ -3345,8 +3345,8 @@ export function toggleCalendarioCriticalPath() {
   saveScheduleSettings({ showCriticalPath: nextVal });
   showToast(
     nextVal
-      ? '🔥 Ruta Crítica activada: resaltando en rojo los conceptos con holgura 0 días.'
-      : 'Vista estándar de colores por partida restablecida.'
+      ? 'ðŸ”¥ Ruta CrÃ­tica activada: resaltando en rojo los conceptos con holgura 0 dÃ­as.'
+      : 'Vista estÃ¡ndar de colores por partida restablecida.'
   );
   renderCalendarioObra();
 }
@@ -3355,7 +3355,7 @@ export function toggleCalendarioLinkMode() {
   calendarioLinkClickMode = !calendarioLinkClickMode;
   pendingLinkPredecessorId = null;
   if (calendarioLinkClickMode) {
-    showToast('🔗 Modo Vincular activo: haz clic en el concepto predecesor y luego en el dependiente.');
+    showToast('ðŸ”— Modo Vincular activo: haz clic en el concepto predecesor y luego en el dependiente.');
   }
   renderCalendarioObra();
 }
@@ -3365,14 +3365,14 @@ export function handleCalendarioBarLinkClick(clickedConceptId, clickedClave = ''
 
   if (!pendingLinkPredecessorId) {
     pendingLinkPredecessorId = String(clickedConceptId);
-    showToast(`1° Predecesora seleccionada: ${clickedClave || clickedConceptId}. Ahora haz clic en el concepto que dependerá de ella.`);
+    showToast(`1Â° Predecesora seleccionada: ${clickedClave || clickedConceptId}. Ahora haz clic en el concepto que dependerÃ¡ de ella.`);
     renderCalendarioObra();
     return;
   }
 
   if (String(pendingLinkPredecessorId) === String(clickedConceptId)) {
     pendingLinkPredecessorId = null;
-    showToast('Selección de predecesora cancelada.');
+    showToast('SelecciÃ³n de predecesora cancelada.');
     renderCalendarioObra();
     return;
   }
@@ -3389,7 +3389,7 @@ export function handleCalendarioBarLinkClick(clickedConceptId, clickedClave = ''
   if (res.action === 'removed') {
     showToast(`Enlace eliminado entre ${res.predClave} y ${res.targetClave}.`);
   } else {
-    showToast(`✓ Enlace Fin-a-Inicio creado: ${res.targetClave} iniciará al terminar ${res.predClave} (${res.startDate}).`);
+    showToast(`âœ“ Enlace Fin-a-Inicio creado: ${res.targetClave} iniciarÃ¡ al terminar ${res.predClave} (${res.startDate}).`);
   }
   renderCalendarioObra();
 }
@@ -3401,7 +3401,7 @@ export function undoCalendarioScheduleAction() {
     showToast('No hay cambios por deshacer en el calendario.', 'error');
     return;
   }
-  showToast(`↩ Deshacer: ${snap.label || 'cronograma previo'}.`);
+  showToast(`â†© Deshacer: ${snap.label || 'cronograma previo'}.`);
   renderCalendarioObra();
 }
 
@@ -3412,7 +3412,7 @@ export function redoCalendarioScheduleAction() {
     showToast('No hay cambios por rehacer en el calendario.', 'error');
     return;
   }
-  showToast(`↪ Rehacer: ${snap.label || 'cambio reaplicado'}.`);
+  showToast(`â†ª Rehacer: ${snap.label || 'cambio reaplicado'}.`);
   renderCalendarioObra();
 }
 
@@ -3438,7 +3438,7 @@ export function onGanttPredecessorSelect(conceptId, selectedValue) {
   if (nextPreds.length === 0) {
     showToast(`Dependencias liberadas en ${res.clave} (inicio libre).`);
   } else {
-    showToast(`✓ ${res.clave} ahora inicia al terminar su predecesora (${res.startDate}).`);
+    showToast(`âœ“ ${res.clave} ahora inicia al terminar su predecesora (${res.startDate}).`);
   }
   renderCalendarioObra();
 }
@@ -3452,7 +3452,7 @@ export function clearAllCalendarioLinksAction() {
 }
 
 // ------------------------------------------------------------
-// MODAL DE MÚLTIPLES PREDECESORAS POR CONCEPTO
+// MODAL DE MÃšLTIPLES PREDECESORAS POR CONCEPTO
 // ------------------------------------------------------------
 function ensureModalContainer(modalId) {
   if (typeof document === 'undefined') return null;
@@ -3490,7 +3490,7 @@ export function openConceptDependenciesModal(conceptId) {
         <div class="min-w-0 pr-2">
           <h3 class="text-sm font-bold flex items-center gap-2">
             <i class="fa-solid fa-diagram-project text-blue-400"></i>
-            <span>Dependencias Fin-a-Inicio — <span class="font-mono text-amber-300">${target.clave}</span></span>
+            <span>Dependencias Fin-a-Inicio â€” <span class="font-mono text-amber-300">${target.clave}</span></span>
           </h3>
           <p class="text-[11px] text-slate-300 truncate mt-0.5">${target.descripcion}</p>
         </div>
@@ -3500,7 +3500,7 @@ export function openConceptDependenciesModal(conceptId) {
       </div>
 
       <div class="px-4 py-2.5 bg-blue-50 border-b border-blue-100 text-[11px] text-blue-900">
-        Marca todos los conceptos que <strong>deben terminar</strong> antes de poder iniciar <strong>${target.clave}</strong>. Se bloquean automáticamente los conceptos que generarían un ciclo.
+        Marca todos los conceptos que <strong>deben terminar</strong> antes de poder iniciar <strong>${target.clave}</strong>. Se bloquean automÃ¡ticamente los conceptos que generarÃ­an un ciclo.
       </div>
 
       <div class="p-3 overflow-y-auto flex-1 divide-y divide-slate-100 custom-scroll text-xs" id="dep-modal-checklist">
@@ -3571,12 +3571,12 @@ export function saveConceptDependenciesModal() {
   }
 
   closeConceptDependenciesModal();
-  showToast(`✓ Dependencias actualizadas para ${res.clave} (${selectedIds.length} predecesora${selectedIds.length === 1 ? '' : 's'}).`);
+  showToast(`âœ“ Dependencias actualizadas para ${res.clave} (${selectedIds.length} predecesora${selectedIds.length === 1 ? '' : 's'}).`);
   renderCalendarioObra();
 }
 
 // ------------------------------------------------------------
-// MODAL ASISTENTE IA POR PROCESO CONSTRUCTIVO Y RUTA CRÍTICA
+// MODAL ASISTENTE IA POR PROCESO CONSTRUCTIVO Y RUTA CRÃTICA
 // ------------------------------------------------------------
 export function openCalendarioAiModal() {
   if (!guardTabUnlocked('calendario')) return;
@@ -3598,8 +3598,8 @@ export function openCalendarioAiModal() {
             <i class="fa-solid fa-wand-magic-sparkles text-base"></i>
           </div>
           <div>
-            <h3 class="text-sm sm:text-base font-bold leading-tight">Asistente IA — Secuencia por Proceso Constructivo y Ruta Crítica</h3>
-            <p class="text-[11px] text-indigo-100 mt-0.5">Analiza el Tipo de Obra, partidas, volúmenes APU y días inhábiles para proponer dependencias Fin-a-Inicio reales</p>
+            <h3 class="text-sm sm:text-base font-bold leading-tight">Asistente IA â€” Secuencia por Proceso Constructivo y Ruta CrÃ­tica</h3>
+            <p class="text-[11px] text-indigo-100 mt-0.5">Analiza el Tipo de Obra, partidas, volÃºmenes APU y dÃ­as inhÃ¡biles para proponer dependencias Fin-a-Inicio reales</p>
           </div>
         </div>
         <button type="button" onclick="closeCalendarioAiModal()" class="text-white/75 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer">
@@ -3610,7 +3610,7 @@ export function openCalendarioAiModal() {
       <!-- Cuerpo Configurable + Vista Previa -->
       <div class="p-4 overflow-y-auto flex-1 space-y-3.5 custom-scroll text-xs">
         
-        <!-- Parámetros Constructivos -->
+        <!-- ParÃ¡metros Constructivos -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
             <label class="block text-[10.5px] font-bold text-slate-600 uppercase mb-1">1. Tipo de Obra / Giro</label>
@@ -3624,18 +3624,18 @@ export function openCalendarioAiModal() {
           <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
             <label class="block text-[10.5px] font-bold text-slate-600 uppercase mb-1">2. Estrategia de Frentes</label>
             <select id="ai-cal-strategy" onchange="refreshCalendarioAiPreview()" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-violet-500 cursor-pointer">
-              <option value="parallel">⚡ Optimizada: Frentes simultáneos</option>
-              <option value="serial">📏 Conservadora: En serie (1 cuadrilla)</option>
+              <option value="parallel">âš¡ Optimizada: Frentes simultÃ¡neos</option>
+              <option value="serial">ðŸ“ Conservadora: En serie (1 cuadrilla)</option>
             </select>
           </div>
 
           <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex flex-col justify-between">
-            <label class="block text-[10.5px] font-bold text-slate-600 uppercase mb-1">3. Plazo Meta Opcional (días)</label>
+            <label class="block text-[10.5px] font-bold text-slate-600 uppercase mb-1">3. Plazo Meta Opcional (dÃ­as)</label>
             <div class="flex items-center gap-2">
               <input type="number" id="ai-cal-target-days" min="10" max="1500" placeholder="Auto (APU)" onchange="refreshCalendarioAiPreview()" class="w-28 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-slate-800 outline-none focus:border-violet-500">
-              <label class="inline-flex items-center gap-1 text-[10.5px] font-semibold text-slate-700 cursor-pointer select-none" title="Respeta descansos semanales, festivos y lluvias configurados en Días Inhábiles">
+              <label class="inline-flex items-center gap-1 text-[10.5px] font-semibold text-slate-700 cursor-pointer select-none" title="Respeta descansos semanales, festivos y lluvias configurados en DÃ­as InhÃ¡biles">
                 <input type="checkbox" id="ai-cal-respect-workdays" ${cfg.respectWorkdays !== false ? 'checked' : ''} onchange="refreshCalendarioAiPreview()" class="rounded text-violet-600 cursor-pointer">
-                <span>Días hábiles</span>
+                <span>DÃ­as hÃ¡biles</span>
               </label>
             </div>
           </div>
@@ -3645,7 +3645,7 @@ export function openCalendarioAiModal() {
         <div class="bg-violet-50/70 border border-violet-200 rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2">
           <div class="flex items-center gap-2 min-w-0 flex-1">
             <i class="fa-solid fa-microchip text-violet-600 text-xs shrink-0"></i>
-            <input type="password" id="ai-cal-api-key" value="${savedApiKey}" placeholder="API Key Gemini opcional (vacío = Motor Experto Constructivo instantáneo)" class="flex-1 min-w-[180px] bg-white border border-violet-200 rounded-lg px-2.5 py-1 text-[11px] font-mono text-slate-700 outline-none focus:border-violet-500">
+            <input type="password" id="ai-cal-api-key" value="${savedApiKey}" placeholder="API Key Gemini opcional (vacÃ­o = Motor Experto Constructivo instantÃ¡neo)" class="flex-1 min-w-[180px] bg-white border border-violet-200 rounded-lg px-2.5 py-1 text-[11px] font-mono text-slate-700 outline-none focus:border-violet-500">
           </div>
           <button type="button" id="btn-ai-cal-gemini" onclick="runCalendarioGeminiAiProposal()" class="px-3 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-600 text-white text-[11px] font-bold shadow-2xs transition cursor-pointer flex items-center gap-1.5 shrink-0">
             <i class="fa-solid fa-robot text-[10px] text-amber-200"></i>
@@ -3653,11 +3653,11 @@ export function openCalendarioAiModal() {
           </button>
         </div>
 
-        <!-- Explicación del Proceso Constructivo y KPIs de la Propuesta -->
+        <!-- ExplicaciÃ³n del Proceso Constructivo y KPIs de la Propuesta -->
         <div id="ai-cal-summary-box" class="bg-indigo-50/60 border border-indigo-200 rounded-xl p-3 space-y-2">
         </div>
 
-        <!-- Tabla de Vista Previa de Conceptos, Etapas, Predecesoras y Ruta Crítica -->
+        <!-- Tabla de Vista Previa de Conceptos, Etapas, Predecesoras y Ruta CrÃ­tica -->
         <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
           <div class="bg-slate-100 border-b border-slate-200 px-3 py-2 flex items-center justify-between text-[10.5px] font-bold text-slate-600 uppercase">
             <span>Vista previa de secuencia constructiva propuesta</span>
@@ -3747,21 +3747,21 @@ function renderProposalIntoAiModal(proposal) {
         </span>
         <div class="flex items-center gap-1.5 flex-wrap">
           ${proposal.savingsDays > 0
-            ? `<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10.5px] font-bold">⚡ Optimiza ${proposal.savingsDays} días vs serie</span>`
+            ? `<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10.5px] font-bold">âš¡ Optimiza ${proposal.savingsDays} dÃ­as vs serie</span>`
             : `<span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10.5px] font-semibold">Secuencia lineal en serie</span>`
           }
-          <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 text-[10.5px] font-bold">🔥 ${proposal.criticalCount} de ${proposal.tasks.length} críticos</span>
+          <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 text-[10.5px] font-bold">ðŸ”¥ ${proposal.criticalCount} de ${proposal.tasks.length} crÃ­ticos</span>
         </div>
       </div>
       <p class="text-[11.5px] text-slate-700 leading-relaxed">${proposal.reasoning}</p>
       <div class="grid grid-cols-3 gap-2 pt-1 text-[11px] font-mono">
         <div class="bg-white rounded-lg px-2.5 py-1.5 border border-indigo-100">
-          <span class="text-[9.5px] text-slate-500 font-sans block uppercase font-bold">Inicio → Fin</span>
-          <strong class="text-slate-800">${proposal.startDate} → ${proposal.endDate}</strong>
+          <span class="text-[9.5px] text-slate-500 font-sans block uppercase font-bold">Inicio â†’ Fin</span>
+          <strong class="text-slate-800">${proposal.startDate} â†’ ${proposal.endDate}</strong>
         </div>
         <div class="bg-white rounded-lg px-2.5 py-1.5 border border-indigo-100">
           <span class="text-[9.5px] text-slate-500 font-sans block uppercase font-bold">Plazo Total</span>
-          <strong class="text-indigo-700">${proposal.totalNaturalDays}d nat. (${proposal.workingDays} háb.)</strong>
+          <strong class="text-indigo-700">${proposal.totalNaturalDays}d nat. (${proposal.workingDays} hÃ¡b.)</strong>
         </div>
         <div class="bg-white rounded-lg px-2.5 py-1.5 border border-indigo-100">
           <span class="text-[9.5px] text-slate-500 font-sans block uppercase font-bold">Enlaces Fin-a-Inicio</span>
@@ -3772,7 +3772,7 @@ function renderProposalIntoAiModal(proposal) {
   }
 
   if (metaEl) {
-    metaEl.textContent = `${proposal.tasks.length} conceptos • ${proposal.totalNaturalDays} días naturales`;
+    metaEl.textContent = `${proposal.tasks.length} conceptos â€¢ ${proposal.totalNaturalDays} dÃ­as naturales`;
   }
 
   if (listBox) {
@@ -3787,11 +3787,11 @@ function renderProposalIntoAiModal(proposal) {
           </div>
           <div class="flex items-center gap-2 shrink-0 font-mono text-[10.5px]">
             <span class="px-1.5 py-0.5 rounded ${predClaves.length > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}" title="Predecesoras que deben terminar antes">
-              ${predClaves.length > 0 ? `Tras: ${predClaves.join(', ')}` : 'Inicio día 1'}
+              ${predClaves.length > 0 ? `Tras: ${predClaves.join(', ')}` : 'Inicio dÃ­a 1'}
             </span>
             <span class="w-10 text-center font-bold text-slate-800">${t.durationDays}d</span>
             ${t.isCritical
-              ? `<span class="w-14 text-center px-1 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-300 font-bold text-[9.5px]">🔥 Crít.</span>`
+              ? `<span class="w-14 text-center px-1 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-300 font-bold text-[9.5px]">ðŸ”¥ CrÃ­t.</span>`
               : `<span class="w-14 text-center px-1 py-0.5 rounded bg-slate-100 text-slate-600 text-[9.5px]">+${t.slackDays}d</span>`
             }
           </div>
@@ -3821,7 +3821,7 @@ export async function runCalendarioGeminiAiProposal() {
   try {
     const aiProposal = await generateGeminiConstructiveProposal(opts);
     renderProposalIntoAiModal(aiProposal);
-    showToast(`✨ Propuesta generada con ${aiProposal.modelUsed}`);
+    showToast(`âœ¨ Propuesta generada con ${aiProposal.modelUsed}`);
   } catch (err) {
     showToast(err?.message || 'No se pudo consultar Gemini IA; se mantiene la propuesta experta constructiva.', 'error');
   } finally {
@@ -3837,7 +3837,7 @@ export function applyCalendarioAiProposal() {
     currentAiProposalPreview = refreshCalendarioAiPreview();
   }
   if (!currentAiProposalPreview || !currentAiProposalPreview.ok) {
-    showToast('No hay una propuesta válida para aplicar.', 'error');
+    showToast('No hay una propuesta vÃ¡lida para aplicar.', 'error');
     return;
   }
 
@@ -3846,7 +3846,7 @@ export function applyCalendarioAiProposal() {
   applyScheduleProposalToModel(prop.tasks, prop.startDate, { respectWorkdays: prop.respectWorkdays });
   closeCalendarioAiModal();
 
-  showToast(`✓ Propuesta constructiva aplicada: ${prop.totalNaturalDays} días y ${prop.criticalCount} conceptos en Ruta Crítica.`);
+  showToast(`âœ“ Propuesta constructiva aplicada: ${prop.totalNaturalDays} dÃ­as y ${prop.criticalCount} conceptos en Ruta CrÃ­tica.`);
   renderCalendarioObra();
 }
 

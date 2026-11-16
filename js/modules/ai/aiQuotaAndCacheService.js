@@ -1,17 +1,17 @@
-// js/modules/ai/aiQuotaAndCacheService.js
-// Servicio unificado de cuotas mensuales de IA (Estándar vs Google Search Grounding)
-// y caché inteligente de precios de insumos para proteger la rentabilidad de Cubikar.
+﻿// js/modules/ai/aiQuotaAndCacheService.js
+// Servicio unificado de cuotas mensuales de IA (EstÃ¡ndar vs Google Search Grounding)
+// y cachÃ© inteligente de precios de insumos para proteger la rentabilidad de Cubikar.
 
-import { state } from '../../state/store.js';
-import { getActiveProjectId } from '../../config/constants.js';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js';
-import { getMonthlyAiQuotaUsage, recordAiUsageDetailed, syncMonthlyAiQuotaFromServer, getCurrentMonthKey } from '../admin/cubikarAdmin.js';
-import { generateLocalMatrix } from './localMatrixEngine.js';
-import { buildLocalGenerationContext } from './localEstimator.js';
+import { state } from '../../state/store.js?v=20261116_cf3';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf3';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf3';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf3';
+import { getMonthlyAiQuotaUsage, recordAiUsageDetailed, syncMonthlyAiQuotaFromServer, getCurrentMonthKey } from '../admin/cubikarAdmin.js?v=20261116_cf3';
+import { generateLocalMatrix } from './localMatrixEngine.js?v=20261116_cf3';
+import { buildLocalGenerationContext } from './localEstimator.js?v=20261116_cf3';
 
 export const STORAGE_KEY_SUPPLY_PRICE_CACHE = 'cubikar_insumo_price_cache_v1';
-const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
+const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 dÃ­as
 const MAX_CACHE_ENTRIES = 2500;
 
 export function normalizeSupplyText(str = '') {
@@ -65,7 +65,7 @@ export function getCachedSupplyPrice(descripcion, unidad = '') {
   const now = Date.now();
   let entry = map[keyExact];
 
-  // Fallback si la descripción exacta coincide con distinta unidad normalizada vacía
+  // Fallback si la descripciÃ³n exacta coincide con distinta unidad normalizada vacÃ­a
   if (!entry) {
     const keyDescOnly = normalizeSupplyCacheKey(descripcion, '');
     entry = map[keyDescOnly] || null;
@@ -90,7 +90,7 @@ export function setCachedSupplyPrices(items = [], meta = {}) {
 
     const key = normalizeSupplyCacheKey(desc, unit);
     const existing = map[key];
-    // No sobrescribir un precio de búsqueda web reciente con una estimación inferior salvo overwrite explícito
+    // No sobrescribir un precio de bÃºsqueda web reciente con una estimaciÃ³n inferior salvo overwrite explÃ­cito
     if (existing && existing.usedWebSearch && !meta.usedWebSearch && !meta.overwrite && (now - existing.updatedAtMs) < CACHE_TTL_MS) {
       return;
     }
@@ -101,13 +101,13 @@ export function setCachedSupplyPrices(items = [], meta = {}) {
       tipo: item?.tipo || meta.tipo || 'materiales',
       precioUnitario: Number(precio.toFixed(2)),
       moneda: meta.moneda || item?.moneda || 'MXN',
-      fuente: meta.fuente || item?.fuente || (meta.usedWebSearch ? 'Google Search Grounding' : 'Gemini / Caché'),
+      fuente: meta.fuente || item?.fuente || (meta.usedWebSearch ? 'Google Search Grounding' : 'Gemini / CachÃ©'),
       usedWebSearch: Boolean(meta.usedWebSearch),
       updatedAt: new Date(now).toISOString(),
       updatedAtMs: now
     };
     map[key] = record;
-    // También indexar sin unidad para hits parciales si no existía
+    // TambiÃ©n indexar sin unidad para hits parciales si no existÃ­a
     const descKey = normalizeSupplyCacheKey(desc, '');
     if (!map[descKey] || meta.usedWebSearch) {
       map[descKey] = record;
@@ -159,7 +159,7 @@ export function findProjectSupplyPrice(treeNodes, descripcion, unidad = '') {
 }
 
 /**
- * Hidrata una matriz de insumos con precios guardados en el presupuesto activo o en caché local.
+ * Hidrata una matriz de insumos con precios guardados en el presupuesto activo o en cachÃ© local.
  */
 export function enrichInsumosWithLocalAndCachePrices(insumos = [], treeNodes = state.treeData) {
   let cacheHits = 0;
@@ -189,7 +189,7 @@ export function enrichInsumosWithLocalAndCachePrices(insumos = [], treeNodes = s
 }
 
 /**
- * Resuelve el contexto activo de plan, dueño, API key propia y consumos mensuales reales.
+ * Resuelve el contexto activo de plan, dueÃ±o, API key propia y consumos mensuales reales.
  */
 export function resolveActiveAiExecutionContext(projectIdOverride = null, explicitApiKey = '') {
   const modalKey = typeof document !== 'undefined'
@@ -214,7 +214,7 @@ export function resolveActiveAiExecutionContext(projectIdOverride = null, explic
 }
 
 /**
- * Valida cuota mensual de IA Estándar (10 Gratuita / 1,500 Plus / 3,500 Pro; o ilimitado con API Key propia).
+ * Valida cuota mensual de IA EstÃ¡ndar (10 Gratuita / 1,500 Plus / 3,500 Pro; o ilimitado con API Key propia).
  */
 export function checkStandardAiQuota(requestedCount = 1, projectIdOverride = null, explicitApiKey = '') {
   const ctx = resolveActiveAiExecutionContext(projectIdOverride, explicitApiKey);
@@ -244,7 +244,7 @@ export function checkStandardAiQuota(requestedCount = 1, projectIdOverride = nul
       limit,
       remaining,
       ctx,
-      reason: `Has alcanzado tu cuota mensual de IA Estándar (${used}/${limit} conceptos en Plan ${ctx.limits?.name || ctx.planId}). Ingresa tu propia Gemini API Key o actualiza tu suscripción para continuar.`
+      reason: `Has alcanzado tu cuota mensual de IA EstÃ¡ndar (${used}/${limit} conceptos en Plan ${ctx.limits?.name || ctx.planId}). Ingresa tu propia Gemini API Key o actualiza tu suscripciÃ³n para continuar.`
     };
   }
 
@@ -287,7 +287,7 @@ export function checkWebSearchGroundingQuota(requestedQueries = 1, projectIdOver
       limit: 0,
       remaining: 0,
       ctx,
-      reason: `Las consultas de Precios Web en Vivo (Google Search Grounding) no están incluidas en el Plan Gratuita (0/mes). Actualiza a Plus (70/mes) o Pro (200/mes), o ingresa tu propia Gemini API Key.`
+      reason: `Las consultas de Precios Web en Vivo (Google Search Grounding) no estÃ¡n incluidas en el Plan Gratuita (0/mes). Actualiza a Plus (70/mes) o Pro (200/mes), o ingresa tu propia Gemini API Key.`
     };
   }
 
@@ -352,7 +352,7 @@ export async function syncAiQuotaFromSupabase() {
 }
 
 /**
- * Registra consumo real de tokens (Input vs Output/Razonamiento), conceptos estándar y peticiones de Search Grounding.
+ * Registra consumo real de tokens (Input vs Output/Razonamiento), conceptos estÃ¡ndar y peticiones de Search Grounding.
  */
 export function recordAiQuotaConsumption({
   ownerEmail = '',
@@ -387,7 +387,7 @@ export function recordAiQuotaConsumption({
 }
 
 /**
- * Paso 1 de cascada de IA ($0 costo): intenta resolver con Motor Local + Caché de insumos + Presupuesto actual.
+ * Paso 1 de cascada de IA ($0 costo): intenta resolver con Motor Local + CachÃ© de insumos + Presupuesto actual.
  */
 export async function tryResolveConceptLocally(node, customCtx = null) {
   if (!node) return { matched: false, insumos: [] };
@@ -442,7 +442,7 @@ export function getAiQuotaBadgeSummary() {
     stdMax,
     webUsed,
     webMax,
-    stdText: `IA Estándar: ${stdUsed}/${stdMax} este mes`,
+    stdText: `IA EstÃ¡ndar: ${stdUsed}/${stdMax} este mes`,
     webText: `Web Search: ${webUsed}/${webMax} este mes`,
     cacheEntries: cacheStats.totalEntries
   };

@@ -1,14 +1,14 @@
-// js/modules/compras/expensesCalculations.js
-// Motor de cálculos financieros, KPIs de obra y cruce con la Explosión de Insumos
+﻿// js/modules/compras/expensesCalculations.js
+// Motor de cÃ¡lculos financieros, KPIs de obra y cruce con la ExplosiÃ³n de Insumos
 
-import { state } from '../../state/store.js';
-import { round2, round5 } from '../../core/formatters.js';
-import { getFactorSobrecosto } from '../../core/calculations.js';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js';
-import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js';
-import { loadEstimacionesData, getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js';
-import { getExpensesRecords, getExpensesConfig } from './expensesModel.js';
+import { state } from '../../state/store.js?v=20261116_cf3';
+import { round2, round5 } from '../../core/formatters.js?v=20261116_cf3';
+import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf3';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf3';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261116_cf3';
+import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261116_cf3';
+import { loadEstimacionesData, getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261116_cf3';
+import { getExpensesRecords, getExpensesConfig } from './expensesModel.js?v=20261116_cf3';
 
 /**
  * Obtener Monto Total Contratado / Presupuestado de la obra
@@ -70,7 +70,7 @@ export function getTotalEstimacionesCobrado() {
 }
 
 /**
- * Cálculo integral de KPIs y Dashboard Financiero
+ * CÃ¡lculo integral de KPIs y Dashboard Financiero
  */
 export function getExpensesKpiMetrics() {
   const records = getExpensesRecords();
@@ -120,16 +120,16 @@ export function getExpensesKpiMetrics() {
     totalEgresosComprometidos = round2(totalEgresosComprometidos + recTotal);
   });
 
-  // Utilidad en caja inmediata = Ingresos cobrados por estimación - Egresos pagados
+  // Utilidad en caja inmediata = Ingresos cobrados por estimaciÃ³n - Egresos pagados
   const utilidadEnCaja = round2(totalFacturadoEstimado - totalEgresosReales);
 
-  // Proyección de utilidad al cierre = Presupuesto contratado - Total de egresos comprometidos
+  // ProyecciÃ³n de utilidad al cierre = Presupuesto contratado - Total de egresos comprometidos
   const proyeccionUtilidadCierre = round2(totalPresupuesto - totalEgresosComprometidos);
   const margenUtilidadProyectado = totalPresupuesto > 0 
     ? round2((proyeccionUtilidadCierre / totalPresupuesto) * 100) 
     : 0;
 
-  // Semáforo Financiero de la Obra
+  // SemÃ¡foro Financiero de la Obra
   const alertThreshold = config.alertThresholdPercent || 10;
   const pctGastadoDelPresupuesto = totalPresupuesto > 0 
     ? round2((totalEgresosComprometidos / totalPresupuesto) * 100) 
@@ -139,7 +139,7 @@ export function getExpensesKpiMetrics() {
     color: 'emerald', // 'emerald' | 'amber' | 'rose'
     badgeText: 'Saludable / En Presupuesto',
     icon: 'fa-circle-check',
-    description: 'Los egresos reales están dentro de los márgenes contratados.',
+    description: 'Los egresos reales estÃ¡n dentro de los mÃ¡rgenes contratados.',
     pctGastado: pctGastadoDelPresupuesto
   };
 
@@ -155,7 +155,7 @@ export function getExpensesKpiMetrics() {
     } else if (pctGastadoDelPresupuesto >= (100 - alertThreshold)) {
       semaforo = {
         color: 'amber',
-        badgeText: 'Alerta de Límite Presupuestal',
+        badgeText: 'Alerta de LÃ­mite Presupuestal',
         icon: 'fa-circle-exclamation',
         description: `Se ha ejercido el ${pctGastadoDelPresupuesto}% del presupuesto total de la obra.`,
         pctGastado: pctGastadoDelPresupuesto
@@ -181,7 +181,7 @@ export function getExpensesKpiMetrics() {
 }
 
 /**
- * Clasificar o resolver el rubro exacto del insumo entre los 6 tipos estándar:
+ * Clasificar o resolver el rubro exacto del insumo entre los 6 tipos estÃ¡ndar:
  * Material, Mano de Obra, Herramienta, Equipo, Maquinaria, Subcontrato (o Indirecto)
  */
 export function resolveInsumoTipo(ins) {
@@ -190,14 +190,14 @@ export function resolveInsumoTipo(ins) {
   const lowerDesc = (ins.descripcion || '').toLowerCase();
   const lowerClave = (ins.clave || '').toLowerCase();
 
-  // Si ya es un tipo exacto válido
+  // Si ya es un tipo exacto vÃ¡lido
   if (t === 'Material' || t === 'Mano de Obra' || t === 'Herramienta' || t === 'Equipo' || t === 'Maquinaria' || t === 'Subcontrato') {
-    // Si viene catalogado genéricamente como 'Equipo', refinar si es Herramienta o Maquinaria
+    // Si viene catalogado genÃ©ricamente como 'Equipo', refinar si es Herramienta o Maquinaria
     if (t === 'Equipo') {
       if (lowerDesc.includes('herramienta') || lowerClave.includes('herr') || lowerDesc.includes('seguridad') || lowerDesc.includes('menor') || lowerDesc.includes('manual')) {
         return 'Herramienta';
       }
-      if (lowerDesc.includes('maquinaria') || lowerClave.includes('maq') || lowerDesc.includes('retro') || lowerDesc.includes('revolvedora') || lowerDesc.includes('camion') || lowerDesc.includes('camión') || lowerDesc.includes('tractor') || lowerDesc.includes('compactador') || lowerDesc.includes('vibro') || lowerDesc.includes('excavadora') || lowerDesc.includes('motoniveladora') || lowerDesc.includes('grua') || lowerDesc.includes('grúa')) {
+      if (lowerDesc.includes('maquinaria') || lowerClave.includes('maq') || lowerDesc.includes('retro') || lowerDesc.includes('revolvedora') || lowerDesc.includes('camion') || lowerDesc.includes('camiÃ³n') || lowerDesc.includes('tractor') || lowerDesc.includes('compactador') || lowerDesc.includes('vibro') || lowerDesc.includes('excavadora') || lowerDesc.includes('motoniveladora') || lowerDesc.includes('grua') || lowerDesc.includes('grÃºa')) {
         return 'Maquinaria';
       }
     }
@@ -208,7 +208,7 @@ export function resolveInsumoTipo(ins) {
   if (lower.includes('herramienta') || lower.includes('herr') || lowerDesc.includes('herramienta') || lowerClave.includes('herr')) return 'Herramienta';
   if (lower.includes('maquinaria') || lower.includes('maq') || lowerDesc.includes('maquinaria') || lowerClave.includes('maq') || lowerDesc.includes('retro') || lowerDesc.includes('revolvedora')) return 'Maquinaria';
   if (lower.includes('equipo')) return 'Equipo';
-  if (lower.includes('mano') || lower.includes('obra') || lowerDesc.includes('cuadrilla') || lowerDesc.includes('peon') || lowerDesc.includes('albañil') || lowerDesc.includes('oficial')) return 'Mano de Obra';
+  if (lower.includes('mano') || lower.includes('obra') || lowerDesc.includes('cuadrilla') || lowerDesc.includes('peon') || lowerDesc.includes('albaÃ±il') || lowerDesc.includes('oficial')) return 'Mano de Obra';
   if (lower.includes('subcontrat') || lowerDesc.includes('subcontrato')) return 'Subcontrato';
   if (lower.includes('indirect') || lowerDesc.includes('indirecto')) return 'Indirecto';
 
@@ -216,7 +216,7 @@ export function resolveInsumoTipo(ins) {
 }
 
 /**
- * Obtener explosión completa de insumos de TODO el catálogo del proyecto activo
+ * Obtener explosiÃ³n completa de insumos de TODO el catÃ¡logo del proyecto activo
  * (sin depender de si tienen checkbox seleccionado o no)
  */
 export function getAllBudgetInsumosExplosion() {
@@ -257,7 +257,7 @@ export function getAllBudgetInsumosExplosion() {
                 key: key,
                 clave: ins.clave || `${tipo.substring(0, 3).toUpperCase()}-01`,
                 tipo: tipo,
-                descripcion: ins.descripcion || 'Sin descripción',
+                descripcion: ins.descripcion || 'Sin descripciÃ³n',
                 unidad: ins.unidad || 'pza',
                 puPresupuestado: costoUnit,
                 cantidadPresupuestada: 0,
@@ -287,8 +287,8 @@ export function getAllBudgetInsumosExplosion() {
 }
 
 /**
- * Comparativa Presupuestado vs. Real por Insumo (Desviación Presupuestal)
- * Cruza la explosión de insumos con los registros de compra/gasto
+ * Comparativa Presupuestado vs. Real por Insumo (DesviaciÃ³n Presupuestal)
+ * Cruza la explosiÃ³n de insumos con los registros de compra/gasto
  */
 export function getInsumosBudgetVsActualComparison() {
   const budgetInsumos = getAllBudgetInsumosExplosion();
@@ -320,7 +320,7 @@ export function getInsumosBudgetVsActualComparison() {
 
     let matchedItem = null;
 
-    // 1. Coincidencia por ID/Key explícito
+    // 1. Coincidencia por ID/Key explÃ­cito
     if (rec.insumoId && comparisonMap.has(rec.insumoId)) {
       matchedItem = comparisonMap.get(rec.insumoId);
     }
@@ -335,7 +335,7 @@ export function getInsumosBudgetVsActualComparison() {
       }
     }
 
-    // 3. Coincidencia por descripción normalizada
+    // 3. Coincidencia por descripciÃ³n normalizada
     if (!matchedItem && rec.description) {
       const cleanRecDesc = normalizeInsumoText(rec.description);
       for (const item of comparisonMap.values()) {
@@ -358,7 +358,7 @@ export function getInsumosBudgetVsActualComparison() {
     }
   });
 
-  // Procesar cálculos derivados para insumos del presupuesto
+  // Procesar cÃ¡lculos derivados para insumos del presupuesto
   for (const item of comparisonMap.values()) {
     item.saldoDisponible = round2(item.cantidadPresupuestada - item.cantidadComprada);
     item.puRealPromedio = item.cantidadComprada > 0 ? round2(item.importeComprado / item.cantidadComprada) : 0;
@@ -368,21 +368,21 @@ export function getInsumosBudgetVsActualComparison() {
       ? round2((item.cantidadComprada / item.cantidadPresupuestada) * 100) 
       : 0;
 
-    // Clasificación de alerta
+    // ClasificaciÃ³n de alerta
     if (item.cantidadComprada > item.cantidadPresupuestada) {
       item.alertLevel = 'danger'; // Sobrepaso de cantidad
-      item.alertReason = 'Exceso de volumen físico';
+      item.alertReason = 'Exceso de volumen fÃ­sico';
     } else if (item.variacionPrecio > 0 && (item.variacionPrecio / (item.puPresupuestado || 1)) > 0.05) {
       item.alertLevel = 'danger'; // Sobrecosto en P.U. > 5%
       item.alertReason = 'P.U. comprado mayor al estimado';
     } else if (item.pctConsumido >= 90) {
       item.alertLevel = 'warning'; // Casi agotado (90-100%)
-      item.alertReason = 'Consumo próximo al límite';
+      item.alertReason = 'Consumo prÃ³ximo al lÃ­mite';
     } else if (item.cantidadComprada > 0) {
       item.alertLevel = 'success'; // Comprado dentro de margen
       item.alertReason = 'En orden';
     } else {
-      item.alertLevel = 'neutral'; // Sin compras aún
+      item.alertLevel = 'neutral'; // Sin compras aÃºn
       item.alertReason = 'Sin compras';
     }
   }
@@ -448,9 +448,9 @@ export function getInsumosBudgetVsActualComparison() {
 
   const allItems = [...comparisonMap.values(), ...extraItemsMap.values()];
 
-  // Definición formal de los 6 rubros de insumos del proyecto
+  // DefiniciÃ³n formal de los 6 rubros de insumos del proyecto
   const CATEGORIES_CONFIG = [
-    { key: 'Material', label: 'Materiales de Construcción', shortLabel: 'Materiales', icon: 'fa-box', color: 'blue', border: 'border-blue-200', bg: 'bg-blue-50/60', badgeBg: 'bg-blue-100 text-blue-800' },
+    { key: 'Material', label: 'Materiales de ConstrucciÃ³n', shortLabel: 'Materiales', icon: 'fa-box', color: 'blue', border: 'border-blue-200', bg: 'bg-blue-50/60', badgeBg: 'bg-blue-100 text-blue-800' },
     { key: 'Mano de Obra', label: 'Mano de Obra / Raya y Destajos', shortLabel: 'Mano de Obra', icon: 'fa-user-group', color: 'amber', border: 'border-amber-200', bg: 'bg-amber-50/60', badgeBg: 'bg-amber-100 text-amber-800' },
     { key: 'Herramienta', label: 'Herramienta Menor y Especializada', shortLabel: 'Herramienta', icon: 'fa-screwdriver-wrench', color: 'orange', border: 'border-orange-200', bg: 'bg-orange-50/60', badgeBg: 'bg-orange-100 text-orange-800' },
     { key: 'Equipo', label: 'Equipo de Apoyo y Transporte', shortLabel: 'Equipo', icon: 'fa-truck', color: 'purple', border: 'border-purple-200', bg: 'bg-purple-50/60', badgeBg: 'bg-purple-100 text-purple-800' },

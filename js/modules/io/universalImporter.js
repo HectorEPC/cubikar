@@ -1,28 +1,28 @@
-// js/modules/io/universalImporter.js
+﻿// js/modules/io/universalImporter.js
 // Importador Universal compatible con .xlsx, .xls, .csv, .json
 
-import { state, persistLocalData, persistSettings } from '../../state/store.js';
-import { saveState } from '../../state/history.js';
-import { showToast } from '../../ui/notifications.js';
-import { formatMoney, round2, round5, parseFlexibleNumber } from '../../core/formatters.js';
-import { updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js';
-import { recalculateClaves, findNodeById, guardConceptLimit } from '../catalog/treeService.js';
-import { CASA_LAURA_PROJECT, getExactOpusInsumosForClave } from './casaLauraData.js';
-import { countTreeConcepts, loadSampleResidentialZipCatalog } from '../portal/projectService.js';
-import { defaultTreeData } from '../../config/defaultData.js';
-import { renderTAB1 } from '../catalog/catalogView.js';
-import { saveReferenceCatalog, getReferenceDatabaseStats, canImportReferenceCatalog } from '../reference/referenceDb.js';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
-import { parseOpusOrNeodataFile } from './opusNeodataImporter.js';
-import { cleanMojibake, sanitizeCatalogNodes, readBlobAsTextSmart } from '../../core/textSanitizer.js';
-import { canCurrentUserEditProject } from '../portal/projectService.js';
-import { guardTabUnlocked } from '../../ui/tabLockController.js';
+import { state, persistLocalData, persistSettings } from '../../state/store.js?v=20261116_cf3';
+import { saveState } from '../../state/history.js?v=20261116_cf3';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
+import { formatMoney, round2, round5, parseFlexibleNumber } from '../../core/formatters.js?v=20261116_cf3';
+import { updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js?v=20261116_cf3';
+import { recalculateClaves, findNodeById, guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf3';
+import { CASA_LAURA_PROJECT, getExactOpusInsumosForClave } from './casaLauraData.js?v=20261116_cf3';
+import { countTreeConcepts, loadSampleResidentialZipCatalog } from '../portal/projectService.js?v=20261116_cf3';
+import { defaultTreeData } from '../../config/defaultData.js?v=20261116_cf3';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf3';
+import { saveReferenceCatalog, getReferenceDatabaseStats, canImportReferenceCatalog } from '../reference/referenceDb.js?v=20261116_cf3';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf3';
+import { parseOpusOrNeodataFile } from './opusNeodataImporter.js?v=20261116_cf3';
+import { cleanMojibake, sanitizeCatalogNodes, readBlobAsTextSmart } from '../../core/textSanitizer.js?v=20261116_cf3';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf3';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf3';
 
 let currentParsedData = null; // Almacena el resultado del parsing del archivo actual
 let currentWorkbook = null;
 let currentFileName = '';
 
-// Normalizar nombres de columnas para detección automática
+// Normalizar nombres de columnas para detecciÃ³n automÃ¡tica
 function normalizeColName(name) {
   if (!name) return '';
   return name.toString().toLowerCase()
@@ -31,29 +31,29 @@ function normalizeColName(name) {
 }
 
 
-// Extraer nivel jerárquico de cualquier celda (soporta 0, 1, 2, "1.1", "1.1.1", "-- 2", "· 1", romanos)
+// Extraer nivel jerÃ¡rquico de cualquier celda (soporta 0, 1, 2, "1.1", "1.1.1", "-- 2", "Â· 1", romanos)
 export function extractNivel(val) {
   if (val === null || val === undefined || val === '') return null;
   const str = String(val).trim();
   if (!str) return null;
 
-  // Si contiene formato jerárquico como "1.1", "1.1.2", "01.02.03"
+  // Si contiene formato jerÃ¡rquico como "1.1", "1.1.2", "01.02.03"
   if (/^\d+(\.\d+)+$/.test(str)) {
     return str.split('.').length;
   }
 
-  // Si es un número entero simple (incluyendo 0)
+  // Si es un nÃºmero entero simple (incluyendo 0)
   if (/^\d+$/.test(str)) {
     return parseInt(str, 10);
   }
 
-  // Si contiene números precedidos o seguidos de caracteres decorativos (ej. "-- 2", "· 1", "Nivel 2", "Nv. 2")
+  // Si contiene nÃºmeros precedidos o seguidos de caracteres decorativos (ej. "-- 2", "Â· 1", "Nivel 2", "Nv. 2")
   const numMatch = str.match(/\b\d+\b/);
   if (numMatch) {
     return parseInt(numMatch[0], 10);
   }
 
-  // Números romanos si aplica (I, II, III, IV, V, VI, VII, VIII, IX, X...)
+  // NÃºmeros romanos si aplica (I, II, III, IV, V, VI, VII, VIII, IX, X...)
   const romanMap = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10 };
   const upper = str.toUpperCase().replace(/[^IVX]/g, '');
   if (romanMap[upper]) {
@@ -63,7 +63,7 @@ export function extractNivel(val) {
   return null;
 }
 
-// Analizar y mapear filas a un formato estándar
+// Analizar y mapear filas a un formato estÃ¡ndar
 export function parseSheetData(rawRows, fileName = '') {
   if (!rawRows || rawRows.length === 0) return null;
 
@@ -107,7 +107,7 @@ export function parseSheetData(rawRows, fileName = '') {
       headerIndex = r;
       headers = row;
       rowNorm.forEach((c, idx) => {
-        // Nivel / Jerarquía
+        // Nivel / JerarquÃ­a
         if (colMap.nivel === -1 && (
           c === 'nivel' || c === 'level' || c === 'niv' || c === 'nv' || c === 'wbs' ||
           c.includes('jerarq') || c === 'indent' || c === 'fase' || c === 'nodo' ||
@@ -116,7 +116,7 @@ export function parseSheetData(rawRows, fileName = '') {
           colMap.nivel = idx;
         }
 
-        // Clave / Código
+        // Clave / CÃ³digo
         if (colMap.clave === -1 && (
           c === 'clave' || c === 'codigo' || c === 'cve' || c === 'id' || c === 'partida' ||
           c === 'c' || c === 'item' || c === 'cod' || c === 'referencia' || c === 'no' ||
@@ -125,7 +125,7 @@ export function parseSheetData(rawRows, fileName = '') {
           colMap.clave = idx;
         }
 
-        // Descripción
+        // DescripciÃ³n
         if (colMap.descripcion === -1 && (
           c.includes('descrip') || c.includes('concepto') || c.includes('detalle') ||
           c === 'nombre' || c.includes('especific') || c.includes('texto') ||
@@ -180,10 +180,10 @@ export function parseSheetData(rawRows, fileName = '') {
     }
   }
 
-  // Si no se detectó una fila de encabezado explícita pero hay datos estructurados
+  // Si no se detectÃ³ una fila de encabezado explÃ­cita pero hay datos estructurados
   if (headerIndex === -1 && rawRows.length > 0) {
     headerIndex = 0;
-    // Asignación posicional heurística
+    // AsignaciÃ³n posicional heurÃ­stica
     colMap.clave = 0;
     colMap.descripcion = 1;
     colMap.unidad = 2;
@@ -208,9 +208,9 @@ export function parseSheetData(rawRows, fileName = '') {
     defaultTipo = 'Subcontrato';
     detectedTypeLabel = 'Insumos - Subcontratos';
   } else if (colMap.precioZ1 !== -1) {
-    detectedTypeLabel = 'Catálogo Oficial de Gobierno (Zonas Z1, Z2, Z3)';
+    detectedTypeLabel = 'CatÃ¡logo Oficial de Gobierno (Zonas Z1, Z2, Z3)';
   } else if (colMap.nivel !== -1) {
-    detectedTypeLabel = 'Presupuesto Jerárquico (Niveles de Obra)';
+    detectedTypeLabel = 'Presupuesto JerÃ¡rquico (Niveles de Obra)';
   }
 
   // Procesar filas de datos
@@ -224,7 +224,7 @@ export function parseSheetData(rawRows, fileName = '') {
     let desc = colMap.descripcion !== -1 ? String(row[colMap.descripcion] || '').trim() : '';
     let clave = colMap.clave !== -1 ? String(row[colMap.clave] || '').trim() : '';
 
-    // Salvaguarda: si no hay descripción pero clave tiene texto largo (>15 caracteres o espacios)
+    // Salvaguarda: si no hay descripciÃ³n pero clave tiene texto largo (>15 caracteres o espacios)
     if (!desc && clave && (clave.length > 15 || clave.includes(' '))) {
       desc = clave;
       clave = '';
@@ -270,13 +270,13 @@ export function parseSheetData(rawRows, fileName = '') {
       }
     }
 
-    // Extraer nivel jerárquico
+    // Extraer nivel jerÃ¡rquico
     let nivel = null;
     if (colMap.nivel !== -1 && row[colMap.nivel] !== undefined) {
       nivel = extractNivel(row[colMap.nivel]);
     }
 
-    // Si no hay nivel explícito, inferir por puntos en clave o por sangría en la descripción
+    // Si no hay nivel explÃ­cito, inferir por puntos en clave o por sangrÃ­a en la descripciÃ³n
     if (nivel === null) {
       if (clave && /^\d+(\.\d+)+$/.test(clave)) {
         nivel = clave.split('.').length;
@@ -289,12 +289,12 @@ export function parseSheetData(rawRows, fileName = '') {
       }
     }
 
-    // Detectar si la fila es intrínsecamente una Partida o Agrupador
+    // Detectar si la fila es intrÃ­nsecamente una Partida o Agrupador
     const looksLikePartida = (!unid || unid.toLowerCase() === 'lote' || unid.toLowerCase() === 'partida') &&
                              (!hasExplicitPrecio || precio === 0) &&
                              (!hasExplicitCant || cant === 0 || cant === 1);
 
-    // Extraer tipo si la columna está presente
+    // Extraer tipo si la columna estÃ¡ presente
     let rowTipo = defaultTipo;
     if (colMap.tipo !== -1 && row[colMap.tipo] !== undefined) {
       const rawT = String(row[colMap.tipo]).trim().toLowerCase();
@@ -343,7 +343,7 @@ export function parseSheetData(rawRows, fileName = '') {
     }
   });
 
-  // Normalización para que el nivel mínimo absoluto comience en 1
+  // NormalizaciÃ³n para que el nivel mÃ­nimo absoluto comience en 1
   let minDetectedNivel = Infinity;
   items.forEach(it => {
     if (typeof it.nivel === 'number' && !isNaN(it.nivel)) {
@@ -375,7 +375,7 @@ export function parseSheetData(rawRows, fileName = '') {
   };
 }
 
-// Abrir el selector de archivos desde cualquier botón
+// Abrir el selector de archivos desde cualquier botÃ³n
 export function openImportModal() {
   const modal = document.getElementById('universal-import-modal');
   if (modal) {
@@ -395,7 +395,7 @@ export function closeImportModal() {
   }
 }
 
-// Alternar formulario según destino (Catálogo Maestro vs Presupuesto Activo)
+// Alternar formulario segÃºn destino (CatÃ¡logo Maestro vs Presupuesto Activo)
 export function toggleImportDestination(destination) {
   const optsRef = document.getElementById('import-opts-reference');
   const optsBudget = document.getElementById('import-opts-budget');
@@ -436,7 +436,7 @@ export function onZoneSelectChange() {
   if (tableTotalEl) tableTotalEl.textContent = formatMoney(totalBudget);
 }
 
-// Manejar selección o drop de archivo
+// Manejar selecciÃ³n o drop de archivo
 export async function handleUniversalFileSelect(event) {
   const file = event.target?.files?.[0] || event.dataTransfer?.files?.[0];
   if (!file) return;
@@ -459,7 +459,7 @@ export async function handleUniversalFileSelect(event) {
         totalRows: parsed.items.length
       }, file.name);
 
-      // Si es un proyecto completo con partidas jerárquicas, preseleccionar Presupuesto Activo y Reemplazar
+      // Si es un proyecto completo con partidas jerÃ¡rquicas, preseleccionar Presupuesto Activo y Reemplazar
       if (hasHierarchy) {
         const destBudgetRadio = document.querySelector('input[name="import-destination"][value="budget"]');
         if (destBudgetRadio) {
@@ -495,14 +495,14 @@ export async function handleUniversalFileSelect(event) {
         const parsed = parseSheetData(rows, file.name);
         displayParsedPreview(parsed, file.name);
       } else {
-        // Fallback básico para CSV si no está SheetJS
+        // Fallback bÃ¡sico para CSV si no estÃ¡ SheetJS
         const rows = text.split(/\r?\n/).map(line => line.split(','));
         const parsed = parseSheetData(rows, file.name);
         displayParsedPreview(parsed, file.name);
       }
     } else if (ext === 'xlsx' || ext === 'xls') {
       if (!window.XLSX) {
-        throw new Error('La librería SheetJS no está cargada. Asegúrate de incluir js/vendor/xlsx.full.min.js');
+        throw new Error('La librerÃ­a SheetJS no estÃ¡ cargada. AsegÃºrate de incluir js/vendor/xlsx.full.min.js');
       }
       const data = await file.arrayBuffer();
       currentWorkbook = window.XLSX.read(data, { type: 'array' });
@@ -528,7 +528,7 @@ export async function handleUniversalFileSelect(event) {
   }
 }
 
-// Cargar hoja específica del Excel
+// Cargar hoja especÃ­fica del Excel
 export function onSheetSelectChange() {
   const sheetSelector = document.getElementById('import-sheet-select');
   if (!sheetSelector || !currentWorkbook) return;
@@ -543,7 +543,7 @@ function loadWorkbookSheet(sheetName) {
   displayParsedPreview(parsed, currentFileName);
 }
 
-// Funciones auxiliares para manejo de jerarquías de presupuestos (Opus / Neodata / Excel)
+// Funciones auxiliares para manejo de jerarquÃ­as de presupuestos (Opus / Neodata / Excel)
 
 // Contar recursivamente partidas y conceptos
 function countRecursiveItems(items) {
@@ -565,7 +565,7 @@ function countRecursiveItems(items) {
   return { partidas, conceptos, total: partidas + conceptos };
 }
 
-// Aplanar árbol para guardar solo conceptos e insumos en Catálogo Maestro
+// Aplanar Ã¡rbol para guardar solo conceptos e insumos en CatÃ¡logo Maestro
 function flattenTreeItems(items) {
   let flat = [];
   for (const item of items) {
@@ -578,7 +578,7 @@ function flattenTreeItems(items) {
   return flat;
 }
 
-// Detectar si los nodos contienen claves personalizadas (alfanuméricas o Opus como G140100-5005, TEMP*7)
+// Detectar si los nodos contienen claves personalizadas (alfanumÃ©ricas o Opus como G140100-5005, TEMP*7)
 function hasCustomClaves(nodes) {
   for (const n of nodes) {
     if (n.clave && !/^\d+(\.\d+)*$/.test(n.clave)) return true;
@@ -613,7 +613,7 @@ function enforceParentUnits(nodes) {
   });
 }
 
-// Convertir estructura jerárquica con .children en nodos para state.treeData
+// Convertir estructura jerÃ¡rquica con .children en nodos para state.treeData
 function convertTreeNodes(items, selectedZone, overrideType) {
   return items.map(item => {
     let finalPrice = item.precioUnitario || 0;
@@ -673,11 +673,11 @@ function convertTreeNodes(items, selectedZone, overrideType) {
   });
 }
 
-// Convertir lista plana con .nivel a árbol jerárquico multinivel (preservando sub-filas y sub-conceptos)
+// Convertir lista plana con .nivel a Ã¡rbol jerÃ¡rquico multinivel (preservando sub-filas y sub-conceptos)
 function convertFlatToTreeNodes(items, selectedZone, overrideType) {
   if (!items || items.length === 0) return [];
 
-  // Calcular el nivel mínimo del conjunto
+  // Calcular el nivel mÃ­nimo del conjunto
   let minLevel = Infinity;
   items.forEach(it => {
     const n = (typeof it.nivel === 'number' && !isNaN(it.nivel)) ? it.nivel : 1;
@@ -750,14 +750,14 @@ function convertFlatToTreeNodes(items, selectedZone, overrideType) {
           parentNode._origCant = parentNode.cantidad;
         }
         parentNode.children.push(newNode);
-        parentNode.expanded = true; // Asegurar que el padre esté expandido
+        parentNode.expanded = true; // Asegurar que el padre estÃ© expandido
         // El nodo padre ahora contiene sub-filas
         parentNode.tipo = 'Partida';
         parentNode.unidad = 'lote';
         parentNode.cantidad = 1;
         parentNode.precioUnitario = 0;
         parentNode.costoDirecto = 0;
-        parentNode.insumos = []; // La matriz y costo se calculan dinámicamente desde sus sub-filas
+        parentNode.insumos = []; // La matriz y costo se calculan dinÃ¡micamente desde sus sub-filas
       } else {
         newNodes.push(newNode);
       }
@@ -765,7 +765,7 @@ function convertFlatToTreeNodes(items, selectedZone, overrideType) {
     }
   });
 
-  // Salvaguarda: si un nodo padre tenía sub-filas meramente descriptivas (con costo 0), restaurar su PU propio
+  // Salvaguarda: si un nodo padre tenÃ­a sub-filas meramente descriptivas (con costo 0), restaurar su PU propio
   function checkEmptyParentCosts(nodes) {
     nodes.forEach(n => {
       if (n.children && n.children.length > 0) {
@@ -840,7 +840,7 @@ export function calculateParsedBudgetTotal(items, selectedZone = 'z1') {
       if (leafSum > 0) return round2(leafSum);
     }
 
-    // Fallback general para catálogo simple
+    // Fallback general para catÃ¡logo simple
     return round2(items.reduce((acc, it) => {
       const cant = (typeof it.cantidad === 'number' && !isNaN(it.cantidad)) ? it.cantidad : 1;
       let pu = (typeof it.precioUnitario === 'number' && !isNaN(it.precioUnitario)) ? it.precioUnitario : (it.costoUnitario || 0);
@@ -858,7 +858,7 @@ export function calculateParsedBudgetTotal(items, selectedZone = 'z1') {
 // Mostrar vista previa en la interfaz
 function displayParsedPreview(parsedData, fileName) {
   if (!parsedData || !parsedData.items || parsedData.items.length === 0) {
-    showToast('No se encontraron registros válidos en el archivo', 'warning');
+    showToast('No se encontraron registros vÃ¡lidos en el archivo', 'warning');
     return;
   }
 
@@ -896,7 +896,7 @@ function displayParsedPreview(parsedData, fileName) {
   const tableTotalEl = document.getElementById('import-preview-table-total');
   if (tableTotalEl) tableTotalEl.textContent = formatMoney(totalBudget);
 
-  // Icono dinámico según extensión
+  // Icono dinÃ¡mico segÃºn extensiÃ³n
   const iconEl = document.getElementById('import-file-icon');
   if (iconEl) {
     const ext = (fileName || '').split('.').pop().toLowerCase();
@@ -911,7 +911,7 @@ function displayParsedPreview(parsedData, fileName) {
     }
   }
 
-  // Prellenar nombre sugerido para Catálogo de Referencia
+  // Prellenar nombre sugerido para CatÃ¡logo de Referencia
   const catNameInput = document.getElementById('import-cat-name');
   if (catNameInput) {
     const cleanName = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
@@ -934,7 +934,7 @@ function displayParsedPreview(parsedData, fileName) {
     }
   }
 
-  // Renderizar tabla de muestra (hasta 8 filas incluyendo partidas y conceptos con sangría)
+  // Renderizar tabla de muestra (hasta 8 filas incluyendo partidas y conceptos con sangrÃ­a)
   const tbody = document.getElementById('import-preview-table-body');
   if (tbody) {
     tbody.innerHTML = '';
@@ -972,10 +972,10 @@ function displayParsedPreview(parsedData, fileName) {
   }
 }
 
-// Ejecutar importación final según la opción elegida por el usuario
+// Ejecutar importaciÃ³n final segÃºn la opciÃ³n elegida por el usuario
 export async function executeImport() {
   if (!canCurrentUserEditProject()) {
-    showToast('🔒 Modo lectura: tu rol no permite importar catálogos o presupuestos.', 'warning');
+    showToast('ðŸ”’ Modo lectura: tu rol no permite importar catÃ¡logos o presupuestos.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -1001,7 +1001,7 @@ export async function executeImport() {
       const hasChildren = currentParsedData.items.some(i => Array.isArray(i.children) && i.children.length > 0);
       const itemsToSave = hasChildren ? flattenTreeItems(currentParsedData.items) : currentParsedData.items;
 
-      const catName = document.getElementById('import-cat-name')?.value || currentFileName || 'Catálogo de Referencia';
+      const catName = document.getElementById('import-cat-name')?.value || currentFileName || 'CatÃ¡logo de Referencia';
       const catCategory = document.getElementById('import-cat-category')?.value || 'General';
       const itemType = document.getElementById('import-item-type-select')?.value || 'mixto';
 
@@ -1019,7 +1019,7 @@ export async function executeImport() {
         };
       });
 
-      // Calcular peso estimado en bytes de la importación
+      // Calcular peso estimado en bytes de la importaciÃ³n
       let estimatedBytes = 0;
       try {
         const jsonStr = JSON.stringify(finalItems);
@@ -1031,10 +1031,10 @@ export async function executeImport() {
       // Validar si cabe en la cuota de almacenamiento del plan del espacio de trabajo
       const quotaCheck = await canImportReferenceCatalog(estimatedBytes);
       if (!quotaCheck.allowed) {
-        showToast(`No es posible importar: El catálogo (${quotaCheck.neededMb} MB) supera el límite de tu Plan ${quotaCheck.planName} (${quotaCheck.maxStorageMb} MB). Actualmente tienes en uso ${quotaCheck.currentMb} MB. Actualiza a Plan Plus o Pro para importar más catálogos.`, 'warning', 7000);
+        showToast(`No es posible importar: El catÃ¡logo (${quotaCheck.neededMb} MB) supera el lÃ­mite de tu Plan ${quotaCheck.planName} (${quotaCheck.maxStorageMb} MB). Actualmente tienes en uso ${quotaCheck.currentMb} MB. Actualiza a Plan Plus o Pro para importar mÃ¡s catÃ¡logos.`, 'warning', 7000);
         if (btn) {
           btn.disabled = false;
-          btn.innerHTML = '<i class="fa-solid fa-file-import"></i> Confirmar e Importar al Catálogo Maestro';
+          btn.innerHTML = '<i class="fa-solid fa-file-import"></i> Confirmar e Importar al CatÃ¡logo Maestro';
         }
         return;
       }
@@ -1046,10 +1046,10 @@ export async function executeImport() {
         sourceFileName: currentFileName
       }, finalItems, quotaCheck.ownerEmail);
 
-      showToast(`¡Éxito! ${finalItems.length.toLocaleString()} registros guardados en el Catálogo Maestro "${catName}"`, 'success');
+      showToast(`Â¡Ã‰xito! ${finalItems.length.toLocaleString()} registros guardados en el CatÃ¡logo Maestro "${catName}"`, 'success');
       closeImportModal();
       
-      // Actualizar contadores si existe la ventana del catálogo abierta
+      // Actualizar contadores si existe la ventana del catÃ¡logo abierta
       if (window.refreshMasterCatalogList) {
         window.refreshMasterCatalogList();
       }
@@ -1082,7 +1082,7 @@ export async function executeImport() {
         state.treeData = state.treeData.concat(newNodes);
       }
 
-      // Solo renumerar si no tenían claves personalizadas de Opus o código alfanumérico
+      // Solo renumerar si no tenÃ­an claves personalizadas de Opus o cÃ³digo alfanumÃ©rico
       if (!isCustomClaves) {
         recalculateClaves(state.treeData);
       }
@@ -1106,11 +1106,11 @@ export async function executeImport() {
       renderTAB1();
 
       const counts = countRecursiveItems(newNodes);
-      showToast(`¡Presupuesto actualizado! ${counts.partidas} partidas y ${counts.conceptos} conceptos cargados`, 'success');
+      showToast(`Â¡Presupuesto actualizado! ${counts.partidas} partidas y ${counts.conceptos} conceptos cargados`, 'success');
       closeImportModal();
     }
   } catch (err) {
-    console.error('Error durante la importación:', err);
+    console.error('Error durante la importaciÃ³n:', err);
     showToast(`Error al importar: ${err.message}`, 'error');
   } finally {
     if (btn) {
@@ -1121,10 +1121,10 @@ export async function executeImport() {
 }
 
 
-// Carga directa del Catálogo Muestra - Proyecto Residencial (desde Catalogo_Muestra_Proyecto_Residencial_APU.zip) con 12 partidas y 102 conceptos exactos
+// Carga directa del CatÃ¡logo Muestra - Proyecto Residencial (desde Catalogo_Muestra_Proyecto_Residencial_APU.zip) con 12 partidas y 102 conceptos exactos
 export async function loadCasaLauraOpusDirectly() {
   if (!canCurrentUserEditProject()) {
-    showToast('🔒 Modo lectura: tu rol no permite cargar el catálogo de muestra en este proyecto.', 'warning');
+    showToast('ðŸ”’ Modo lectura: tu rol no permite cargar el catÃ¡logo de muestra en este proyecto.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -1164,8 +1164,8 @@ export async function loadCasaLauraOpusDirectly() {
   }
 
   state.treeData = rawCopy;
-  state.settings.projectName = 'Catálogo Muestra - Proyecto Residencial';
-  state.settings.companyName = 'Constructora Opus México';
+  state.settings.projectName = 'CatÃ¡logo Muestra - Proyecto Residencial';
+  state.settings.companyName = 'Constructora Opus MÃ©xico';
   state.settings.projectLocation = 'Fraccionamiento Residencial, Puebla, Pue.';
   state.settings.applySobrecosto = false;
   state.settings.currency = 'MXN';
@@ -1204,6 +1204,6 @@ export async function loadCasaLauraOpusDirectly() {
   }
 
   closeImportModal();
-  showToast('¡Catálogo Muestra - Proyecto Residencial cargado con 12 partidas, 102 conceptos y matrices exactas!', 'success');
+  showToast('Â¡CatÃ¡logo Muestra - Proyecto Residencial cargado con 12 partidas, 102 conceptos y matrices exactas!', 'success');
 }
 export const loadSampleResidentialDirectly = loadCasaLauraOpusDirectly;

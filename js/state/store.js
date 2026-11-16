@@ -1,12 +1,12 @@
-import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js';
-import { defaultTreeData, defaultSettings } from '../config/defaultData.js';
-import { syncActiveProjectSummary, getProjectById, isProjectMarkedDeleted } from '../modules/portal/projectService.js';
-import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js';
-import { broadcastProjectMutation } from '../core/realtimeSync.js';
-import { sanitizeCatalogNodes } from '../core/textSanitizer.js';
-import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js';
+﻿import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261116_cf3';
+import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261116_cf3';
+import { syncActiveProjectSummary, getProjectById, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261116_cf3';
+import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261116_cf3';
+import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261116_cf3';
+import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261116_cf3';
+import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261116_cf3';
 
-// Estado global reactivo y centralizado de la aplicación
+// Estado global reactivo y centralizado de la aplicaciÃ³n
 export const state = {
   treeData: [],
   settings: Object.assign({}, defaultSettings),
@@ -45,7 +45,7 @@ export function initStore() {
   // Sincronizar portapapeles compartido de conceptos entre proyectos
   syncClipboardFromStorage();
 
-  // Cargar configuración
+  // Cargar configuraciÃ³n
   try {
     const savedSettings = localStorage.getItem(getSettingsKey());
     if (savedSettings) {
@@ -54,7 +54,7 @@ export function initStore() {
       state.settings = Object.assign({}, defaultSettings);
     }
   } catch (e) {
-    console.error('Error cargando configuración:', e);
+    console.error('Error cargando configuraciÃ³n:', e);
     state.settings = Object.assign({}, defaultSettings);
   }
 
@@ -63,20 +63,20 @@ export function initStore() {
     const sanitizeMojibake = (str) => {
       if (typeof str !== 'string' || !str) return str || '';
       return str
-        .replace(/Ã“|Ã\u201c|Ã\u0093/g, 'Ó')
-        .replace(/Ã³/g, 'ó')
-        .replace(/Ã­|Ã\u00ad/g, 'í')
-        .replace(/Ã‰/g, 'É')
-        .replace(/Ã©/g, 'é')
-        .replace(/Ã |Ã\u0081/g, 'Á')
-        .replace(/Ã¡/g, 'á')
-        .replace(/Ãš/g, 'Ú')
-        .replace(/Ãº/g, 'ú')
-        .replace(/Ã‘/g, 'Ñ')
-        .replace(/Ã±/g, 'ñ')
-        .replace(/Ã(?=[a-zA-ZáéíóúñÁÉÍÓÚÑ])/g, 'í')
-        .replace(/Â¿/g, '¿')
-        .replace(/Â¡/g, '¡');
+        .replace(/Ãƒâ€œ|Ãƒ\u201c|Ãƒ\u0093/g, 'Ã“')
+        .replace(/ÃƒÂ³/g, 'Ã³')
+        .replace(/ÃƒÂ­|Ãƒ\u00ad/g, 'Ã­')
+        .replace(/Ãƒâ€°/g, 'Ã‰')
+        .replace(/ÃƒÂ©/g, 'Ã©')
+        .replace(/Ãƒ |Ãƒ\u0081/g, 'Ã')
+        .replace(/ÃƒÂ¡/g, 'Ã¡')
+        .replace(/ÃƒÅ¡/g, 'Ãš')
+        .replace(/ÃƒÂº/g, 'Ãº')
+        .replace(/Ãƒâ€˜/g, 'Ã‘')
+        .replace(/ÃƒÂ±/g, 'Ã±')
+        .replace(/Ãƒ(?=[a-zA-ZÃ¡Ã©Ã­Ã³ÃºÃ±ÃÃ‰ÃÃ“ÃšÃ‘])/g, 'Ã­')
+        .replace(/Ã‚Â¿/g, 'Â¿')
+        .replace(/Ã‚Â¡/g, 'Â¡');
     };
     state.settings.budgetSignatures = state.settings.budgetSignatures.map(s => ({
       rol: sanitizeMojibake(s.rol || 'FIRMA'),
@@ -85,7 +85,7 @@ export function initStore() {
     }));
   }
 
-  // Cargar árbol de catálogo
+  // Cargar Ã¡rbol de catÃ¡logo
   try {
     const activePId = getActiveProjectId();
     const savedData = localStorage.getItem(getStorageKey());
@@ -97,7 +97,7 @@ export function initStore() {
       state.treeData = [];
     }
 
-    // Si el proyecto está activo, siempre sincronizar con la versión autoritativa más reciente de Supabase PostgreSQL
+    // Si el proyecto estÃ¡ activo, siempre sincronizar con la versiÃ³n autoritativa mÃ¡s reciente de Supabase PostgreSQL
     if (activePId) {
       loadProjectTreeFromCloud(activePId).then(cloudTree => {
         if (Array.isArray(cloudTree) && cloudTree.length > 0) {
@@ -112,8 +112,11 @@ export function initStore() {
               if (typeof window.renderTAB1 === 'function') window.renderTAB1();
             }
           }
+        } else if (Array.isArray(cloudTree) && cloudTree.length === 0 && Array.isArray(state.treeData) && state.treeData.length > 0) {
+          // Si la obra es reciÃ©n creada y en la nube aÃºn no terminaron de subirse sus conceptos, respaldarlos de inmediato
+          triggerDebouncedCloudSync();
         }
-      }).catch(err => console.warn('[CloudSync] Fallo al refrescar árbol desde la nube:', err));
+      }).catch(err => console.warn('[CloudSync] Fallo al refrescar Ã¡rbol desde la nube:', err));
     }
   } catch (e) {
     console.error('Error cargando treeData:', e);
@@ -137,7 +140,7 @@ export function initStore() {
   }
   stripSubInsumos(state.treeData);
 
-  // Sanitizar todos los números para asegurar estrictamente 2 decimales
+  // Sanitizar todos los nÃºmeros para asegurar estrictamente 2 decimales
   function roundNodesTo2Decimals(nodes) {
     if (!Array.isArray(nodes)) return;
     nodes.forEach(n => {
@@ -168,7 +171,7 @@ export function initStore() {
   }
   roundNodesTo2Decimals(state.treeData);
   
-  // Sincronizar automáticamente matrices con el catálogo exacto de Opus 2014
+  // Sincronizar automÃ¡ticamente matrices con el catÃ¡logo exacto de Opus 2014
   function syncOpusExactMatrices(nodes) {
     if (!Array.isArray(nodes) || !CASA_LAURA_PROJECT) return;
     const exactMap = new Map();
@@ -187,7 +190,7 @@ export function initStore() {
           const exact = exactMap.get(n.clave.trim().toUpperCase());
           if (exact) {
             hasOpusConcepts = true;
-            // Solo sincronizar con Opus si el nodo aún no ha sido personalizado por el usuario y carece de matriz
+            // Solo sincronizar con Opus si el nodo aÃºn no ha sido personalizado por el usuario y carece de matriz
             if (!n.isMatrixCustomized && !n.userClearedMatrix && (!Array.isArray(n.insumos) || n.insumos.length === 0)) {
               n.insumos = JSON.parse(JSON.stringify(exact.insumos));
               n.precioUnitario = exact.precioUnitario;
@@ -204,7 +207,7 @@ export function initStore() {
     }
     walk(nodes);
 
-    // Si el proyecto actual es Casa Laura o contiene conceptos Opus, desactivar sobrecosto para reflejar el catálogo exacto de Opus
+    // Si el proyecto actual es Casa Laura o contiene conceptos Opus, desactivar sobrecosto para reflejar el catÃ¡logo exacto de Opus
     const projName = (state.settings.projectName || '').toLowerCase();
     if (hasOpusConcepts && (projName.includes('laura') || projName.includes('opus') || projName.includes('residencial') || projName.includes('muestra'))) {
       state.settings.applySobrecosto = false;
@@ -215,7 +218,7 @@ export function initStore() {
   sanitizeCatalogNodes(state.treeData);
 }
 
-// Sincronización automática en segundo plano con Supabase PostgreSQL (Debounce 1.2s)
+// SincronizaciÃ³n automÃ¡tica en segundo plano con Supabase PostgreSQL (Debounce 1.2s)
 let cloudSyncTimer = null;
 export function triggerDebouncedCloudSync() {
   if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
@@ -230,7 +233,7 @@ export function triggerDebouncedCloudSync() {
     try {
       await syncProjectToCloud(project, state.settings, state.treeData);
     } catch (e) {
-      console.warn('[CloudSync] Fallo silencioso en autosincronización:', e);
+      console.warn('[CloudSync] Fallo silencioso en autosincronizaciÃ³n:', e);
     }
     try {
       if (typeof window !== 'undefined' && typeof window.triggerDebouncedCloudStateSync === 'function') {
@@ -240,7 +243,7 @@ export function triggerDebouncedCloudSync() {
   }, 1200);
 }
 
-// Persistencia de configuración en localStorage y emisión en tiempo real
+// Persistencia de configuraciÃ³n en localStorage y emisiÃ³n en tiempo real
 export function persistSettings(meta = {}) {
   const projectId = getActiveProjectId();
   try {
@@ -255,16 +258,16 @@ export function persistSettings(meta = {}) {
         settings: state.settings,
         immediate: false,
         changeType: 'settings_updated',
-        changeDescription: 'parámetros del proyecto y sobrecosto',
+        changeDescription: 'parÃ¡metros del proyecto y sobrecosto',
         ...meta
       });
     }
   } catch (e) {
-    console.error('Error guardando configuración:', e);
+    console.error('Error guardando configuraciÃ³n:', e);
   }
 }
 
-// Persistencia en localStorage con debounce de 300ms y emisión en vivo vía WebSockets
+// Persistencia en localStorage con debounce de 300ms y emisiÃ³n en vivo vÃ­a WebSockets
 let persistTimer = null;
 export function persistLocalData(immediate = false, meta = {}) {
   const projectId = getActiveProjectId();
@@ -274,7 +277,9 @@ export function persistLocalData(immediate = false, meta = {}) {
     try {
       localStorage.setItem(getStorageKey(), JSON.stringify(state.treeData));
       syncActiveProjectSummary(projectId, state.treeData, state.settings);
-      triggerDebouncedCloudSync();
+      if (!meta?.skipFullCloudSync) {
+        triggerDebouncedCloudSync();
+      }
 
       if (typeof broadcastProjectMutation === 'function') {
         broadcastProjectMutation({
@@ -295,7 +300,9 @@ export function persistLocalData(immediate = false, meta = {}) {
     try {
       localStorage.setItem(getStorageKey(), JSON.stringify(state.treeData));
       syncActiveProjectSummary(projectId, state.treeData, state.settings);
-      triggerDebouncedCloudSync();
+      if (!meta?.skipFullCloudSync) {
+        triggerDebouncedCloudSync();
+      }
 
       if (typeof broadcastProjectMutation === 'function') {
         broadcastProjectMutation({

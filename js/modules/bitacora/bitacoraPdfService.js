@@ -1,30 +1,30 @@
-// js/modules/bitacora/bitacoraPdfService.js
-// Motor de generación de PDF foliado inmutable (LOPSRM / BESOP)
+﻿// js/modules/bitacora/bitacoraPdfService.js
+// Motor de generaciÃ³n de PDF foliado inmutable (LOPSRM / BESOP)
 // Genera:
 //  1) PDF oficial individual por cada nota asentada (con fotos y firma digital)
-//  2) Libro Completo de Bitácora Compilado (Carátula, Índice y Notas cronológicas)
+//  2) Libro Completo de BitÃ¡cora Compilado (CarÃ¡tula, Ãndice y Notas cronolÃ³gicas)
 
-import { state } from '../../state/store.js';
-import { getBitacoraConfig, getBitacoraWorkSummary, getNoteTypeMeta } from './bitacoraModel.js';
-import { buildBitacoraPdfFileName } from './bitacoraDriveService.js';
+import { state } from '../../state/store.js?v=20261116_cf3';
+import { getBitacoraConfig, getBitacoraWorkSummary, getNoteTypeMeta } from './bitacoraModel.js?v=20261116_cf3';
+import { buildBitacoraPdfFileName } from './bitacoraDriveService.js?v=20261116_cf3';
 import {
   resolveManagedFileDataUrl,
   resolveManagedFileUrl,
   uploadManagedFile
-} from '../../services/s3StorageService.js';
-import { resolveActivePrintBranding, getCubikarLogoPngDataUrl } from '../io/printBrandingService.js';
+} from '../../services/s3StorageService.js?v=20261116_cf3';
+import { resolveActivePrintBranding, getCubikarLogoPngDataUrl } from '../io/printBrandingService.js?v=20261116_cf3';
 
 const JSPDF_CDN_FALLBACK = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
 
 /**
- * Asegurar que jsPDF esté cargado en window.jspdf
+ * Asegurar que jsPDF estÃ© cargado en window.jspdf
  */
 export async function ensureJsPdfLoaded() {
   if (typeof window !== 'undefined' && window.jspdf?.jsPDF) {
     return window.jspdf.jsPDF;
   }
 
-  // Cargar dinámicamente si no se cargó al inicio
+  // Cargar dinÃ¡micamente si no se cargÃ³ al inicio
   await new Promise((resolve, reject) => {
     const existing = document.querySelector('script[data-jspdf-loader="1"]');
     if (existing) {
@@ -36,19 +36,19 @@ export async function ensureJsPdfLoaded() {
     script.src = JSPDF_CDN_FALLBACK;
     script.setAttribute('data-jspdf-loader', '1');
     script.onload = resolve;
-    script.onerror = () => reject(new Error('No se pudo cargar la librería jsPDF. Verifica tu conexión a internet.'));
+    script.onerror = () => reject(new Error('No se pudo cargar la librerÃ­a jsPDF. Verifica tu conexiÃ³n a internet.'));
     document.head.appendChild(script);
   });
 
   if (!window.jspdf?.jsPDF) {
-    throw new Error('jsPDF no está disponible en el navegador.');
+    throw new Error('jsPDF no estÃ¡ disponible en el navegador.');
   }
   return window.jspdf.jsPDF;
 }
 
 /**
- * Sanitizar texto para fuentes estándar de jsPDF (WinAnsi / Latin-1)
- * Elimina emojis y caracteres fuera de rango manteniendo acentos en español y ñ.
+ * Sanitizar texto para fuentes estÃ¡ndar de jsPDF (WinAnsi / Latin-1)
+ * Elimina emojis y caracteres fuera de rango manteniendo acentos en espaÃ±ol y Ã±.
  */
 function pdfText(str) {
   if (!str) return '';
@@ -56,9 +56,9 @@ function pdfText(str) {
     .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
     .replace(/[\u2600-\u27BF]/gu, '')
     .replace(/\uFE0F/g, '')
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
-    .replace(/[—–]/g, '-')
+    .replace(/[â€œâ€]/g, '"')
+    .replace(/[â€˜â€™]/g, "'")
+    .replace(/[â€”â€“]/g, '-')
     .replace(/\t/g, '  ')
     .trim();
 }
@@ -154,14 +154,14 @@ export function getPdfProjectContext() {
   const branding = resolveActivePrintBranding(state?.settings);
   return {
     projectName: pdfText(summary.projectName || state.settings?.projectName || 'Obra Sin Nombre'),
-    projectLocation: pdfText(summary.projectLocation || state.settings?.projectLocation || 'Ubicación no especificada'),
+    projectLocation: pdfText(summary.projectLocation || state.settings?.projectLocation || 'UbicaciÃ³n no especificada'),
     companyName: pdfText(branding.isFree ? branding.companyName : (summary.companyName || branding.companyName)),
     companyLogo: branding.companyLogo || '',
     isFreePlan: Boolean(branding.isFree),
     planId: branding.planId || 'free',
     contratoNumero: pdfText(cfg.contratoNumero || 'N/A'),
     contratistaNombre: pdfText(cfg.contratistaNombre || summary.companyName || 'Contratista'),
-    supervisionNombre: pdfText(cfg.supervisionNombre || 'Supervisión Técnica'),
+    supervisionNombre: pdfText(cfg.supervisionNombre || 'SupervisiÃ³n TÃ©cnica'),
     startDate: summary.startDate || '',
     endDate: summary.endDate || ''
   };
@@ -195,11 +195,11 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
     if (y + neededMm > bottomLimit) {
       doc.addPage();
       y = 16;
-      // Micro encabezado de continuación
+      // Micro encabezado de continuaciÃ³n
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
-      doc.text(pdfText(`${ctx.projectName} — BITÁCORA DE OBRA | ${note.folioCode} (Continuación)`), margin, y);
+      doc.text(pdfText(`${ctx.projectName} â€” BITÃCORA DE OBRA | ${note.folioCode} (ContinuaciÃ³n)`), margin, y);
       doc.setDrawColor(226, 232, 240);
       doc.line(margin, y + 2, pageWidth - margin, y + 2);
       y += 7;
@@ -223,11 +223,11 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
     } catch {}
   }
 
-  // Título izquierdo
+  // TÃ­tulo izquierdo
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
-  doc.text('BITÁCORA DE OBRA DIGITAL', headerTextX, y + 8);
+  doc.text('BITÃCORA DE OBRA DIGITAL', headerTextX, y + 8);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
@@ -279,7 +279,7 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
   doc.setTextColor(100, 116, 139);
   doc.text('TIPO DE NOTA', col1X, y + 5.5);
   doc.text('FECHA Y HORA', col2X, y + 5.5);
-  doc.text('CONDICIÓN CLIMÁTICA', col3X, y + 5.5);
+  doc.text('CONDICIÃ“N CLIMÃTICA', col3X, y + 5.5);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
@@ -295,8 +295,8 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('UBICACIÓN / FRENTE DE TRABAJO / EJES', col1X, y + 17.5);
-  doc.text('CONTRATO / UBICACIÓN GENERAL', col3X, y + 17.5);
+  doc.text('UBICACIÃ“N / FRENTE DE TRABAJO / EJES', col1X, y + 17.5);
+  doc.text('CONTRATO / UBICACIÃ“N GENERAL', col3X, y + 17.5);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
@@ -306,7 +306,7 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
 
   y += 28;
 
-  // Aviso de Aclaración / Fe de Erratas si aplica
+  // Aviso de AclaraciÃ³n / Fe de Erratas si aplica
   if (note.esFeDeErratas && note.notaReferenciaFolio) {
     doc.setFillColor(254, 243, 199);
     doc.setDrawColor(245, 158, 11);
@@ -314,7 +314,7 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(146, 64, 14);
-    doc.text(pdfText(`NOTA DE ACLARACIÓN / FE DE ERRATAS EN REFERENCIA A LA NOTA ${note.notaReferenciaFolio}`), margin + 4, y + 5.8);
+    doc.text(pdfText(`NOTA DE ACLARACIÃ“N / FE DE ERRATAS EN REFERENCIA A LA NOTA ${note.notaReferenciaFolio}`), margin + 4, y + 5.8);
     y += 12;
   }
 
@@ -338,7 +338,7 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
     doc.setFontSize(7.5);
     doc.setTextColor(51, 65, 85);
     doc.text('CLAVE', margin + 2, y + 4.4);
-    doc.text('DESCRIPCIÓN DEL CONCEPTO', margin + 28, y + 4.4);
+    doc.text('DESCRIPCIÃ“N DEL CONCEPTO', margin + 28, y + 4.4);
     doc.text('UNIDAD', pageWidth - margin - 18, y + 4.4);
     y += 6.5;
 
@@ -363,18 +363,18 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
   }
 
   // ========================================================
-  // 4. CUERPO DESCRIPTIVO TÉCNICO DE LA NOTA
+  // 4. CUERPO DESCRIPTIVO TÃ‰CNICO DE LA NOTA
   // ========================================================
   ensureSpace(16);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(15, 23, 42);
-  doc.text('DESCRIPCIÓN TÉCNICA / ASIENTO EN BITÁCORA', margin, y + 3);
+  doc.text('DESCRIPCIÃ“N TÃ‰CNICA / ASIENTO EN BITÃCORA', margin, y + 3);
   doc.setDrawColor(148, 163, 184);
   doc.line(margin, y + 4.5, pageWidth - margin, y + 4.5);
   y += 8.5;
 
-  const bodyText = pdfText(note.descripcion || 'Sin descripción registrada.');
+  const bodyText = pdfText(note.descripcion || 'Sin descripciÃ³n registrada.');
   const paragraphs = bodyText.split(/\r?\n/);
 
   doc.setFont('helvetica', 'normal');
@@ -397,7 +397,7 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
   y += 4;
 
   // ========================================================
-  // 5. GALERÍA DE EVIDENCIAS FOTOGRÁFICAS
+  // 5. GALERÃA DE EVIDENCIAS FOTOGRÃFICAS
   // ========================================================
   const rawEvidencias = Array.isArray(note.evidencias) ? note.evidencias : [];
   const evidencias = [];
@@ -412,7 +412,7 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(15, 23, 42);
-    doc.text(`EVIDENCIA FOTOGRÁFICA INTEGRADA (${evidencias.length})`, margin, y + 3);
+    doc.text(`EVIDENCIA FOTOGRÃFICA INTEGRADA (${evidencias.length})`, margin, y + 3);
     doc.setDrawColor(148, 163, 184);
     doc.line(margin, y + 4.5, pageWidth - margin, y + 4.5);
     y += 8;
@@ -438,7 +438,7 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
           imgH = maxImgH;
           imgW = imgH * ratio;
         }
-        const captionStr = pdfText(ev.caption || ev.fileName || `Evidencia fotográfica ${i + j + 1}`);
+        const captionStr = pdfText(ev.caption || ev.fileName || `Evidencia fotogrÃ¡fica ${i + j + 1}`);
         const captionLines = doc.splitTextToSize(`Foto ${i + j + 1}: ${captionStr}`, cardW - 6);
         const cardH = maxImgH + 8 + captionLines.length * 3.8;
         rowMaxH = Math.max(rowMaxH, cardH);
@@ -492,7 +492,7 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(255, 255, 255);
-  doc.text('VALIDACIÓN Y FIRMA ELECTRÓNICA DEL ASIENTO EN BITÁCORA', margin + 4, y + 4.8);
+  doc.text('VALIDACIÃ“N Y FIRMA ELECTRÃ“NICA DEL ASIENTO EN BITÃCORA', margin + 4, y + 4.8);
 
   const firma = note.firma || {};
   const sigBoxX = margin + 6;
@@ -519,7 +519,7 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(pdfText(firma.autorNombre || note.creadoPor?.name || 'Responsable Técnico'), infoX, sigBoxY + 5);
+  doc.text(pdfText(firma.autorNombre || note.creadoPor?.name || 'Responsable TÃ©cnico'), infoX, sigBoxY + 5);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
@@ -529,7 +529,7 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
-  doc.text(pdfText(`Cédula / Registro Prof.: ${firma.autorCedula || 'N/E'}`), infoX, sigBoxY + 15);
+  doc.text(pdfText(`CÃ©dula / Registro Prof.: ${firma.autorCedula || 'N/E'}`), infoX, sigBoxY + 15);
   doc.text(pdfText(`Fecha/Hora de Asentamiento: ${firma.firmadoEn ? new Date(firma.firmadoEn).toLocaleString('es-MX') : '---'}`), infoX, sigBoxY + 20);
 
   doc.setFont('courier', 'normal');
@@ -541,14 +541,14 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
   doc.setFontSize(6.8);
   doc.setTextColor(100, 116, 139);
   doc.text(
-    'Nota inmutable conforme a lineamientos LOPSRM / BESOP. Cualquier aclaración deberá realizarse mediante nota subsecuente de Fe de Erratas.',
+    'Nota inmutable conforme a lineamientos LOPSRM / BESOP. Cualquier aclaraciÃ³n deberÃ¡ realizarse mediante nota subsecuente de Fe de Erratas.',
     margin + 4,
     y + 44.5
   );
 }
 
 /**
- * Estampar pie de página uniforme en todas las páginas del documento jsPDF
+ * Estampar pie de pÃ¡gina uniforme en todas las pÃ¡ginas del documento jsPDF
  */
 function stampFootersOnAllPages(doc, leftLabel, ctx = null) {
   const totalPages = doc.internal.getNumberOfPages();
@@ -573,7 +573,7 @@ function stampFootersOnAllPages(doc, leftLabel, ctx = null) {
     doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
     doc.text(pdfText(footerText).slice(0, 95), textX, pageHeight - 8);
-    doc.text(`Página ${p} de ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+    doc.text(`PÃ¡gina ${p} de ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
   }
 }
 
@@ -587,7 +587,7 @@ export async function generateNotePdfArtifact(note) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
 
   await renderSingleNoteIntoPdfDoc(doc, note, ctx);
-  stampFootersOnAllPages(doc, `${ctx.projectName} | Bitácora de Obra Digital — Nota ${note.folioCode}`, ctx);
+  stampFootersOnAllPages(doc, `${ctx.projectName} | BitÃ¡cora de Obra Digital â€” Nota ${note.folioCode}`, ctx);
 
   const blob = doc.output('blob');
   const dataUrl = await blobToDataUrl(blob);
@@ -601,7 +601,7 @@ export async function generateNotePdfArtifact(note) {
 }
 
 /**
- * Descargar PDF de una nota específica directamente al dispositivo
+ * Descargar PDF de una nota especÃ­fica directamente al dispositivo
  */
 export async function downloadSingleNotePdf(note) {
   if (!note) return;
@@ -630,7 +630,7 @@ export async function downloadSingleNotePdf(note) {
 }
 
 /**
- * Compilar y descargar el Libro Completo de Bitácora (Carátula + Índice + Todas las notas asentadas).
+ * Compilar y descargar el Libro Completo de BitÃ¡cora (CarÃ¡tula + Ãndice + Todas las notas asentadas).
  */
 export async function generateAndDownloadFullBitacoraBook(notesList) {
   const sealedNotes = (notesList || [])
@@ -638,7 +638,7 @@ export async function generateAndDownloadFullBitacoraBook(notesList) {
     .sort((a, b) => (a.folioNumber || 0) - (b.folioNumber || 0));
 
   if (sealedNotes.length === 0) {
-    throw new Error('No hay notas asentadas y firmadas para compilar en el Libro de Bitácora.');
+    throw new Error('No hay notas asentadas y firmadas para compilar en el Libro de BitÃ¡cora.');
   }
 
   const jsPDF = await ensureJsPdfLoaded();
@@ -652,7 +652,7 @@ export async function generateAndDownloadFullBitacoraBook(notesList) {
   const contentWidth = pageWidth - margin * 2;
 
   // ========================================================
-  // PÁGINA 1: CARÁTULA OFICIAL DEL LIBRO DE BITÁCORA
+  // PÃGINA 1: CARÃTULA OFICIAL DEL LIBRO DE BITÃCORA
   // ========================================================
   doc.setFillColor(15, 23, 42);
   doc.rect(0, 0, pageWidth, 58, 'F');
@@ -673,20 +673,20 @@ export async function generateAndDownloadFullBitacoraBook(notesList) {
   doc.setFontSize(10);
   doc.text(
     ctx.isFreePlan
-      ? 'cubikar (PLAN GRATUITA) — DOCUMENTO OFICIAL DE SEGUIMIENTO'
-      : 'SISTEMA DE CONTROL DE OBRA — DOCUMENTO OFICIAL DE SEGUIMIENTO',
+      ? 'cubikar (PLAN GRATUITA) â€” DOCUMENTO OFICIAL DE SEGUIMIENTO'
+      : 'SISTEMA DE CONTROL DE OBRA â€” DOCUMENTO OFICIAL DE SEGUIMIENTO',
     margin,
     22
   );
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
-  doc.text('LIBRO DE BITÁCORA DE OBRA', margin, 36);
+  doc.text('LIBRO DE BITÃCORA DE OBRA', margin, 36);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(226, 232, 240);
-  doc.text('Registro Técnico, Legal y Cronológico de Ejecución de Obra (LOPSRM / BESOP)', margin, 45);
+  doc.text('Registro TÃ©cnico, Legal y CronolÃ³gico de EjecuciÃ³n de Obra (LOPSRM / BESOP)', margin, 45);
 
   let y = 78;
   doc.setFillColor(248, 250, 252);
@@ -695,15 +695,15 @@ export async function generateAndDownloadFullBitacoraBook(notesList) {
 
   const metaRows = [
     ['OBRA / PROYECTO:', ctx.projectName],
-    ['UBICACIÓN DE LA OBRA:', ctx.projectLocation],
+    ['UBICACIÃ“N DE LA OBRA:', ctx.projectLocation],
     ['EMPRESA / ENTIDAD:', ctx.companyName],
-    ['NÚMERO DE CONTRATO:', ctx.contratoNumero],
+    ['NÃšMERO DE CONTRATO:', ctx.contratoNumero],
     ['CONTRATISTA:', ctx.contratistaNombre],
-    ['SUPERVISIÓN TÉCNICA:', ctx.supervisionNombre],
-    ['FECHA INICIO / TÉRMINO:', `${ctx.startDate || 'N/E'}  al  ${ctx.endDate || 'Programación abierta'}`],
-    ['DÍAS TRANSCURRIDOS:', `${summary.elapsedDays} días${summary.totalProgrammedDays ? ` de ${summary.totalProgrammedDays} programados` : ''}`],
+    ['SUPERVISIÃ“N TÃ‰CNICA:', ctx.supervisionNombre],
+    ['FECHA INICIO / TÃ‰RMINO:', `${ctx.startDate || 'N/E'}  al  ${ctx.endDate || 'ProgramaciÃ³n abierta'}`],
+    ['DÃAS TRANSCURRIDOS:', `${summary.elapsedDays} dÃ­as${summary.totalProgrammedDays ? ` de ${summary.totalProgrammedDays} programados` : ''}`],
     ['TOTAL DE NOTAS ASENTADAS:', `${sealedNotes.length} notas oficiales (${sealedNotes[0].folioCode} al ${sealedNotes[sealedNotes.length - 1].folioCode})`],
-    ['FECHA DE COMPILACIÓN:', new Date().toLocaleString('es-MX')]
+    ['FECHA DE COMPILACIÃ“N:', new Date().toLocaleString('es-MX')]
   ];
 
   let ry = y + 10;
@@ -732,18 +732,18 @@ export async function generateAndDownloadFullBitacoraBook(notesList) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(30, 64, 175);
-  doc.text('CERTIFICACIÓN DE INTEGRIDAD DOCUMENTAL', margin + 6, y + 9);
+  doc.text('CERTIFICACIÃ“N DE INTEGRIDAD DOCUMENTAL', margin + 6, y + 9);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
   const certLines = doc.splitTextToSize(
-    'Este Libro Compilado reúne exclusivamente las notas que han sido formalmente asentadas y firmadas electrónicamente en la Bitácora de Obra Digital. Cada asiento conserva su folio correlativo, fecha y hora exacta, evidencia fotográfica y firma digital inmutable.',
+    'Este Libro Compilado reÃºne exclusivamente las notas que han sido formalmente asentadas y firmadas electrÃ³nicamente en la BitÃ¡cora de Obra Digital. Cada asiento conserva su folio correlativo, fecha y hora exacta, evidencia fotogrÃ¡fica y firma digital inmutable.',
     contentWidth - 12
   );
   doc.text(certLines, margin + 6, y + 15);
 
   // ========================================================
-  // PÁGINA 2: ÍNDICE CRONOLÓGICO FOLIADO
+  // PÃGINA 2: ÃNDICE CRONOLÃ“GICO FOLIADO
   // ========================================================
   doc.addPage();
   let iy = 18;
@@ -751,7 +751,7 @@ export async function generateAndDownloadFullBitacoraBook(notesList) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(15, 23, 42);
-  doc.text('ÍNDICE CRONOLÓGICO DE NOTAS ASENTADAS', margin, iy);
+  doc.text('ÃNDICE CRONOLÃ“GICO DE NOTAS ASENTADAS', margin, iy);
   doc.setDrawColor(37, 99, 235);
   doc.setLineWidth(0.6);
   doc.line(margin, iy + 3, pageWidth - margin, iy + 3);
@@ -767,7 +767,7 @@ export async function generateAndDownloadFullBitacoraBook(notesList) {
     doc.text('FOLIO', margin + 2, iy + 4.8);
     doc.text('FECHA / HORA', margin + 18, iy + 4.8);
     doc.text('TIPO DE NOTA', margin + 48, iy + 4.8);
-    doc.text('FRENTE / UBICACIÓN', margin + 96, iy + 4.8);
+    doc.text('FRENTE / UBICACIÃ“N', margin + 96, iy + 4.8);
     doc.text('FIRMANTE', margin + 144, iy + 4.8);
     iy += 7;
   };
@@ -799,14 +799,14 @@ export async function generateAndDownloadFullBitacoraBook(notesList) {
   }
 
   // ========================================================
-  // PÁGINAS SIGUIENTES: CADA NOTA ASENTADA EN ORDEN FOLIADO
+  // PÃGINAS SIGUIENTES: CADA NOTA ASENTADA EN ORDEN FOLIADO
   // ========================================================
   for (const n of sealedNotes) {
     doc.addPage();
     await renderSingleNoteIntoPdfDoc(doc, n, ctx);
   }
 
-  stampFootersOnAllPages(doc, `Libro Oficial de Bitácora — ${ctx.projectName}`, ctx);
+  stampFootersOnAllPages(doc, `Libro Oficial de BitÃ¡cora â€” ${ctx.projectName}`, ctx);
 
   const cleanProject = String(ctx.projectName || 'Obra')
     .normalize('NFD')

@@ -1,4 +1,4 @@
-import {
+﻿import {
   renderCalendarioObra,
   setCalendarioViewMode,
   setCalendarioTimeScale,
@@ -54,20 +54,20 @@ import {
   runCalendarioGeminiAiProposal,
   applyCalendarioAiProposal,
   selectCalendarioRow
-} from './modules/calendario/calendarioView.js';
-import { initStore, state, syncClipboardFromStorage } from './state/store.js';
-import { STORAGE_KEY_CLIPBOARD, getActiveProjectId } from './config/constants.js';
-import { undoAction, redoAction, updateUndoRedoButtons, setHistoryRenderCallback } from './state/history.js';
-import { showToast } from './ui/notifications.js';
-import { formatMoney, formatQty } from './core/formatters.js';
-import { getFactorSobrecosto, updateSobrecostoBadge, updateGrandTotal } from './core/calculations.js';
-import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalRealtimeSync, requestPeerSync } from './core/realtimeSync.js';
-import { hydrateProjectModulesFromCloud } from './core/cloudModulesSyncService.js';
-import { syncPendingMediaUploads } from './services/s3StorageService.js';
-import { initAuthListener, hasPendingIncomingSsoSession, hydrateIncomingSsoSession, isSsoHydrationPending, syncLocalUserSession } from './core/authService.js';
-import { isRecentInternalCloudAuthUpdate, syncHostWorkspaceProjects } from './core/collaborationCloudService.js';
-import { getCurrentUser } from './modules/portal/projectService.js';
-import { initAppSwitcher } from './ui/appSwitcher.js';
+} from './modules/calendario/calendarioView.js?v=20261116_cf3';
+import { initStore, state, syncClipboardFromStorage } from './state/store.js?v=20261116_cf3';
+import { STORAGE_KEY_CLIPBOARD, getActiveProjectId } from './config/constants.js?v=20261116_cf3';
+import { undoAction, redoAction, updateUndoRedoButtons, setHistoryRenderCallback } from './state/history.js?v=20261116_cf3';
+import { showToast } from './ui/notifications.js?v=20261116_cf3';
+import { formatMoney, formatQty } from './core/formatters.js?v=20261116_cf3';
+import { getFactorSobrecosto, updateSobrecostoBadge, updateGrandTotal } from './core/calculations.js?v=20261116_cf3';
+import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalRealtimeSync, requestPeerSync } from './core/realtimeSync.js?v=20261116_cf3';
+import { hydrateProjectModulesFromCloud } from './core/cloudModulesSyncService.js?v=20261116_cf3';
+import { syncPendingMediaUploads } from './services/s3StorageService.js?v=20261116_cf3';
+import { initAuthListener, hasPendingIncomingSsoSession, hydrateIncomingSsoSession, isSsoHydrationPending, syncLocalUserSession } from './core/authService.js?v=20261116_cf3';
+import { isRecentInternalCloudAuthUpdate, syncHostWorkspaceProjects } from './core/collaborationCloudService.js?v=20261116_cf3';
+import { getCurrentUser } from './modules/portal/projectService.js?v=20261116_cf3';
+import { initAppSwitcher } from './ui/appSwitcher.js?v=20261116_cf3';
 
 import {
   renderExpensesView,
@@ -115,15 +115,15 @@ import {
   updateDraftExpensesSignature,
   resetDefaultExpensesSignatures,
   saveExpensesSignaturesModal
-} from './modules/compras/expensesView.js';
+} from './modules/compras/expensesView.js?v=20261116_cf3';
 import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
   printExpensesActiveReport
-} from './modules/compras/expensesExporter.js';
+} from './modules/compras/expensesExporter.js?v=20261116_cf3';
 import {
   openExpenseEvidence
-} from './modules/compras/driveExpenseService.js';
+} from './modules/compras/driveExpenseService.js?v=20261116_cf3';
 import {
   renderBitacoraView,
   openBitacoraConfigModal,
@@ -162,7 +162,7 @@ import {
   onBitacoraDownloadsSearchChange,
   onBitacoraDownloadsStatusFilterChange,
   onBitacoraDownloadsTypeFilterChange
-} from './modules/bitacora/bitacoraView.js';
+} from './modules/bitacora/bitacoraView.js?v=20261116_cf3';
 
 import {
   findNodeById,
@@ -193,7 +193,7 @@ import {
   autoColorRows,
   toggleSelectNode,
   toggleSelectAll
-} from './modules/catalog/treeService.js';
+} from './modules/catalog/treeService.js?v=20261116_cf3';
 
 import {
   openImportConceptsModal,
@@ -205,9 +205,9 @@ import {
   toggleMatrixPreviewAccordion,
   quickCopyPasteSingleConcept,
   importSelectedConceptsToCurrentProject
-} from './modules/catalog/importFromProjectModal.js';
+} from './modules/catalog/importFromProjectModal.js?v=20261116_cf3';
 
-import { renderTAB1, selectRow, highlightCatalogRowInPlace, closeApuPanel, toggleDropdownMenu, closeAllDropdownMenus } from './modules/catalog/catalogView.js';
+import { renderTAB1, selectRow, highlightCatalogRowInPlace, closeApuPanel, toggleDropdownMenu, closeAllDropdownMenus } from './modules/catalog/catalogView.js?v=20261116_cf3';
 
 import {
   openPresupuestoSignaturesModal,
@@ -218,7 +218,7 @@ import {
   resetDefaultPresupuestoSignatures,
   savePresupuestoSignatures,
   getBudgetSignatures
-} from './modules/catalog/signaturesModal.js';
+} from './modules/catalog/signaturesModal.js?v=20261116_cf3';
 
 import {
   addInsumo,
@@ -228,14 +228,14 @@ import {
   filterInsumos,
   limpiarMatrizConceptoSeleccionado,
   limpiarMatricesCasillas
-} from './modules/apu/apuService.js';
+} from './modules/apu/apuService.js?v=20261116_cf3';
 
 import {
   renderAPUInsumos,
   renderInsumosUnitarios,
   dismissGroundingBox,
   toggleApuSection
-} from './modules/apu/apuView.js';
+} from './modules/apu/apuView.js?v=20261116_cf3';
 
 import {
   openMatrizModal,
@@ -245,7 +245,7 @@ import {
   updateModalInsumo,
   addModalInsumo,
   removeModalInsumo
-} from './modules/apu/matrizModal.js';
+} from './modules/apu/matrizModal.js?v=20261116_cf3';
 
 import {
   renderInsumosGenerales,
@@ -268,7 +268,7 @@ import {
   actualizarTodosLosInsumosSeleccionadosConIA,
   actualizarInsumosConBusquedaWeb,
   selectInsumoBaseRow
-} from './modules/insumosGenerales/insumosView.js';
+} from './modules/insumosGenerales/insumosView.js?v=20261116_cf3';
 
 import {
   testGeminiConnection,
@@ -277,7 +277,7 @@ import {
   generarMatrizConceptoActivoGoogleIA,
   generarMatrizConBusquedaWebActiva,
   generarMatrizCasillasConBusquedaWeb
-} from './modules/ai/geminiClient.js';
+} from './modules/ai/geminiClient.js?v=20261116_cf3';
 import {
   executeLocalGeneration,
   openLocalCatalogSelectorModal,
@@ -287,7 +287,7 @@ import {
   confirmAndExecuteLocalGeneration,
   generarMatrizCasillasLocal,
   getSelectedLeafConcepts
-} from './modules/ai/localEstimator.js';
+} from './modules/ai/localEstimator.js?v=20261116_cf3';
 import {
   exportData,
   importData,
@@ -299,9 +299,9 @@ import {
   exportCatalogOpus,
   exportCatalogNeodata,
   exportCatalogCsv
-} from './modules/io/csvHandler.js';
-import { initPanelResizer } from './ui/resizer.js';
-import { toggleAiSplitMenu, closeAiSplitMenu } from './ui/aiSplitMenu.js';
+} from './modules/io/csvHandler.js?v=20261116_cf3';
+import { initPanelResizer } from './ui/resizer.js?v=20261116_cf3';
+import { toggleAiSplitMenu, closeAiSplitMenu } from './ui/aiSplitMenu.js?v=20261116_cf3';
 
 import {
   openImportModal,
@@ -314,7 +314,7 @@ import {
   onZoneSelectChange,
   calculateParsedBudgetTotal,
   loadCasaLauraOpusDirectly
-} from './modules/io/universalImporter.js';
+} from './modules/io/universalImporter.js?v=20261116_cf3';
 
 import {
   printTab1Catalog,
@@ -322,7 +322,7 @@ import {
   printInsumosGenerales,
   printCalendarioObraFormat,
   printEstimacionesFormat
-} from './modules/io/printService.js';
+} from './modules/io/printService.js?v=20261116_cf3';
 
 import {
   openMasterCatalogModal,
@@ -333,7 +333,7 @@ import {
   switchMasterCatalogTab,
   handleDeleteCatalog,
   refreshMasterCatalogList
-} from './modules/reference/masterCatalogModal.js';
+} from './modules/reference/masterCatalogModal.js?v=20261116_cf3';
 
 import {
   openApuReferenceModal,
@@ -342,14 +342,14 @@ import {
   onApuAssistantSearchInput,
   triggerApuAssistantSearch,
   addInsumoToApuMatrix
-} from './modules/reference/apuAssistantModal.js';
+} from './modules/reference/apuAssistantModal.js?v=20261116_cf3';
 
-import { installPresetCatalog, installAllPresets, ensureDefaultMasterCatalogs } from './modules/reference/presetCatalogs.js';
+import { installPresetCatalog, installAllPresets, ensureDefaultMasterCatalogs } from './modules/reference/presetCatalogs.js?v=20261116_cf3';
 
-import { openReferenceDb } from './modules/reference/referenceDb.js';
+import { openReferenceDb } from './modules/reference/referenceDb.js?v=20261116_cf3';
 
-// Motor de Autocorrección y Revisor Ortográfico estilo Microsoft Word (F7)
-import { wordAutocorrectService } from './core/wordAutocorrectService.js';
+// Motor de AutocorrecciÃ³n y Revisor OrtogrÃ¡fico estilo Microsoft Word (F7)
+import { wordAutocorrectService } from './core/wordAutocorrectService.js?v=20261116_cf3';
 import {
   openSpellCheckModal,
   closeSpellCheckModal,
@@ -359,7 +359,7 @@ import {
   ignoreAllSpellCheckWord,
   addCurrentToDictionary,
   rescanSpellCheck
-} from './ui/spellCheckModal.js';
+} from './ui/spellCheckModal.js?v=20261116_cf3';
 
 import {
   openAiGeneratorModal,
@@ -385,7 +385,7 @@ import {
   switchTab,
   switchPresupuestoSubTab,
   initFloatingWindowOutsideClose
-} from './ui/modalController.js';
+} from './ui/modalController.js?v=20261116_cf3';
 
 import {
   initBranding,
@@ -406,7 +406,7 @@ import {
   resetLogoPosition,
   setLogoBgMode,
   applyAdjustedLogo
-} from './ui/brandingController.js';
+} from './ui/brandingController.js?v=20261116_cf3';
 
 import {
   STORAGE_KEY_THEME,
@@ -415,7 +415,7 @@ import {
   applyThemeMode,
   isNightMode,
   setThemeRenderCallback
-} from './ui/themeController.js';
+} from './ui/themeController.js?v=20261116_cf3';
 
 import {
   isTabLocked,
@@ -424,7 +424,7 @@ import {
   guardTabUnlocked,
   applyTabLocksToDOM,
   setTabLockRenderCallback
-} from './ui/tabLockController.js';
+} from './ui/tabLockController.js?v=20261116_cf3';
 
 import {
   startInteractiveTour,
@@ -433,18 +433,18 @@ import {
   isTourDismissed,
   resetTourDismissedStatus,
   checkAndResumeTourOnLoad
-} from './ui/interactiveTour.js';
+} from './ui/interactiveTour.js?v=20261116_cf3';
 
 import {
   openVideoSimulatorModal,
   closeVideoSimulatorModal,
   toggleVoiceNarration
-} from './ui/videoSimulatorModal.js';
+} from './ui/videoSimulatorModal.js?v=20261116_cf3';
 
 import {
   openTutorialHubModal,
   closeTutorialHubModal
-} from './ui/tutorialHubModal.js';
+} from './ui/tutorialHubModal.js?v=20261116_cf3';
 
 import {
   toggleProjectChatDock,
@@ -472,7 +472,7 @@ import {
   renderSidebarNotificationsUI,
   handleAcceptInvitationAction,
   handleRejectInvitationAction
-} from './modules/chat/projectChat.js';
+} from './modules/chat/projectChat.js?v=20261116_cf3';
 
 import {
   initPortal,
@@ -597,7 +597,7 @@ import {
   resetFilters,
   exportProjectToExcelAction,
   logoutAllDevices
-} from './modules/portal/portalController.js';
+} from './modules/portal/portalController.js?v=20261116_cf3';
 
 import {
   openCubikarAdminModal,
@@ -621,7 +621,7 @@ import {
   closeCloudConfigModal,
   saveCloudConfigFromModal,
   copySupabaseSqlScript
-} from './modules/admin/cubikarAdmin.js';
+} from './modules/admin/cubikarAdmin.js?v=20261116_cf3';
 import {
   openSubscriptionModal,
   closeSubscriptionModal,
@@ -631,7 +631,7 @@ import {
   updateSubscriptionBadgesUI,
   getCurrentSubscription,
   syncSubscriptionFromCloud
-} from './modules/portal/subscriptionModal.js';
+} from './modules/portal/subscriptionModal.js?v=20261116_cf3';
 
 import {
   renderEstimacionesView,
@@ -669,9 +669,9 @@ import {
   onAnticipoZeroFieldChange,
   openFacturaModal,
   closeFacturaModal
-} from './modules/estimaciones/estimacionesView.js';
+} from './modules/estimaciones/estimacionesView.js?v=20261116_cf3';
 
-// Exponer funciones públicas al objeto global window para compatibilidad total con eventos inline del HTML
+// Exponer funciones pÃºblicas al objeto global window para compatibilidad total con eventos inline del HTML
 Object.assign(window, {
   // Store & History
   undoAction,
@@ -931,7 +931,7 @@ Object.assign(window, {
   loadCasaLauraOpusDirectly,
   reloadCasaLauraOpus: loadCasaLauraOpusDirectly,
 
-  // Master Catalog (Opción 1)
+  // Master Catalog (OpciÃ³n 1)
   openMasterCatalogModal,
   closeMasterCatalogModal,
   onMasterCatalogSearchInput,
@@ -943,7 +943,7 @@ Object.assign(window, {
   installPresetCatalog,
   installAllPresets,
 
-  // APU Assistant (Opción 2)
+  // APU Assistant (OpciÃ³n 2)
   openApuReferenceModal,
   closeApuReferenceModal,
   setApuAssistantFilter,
@@ -954,7 +954,7 @@ Object.assign(window, {
   // Utilities
   showToast,
 
-  // Branding (Empresa, Proyecto, Ubicación y Logo interactivo)
+  // Branding (Empresa, Proyecto, UbicaciÃ³n y Logo interactivo)
   initBranding,
   updateCompanyName,
   syncCompanyName,
@@ -1200,7 +1200,7 @@ Object.assign(window, {
   resetDefaultExpensesSignatures,
   saveExpensesSignaturesModal,
 
-  // Bitácora de Obra
+  // BitÃ¡cora de Obra
   renderBitacoraView,
   openBitacoraConfigModal,
   saveBitacoraConfigModalAction,
@@ -1288,12 +1288,12 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Selección universal de filas en cualquier tabla del área de proyecto (mismo color y estilo que Catálogo Base)
+// SelecciÃ³n universal de filas en cualquier tabla del Ã¡rea de proyecto (mismo color y estilo que CatÃ¡logo Base)
 function handleWorkspaceTableRowSelection(e) {
   const target = e.target;
   if (!target || typeof target.closest !== 'function') return;
 
-  // Ignorar fuera del área de proyecto o ventana maximizada de matriz
+  // Ignorar fuera del Ã¡rea de proyecto o ventana maximizada de matriz
   if (!target.closest('#workspace-container') && !target.closest('#matriz-modal')) return;
 
   // Soporte para filas divididas del Gantt (panel izquierdo y derecho)
@@ -1307,7 +1307,7 @@ function handleWorkspaceTableRowSelection(e) {
   const tr = target.closest('tbody tr');
   if (!tr) return;
 
-  // Ignorar filas vacías informativas de una sola celda con colspan
+  // Ignorar filas vacÃ­as informativas de una sola celda con colspan
   if (tr.children.length === 1 && tr.children[0].hasAttribute('colspan')) return;
 
   if (tr.dataset.nodeId) {
@@ -1331,7 +1331,7 @@ function handleWorkspaceTableRowSelection(e) {
     return;
   }
 
-  // Cualquier otra tabla dentro del área de proyecto
+  // Cualquier otra tabla dentro del Ã¡rea de proyecto
   const tbody = tr.parentElement;
   if (tbody) {
     tbody.querySelectorAll('tr.selected-row').forEach((r) => r.classList.remove('selected-row'));
@@ -1342,7 +1342,7 @@ function handleWorkspaceTableRowSelection(e) {
 document.addEventListener('click', handleWorkspaceTableRowSelection);
 document.addEventListener('focusin', handleWorkspaceTableRowSelection);
 
-// Sincronizar portapapeles compartido en tiempo real entre pestañas
+// Sincronizar portapapeles compartido en tiempo real entre pestaÃ±as
 window.addEventListener('storage', (e) => {
   if (e.key === STORAGE_KEY_CLIPBOARD) {
     syncClipboardFromStorage();
@@ -1354,7 +1354,7 @@ window.addEventListener('storage', (e) => {
   }
 });
 
-// Conectar callback de renderizado al cambiar el candado de bloqueo de pestaña
+// Conectar callback de renderizado al cambiar el candado de bloqueo de pestaÃ±a
 setTabLockRenderCallback((tabKey) => {
   updateUndoRedoButtons();
   if (tabKey === 'cat') {
@@ -1389,7 +1389,7 @@ setHistoryRenderCallback(() => {
   }
 });
 
-// Conectar callback de renderizado al cambiar entre Vista de Día y Modo Nocturno
+// Conectar callback de renderizado al cambiar entre Vista de DÃ­a y Modo Nocturno
 setThemeRenderCallback(() => {
   renderTAB1();
   if (state.activeSelectedId) {
@@ -1424,17 +1424,17 @@ setThemeRenderCallback(() => {
   }
 });
 
-// Sincronizar tema visual entre pestañas abiertas
+// Sincronizar tema visual entre pestaÃ±as abiertas
 window.addEventListener('storage', (e) => {
   if (e.key === STORAGE_KEY_THEME) {
     applyThemeMode(e.newValue === 'night' ? 'night' : 'day', { persist: false, notify: false, rerender: true });
   }
 });
 
-// Inicializar tema visual (Vista de Día por defecto o Modo Nocturno guardado)
+// Inicializar tema visual (Vista de DÃ­a por defecto o Modo Nocturno guardado)
 initThemeMode();
 
-// Inicializar Motor Global de Autocorrección y Spellcheck estilo Microsoft Word
+// Inicializar Motor Global de AutocorrecciÃ³n y Spellcheck estilo Microsoft Word
 wordAutocorrectService.initGlobalObserver();
 window.wordAutocorrectService = wordAutocorrectService;
 window.openSpellCheckModal = openSpellCheckModal;
@@ -1447,7 +1447,7 @@ window.addCurrentToDictionary = addCurrentToDictionary;
 window.rescanSpellCheck = rescanSpellCheck;
 window.logoutAllDevices = logoutAllDevices;
 
-// Verificar validez de sesión al volver a la pestaña en cualquier computadora
+// Verificar validez de sesiÃ³n al volver a la pestaÃ±a en cualquier computadora
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     const activeUser = getCurrentUser();
@@ -1465,7 +1465,7 @@ try {
     if (session?.user) {
       const isInternalSync = (event === 'USER_UPDATED' && isRecentInternalCloudAuthUpdate());
       const prevPlanId = getCurrentSubscription()?.planId || null;
-      // Sincronizar membresía activa de Supabase Auth en segundo plano
+      // Sincronizar membresÃ­a activa de Supabase Auth en segundo plano
       try {
         syncSubscriptionFromCloud(session.user.email).then(cloudSub => {
           if (cloudSub) {
@@ -1546,7 +1546,7 @@ function bootWorkspaceModules() {
     console.warn('[Notifications] Error al inicializar UI de notificaciones:', e);
   }
   openReferenceDb()
-    .then(() => ensureDefaultMasterCatalogs().catch(err => console.warn('[PresetCatalogs] Error al sincronizar catálogos por defecto:', err)))
+    .then(() => ensureDefaultMasterCatalogs().catch(err => console.warn('[PresetCatalogs] Error al sincronizar catÃ¡logos por defecto:', err)))
     .catch(err => console.warn('IndexedDB reference DB:', err));
   const activePId = getActiveProjectId();
   if (activePId) {
@@ -1563,7 +1563,7 @@ function bootWorkspaceModules() {
     window.addEventListener('online', () => {
       syncPendingMediaUploads().then((res) => {
         if (res?.synced > 0) {
-          showToast(`☁️ Reconexión detectada: ${res.synced} archivo(s) sincronizado(s) a AWS S3.`, 'success');
+          showToast(`â˜ï¸ ReconexiÃ³n detectada: ${res.synced} archivo(s) sincronizado(s) a AWS S3.`, 'success');
         }
       }).catch(() => {});
     });
@@ -1573,14 +1573,14 @@ function bootWorkspaceModules() {
   try {
     initGlobalRealtimeSync();
   } catch (e) {
-    console.warn('[Realtime] Aviso inicializando sincronización global:', e);
+    console.warn('[Realtime] Aviso inicializando sincronizaciÃ³n global:', e);
   }
 
-  // Reanudar automáticamente tour interactivo si hubo recarga al entrar a un proyecto
+  // Reanudar automÃ¡ticamente tour interactivo si hubo recarga al entrar a un proyecto
   try {
     checkAndResumeTourOnLoad();
   } catch (e) {
-    console.warn('[Tour] Aviso al verificar reanudación de tour:', e);
+    console.warn('[Tour] Aviso al verificar reanudaciÃ³n de tour:', e);
   }
 }
 
@@ -1593,8 +1593,8 @@ function renderSsoConnectingOverlay() {
       <div class="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/40 text-blue-400 flex items-center justify-center mx-auto mb-4">
         <i class="fa-solid fa-spinner fa-spin text-xl"></i>
       </div>
-      <h2 class="text-lg font-extrabold tracking-tight">Conectando tu sesión Cubikar...</h2>
-      <p class="text-xs text-slate-400 mt-2">Cargando tus proyectos sin volver a iniciar sesión.</p>
+      <h2 class="text-lg font-extrabold tracking-tight">Conectando tu sesiÃ³n Cubikar...</h2>
+      <p class="text-xs text-slate-400 mt-2">Cargando tus proyectos sin volver a iniciar sesiÃ³n.</p>
     </div>
   `;
 }
@@ -1603,7 +1603,7 @@ try {
   initAppSwitcher('cubikar-app-switcher-mount', 'const');
 } catch (_) {}
 
-// Inicialización de la aplicación al cargar el módulo (con soporte fluido de SSO entre subdominios)
+// InicializaciÃ³n de la aplicaciÃ³n al cargar el mÃ³dulo (con soporte fluido de SSO entre subdominios)
 if (hasPendingIncomingSsoSession()) {
   renderSsoConnectingOverlay();
   Promise.race([
@@ -1773,7 +1773,7 @@ window.openNewDestajoModal = function(editId = null) {
 };
 window.printOrdenCompraSingle = printExpensePurchaseOrder;
 
-// Bitácora de Obra Digital y Legal
+// BitÃ¡cora de Obra Digital y Legal
 window.renderBitacoraView = renderBitacoraView;
 window.openBitacoraConfigModal = openBitacoraConfigModal;
 window.saveBitacoraConfigModalAction = saveBitacoraConfigModalAction;
@@ -1842,7 +1842,7 @@ setProjectChatRefreshCallback(() => {
   }
 });
 
-// Auto-activación inmediata de pestaña por parámetro de URL (ej. ?tab=bitacora)
+// Auto-activaciÃ³n inmediata de pestaÃ±a por parÃ¡metro de URL (ej. ?tab=bitacora)
 try {
   const pUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const reqTab = pUrl ? pUrl.get('tab') : null;

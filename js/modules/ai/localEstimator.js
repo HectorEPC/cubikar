@@ -1,38 +1,38 @@
-// js/modules/ai/localEstimator.js
-// Generador y estimador de matrices APU usando Catálogos Locales de Referencia (Opus, Neodata, Gobierno)
+﻿// js/modules/ai/localEstimator.js
+// Generador y estimador de matrices APU usando CatÃ¡logos Locales de Referencia (Opus, Neodata, Gobierno)
 //
 // Cumple estrictamente con el flujo de dos pasos:
-// PASO 1: Busca en los catálogos cargados un concepto similar con los mismos elementos,
-//         especificaciones y componentes técnicos. Si lo encuentra, copia su matriz de insumos
+// PASO 1: Busca en los catÃ¡logos cargados un concepto similar con los mismos elementos,
+//         especificaciones y componentes tÃ©cnicos. Si lo encuentra, copia su matriz de insumos
 //         y la integra en el concepto seleccionado.
-// PASO 2: Si no encuentra un concepto similar, interpreta la descripción del texto desde cero,
-//         descomponiendo analíticamente todas las piezas, materiales, cuadrillas de mano de obra,
-//         equipos/maquinaria y herramienta menor (3% MO), cotizándolos con los catálogos locales.
+// PASO 2: Si no encuentra un concepto similar, interpreta la descripciÃ³n del texto desde cero,
+//         descomponiendo analÃ­ticamente todas las piezas, materiales, cuadrillas de mano de obra,
+//         equipos/maquinaria y herramienta menor (3% MO), cotizÃ¡ndolos con los catÃ¡logos locales.
 
-import { state, persistLocalData } from '../../state/store.js';
-import { saveState } from '../../state/history.js';
-import { showToast } from '../../ui/notifications.js';
-import { formatMoney, round2, round5 } from '../../core/formatters.js';
-import { getFactorSobrecosto } from '../../core/calculations.js';
-import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js';
-import { renderTAB1 } from '../catalog/catalogView.js';
-import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from '../apu/apuView.js';
-import { closeAiGeneratorModal } from '../../ui/modalController.js';
-import { canCurrentUserEditProject } from '../portal/projectService.js';
-import { guardTabUnlocked } from '../../ui/tabLockController.js';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf3';
+import { saveState } from '../../state/history.js?v=20261116_cf3';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
+import { formatMoney, round2, round5 } from '../../core/formatters.js?v=20261116_cf3';
+import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf3';
+import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf3';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf3';
+import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from '../apu/apuView.js?v=20261116_cf3';
+import { closeAiGeneratorModal } from '../../ui/modalController.js?v=20261116_cf3';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf3';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf3';
 import {
   getReferenceDatabaseStats,
   listReferenceCatalogs,
   getItemsByCatalogIds
-} from '../reference/referenceDb.js';
-import { installPresetCatalog } from '../reference/presetCatalogs.js';
+} from '../reference/referenceDb.js?v=20261116_cf3';
+import { installPresetCatalog } from '../reference/presetCatalogs.js?v=20261116_cf3';
 import {
   generateLocalMatrix,
   buildSupplyIndex,
   flattenPresetData,
   matrixDirectCost
-} from './localMatrixEngine.js';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js';
+} from './localMatrixEngine.js?v=20261116_cf3';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf3';
 
 // Modo de destino del modal: 'single' (solo concepto activo en matriz) o 'batch' (conceptos con casilla)
 export let localModalTargetMode = 'single';
@@ -42,8 +42,8 @@ export let localModalSingleNodeId = null;
 export { getSelectedLeafConcepts };
 
 /**
- * Construye el contexto de referencia en memoria para una ejecución de catálogo local.
- * Carga los items de los catálogos seleccionados en IndexedDB e integra el proyecto Opus certificado.
+ * Construye el contexto de referencia en memoria para una ejecuciÃ³n de catÃ¡logo local.
+ * Carga los items de los catÃ¡logos seleccionados en IndexedDB e integra el proyecto Opus certificado.
  */
 export async function buildLocalGenerationContext(selectedCatalogIds = 'all') {
   let loadedItems = [];
@@ -53,14 +53,14 @@ export async function buildLocalGenerationContext(selectedCatalogIds = 'all') {
     console.warn('Error leyendo registros de IndexedDB:', err);
   }
 
-  // Si no hay catálogos aún en IndexedDB, auto-instalar catálogo muestra residencial para experiencia inmediata
+  // Si no hay catÃ¡logos aÃºn en IndexedDB, auto-instalar catÃ¡logo muestra residencial para experiencia inmediata
   if (!loadedItems || loadedItems.length === 0) {
     try {
-      showToast('Cargando catálogo muestra Proyecto Residencial...', 'info');
+      showToast('Cargando catÃ¡logo muestra Proyecto Residencial...', 'info');
       await installPresetCatalog('catalogo_muestra_residencial');
       loadedItems = await getItemsByCatalogIds(selectedCatalogIds);
     } catch (err) {
-      console.warn('Auto-instalación de catálogo preset no completada:', err);
+      console.warn('Auto-instalaciÃ³n de catÃ¡logo preset no completada:', err);
     }
   }
 
@@ -81,7 +81,7 @@ export async function buildLocalGenerationContext(selectedCatalogIds = 'all') {
       sourceName: it.catalogName || 'Proyecto Opus Casa Laura'
     }));
 
-  // Índice analítico de insumos (Materiales, Mano de Obra, Maquinaria, Herramienta) para PASO 2
+  // Ãndice analÃ­tico de insumos (Materiales, Mano de Obra, Maquinaria, Herramienta) para PASO 2
   const supplyIndex = buildSupplyIndex(allItems);
 
   const fasarVal = state.settings?.pctFasar !== undefined ? Number(state.settings.pctFasar) : 70.0;
@@ -96,10 +96,10 @@ export async function buildLocalGenerationContext(selectedCatalogIds = 'all') {
   };
 }
 
-// Generar matriz APU con catálogo local para conceptos seleccionados con casilla
+// Generar matriz APU con catÃ¡logo local para conceptos seleccionados con casilla
 export async function generarMatrizCasillasLocal() {
   if (!canCurrentUserEditProject()) {
-    showToast('🔒 Modo lectura: tu rol no permite generar matrices APU.', 'warning');
+    showToast('ðŸ”’ Modo lectura: tu rol no permite generar matrices APU.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -115,18 +115,18 @@ export async function generarMatrizCasillasLocal() {
   }
 
   if (selected.length === 0) {
-    showToast('Selecciona con la casilla (checkbox) los conceptos cuya matriz deseas generar con Catálogo Local.', 'warning');
+    showToast('Selecciona con la casilla (checkbox) los conceptos cuya matriz deseas generar con CatÃ¡logo Local.', 'warning');
     return;
   }
 
   await openLocalCatalogSelectorModal(false);
 }
 
-// Abrir modal para preguntar qué catálogos considerar al generar matriz APU
-// Si singleSelectedOnly es true, aplica ESTRICTAMENTE al concepto actualmente seleccionado en la pestaña Matriz
+// Abrir modal para preguntar quÃ© catÃ¡logos considerar al generar matriz APU
+// Si singleSelectedOnly es true, aplica ESTRICTAMENTE al concepto actualmente seleccionado en la pestaÃ±a Matriz
 export async function openLocalCatalogSelectorModal(singleSelectedOnly = false) {
   if (!canCurrentUserEditProject()) {
-    showToast('🔒 Modo lectura: tu rol no permite generar matrices APU.', 'warning');
+    showToast('ðŸ”’ Modo lectura: tu rol no permite generar matrices APU.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -140,7 +140,7 @@ export async function openLocalCatalogSelectorModal(singleSelectedOnly = false) 
       node = findNodeById(state.treeData, state.activeSelectedId);
     }
     if (!node) {
-      showToast('Selecciona primero un concepto en la tabla para ver y generar su matriz con Catálogo Local.', 'warning');
+      showToast('Selecciona primero un concepto en la tabla para ver y generar su matriz con CatÃ¡logo Local.', 'warning');
       return;
     }
   } else {
@@ -153,7 +153,7 @@ export async function openLocalCatalogSelectorModal(singleSelectedOnly = false) 
     }
 
     if (selected.length === 0) {
-      showToast('Selecciona con la casilla (checkbox) los conceptos cuya matriz deseas generar con Catálogo Local.', 'warning');
+      showToast('Selecciona con la casilla (checkbox) los conceptos cuya matriz deseas generar con CatÃ¡logo Local.', 'warning');
       return;
     }
 
@@ -187,7 +187,7 @@ export async function openLocalCatalogSelectorModal(singleSelectedOnly = false) 
     const selected = getSelectedLeafConcepts();
     if (modalPathEl) modalPathEl.innerText = `Lote de ${selected.length} conceptos seleccionados con casilla`;
     if (modalClaveEl) modalClaveEl.innerText = `${selected.length} conceptos`;
-    if (modalDescEl) modalDescEl.innerText = selected.map(c => `[${c.clave || ''}] ${c.descripcion}`).slice(0, 4).join(', ') + (selected.length > 4 ? ` (+${selected.length - 4} más)` : '');
+    if (modalDescEl) modalDescEl.innerText = selected.map(c => `[${c.clave || ''}] ${c.descripcion}`).slice(0, 4).join(', ') + (selected.length > 4 ? ` (+${selected.length - 4} mÃ¡s)` : '');
     if (modalUnitEl) modalUnitEl.innerText = 'Varias';
     if (modalCantEl) modalCantEl.innerText = `${selected.length} conceptos`;
     if (btnConfirm) btnConfirm.innerHTML = `<i class="fa-solid fa-calculator text-[10px] text-amber-200"></i> <span>Generar ${selected.length} Matrices con Seleccionados</span>`;
@@ -196,18 +196,18 @@ export async function openLocalCatalogSelectorModal(singleSelectedOnly = false) 
     const parentPath = pathArr.length > 1 ? pathArr.slice(0, -1).join('  >  ') : 'Partida Principal';
     if (modalPathEl) modalPathEl.innerText = parentPath;
     if (modalClaveEl) modalClaveEl.innerText = node.clave || '---';
-    if (modalDescEl) modalDescEl.innerText = node.descripcion || 'Sin descripción';
+    if (modalDescEl) modalDescEl.innerText = node.descripcion || 'Sin descripciÃ³n';
     if (modalUnitEl) modalUnitEl.innerText = node.unidad || 'pza';
     if (modalCantEl) modalCantEl.innerText = Number(node.cantidad || 1).toLocaleString();
     if (btnConfirm) btnConfirm.innerHTML = `<i class="fa-solid fa-calculator text-[10px] text-amber-200"></i> <span>Generar Matriz para este Concepto</span>`;
   }
 
-  // Cargar lista de catálogos desde IndexedDB
+  // Cargar lista de catÃ¡logos desde IndexedDB
   let catalogs = await listReferenceCatalogs();
 
-  // Si no hay catálogos cargados, auto-instalar catálogo muestra residencial para experiencia inmediata
+  // Si no hay catÃ¡logos cargados, auto-instalar catÃ¡logo muestra residencial para experiencia inmediata
   if (!catalogs || catalogs.length === 0) {
-    showToast('Cargando catálogo muestra Proyecto Residencial...', 'info');
+    showToast('Cargando catÃ¡logo muestra Proyecto Residencial...', 'info');
     await installPresetCatalog('catalogo_muestra_residencial');
     catalogs = await listReferenceCatalogs();
   }
@@ -218,8 +218,8 @@ export async function openLocalCatalogSelectorModal(singleSelectedOnly = false) 
       container.innerHTML = `
         <div class="p-6 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-300 rounded-lg">
           <i class="fa-solid fa-folder-open text-2xl mb-1 text-slate-300"></i>
-          <p class="font-medium text-xs">No hay catálogos maestros cargados aún.</p>
-          <p class="text-[11px] text-slate-400 mt-1">Abre el "Catálogo Maestro" para importar tus archivos de Opus, Neodata, Excel o presets.</p>
+          <p class="font-medium text-xs">No hay catÃ¡logos maestros cargados aÃºn.</p>
+          <p class="text-[11px] text-slate-400 mt-1">Abre el "CatÃ¡logo Maestro" para importar tus archivos de Opus, Neodata, Excel o presets.</p>
         </div>
       `;
     } else {
@@ -234,9 +234,9 @@ export async function openLocalCatalogSelectorModal(singleSelectedOnly = false) 
                 <span class="font-bold text-xs text-slate-800 group-hover:text-amber-900 block leading-tight">${cat.name}</span>
                 <div class="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5">
                   <span class="bg-slate-100 px-1.5 py-0.2 rounded font-mono text-[9px] font-semibold text-slate-600">${(cat.itemsCount || 0).toLocaleString()} registros</span>
-                  <span>•</span>
+                  <span>â€¢</span>
                   <span>${cat.category || 'General'}</span>
-                  ${fecha ? `<span>•</span><span>${fecha}</span>` : ''}
+                  ${fecha ? `<span>â€¢</span><span>${fecha}</span>` : ''}
                 </div>
               </div>
             </div>
@@ -277,16 +277,16 @@ export function updateLocalCatalogSelectedCount() {
   }
 }
 
-// Confirmar selección y ejecutar generación para todos los conceptos seleccionados con casilla
+// Confirmar selecciÃ³n y ejecutar generaciÃ³n para todos los conceptos seleccionados con casilla
 export async function confirmAndExecuteLocalGeneration() {
   if (!canCurrentUserEditProject()) {
-    showToast('🔒 Modo lectura: tu rol no permite generar matrices APU.', 'warning');
+    showToast('ðŸ”’ Modo lectura: tu rol no permite generar matrices APU.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
   const checked = document.querySelectorAll('input[name="local-cat-choice"]:checked');
   if (checked.length === 0) {
-    showToast('Selecciona al menos un catálogo para generar la matriz.', 'warning');
+    showToast('Selecciona al menos un catÃ¡logo para generar la matriz.', 'warning');
     return;
   }
 
@@ -316,14 +316,14 @@ export async function confirmAndExecuteLocalGeneration() {
     }
 
     if (targets.length === 0) {
-      showToast('No se encontró el concepto para generar la matriz.', 'warning');
+      showToast('No se encontrÃ³ el concepto para generar la matriz.', 'warning');
       closeLocalCatalogSelectorModal();
       return;
     }
 
     saveState();
 
-    // Construir contexto de catálogos locales en memoria una sola vez para todo el lote
+    // Construir contexto de catÃ¡logos locales en memoria una sola vez para todo el lote
     const ctx = await buildLocalGenerationContext(selectedCatalogIds);
 
     let successCount = 0;
@@ -356,15 +356,15 @@ export async function confirmAndExecuteLocalGeneration() {
     if (targets.length === 1) {
       const single = targets[0];
       msg = single._generationMode === 'copy'
-        ? '¡Matriz APU integrada con éxito desde concepto similar en catálogo local!'
-        : '¡Matriz APU analítica estructurada desde cero con insumos del catálogo local!';
+        ? 'Â¡Matriz APU integrada con Ã©xito desde concepto similar en catÃ¡logo local!'
+        : 'Â¡Matriz APU analÃ­tica estructurada desde cero con insumos del catÃ¡logo local!';
     } else {
-      msg = `✅ ${successCount} de ${targets.length} matrices generadas (${copiedCount} copiadas de conceptos similares, ${scratchCount} calculadas desde cero)`;
+      msg = `âœ… ${successCount} de ${targets.length} matrices generadas (${copiedCount} copiadas de conceptos similares, ${scratchCount} calculadas desde cero)`;
     }
     showToast(msg, 'success');
   } catch (err) {
     console.error('Error generando matrices locales:', err);
-    showToast(`Error al consultar catálogo local: ${err.message}`, 'error');
+    showToast(`Error al consultar catÃ¡logo local: ${err.message}`, 'error');
   } finally {
     if (btnConfirm) {
       btnConfirm.disabled = false;
@@ -374,10 +374,10 @@ export async function confirmAndExecuteLocalGeneration() {
 }
 
 /**
- * Genera la matriz APU para un solo concepto específico usando los catálogos de referencia indicados.
+ * Genera la matriz APU para un solo concepto especÃ­fico usando los catÃ¡logos de referencia indicados.
  * Sigue los dos pasos requeridos:
  *  1. Busca concepto similar con matriz real y lo copia.
- *  2. Si no existe, interpreta la descripción desde cero y descompone piezas, insumos, cuadrillas y equipos.
+ *  2. Si no existe, interpreta la descripciÃ³n desde cero y descompone piezas, insumos, cuadrillas y equipos.
  */
 export async function generateSingleConceptLocalMatrix(node, catalogIds = 'all', prebuiltCtx = null) {
   if (!node) return false;
@@ -400,11 +400,11 @@ export async function generateSingleConceptLocalMatrix(node, catalogIds = 'all',
   node._generationMode = result.mode;
 
   if (result.mode === 'copy' && result.source) {
-    const srcName = result.source.sourceName || 'Catálogo Maestro';
+    const srcName = result.source.sourceName || 'CatÃ¡logo Maestro';
     const scorePct = Math.round((result.score || 0) * 100);
 
     node.googleSearchQueries = [
-      `Catálogo Maestro: ${srcName}`,
+      `CatÃ¡logo Maestro: ${srcName}`,
       `Concepto Sincronizado: ${result.source.clave || ''}`
     ];
     node.googleSources = [
@@ -419,25 +419,25 @@ export async function generateSingleConceptLocalMatrix(node, catalogIds = 'all',
     const catDisplay = catList.length > 0 ? catList.join(', ') : 'Biblioteca Maestro';
 
     node.googleSearchQueries = [
-      `Catálogos Consultados: ${catDisplay}`,
+      `CatÃ¡logos Consultados: ${catDisplay}`,
       `Concepto Analizado: ${node.clave || ''} (${(node.descripcion || '').substring(0, 35)}...)`
     ];
     node.googleSources = catList.map(name => ({
       title: `${name} (Biblioteca Local)`,
       uri: '#'
     }));
-    node.aiTips = `Paso 2: Matriz estructurada analíticamente desde cero para ${result.familyLabel || 'este concepto'}. Se interpretaron ${result.insumos.length} componentes (materiales, mano de obra, equipo y 3% herramienta menor) con costos unitarios de: ${catDisplay}.`;
+    node.aiTips = `Paso 2: Matriz estructurada analÃ­ticamente desde cero para ${result.familyLabel || 'este concepto'}. Se interpretaron ${result.insumos.length} componentes (materiales, mano de obra, equipo y 3% herramienta menor) con costos unitarios de: ${catDisplay}.`;
   }
 
   return true;
 }
 
 /**
- * Generación de Matriz APU para el concepto activo en la pestaña matriz usando catálogo local.
+ * GeneraciÃ³n de Matriz APU para el concepto activo en la pestaÃ±a matriz usando catÃ¡logo local.
  */
 export async function executeLocalGeneration(catalogIds = 'all') {
   if (!canCurrentUserEditProject()) {
-    showToast('🔒 Modo lectura: tu rol no permite generar matrices APU.', 'warning');
+    showToast('ðŸ”’ Modo lectura: tu rol no permite generar matrices APU.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -458,11 +458,11 @@ export async function executeLocalGeneration(catalogIds = 'all') {
   const originalLocalMaxHtml = btnLocalMax ? btnLocalMax.innerHTML : '';
   if (btnLocal) {
     btnLocal.disabled = true;
-    btnLocal.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>Catálogo...</span>';
+    btnLocal.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[10px]"></i> <span>CatÃ¡logo...</span>';
   }
   if (btnLocalMax) {
     btnLocalMax.disabled = true;
-    btnLocalMax.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i> <span>Consultando Catálogo...</span>';
+    btnLocalMax.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i> <span>Consultando CatÃ¡logo...</span>';
   }
 
   try {
@@ -476,13 +476,13 @@ export async function executeLocalGeneration(catalogIds = 'all') {
       renderAPUInsumos(node);
       renderInsumosUnitarios(node);
       renderTAB1();
-      showToast('¡Matriz APU generada exitosamente desde catálogo local!', 'success');
+      showToast('Â¡Matriz APU generada exitosamente desde catÃ¡logo local!', 'success');
     } else {
       showToast('No se pudo estructurar la matriz para este concepto.', 'warning');
     }
   } catch (err) {
-    console.error('Error generando APU con catálogo local:', err);
-    showToast(`Error al consultar catálogo local: ${err.message}`, 'error');
+    console.error('Error generando APU con catÃ¡logo local:', err);
+    showToast(`Error al consultar catÃ¡logo local: ${err.message}`, 'error');
   } finally {
     if (btnLocal) {
       btnLocal.disabled = false;

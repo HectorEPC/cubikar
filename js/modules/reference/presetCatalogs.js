@@ -1,13 +1,13 @@
-// js/modules/reference/presetCatalogs.js
-// Gestor de Catálogos Pre-cargados del Sistema
+﻿// js/modules/reference/presetCatalogs.js
+// Gestor de CatÃ¡logos Pre-cargados del Sistema
 
-import { showToast } from '../../ui/notifications.js';
-import { saveReferenceCatalog, listReferenceCatalogs, countCatalogItems } from './referenceDb.js';
-import { flattenPresetData } from '../ai/localMatrixEngine.js';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
+import { saveReferenceCatalog, listReferenceCatalogs, countCatalogItems } from './referenceDb.js?v=20261116_cf3';
+import { flattenPresetData } from '../ai/localMatrixEngine.js?v=20261116_cf3';
 
 let manifestCache = null;
 
-// Obtener el manifiesto de catálogos pre-construidos
+// Obtener el manifiesto de catÃ¡logos pre-construidos
 export async function getPresetCatalogManifest() {
   if (manifestCache) return manifestCache;
   try {
@@ -22,8 +22,8 @@ export async function getPresetCatalogManifest() {
   }
 }
 
-// Asegurar que los catálogos por defecto estén instalados automáticamente en IndexedDB
-// sin consumir cuota del usuario (el espacio lo absorbe la aplicación)
+// Asegurar que los catÃ¡logos por defecto estÃ©n instalados automÃ¡ticamente en IndexedDB
+// sin consumir cuota del usuario (el espacio lo absorbe la aplicaciÃ³n)
 export async function ensureDefaultMasterCatalogs() {
   try {
     const manifest = await getPresetCatalogManifest();
@@ -41,7 +41,7 @@ export async function ensureDefaultMasterCatalogs() {
       try {
         let data = null;
 
-        // Prioridad 1: Descomprimir paquete ZIP base ultraligero con JSZip si está disponible (pesa hasta 40x menos de descarga)
+        // Prioridad 1: Descomprimir paquete ZIP base ultraligero con JSZip si estÃ¡ disponible (pesa hasta 40x menos de descarga)
         if (preset.zipFile && typeof window !== 'undefined' && window.JSZip) {
           try {
             const zipRes = await fetch(preset.zipFile);
@@ -60,7 +60,7 @@ export async function ensureDefaultMasterCatalogs() {
           }
         }
 
-        // Prioridad 2: Lectura directa de JSON si no se cargó por ZIP
+        // Prioridad 2: Lectura directa de JSON si no se cargÃ³ por ZIP
         if (!data && preset.file) {
           try {
             const res = await fetch(preset.file);
@@ -89,7 +89,7 @@ export async function ensureDefaultMasterCatalogs() {
             absorbedByApp: true
           }, itemsList, 'system');
           loadedCount++;
-          console.log(`[DefaultCatalogs] Catálogo oficial cargado: ${preset.name} (${itemsList.length} items, absorbido por app)`);
+          console.log(`[DefaultCatalogs] CatÃ¡logo oficial cargado: ${preset.name} (${itemsList.length} items, absorbido por app)`);
           if (typeof window !== 'undefined' && window.refreshMasterCatalogList) {
             window.refreshMasterCatalogList().catch(() => {});
           }
@@ -100,17 +100,17 @@ export async function ensureDefaultMasterCatalogs() {
     }
     return loadedCount;
   } catch (e) {
-    console.warn('[DefaultCatalogs] Error en verificación de catálogos por defecto:', e);
+    console.warn('[DefaultCatalogs] Error en verificaciÃ³n de catÃ¡logos por defecto:', e);
     return 0;
   }
 }
 
-// Cargar un catálogo preset específico por su ID
+// Cargar un catÃ¡logo preset especÃ­fico por su ID
 export async function installPresetCatalog(presetId) {
   const manifest = await getPresetCatalogManifest();
   const preset = manifest.find(m => m.id === presetId);
   if (!preset) {
-    showToast(`No se encontró el catálogo preset "${presetId}"`, 'error');
+    showToast(`No se encontrÃ³ el catÃ¡logo preset "${presetId}"`, 'error');
     return false;
   }
 
@@ -148,7 +148,7 @@ export async function installPresetCatalog(presetId) {
       data = JSON.parse(rawText.replace(/^\uFEFF/, ''));
     }
 
-    if (!data) throw new Error(`No se pudo cargar el contenido del catálogo`);
+    if (!data) throw new Error(`No se pudo cargar el contenido del catÃ¡logo`);
     const itemsList = flattenPresetData(data);
     
     await saveReferenceCatalog({
@@ -164,7 +164,7 @@ export async function installPresetCatalog(presetId) {
       absorbedByApp: true
     }, itemsList, 'system');
 
-    showToast(`¡${preset.name} instalado con éxito (${itemsList.length.toLocaleString()} registros)!`, 'success');
+    showToast(`Â¡${preset.name} instalado con Ã©xito (${itemsList.length.toLocaleString()} registros)!`, 'success');
     
     if (window.refreshMasterCatalogList) {
       await window.refreshMasterCatalogList();
@@ -185,11 +185,11 @@ export async function installPresetCatalog(presetId) {
   }
 }
 
-// Cargar TODOS los catálogos oficiales pre-cargados de una sola vez
+// Cargar TODOS los catÃ¡logos oficiales pre-cargados de una sola vez
 export async function installAllPresets() {
   const manifest = await getPresetCatalogManifest();
   if (!manifest || manifest.length === 0) {
-    showToast('No se encontraron catálogos pre-cargados para instalar.', 'warning');
+    showToast('No se encontraron catÃ¡logos pre-cargados para instalar.', 'warning');
     return;
   }
 
@@ -222,7 +222,7 @@ export async function installAllPresets() {
       }
     }
 
-    showToast(`🎉 ¡Biblioteca completa instalada con éxito! ${totalInstalled.toLocaleString()} registros indexados.`, 'success');
+    showToast(`ðŸŽ‰ Â¡Biblioteca completa instalada con Ã©xito! ${totalInstalled.toLocaleString()} registros indexados.`, 'success');
 
     if (window.refreshMasterCatalogList) {
       await window.refreshMasterCatalogList();
@@ -232,8 +232,8 @@ export async function installAllPresets() {
     }
     renderPresetBadges();
   } catch (err) {
-    console.error('Error en instalación masiva:', err);
-    showToast(`Error durante la instalación masiva: ${err.message}`, 'error');
+    console.error('Error en instalaciÃ³n masiva:', err);
+    showToast(`Error durante la instalaciÃ³n masiva: ${err.message}`, 'error');
   } finally {
     if (mainBtn) {
       mainBtn.disabled = false;
@@ -242,7 +242,7 @@ export async function installAllPresets() {
   }
 }
 
-// Renderizar las tarjetas de presets en el modal del Catálogo Maestro
+// Renderizar las tarjetas de presets en el modal del CatÃ¡logo Maestro
 export async function renderPresetBadges() {
   const container = document.getElementById('master-cat-preset-grid');
   if (!container) return;
@@ -255,13 +255,13 @@ export async function renderPresetBadges() {
   manifest.forEach(preset => {
     const isInstalled = installedIds.has(preset.id);
     
-    // Iconos temáticos según categoría
+    // Iconos temÃ¡ticos segÃºn categorÃ­a
     let icon = 'fa-hard-hat';
     let colorClass = 'text-blue-600 bg-blue-50 border-blue-200';
-    if (preset.category.includes('Eléctrica')) {
+    if (preset.category.includes('ElÃ©ctrica')) {
       icon = 'fa-bolt';
       colorClass = 'text-amber-600 bg-amber-50 border-amber-200';
-    } else if (preset.category.includes('Hidráulica')) {
+    } else if (preset.category.includes('HidrÃ¡ulica')) {
       icon = 'fa-faucet-drip';
       colorClass = 'text-cyan-600 bg-cyan-50 border-cyan-200';
     } else if (preset.category.includes('Aire')) {
@@ -313,7 +313,7 @@ export async function renderPresetBadges() {
   container.innerHTML = html;
 }
 
-// Renderizar las tarjetas de paquetes base (.ZIP) oficiales en el Catálogo Maestro
+// Renderizar las tarjetas de paquetes base (.ZIP) oficiales en el CatÃ¡logo Maestro
 export async function renderBasePackagesList() {
   const container = document.getElementById('master-cat-base-packages-list');
   if (!container) return;
@@ -331,7 +331,7 @@ export async function renderBasePackagesList() {
 
     let icon = 'fa-building-columns';
     let gradient = 'from-blue-600 to-indigo-700';
-    if (preset.id.includes('igi') || preset.name.includes('Ingeniería')) {
+    if (preset.id.includes('igi') || preset.name.includes('IngenierÃ­a')) {
       icon = 'fa-bridge-water';
       gradient = 'from-emerald-600 to-teal-700';
     } else if (preset.id.includes('vivienda') || preset.name.includes('Vivienda')) {
@@ -369,9 +369,9 @@ export async function renderBasePackagesList() {
             <span class="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
               <i class="fa-solid fa-circle-check text-emerald-600"></i> Indexado en el Sistema
             </span>
-            <span class="text-[10px] text-slate-400 font-medium">Disponible para búsqueda</span>
+            <span class="text-[10px] text-slate-400 font-medium">Disponible para bÃºsqueda</span>
           ` : `
-            <span class="text-xs text-slate-500 font-medium">Catálogo base listo</span>
+            <span class="text-xs text-slate-500 font-medium">CatÃ¡logo base listo</span>
             <button onclick="installPresetCatalog('${preset.id}')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer">
               <i class="fa-solid fa-cloud-arrow-down text-xs"></i> Indexar
             </button>

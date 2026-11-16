@@ -1,4 +1,4 @@
-// js/modules/portal/projectService.js
+﻿// js/modules/portal/projectService.js
 // Servicio centralizado para usuarios, proyectos multi-obra y almacenamiento aislado
 
 import {
@@ -15,26 +15,26 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js';
+} from '../../config/constants.js?v=20261116_cf3';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js';
-import { cleanMojibake } from '../../core/textSanitizer.js';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js';
-import { deleteProjectFromCloud } from '../../core/cloudProjectService.js';
-import { getSupabaseClient } from '../../core/supabaseClient.js';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf3';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf3';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf3';
+import { deleteProjectFromCloud } from '../../core/cloudProjectService.js?v=20261116_cf3';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf3';
 
-// Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
+// Avatares temÃ¡ticos segÃºn sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
   'Masculino': "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%231e3a8a'/%3E%3Ccircle cx='50' cy='42' r='18' fill='%23fdba74'/%3E%3Cpath d='M26,34 Q50,14 74,34 L70,40 Q50,26 30,40 Z' fill='%23f59e0b'/%3E%3Cpath d='M24,88 C24,64 76,64 76,88 Z' fill='%232563eb'/%3E%3Cpolygon points='50,60 45,74 55,74' fill='%23ffffff'/%3E%3C/svg%3E",
   'Femenino': "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23581c87'/%3E%3Ccircle cx='50' cy='42' r='18' fill='%23fed7aa'/%3E%3Cpath d='M26,34 Q50,14 74,34 L70,40 Q50,26 30,40 Z' fill='%23f59e0b'/%3E%3Cpath d='M24,88 C24,64 76,64 76,88 Z' fill='%237c3aed'/%3E%3Cpolygon points='50,60 45,74 55,74' fill='%23fbcfe8'/%3E%3C/svg%3E",
   'Otro': "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23064e3b'/%3E%3Ccircle cx='50' cy='42' r='18' fill='%23fbcfe8'/%3E%3Cpath d='M26,34 Q50,14 74,34 L70,40 Q50,26 30,40 Z' fill='%23ffffff'/%3E%3Cpath d='M24,88 C24,64 76,64 76,88 Z' fill='%23059669'/%3E%3Cpolygon points='50,60 45,74 55,74' fill='%23a7f3d0'/%3E%3C/svg%3E"
 };
 
-// Cuentas de demostración de Google con foto real
+// Cuentas de demostraciÃ³n de Google con foto real
 export const GOOGLE_PRESET_ACCOUNTS = [
   {
-    name: "Héctor Emmanuel Pérez Cornejo",
+    name: "HÃ©ctor Emmanuel PÃ©rez Cornejo",
     email: "hepc.90@gmail.com",
     avatar: "https://lh3.googleusercontent.com/mock-avatar.png",
     sexo: "Masculino",
@@ -48,7 +48,7 @@ export const GOOGLE_PRESET_ACCOUNTS = [
     dob: "1990-01-01"
   },
   {
-    name: "Arq. Carlos Alberto Gómez",
+    name: "Arq. Carlos Alberto GÃ³mez",
     email: "carlos.gomez.arq@gmail.com",
     avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
     sexo: "Masculino",
@@ -62,14 +62,14 @@ export const GOOGLE_PRESET_ACCOUNTS = [
     dob: "1993-04-22"
   },
   {
-    name: "Arq. Roberto Méndez Silva",
+    name: "Arq. Roberto MÃ©ndez Silva",
     email: "roberto.mendez.obras@gmail.com",
     avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
     sexo: "Masculino",
     dob: "1988-11-05"
   },
   {
-    name: "Lic. Sofía Valenzuela Rios",
+    name: "Lic. SofÃ­a Valenzuela Rios",
     email: "sofia.valenzuela.admin@gmail.com",
     avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
     sexo: "Femenino",
@@ -107,11 +107,11 @@ export const GENERIC_BLACKLIST = new Set([
   'sistema de control',
   'sistema de arquitectura',
   'cubikar construccion',
-  'cubikar construcción',
+  'cubikar construcciÃ³n',
   'cubikar arquitectura',
   'cubikar',
   'propietario de obra',
-  'anfitrión',
+  'anfitriÃ³n',
   'anfitrion',
   'administrador',
   'administrador de obra',
@@ -235,7 +235,7 @@ export function saveRegisteredUserAccount(userObj) {
     markSessionOpen(cleanEmail);
     addFeaturedProfile(userObj);
 
-    // Enviar sincronización transparente a la API central en la nube
+    // Enviar sincronizaciÃ³n transparente a la API central en la nube
     syncUserToCloudAdmin(userObj);
   } catch (e) {}
 }
@@ -260,7 +260,7 @@ export function findRegisteredUserAccount(email) {
 }
 
 // ==========================================
-// GESTIÓN DE PERFILES DESTACADOS (SESIONES INICIADAS)
+// GESTIÃ“N DE PERFILES DESTACADOS (SESIONES INICIADAS)
 // ==========================================
 export function getFeaturedProfilesList() {
   try {
@@ -301,13 +301,13 @@ export function getFeaturedProfilesList() {
       });
     };
 
-    // 1. Usuario actualmente activo en sesión
+    // 1. Usuario actualmente activo en sesiÃ³n
     const curr = getCurrentUser();
     if (curr) {
       addProfileCandidate(curr);
     }
 
-    // 2. Perfiles explícitamente guardados en STORAGE_KEY_FEATURED_PROFILES
+    // 2. Perfiles explÃ­citamente guardados en STORAGE_KEY_FEATURED_PROFILES
     const rawFeatured = localStorage.getItem(STORAGE_KEY_FEATURED_PROFILES);
     if (rawFeatured) {
       try {
@@ -391,7 +391,7 @@ export function removeFeaturedProfile(email) {
       } catch (_) {}
     }
 
-    // Si la sesión activa o guardada coincide con la cuenta que se quita, cerrar sesión automáticamente
+    // Si la sesiÃ³n activa o guardada coincide con la cuenta que se quita, cerrar sesiÃ³n automÃ¡ticamente
     const curr = getCurrentUser();
     if (curr && (curr.email || '').toLowerCase().trim() === cleanEmail) {
       localStorage.removeItem(STORAGE_KEY_USER);
@@ -412,7 +412,7 @@ export function removeFeaturedProfile(email) {
   } catch (e) {}
 }
 
-// Purga total de todas las cuentas registradas e información de usuarios
+// Purga total de todas las cuentas registradas e informaciÃ³n de usuarios
 export function purgeAllRegisteredAccountsAndUsers() {
   try {
     localStorage.removeItem(STORAGE_KEY_REGISTERED_USERS);
@@ -441,7 +441,7 @@ export function purgeAllRegisteredAccountsAndUsers() {
 }
 
 // ==========================================
-// ELIMINACIÓN DEFINITIVA DE CUENTA Y ARCHIVOS
+// ELIMINACIÃ“N DEFINITIVA DE CUENTA Y ARCHIVOS
 // ==========================================
 export function deleteUserAccountAndData(email) {
   if (!email) return false;
@@ -467,7 +467,7 @@ export function deleteUserAccountAndData(email) {
       } catch (_) {}
     });
 
-    // 2. Guardar lista de proyectos restantes (excluyendo los del usuario y quitándolo de colaboradores de otros proyectos)
+    // 2. Guardar lista de proyectos restantes (excluyendo los del usuario y quitÃ¡ndolo de colaboradores de otros proyectos)
     const remainingProjects = allProjects.filter(p => {
       const oEmail = (p.ownerEmail || '').toLowerCase().trim();
       return oEmail !== cleanEmail;
@@ -513,12 +513,12 @@ export function deleteUserAccountAndData(email) {
       localStorage.setItem(STORAGE_KEY_CLOSED_SESSIONS, JSON.stringify(closed));
     } catch (_) {}
 
-    // 7. Limpiar suscripciones o datos locales específicos del correo
+    // 7. Limpiar suscripciones o datos locales especÃ­ficos del correo
     try {
       localStorage.removeItem(`adm_const_subscription_${cleanEmail}`);
     } catch (_) {}
 
-    // 8. Si es el usuario activo actual, limpiar sesión activa y espacio de trabajo
+    // 8. Si es el usuario activo actual, limpiar sesiÃ³n activa y espacio de trabajo
     const current = getCurrentUser();
     if (current && (current.email || '').toLowerCase().trim() === cleanEmail) {
       saveCurrentUser(null);
@@ -536,14 +536,14 @@ export function deleteUserAccountAndData(email) {
 }
 
 // ==========================================
-// REVOCACIÓN Y CONTROL GLOBAL DE SESIONES
+// REVOCACIÃ“N Y CONTROL GLOBAL DE SESIONES
 // ==========================================
 export function enforceGlobalSessionRevocation() {
   try {
     if (typeof localStorage === 'undefined') return false;
     const currentVersion = localStorage.getItem(STORAGE_KEY_AUTH_SESSION_VERSION);
     if (currentVersion !== CURRENT_AUTH_SESSION_VERSION) {
-      console.info('[Session Isolation] Revocación global activa. Purgando sesiones previas en esta máquina...');
+      console.info('[Session Isolation] RevocaciÃ³n global activa. Purgando sesiones previas en esta mÃ¡quina...');
       const oldRaw = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY_USER) : null) ||
                      localStorage.getItem(STORAGE_KEY_USER) ||
                      localStorage.getItem(STORAGE_KEY_USER + '_last');
@@ -567,7 +567,7 @@ export function enforceGlobalSessionRevocation() {
         sessionStorage.clear();
       }
 
-      // 2. Purgar todos los tokens de Supabase Auth en esta máquina
+      // 2. Purgar todos los tokens de Supabase Auth en esta mÃ¡quina
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const k = localStorage.key(i);
         if (k && (k.startsWith('sb-') || k.includes('auth-token'))) {
@@ -576,10 +576,10 @@ export function enforceGlobalSessionRevocation() {
         }
       }
 
-      // 3. Registrar versión actual de revocación global
+      // 3. Registrar versiÃ³n actual de revocaciÃ³n global
       localStorage.setItem(STORAGE_KEY_AUTH_SESSION_VERSION, CURRENT_AUTH_SESSION_VERSION);
 
-      // 4. Invocar signOut local solo si existía sesión previa en esta máquina y NO hay SSO entrante activo
+      // 4. Invocar signOut local solo si existÃ­a sesiÃ³n previa en esta mÃ¡quina y NO hay SSO entrante activo
       try {
         if (typeof window !== 'undefined') {
           const hasIncomingSso = (window.location?.hash || '').includes('cubikar_sso_at=') ||
@@ -588,7 +588,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js').then(m => {
+            import('../../core/supabaseClient.js?v=20261116_cf3').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -600,13 +600,13 @@ export function enforceGlobalSessionRevocation() {
     }
     return false;
   } catch (e) {
-    console.warn('[Session Isolation] Error al comprobar versión de revocación:', e);
+    console.warn('[Session Isolation] Error al comprobar versiÃ³n de revocaciÃ³n:', e);
     return false;
   }
 }
 
 // ==========================================
-// GESTIÓN DE USUARIO
+// GESTIÃ“N DE USUARIO
 // ==========================================
 let _simulatedUserView = null;
 
@@ -625,11 +625,11 @@ export function getCurrentUser(ignoreSimulation = false) {
     }
     enforceGlobalSessionRevocation();
     let raw = null;
-    // 1. Revisar si hay sesión temporal en sessionStorage (ej. no se marcó "Recordar en este equipo")
+    // 1. Revisar si hay sesiÃ³n temporal en sessionStorage (ej. no se marcÃ³ "Recordar en este equipo")
     if (typeof sessionStorage !== 'undefined') {
       raw = sessionStorage.getItem(STORAGE_KEY_USER);
     }
-    // 2. Si no, revisar en localStorage si se guardó como persistente
+    // 2. Si no, revisar en localStorage si se guardÃ³ como persistente
     if (!raw && typeof localStorage !== 'undefined') {
       raw = localStorage.getItem(STORAGE_KEY_USER);
     }
@@ -659,7 +659,7 @@ export function getCurrentUser(ignoreSimulation = false) {
   }
 }
 
-// Retorna el usuario guardado en localStorage sin forzar ningún fallback inventado
+// Retorna el usuario guardado en localStorage sin forzar ningÃºn fallback inventado
 export function getSavedUserProfile() {
   try {
     enforceGlobalSessionRevocation();
@@ -725,7 +725,7 @@ export function saveCurrentUser(user, remember = null) {
       } catch (e) {}
       const cleanUserEmail = (user?.email || '').toLowerCase().trim();
 
-      // Sincronizar siempre con la suscripción aislada del usuario
+      // Sincronizar siempre con la suscripciÃ³n aislada del usuario
       if (cleanUserEmail && typeof localStorage !== 'undefined') {
         const subRaw = localStorage.getItem(`adm_const_subscription_${cleanUserEmail}`);
         const PLAN_RANKS = { pro: 3, plus: 2, free: 1 };
@@ -737,7 +737,7 @@ export function saveCurrentUser(user, remember = null) {
               const parsedRank = PLAN_RANKS[parsedSub.planId] || 1;
 
               if (currentRank > parsedRank) {
-                // El usuario en memoria posee un plan superior (ej. Plus o Pro recién sincronizado)
+                // El usuario en memoria posee un plan superior (ej. Plus o Pro reciÃ©n sincronizado)
                 localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(user.subscription));
               } else if (parsedRank > currentRank) {
                 // El almacenamiento local posee un plan superior
@@ -750,7 +750,7 @@ export function saveCurrentUser(user, remember = null) {
             }
           } catch (_) {}
         } else {
-          // Si el usuario trae suscripción válida (ej. de Supabase o Google en otra PC), conservarla
+          // Si el usuario trae suscripciÃ³n vÃ¡lida (ej. de Supabase o Google en otra PC), conservarla
           if (user.subscription && user.subscription.planId && user.subscription.planId !== 'free') {
             localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(user.subscription));
           } else if (cleanUserEmail === 'hepc.90@gmail.com' || cleanUserEmail === 'admin.general@constructora.com') {
@@ -758,7 +758,7 @@ export function saveCurrentUser(user, remember = null) {
             user.subscription = proSub;
             localStorage.setItem(`adm_const_subscription_${cleanUserEmail}`, JSON.stringify(proSub));
           } else {
-            // Verificar si hay suscripción global previa antes de asignar free
+            // Verificar si hay suscripciÃ³n global previa antes de asignar free
             let existingGlobal = null;
             try {
               const gRaw = localStorage.getItem('adm_const_subscription');
@@ -780,7 +780,7 @@ export function saveCurrentUser(user, remember = null) {
         user.subscription = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
       }
 
-      // Determinar si se debe recordar en este equipo o si es sesión temporal
+      // Determinar si se debe recordar en este equipo o si es sesiÃ³n temporal
       const shouldRemember = remember !== null 
         ? !!remember 
         : (typeof localStorage !== 'undefined' && localStorage.getItem('cubikar_remember_device') !== 'false');
@@ -799,7 +799,7 @@ export function saveCurrentUser(user, remember = null) {
           sessionStorage.removeItem(STORAGE_KEY_USER);
         }
       } else {
-        // Modo sesión temporal: solo existe mientras la ventana/pestaña permanezca abierta
+        // Modo sesiÃ³n temporal: solo existe mientras la ventana/pestaÃ±a permanezca abierta
         if (typeof sessionStorage !== 'undefined') {
           sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
         }
@@ -847,7 +847,7 @@ export function isProjectMarkedDeleted(projectId) {
 }
 
 // ==========================================
-// GESTIÓN DE PROYECTOS
+// GESTIÃ“N DE PROYECTOS
 // ==========================================
 export function getProjectsList() {
   try {
@@ -878,9 +878,9 @@ export function getProjectsList() {
       if (!isRealAuthenticatedUser && !hasCasaLaura && !isDeleted('proj-opus-casa-laura')) {
         const proj3Id = 'proj-opus-casa-laura';
         const proj3Settings = Object.assign({}, defaultSettings, {
-          companyName: 'Constructora Opus México',
+          companyName: 'Constructora Opus MÃ©xico',
           companyLogo: SAMPLE_LOGOS.building,
-          projectName: 'Catálogo Muestra - Proyecto Residencial',
+          projectName: 'CatÃ¡logo Muestra - Proyecto Residencial',
           projectLocation: 'Fraccionamiento Residencial, Puebla, Pue.',
           currency: 'MXN',
           currencySymbol: '$',
@@ -938,7 +938,7 @@ export function getProjectsList() {
           p.members.forEach(m => {
             const mEmail = (m.email || '').toLowerCase().trim();
             if (pOwnerEmail && mEmail === pOwnerEmail) {
-              // Garantizar que el dueño de la obra siempre conserve las 6 pestañas completas
+              // Garantizar que el dueÃ±o de la obra siempre conserve las 6 pestaÃ±as completas
               m.role = 'editar';
               m.allowedTabs = [...fullTabs];
             } else if (m.role === 'editar') {
@@ -960,11 +960,11 @@ export function getProjectsList() {
           p.members = [];
         }
 
-        // Asignar tipo de obra si no cuenta con él
+        // Asignar tipo de obra si no cuenta con Ã©l
         if (!p.tipoObra) {
           const nameLower = (p.projectName || '').toLowerCase();
           if (nameLower.includes('torre') || nameLower.includes('corporativ') || nameLower.includes('edificio')) {
-            p.tipoObra = 'Edificación';
+            p.tipoObra = 'EdificaciÃ³n';
           } else if (nameLower.includes('residencia') || nameLower.includes('casa') || nameLower.includes('vivienda') || nameLower.includes('lomas')) {
             p.tipoObra = 'Vivienda';
           } else if (nameLower.includes('puente') || nameLower.includes('cimentac') || nameLower.includes('pilot')) {
@@ -972,7 +972,7 @@ export function getProjectsList() {
           } else if (nameLower.includes('vial') || nameLower.includes('carreter') || nameLower.includes('parque')) {
             p.tipoObra = 'Infraestructura';
           } else {
-            p.tipoObra = 'Edificación';
+            p.tipoObra = 'EdificaciÃ³n';
           }
           changed = true;
         }
@@ -991,7 +991,7 @@ export function getProjectsList() {
           changed = true;
         }
 
-        // Asignar fecha de creación si no cuenta con ella
+        // Asignar fecha de creaciÃ³n si no cuenta con ella
         if (!p.createdAt) {
           p.createdAt = new Date().toISOString().slice(0, 10);
           changed = true;
@@ -1033,7 +1033,7 @@ export function saveProjectsList(projects) {
 }
 
 // Obtener proyectos accesibles para un usuario dado
-// En el perfil del usuario solo aparecerán los proyectos que creó y aquellos en los que aceptó la invitación (miembro activo).
+// En el perfil del usuario solo aparecerÃ¡n los proyectos que creÃ³ y aquellos en los que aceptÃ³ la invitaciÃ³n (miembro activo).
 export function getProjectsForUser(user) {
   const allProjects = getProjectsList();
   if (!user || !user.email) return allProjects;
@@ -1049,7 +1049,7 @@ export function getProjectsForUser(user) {
     if (p.ownerEmail && p.ownerEmail.toLowerCase().trim() === emailLower) {
       return true;
     }
-    // O es miembro activo, aceptado o con invitación pendiente
+    // O es miembro activo, aceptado o con invitaciÃ³n pendiente
     if (Array.isArray(p.members)) {
       return p.members.some(m => {
         const mEmail = (m.email || '').toLowerCase().trim();
@@ -1084,7 +1084,7 @@ function initializeDefaultProjects() {
   // Proyecto Principal (basado en los datos actuales o por defecto)
   const proj1Id = 'proj-default-01';
   const proj1Settings = Object.assign({}, defaultSettings, existingSettings || {}, {
-    companyName: (existingSettings && existingSettings.companyName) || 'Constructora Lomas del Ángel S.A.',
+    companyName: (existingSettings && existingSettings.companyName) || 'Constructora Lomas del Ãngel S.A.',
     companyLogo: (existingSettings && existingSettings.companyLogo) || SAMPLE_LOGOS.shield,
     projectName: (existingSettings && existingSettings.projectName) || 'Residencia Lomas Altas (Fase 1)',
     projectLocation: (existingSettings && existingSettings.projectLocation) || 'Av. Paseo de las Lomas 1240, CDMX',
@@ -1125,10 +1125,10 @@ function initializeDefaultProjects() {
   // Proyecto de Muestra 2 (Torre Corporativa Reforma)
   const proj2Id = 'proj-demo-02';
   const proj2Settings = Object.assign({}, defaultSettings, {
-    companyName: 'Grupo Constructor Metrópoli',
+    companyName: 'Grupo Constructor MetrÃ³poli',
     companyLogo: SAMPLE_LOGOS.building,
     projectName: 'Torre Corporativa Reforma',
-    projectLocation: 'Paseo de la Reforma 405, Cuauhtémoc, CDMX',
+    projectLocation: 'Paseo de la Reforma 405, CuauhtÃ©moc, CDMX',
     currency: 'USD',
     currencySymbol: '$',
     applySobrecosto: true,
@@ -1154,7 +1154,7 @@ function initializeDefaultProjects() {
         {
           id: 'p2-1.1',
           clave: '1.1',
-          descripcion: 'Pilotes de cimentación profunda de concreto armado d=80 cm h=22 m',
+          descripcion: 'Pilotes de cimentaciÃ³n profunda de concreto armado d=80 cm h=22 m',
           unidad: 'm',
           cantidad: 1450.00,
           precioUnitario: 320.00,
@@ -1162,8 +1162,8 @@ function initializeDefaultProjects() {
           selected: true,
           insumos: [
             { clave: 'MAT-P01', tipo: 'Material', descripcion: 'Concreto premezclado f\'c=350 kg/cm2', unidad: 'm3', cantidad: 0.52, costoUnitario: 145.00 },
-            { clave: 'MO-P01', tipo: 'Mano de Obra', descripcion: 'Cuadrilla especializada en perforación y colado', unidad: 'jor', cantidad: 0.05, costoUnitario: 180.00 },
-            { clave: 'EQ-P01', tipo: 'Equipo', descripcion: 'Perforadora hidráulica sobre orugas Casagrande', unidad: 'hr', cantidad: 0.04, costoUnitario: 850.00 }
+            { clave: 'MO-P01', tipo: 'Mano de Obra', descripcion: 'Cuadrilla especializada en perforaciÃ³n y colado', unidad: 'jor', cantidad: 0.05, costoUnitario: 180.00 },
+            { clave: 'EQ-P01', tipo: 'Equipo', descripcion: 'Perforadora hidrÃ¡ulica sobre orugas Casagrande', unidad: 'hr', cantidad: 0.04, costoUnitario: 850.00 }
           ]
         }
       ]
@@ -1181,7 +1181,7 @@ function initializeDefaultProjects() {
     companyLogo: proj2Settings.companyLogo,
     projectName: proj2Settings.projectName,
     projectLocation: proj2Settings.projectLocation,
-    tipoObra: 'Edificación',
+    tipoObra: 'EdificaciÃ³n',
     currency: proj2Settings.currency,
     currencySymbol: proj2Settings.currencySymbol,
     factorSobrecosto: 1.2215,
@@ -1191,12 +1191,12 @@ function initializeDefaultProjects() {
     createdAt: '2026-10-10'
   });
 
-  // Proyecto 3: Catálogo Muestra - Proyecto Residencial
+  // Proyecto 3: CatÃ¡logo Muestra - Proyecto Residencial
   const proj3Id = 'proj-opus-casa-laura';
   const proj3Settings = Object.assign({}, defaultSettings, {
-    companyName: 'Constructora Opus México',
+    companyName: 'Constructora Opus MÃ©xico',
     companyLogo: SAMPLE_LOGOS.building,
-    projectName: 'Catálogo Muestra - Proyecto Residencial',
+    projectName: 'CatÃ¡logo Muestra - Proyecto Residencial',
     projectLocation: 'Fraccionamiento Residencial, Puebla, Pue.',
     currency: 'MXN',
     currencySymbol: '$',
@@ -1234,7 +1234,7 @@ function initializeDefaultProjects() {
   return initialProjects;
 }
 
-// Carga del catálogo muestra Proyecto Residencial desde el paquete ZIP
+// Carga del catÃ¡logo muestra Proyecto Residencial desde el paquete ZIP
 export async function loadSampleResidentialZipCatalog() {
   try {
     if (typeof window !== 'undefined' && window.JSZip && typeof fetch === 'function') {
@@ -1275,25 +1275,46 @@ export async function loadSampleResidentialZipCatalog() {
   return prepareCatalogTreeNodes(JSON.parse(JSON.stringify(defaultTreeData)));
 }
 
+function ensureNodeUuid(rawVal) {
+  const s = String(rawVal || '').trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) {
+    return s;
+  }
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export function prepareCatalogTreeNodes(nodes, prefix = '') {
   if (!Array.isArray(nodes)) return [];
   return nodes.map((node, idx) => {
-    const currentId = node.id || (prefix ? `${prefix}.${idx + 1}` : `${idx + 1}`);
-    const copy = { ...node, id: currentId, expanded: true, selected: true };
+    const currentId = ensureNodeUuid(node.uuid || node.id);
+    const currentClave = node.clave || (prefix ? `${prefix}.${idx + 1}` : `${idx + 1}`);
+    const copy = { ...node, id: currentId, uuid: currentId, clave: currentClave, expanded: true, selected: true };
     if (copy.children && !Array.isArray(copy.children) && typeof copy.children === 'object') {
       copy.children = [copy.children];
     }
     if (Array.isArray(copy.children) && copy.children.length > 0) {
       copy.tipo = 'Partida';
-      copy.children = prepareCatalogTreeNodes(copy.children, currentId);
+      copy.children = prepareCatalogTreeNodes(copy.children, currentClave);
     } else {
       copy.tipo = 'Concepto';
       if (Array.isArray(copy.insumos)) {
-        copy.insumos = copy.insumos.map(ins => ({
-          ...ins,
-          cantidad: ins.cantidad !== undefined ? Math.round(((Number(ins.cantidad) || 0) + Number.EPSILON) * 100000) / 100000 : 0,
-          costoUnitario: ins.costoUnitario !== undefined ? Math.round(((Number(ins.costoUnitario) || 0) + Number.EPSILON) * 100) / 100 : 0
-        }));
+        copy.insumos = copy.insumos.map(ins => {
+          const insId = ensureNodeUuid(ins.uuid || ins.id);
+          return {
+            ...ins,
+            id: insId,
+            uuid: insId,
+            cantidad: ins.cantidad !== undefined ? Math.round(((Number(ins.cantidad) || 0) + Number.EPSILON) * 100000) / 100000 : 0,
+            costoUnitario: ins.costoUnitario !== undefined ? Math.round(((Number(ins.costoUnitario) || 0) + Number.EPSILON) * 100) / 100 : 0
+          };
+        });
       }
     }
     return copy;
@@ -1323,9 +1344,9 @@ export function createNewProject(params) {
     budgetSignatures: (Array.isArray(params.budgetSignatures) && params.budgetSignatures.length > 0)
       ? params.budgetSignatures
       : (defaultSettings.budgetSignatures || [
-          { rol: 'ELABORÓ', nombre: '', cargo: 'Departamento de Precios Unitarios y Presupuestos' },
-          { rol: 'REVISÓ', nombre: '', cargo: 'Coordinación de Costos e Ingeniería' },
-          { rol: 'AUTORIZÓ / CLIENTE', nombre: '', cargo: 'Dirección de Obra y Supervisión' }
+          { rol: 'ELABORÃ“', nombre: '', cargo: 'Departamento de Precios Unitarios y Presupuestos' },
+          { rol: 'REVISÃ“', nombre: '', cargo: 'CoordinaciÃ³n de Costos e IngenierÃ­a' },
+          { rol: 'AUTORIZÃ“ / CLIENTE', nombre: '', cargo: 'DirecciÃ³n de Obra y SupervisiÃ³n' }
         ])
   });
 
@@ -1333,7 +1354,7 @@ export function createNewProject(params) {
     ? params.treeData
     : (params.template === 'demo' ? prepareCatalogTreeNodes(JSON.parse(JSON.stringify(defaultTreeData))) : []);
 
-  // Almacenar settings y catálogo del nuevo proyecto
+  // Almacenar settings y catÃ¡logo del nuevo proyecto
   try {
     localStorage.setItem(getSettingsKey(newId), JSON.stringify(projSettings));
     localStorage.setItem(getStorageKey(newId), JSON.stringify(projTree));
@@ -1374,7 +1395,7 @@ export function createNewProject(params) {
         }
       ];
 
-      // Vincular automáticamente a todos los demás colaboradores del plan del anfitrión (User A) con sus respectivos roles ('editar', 'escribir', 'leer')
+      // Vincular automÃ¡ticamente a todos los demÃ¡s colaboradores del plan del anfitriÃ³n (User A) con sus respectivos roles ('editar', 'escribir', 'leer')
       const existingCollabs = getPlanCollaboratorsForOwner(targetOwnerEmail);
       existingCollabs.forEach(collab => {
         const cEmail = (collab.email || '').toLowerCase().trim();
@@ -1402,7 +1423,7 @@ export function createNewProject(params) {
         }
       ];
 
-      // Si el dueño mismo crea la obra, vincular automáticamente a los colaboradores ya invitados a su plan
+      // Si el dueÃ±o mismo crea la obra, vincular automÃ¡ticamente a los colaboradores ya invitados a su plan
       const existingCollabs = getPlanCollaboratorsForOwner(targetOwnerEmail);
       existingCollabs.forEach(collab => {
         const cEmail = (collab.email || '').toLowerCase().trim();
@@ -1427,7 +1448,7 @@ export function createNewProject(params) {
     companyLogo: projSettings.companyLogo,
     projectName: projSettings.projectName,
     projectLocation: projSettings.projectLocation,
-    tipoObra: params.tipoObra || 'Edificación',
+    tipoObra: params.tipoObra || 'EdificaciÃ³n',
     currency: projSettings.currency,
     currencySymbol: projSettings.currencySymbol,
     factorSobrecosto: f,
@@ -1466,7 +1487,7 @@ export function duplicateProject(projectId) {
   const createCheck = canUserCreateProject(u, targetScope);
   if (!createCheck.allowed) {
     if (typeof window !== 'undefined') {
-      window.showToast?.(`🔒 ${createCheck.reason}`, 'warning');
+      window.showToast?.(`ðŸ”’ ${createCheck.reason}`, 'warning');
       window.openSubscriptionModal?.();
     }
     return null;
@@ -1534,7 +1555,7 @@ export function duplicateProject(projectId) {
 }
 
 // ==========================================
-// GESTIÓN DE COLABORADORES / USUARIOS DE PROYECTO
+// GESTIÃ“N DE COLABORADORES / USUARIOS DE PROYECTO
 // ==========================================
 export function getProjectMembers(projectId) {
   const p = getProjectById(projectId);
@@ -1554,7 +1575,7 @@ export function addProjectMember(projectId, memberData) {
     const ownerEmail = (proj.ownerEmail || getCurrentUser()?.email || '').toLowerCase().trim();
     const quotaCheck = canAddUserToOwnerAccount(ownerEmail, memberData.email, projectId);
     if (!quotaCheck.allowed) {
-      console.warn('[Suscripción] addProjectMember bloqueado por límite de plan:', quotaCheck.reason);
+      console.warn('[SuscripciÃ³n] addProjectMember bloqueado por lÃ­mite de plan:', quotaCheck.reason);
       return null;
     }
   }
@@ -1586,7 +1607,7 @@ export function removeProjectMember(projectId, memberId) {
   proj.members = proj.members.filter(m => m.id !== memberId);
   saveProjectsList(list);
 
-  // También limpiar cualquier invitación pendiente asociada
+  // TambiÃ©n limpiar cualquier invitaciÃ³n pendiente asociada
   if (targetMember && targetMember.email) {
     const cleanTargetEmail = targetMember.email.toLowerCase().trim();
     const ownerEmail = (proj.ownerEmail || getCurrentUser()?.email || '').toLowerCase().trim();
@@ -1597,7 +1618,7 @@ export function removeProjectMember(projectId, memberId) {
       saveStoredInvitations(invs);
     } catch (e) {}
 
-    // Si ya no pertenece a ningún otro proyecto de este propietario, limpiarlo también de las invitaciones de plan
+    // Si ya no pertenece a ningÃºn otro proyecto de este propietario, limpiarlo tambiÃ©n de las invitaciones de plan
     try {
       const stillInOtherProject = list.some(p =>
         p.id !== projectId &&
@@ -1620,7 +1641,7 @@ export function removeProjectMember(projectId, memberId) {
       }
     } catch (_) {}
 
-    // Notificar en tiempo real al usuario removido y a los demás colaboradores
+    // Notificar en tiempo real al usuario removido y a los demÃ¡s colaboradores
     try {
       if (typeof window !== 'undefined' && typeof window.broadcastCollaboratorRemoved === 'function') {
         window.broadcastCollaboratorRemoved(projectId, targetMember.email, proj.cloudId || null);
@@ -1658,7 +1679,7 @@ export function updateProjectMemberRole(projectId, memberId, newRole) {
   return false;
 }
 
-// Actualizar pestañas permitidas para un miembro
+// Actualizar pestaÃ±as permitidas para un miembro
 export function updateProjectMemberTabs(projectId, memberId, allowedTabs) {
   const list = getProjectsList();
   const proj = list.find(p => p.id === projectId);
@@ -1680,7 +1701,7 @@ export function updateProjectMemberTabs(projectId, memberId, allowedTabs) {
   return false;
 }
 
-// Actualizar los miembros asignados a una pestaña específica de este proyecto
+// Actualizar los miembros asignados a una pestaÃ±a especÃ­fica de este proyecto
 export function setTabAssignedMembers(projectId, tabId, memberIds) {
   const list = getProjectsList();
   const proj = list.find(p => p.id === projectId);
@@ -1715,7 +1736,7 @@ export function setTabAssignedMembers(projectId, tabId, memberIds) {
   return true;
 }
 
-// Obtener los miembros de este proyecto asignados a una pestaña específica
+// Obtener los miembros de este proyecto asignados a una pestaÃ±a especÃ­fica
 export function getTabAssignedMembers(projectId, tabId) {
   const members = getProjectMembers(projectId);
   return members.filter(m => {
@@ -1832,7 +1853,7 @@ export async function deleteProject(projectId) {
     }
   } catch (_) {}
 
-  // 5. Registrar lápida (tombstone) y actualizar manifiesto de obras activas del anfitrión en Supabase
+  // 5. Registrar lÃ¡pida (tombstone) y actualizar manifiesto de obras activas del anfitriÃ³n en Supabase
   try {
     if (typeof window !== 'undefined' && typeof window.recordDeletedProjectTombstone === 'function') {
       const tombOpts = { deletedByEmail: myEmail, collaboratorEmails: collabEmails };
@@ -1847,7 +1868,7 @@ export async function deleteProject(projectId) {
     }
   } catch (_) {}
 
-  // 6. Eliminar de la base de datos Supabase (con verificación de errores y lápida persistente)
+  // 6. Eliminar de la base de datos Supabase (con verificaciÃ³n de errores y lÃ¡pida persistente)
   try {
     const delRes = await deleteProjectFromCloud(cloudId || projectId, {
       project: targetObj,
@@ -1904,7 +1925,7 @@ export function syncActiveProjectSummary(projectId, treeData, settings) {
 }
 
 // ==========================================
-// GESTIÓN DE INVITACIONES Y PERMISOS DE PROYECTO
+// GESTIÃ“N DE INVITACIONES Y PERMISOS DE PROYECTO
 // ==========================================
 
 export function getStoredInvitations() {
@@ -1923,7 +1944,7 @@ export function saveStoredInvitations(invitations) {
   triggerCloudCollabSync();
 }
 
-// Obtener invitaciones pendientes para un usuario específico (por email)
+// Obtener invitaciones pendientes para un usuario especÃ­fico (por email)
 export function getPendingInvitationsForUser(userEmail) {
   if (!userEmail) return [];
   const emailLower = userEmail.toLowerCase().trim();
@@ -1955,11 +1976,11 @@ export function getPendingInvitationsForUser(userEmail) {
     // Si el proyecto fue eliminado o marcado como eliminado, NO MOSTRAR
     if (isDeleted(inv.projectId)) return;
 
-    // Si el proyecto ya no existe en la lista de proyectos válidos, NO MOSTRAR
+    // Si el proyecto ya no existe en la lista de proyectos vÃ¡lidos, NO MOSTRAR
     const targetProj = allProjects.find(p => p.id === inv.projectId || p.cloudId === inv.projectId);
     if (!targetProj) return;
 
-    // Si el usuario ya es miembro activo y aceptado en el proyecto, la invitación ya no está pendiente
+    // Si el usuario ya es miembro activo y aceptado en el proyecto, la invitaciÃ³n ya no estÃ¡ pendiente
     if (Array.isArray(targetProj.members)) {
       const existingMember = targetProj.members.find(m => (m.email || '').toLowerCase().trim() === emailLower);
       if (existingMember && (existingMember.status === 'active' || existingMember.status === 'accepted')) {
@@ -1973,14 +1994,14 @@ export function getPendingInvitationsForUser(userEmail) {
     results.push(inv);
   });
 
-  // 2. Invitaciones al plan de suscripción almacenadas
+  // 2. Invitaciones al plan de suscripciÃ³n almacenadas
   const planInvs = getStoredPlanInvitations();
   planInvs.forEach(pInv => {
     if (pInv.status !== 'pending') return;
     if ((pInv.email || '').toLowerCase().trim() !== emailLower) return;
 
     const hostEmail = (pInv.ownerEmail || '').toLowerCase().trim();
-    // Proyectos activos no eliminados del anfitrión
+    // Proyectos activos no eliminados del anfitriÃ³n
     const hostProjects = allProjects.filter(p => 
       (p.ownerEmail || '').toLowerCase().trim() === hostEmail && 
       !isDeleted(p.id) && !isDeleted(p.cloudId)
@@ -2020,7 +2041,7 @@ export function getPendingInvitationsForUser(userEmail) {
   return results;
 }
 
-// Crear o actualizar una invitación de proyecto
+// Crear o actualizar una invitaciÃ³n de proyecto
 export function createProjectInvitation({ projectId, email, name, role = 'editar', allowedTabs = [], invitedBy = null }) {
   if (!projectId || !email) return null;
   const list = getProjectsList();
@@ -2031,7 +2052,7 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
   const emailClean = email.trim().toLowerCase();
   const seatCheck = canAddUserToOwnerAccount(ownerEmail, emailClean, projectId);
   if (!seatCheck.allowed) {
-    console.warn('[Suscripción] Invitación bloqueada por límite de usuarios:', seatCheck.reason);
+    console.warn('[SuscripciÃ³n] InvitaciÃ³n bloqueada por lÃ­mite de usuarios:', seatCheck.reason);
     return null;
   }
 
@@ -2065,7 +2086,7 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
   filteredInvs.unshift(newInvitation);
   saveStoredInvitations(filteredInvs);
 
-  // Registrar también al miembro en el proyecto en estado 'pending'
+  // Registrar tambiÃ©n al miembro en el proyecto en estado 'pending'
   addProjectMember(projectId, {
     name: newInvitation.name,
     email: newInvitation.email,
@@ -2082,21 +2103,21 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
     }
   } catch (_) {}
 
-  // Emitir broadcast en tiempo real vía WebSockets a otros usuarios conectados
+  // Emitir broadcast en tiempo real vÃ­a WebSockets a otros usuarios conectados
   try {
     if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastNewInvitation === 'function') {
       const updatedProj = getProjectById(projectId);
       window.CubikarRealtime.broadcastNewInvitation(newInvitation, updatedProj);
     }
   } catch (e) {
-    console.warn('[Realtime] Error emitiendo invitación:', e);
+    console.warn('[Realtime] Error emitiendo invitaciÃ³n:', e);
   }
 
   return newInvitation;
 }
 
 
-// Aceptar invitación a un proyecto o al plan de un anfitrión
+// Aceptar invitaciÃ³n a un proyecto o al plan de un anfitriÃ³n
 export function acceptProjectInvitation(invitationId, currentUser = null) {
   const user = currentUser || getCurrentUser();
   const userEmail = (user?.email || '').toLowerCase().trim();
@@ -2136,7 +2157,7 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
     }
   }
 
-  // 4. Si aún no se encontró por ID, buscar la invitación pendiente por correo del usuario conectado
+  // 4. Si aÃºn no se encontrÃ³ por ID, buscar la invitaciÃ³n pendiente por correo del usuario conectado
   if (!targetInv && !targetPlanInv && userEmail) {
     targetInv = invs.find(i => (i.email || '').toLowerCase().trim() === userEmail && i.status === 'pending');
     if (!targetInv) {
@@ -2144,7 +2165,7 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
     }
   }
 
-  // 5. Si aún no se encontró, buscar en miembros de proyectos si el usuario está registrado con status 'pending'
+  // 5. Si aÃºn no se encontrÃ³, buscar en miembros de proyectos si el usuario estÃ¡ registrado con status 'pending'
   if (!targetInv && !targetPlanInv && userEmail) {
     const projWithMember = list.find(p => 
       Array.isArray(p.members) && 
@@ -2181,10 +2202,10 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
   }
 
   if (!targetInv && !targetPlanInv) {
-    return { ok: false, error: 'Invitación no encontrada' };
+    return { ok: false, error: 'InvitaciÃ³n no encontrada' };
   }
 
-  // Revalidar límite de usuarios de la cuenta anfitriona antes de aceptar
+  // Revalidar lÃ­mite de usuarios de la cuenta anfitriona antes de aceptar
   const hostOwnerForQuota = targetInv?.ownerEmail || targetPlanInv?.ownerEmail || (targetProjectId ? getProjectById(targetProjectId)?.ownerEmail : '') || '';
   const targetProjIdForQuota = targetInv?.projectId || targetProjectId || null;
   if (hostOwnerForQuota && userEmail) {
@@ -2193,12 +2214,12 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
       return {
         ok: false,
         limitReached: true,
-        error: quotaCheck.reason || 'El anfitrión alcanzó el límite de usuarios permitidos en su plan.'
+        error: quotaCheck.reason || 'El anfitriÃ³n alcanzÃ³ el lÃ­mite de usuarios permitidos en su plan.'
       };
     }
   }
 
-  // Aceptar Invitación Formal de Proyecto
+  // Aceptar InvitaciÃ³n Formal de Proyecto
   if (targetInv) {
     targetInv.status = 'accepted';
     targetInv.acceptedAt = new Date().toISOString();
@@ -2243,7 +2264,7 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
       }
     } catch (_) {}
 
-    // Si también existía invitación de plan con este anfitrión, marcarla como aceptada
+    // Si tambiÃ©n existÃ­a invitaciÃ³n de plan con este anfitriÃ³n, marcarla como aceptada
     if (targetInv.ownerEmail) {
       const hostEmail = (targetInv.ownerEmail || '').toLowerCase().trim();
       const pInv = planInvs.find(pi => (pi.ownerEmail || '').toLowerCase().trim() === hostEmail && (pi.email || '').toLowerCase().trim() === (targetInv.email || userEmail).toLowerCase().trim());
@@ -2264,7 +2285,7 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
     return { ok: true, projectId: targetProjectId, projectName: targetProjectName || 'Proyecto de Obra' };
   }
 
-  // Aceptar Invitación al Plan de Suscripción del Anfitrión
+  // Aceptar InvitaciÃ³n al Plan de SuscripciÃ³n del AnfitriÃ³n
   if (targetPlanInv) {
     targetPlanInv.status = 'accepted';
     targetPlanInv.acceptedAt = new Date().toISOString();
@@ -2281,7 +2302,7 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
       assignedProj = hostProjects[0];
     }
 
-    // Agregar al usuario como miembro activo en todas las obras del anfitrión
+    // Agregar al usuario como miembro activo en todas las obras del anfitriÃ³n
     hostProjects.forEach(hp => {
       if (!Array.isArray(hp.members)) hp.members = [];
       const mem = hp.members.find(m => (m.email || '').toLowerCase().trim() === userEmail);
@@ -2354,10 +2375,10 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
     return { ok: true, projectId: finalProjId, projectName: finalProjName };
   }
 
-  return { ok: false, error: 'Invitación no encontrada' };
+  return { ok: false, error: 'InvitaciÃ³n no encontrada' };
 }
 
-// Rechazar o quitar invitación
+// Rechazar o quitar invitaciÃ³n
 export function rejectProjectInvitation(invitationId) {
   const user = getCurrentUser();
   const userEmail = (user?.email || '').toLowerCase().trim();
@@ -2372,7 +2393,7 @@ export function rejectProjectInvitation(invitationId) {
 
   let rejected = false;
 
-  // 1. Buscar en invitaciones formales de proyectos únicamente por ID exacto
+  // 1. Buscar en invitaciones formales de proyectos Ãºnicamente por ID exacto
   const matchedInvs = invs.filter(i => i.id === targetId);
 
   if (matchedInvs.length > 0) {
@@ -2410,7 +2431,7 @@ export function rejectProjectInvitation(invitationId) {
     });
   }
 
-  // 2. Buscar en invitaciones al plan únicamente por ID exacto o prefijo estándar plan-inv-
+  // 2. Buscar en invitaciones al plan Ãºnicamente por ID exacto o prefijo estÃ¡ndar plan-inv-
   const planIdx = planInvs.findIndex(pi =>
     pi.id === targetId ||
     targetId === `plan-inv-${pi.id}` ||
@@ -2446,7 +2467,7 @@ export function rejectProjectInvitation(invitationId) {
     } catch (e) {}
   }
 
-  // 3. Si estaba en members de algún proyecto con status 'pending'
+  // 3. Si estaba en members de algÃºn proyecto con status 'pending'
   if (!rejected && userEmail) {
     list.forEach(p => {
       if (Array.isArray(p.members)) {
@@ -2471,7 +2492,7 @@ export function rejectProjectInvitation(invitationId) {
   return rejected;
 }
 
-// Sincronizar y actualizar el plan de suscripción en todos los proyectos propiedad del usuario
+// Sincronizar y actualizar el plan de suscripciÃ³n en todos los proyectos propiedad del usuario
 export function syncOwnerProjectsPlan(ownerEmail, newPlanId) {
   if (!ownerEmail || !newPlanId) return false;
   const targetEmail = ownerEmail.toLowerCase().trim();
@@ -2493,7 +2514,7 @@ export function syncOwnerProjectsPlan(ownerEmail, newPlanId) {
   return modified;
 }
 
-// Determinar el plan de suscripción aplicable al proyecto (hereda la suscripción del dueño)
+// Determinar el plan de suscripciÃ³n aplicable al proyecto (hereda la suscripciÃ³n del dueÃ±o)
 export function getProjectEffectivePlan(projectId) {
   const proj = typeof projectId === 'object' ? projectId : getProjectById(projectId);
   if (!proj) return 'free';
@@ -2509,7 +2530,7 @@ export function getProjectEffectivePlan(projectId) {
 }
 
 // ==========================================
-// LÍMITES POR PLAN DE SUSCRIPCIÓN
+// LÃMITES POR PLAN DE SUSCRIPCIÃ“N
 // ==========================================
 export const PLAN_LIMITS = {
   free: {
@@ -2557,7 +2578,7 @@ export function getPlanLimits(planId) {
   return PLAN_LIMITS[planId] || PLAN_LIMITS.free;
 }
 
-// Obtener plan del usuario (acepta objeto de usuario o correo electrónico directamente)
+// Obtener plan del usuario (acepta objeto de usuario o correo electrÃ³nico directamente)
 export function getUserPlanId(userOrEmail = null) {
   let cleanEmail = '';
   let u = null;
@@ -2573,7 +2594,7 @@ export function getUserPlanId(userOrEmail = null) {
   const activeEmail = (activeUser?.email || '').toLowerCase().trim();
   const isSelf = !cleanEmail || cleanEmail === activeEmail;
 
-  // 1. Sincronizar directamente con getCurrentSubscription si está disponible para el usuario actual
+  // 1. Sincronizar directamente con getCurrentSubscription si estÃ¡ disponible para el usuario actual
   if (isSelf && typeof window !== 'undefined' && typeof window.getCurrentSubscription === 'function') {
     try {
       const winSub = window.getCurrentSubscription();
@@ -2583,7 +2604,7 @@ export function getUserPlanId(userOrEmail = null) {
     } catch (_) {}
   }
 
-  // 2. Almacenamiento específico por usuario
+  // 2. Almacenamiento especÃ­fico por usuario
   if (cleanEmail && typeof localStorage !== 'undefined') {
     try {
       const raw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
@@ -2619,7 +2640,7 @@ export function getUserPlanId(userOrEmail = null) {
     }
   }
 
-  // 4. Si se consulta a un anfitrión/otro usuario, buscar su plan efectivo en sus obras e invitaciones
+  // 4. Si se consulta a un anfitriÃ³n/otro usuario, buscar su plan efectivo en sus obras e invitaciones
   if (cleanEmail) {
     if (cleanEmail === 'hepc.90@gmail.com' || cleanEmail === 'admin.general@constructora.com') {
       return 'pro';
@@ -2654,14 +2675,14 @@ export function getUserPlanId(userOrEmail = null) {
   return 'free';
 }
 
-// Validar si el usuario puede crear proyectos según su plan y límites (en modo propio o bajo anfitrión)
+// Validar si el usuario puede crear proyectos segÃºn su plan y lÃ­mites (en modo propio o bajo anfitriÃ³n)
 export function canUserCreateProject(user = null, targetScope = null) {
   const u = user || getCurrentUser();
-  if (!u || !u.email) return { allowed: false, reason: 'Debes iniciar sesión para crear proyectos.' };
+  if (!u || !u.email) return { allowed: false, reason: 'Debes iniciar sesiÃ³n para crear proyectos.' };
 
   const uEmail = u.email.toLowerCase().trim();
 
-  // Verificar si se está creando en el espacio de un anfitrión (Modo Anfitrión)
+  // Verificar si se estÃ¡ creando en el espacio de un anfitriÃ³n (Modo AnfitriÃ³n)
   const hostEmail = (targetScope && typeof targetScope === 'string' && targetScope.startsWith('owner:'))
     ? targetScope.replace('owner:', '').toLowerCase().trim()
     : null;
@@ -2674,7 +2695,7 @@ export function canUserCreateProject(user = null, targetScope = null) {
     const hostPlanId = getUserPlanId(hostEmail);
     let userHasEditorRole = false;
 
-    // Buscar en proyectos del anfitrión donde este usuario es miembro activo
+    // Buscar en proyectos del anfitriÃ³n donde este usuario es miembro activo
     for (const p of hostProjects) {
       if (p.ownerName && !isInvalidUserName(p.ownerName, hostEmail, p)) hostName = p.ownerName;
       if (Array.isArray(p.members)) {
@@ -2685,7 +2706,7 @@ export function canUserCreateProject(user = null, targetScope = null) {
       }
     }
 
-    // Revisar invitaciones al plan de suscripción que hayan sido aceptadas
+    // Revisar invitaciones al plan de suscripciÃ³n que hayan sido aceptadas
     const planInvs = getStoredPlanInvitations();
     const myPlanInv = planInvs.find(inv => 
       (inv.ownerEmail || '').toLowerCase().trim() === hostEmail && 
@@ -2697,7 +2718,7 @@ export function canUserCreateProject(user = null, targetScope = null) {
       if (myPlanInv.role === 'editar') userHasEditorRole = true;
     }
 
-    // Revisar también invitaciones individuales a proyectos aceptadas
+    // Revisar tambiÃ©n invitaciones individuales a proyectos aceptadas
     const invitations = getStoredInvitations();
     const myInv = invitations.find(inv => 
       (inv.ownerEmail || '').toLowerCase().trim() === hostEmail && 
@@ -2709,7 +2730,7 @@ export function canUserCreateProject(user = null, targetScope = null) {
       if (myInv.role === 'editar') userHasEditorRole = true;
     }
 
-    // Solo el rol explícito 'editar' otorgado por el anfitrión (o ser el propio dueño) permite crear obras en este espacio
+    // Solo el rol explÃ­cito 'editar' otorgado por el anfitriÃ³n (o ser el propio dueÃ±o) permite crear obras en este espacio
     if (uEmail === hostEmail) {
       userHasEditorRole = true;
     }
@@ -2717,7 +2738,7 @@ export function canUserCreateProject(user = null, targetScope = null) {
     if (!userHasEditorRole) {
       return {
         allowed: false,
-        reason: `Solo los colaboradores con rol de Editor pueden crear nuevos proyectos en la organización de ${hostName}. Tu rol actual no permite crear obras aquí.`,
+        reason: `Solo los colaboradores con rol de Editor pueden crear nuevos proyectos en la organizaciÃ³n de ${hostName}. Tu rol actual no permite crear obras aquÃ­.`,
         isHostContext: true,
         hostEmail,
         hostName,
@@ -2731,7 +2752,7 @@ export function canUserCreateProject(user = null, targetScope = null) {
     if (hostProjectsCount >= hostLimits.maxProjects) {
       return {
         allowed: false,
-        reason: `El anfitrión (${hostName}) ha alcanzado el límite de ${hostLimits.maxProjects} proyectos activos para su Plan ${hostLimits.name}.`,
+        reason: `El anfitriÃ³n (${hostName}) ha alcanzado el lÃ­mite de ${hostLimits.maxProjects} proyectos activos para su Plan ${hostLimits.name}.`,
         planId: hostPlanId,
         maxProjects: hostLimits.maxProjects,
         currentProjects: hostProjectsCount,
@@ -2752,9 +2773,9 @@ export function canUserCreateProject(user = null, targetScope = null) {
     };
   }
 
-  // Modo Proyectos Propios: validar estrictamente contra la suscripción activa del usuario
+  // Modo Proyectos Propios: validar estrictamente contra la suscripciÃ³n activa del usuario
 
-  // Obtener plan del usuario, priorizando la membresía activa en memoria/modal
+  // Obtener plan del usuario, priorizando la membresÃ­a activa en memoria/modal
   let planId = getUserPlanId(u);
   if (typeof window !== 'undefined' && typeof window.getCurrentSubscription === 'function') {
     try {
@@ -2774,7 +2795,7 @@ export function canUserCreateProject(user = null, targetScope = null) {
   if (currentCount >= limits.maxProjects) {
     return {
       allowed: false,
-      reason: `Has alcanzado el límite de ${limits.maxProjects} proyectos activos para tu suscripción ${limits.name}. Actualiza tu plan para crear más obras.`,
+      reason: `Has alcanzado el lÃ­mite de ${limits.maxProjects} proyectos activos para tu suscripciÃ³n ${limits.name}. Actualiza tu plan para crear mÃ¡s obras.`,
       planId,
       maxProjects: limits.maxProjects,
       currentProjects: currentCount,
@@ -2801,7 +2822,7 @@ export function isInvalidUserName(testName, oEmail = '', proj = null) {
   // Si coincide con el nombre de la empresa / constructora, es empresa y NO nombre de usuario
   if (proj?.companyName && clean === (proj.companyName || '').toLowerCase().trim()) return true;
 
-  // Texto común de prueba / teclado
+  // Texto comÃºn de prueba / teclado
   const JUNK_NAMES = new Set([
     'dsad', 'dsadsa', 'asdasd', 'asdas', 'asdf', 'asdfg', 'qwerty', 'qwe',
     'test', 'prueba', 'demo', 'xyz', 'abc', 'aaa', 'bbb', 'ccc',
@@ -2810,7 +2831,7 @@ export function isInvalidUserName(testName, oEmail = '', proj = null) {
   if (JUNK_NAMES.has(clean)) return true;
 
   if (clean.length < 3) return true;
-  if (!/[aeiouáéíóú]/i.test(clean)) return true;
+  if (!/[aeiouÃ¡Ã©Ã­Ã³Ãº]/i.test(clean)) return true;
 
   return false;
 }
@@ -2848,7 +2869,7 @@ export function resolveCleanHostName(oEmail, candidateName = '', proj = null, uE
     }
   }
 
-  // 3. Revisar en los miembros de la obra si el anfitrión está con su nombre personal
+  // 3. Revisar en los miembros de la obra si el anfitriÃ³n estÃ¡ con su nombre personal
   if (!name && proj && Array.isArray(proj.members)) {
     const ownerMember = proj.members.find(m => (m.email || '').toLowerCase().trim() === cleanEmail);
     if (ownerMember?.name && !isInvalidUserName(ownerMember.name, cleanEmail, proj)) {
@@ -2856,7 +2877,7 @@ export function resolveCleanHostName(oEmail, candidateName = '', proj = null, uE
     }
   }
 
-  // 4. Revisar invitaciones de obra donde conste el nombre del anfitrión
+  // 4. Revisar invitaciones de obra donde conste el nombre del anfitriÃ³n
   if (!name && cleanEmail) {
     try {
       const invs = getStoredInvitations();
@@ -2954,7 +2975,7 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
     }
   });
 
-  // 2. Revisar también si hay invitaciones aceptadas al plan de suscripción
+  // 2. Revisar tambiÃ©n si hay invitaciones aceptadas al plan de suscripciÃ³n
   const planInvs = getStoredPlanInvitations();
   planInvs.forEach(pInv => {
     const oEmail = (pInv.ownerEmail || '').toLowerCase().trim();
@@ -3014,10 +3035,10 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
     });
 }
 
-// Validar si el usuario puede invitar a colaboradores a un proyecto específico
+// Validar si el usuario puede invitar a colaboradores a un proyecto especÃ­fico
 export function canUserInviteToProject(projectId, user = null, targetEmail = '') {
   const u = user || getCurrentUser();
-  if (!u || !u.email) return { allowed: false, reason: 'Debes iniciar sesión.' };
+  if (!u || !u.email) return { allowed: false, reason: 'Debes iniciar sesiÃ³n.' };
 
   const proj = getProjectById(projectId);
   if (!proj) return { allowed: false, reason: 'Proyecto no encontrado.' };
@@ -3025,7 +3046,7 @@ export function canUserInviteToProject(projectId, user = null, targetEmail = '')
   const uEmail = u.email.toLowerCase().trim();
   const isOwner = (proj.ownerEmail || '').toLowerCase().trim() === uEmail;
 
-  // Si no es el dueño, verificar si es miembro con rol 'editar' (Editor)
+  // Si no es el dueÃ±o, verificar si es miembro con rol 'editar' (Editor)
   let isEditor = false;
   if (Array.isArray(proj.members)) {
     const mem = proj.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
@@ -3056,7 +3077,7 @@ export function canUserInviteToProject(projectId, user = null, targetEmail = '')
     return {
       allowed: false,
       limitReached: true,
-      reason: `Este proyecto ha alcanzado el límite de ${limits.maxMembers} colaboradores permitidos en el Plan ${limits.name}. Para invitar a más colaboradores, actualiza la suscripción de la obra.`,
+      reason: `Este proyecto ha alcanzado el lÃ­mite de ${limits.maxMembers} colaboradores permitidos en el Plan ${limits.name}. Para invitar a mÃ¡s colaboradores, actualiza la suscripciÃ³n de la obra.`,
       planId: effectivePlanId,
       maxMembers: limits.maxMembers,
       currentMembers: currentMembersCount
@@ -3071,7 +3092,7 @@ export function canUserInviteToProject(projectId, user = null, targetEmail = '')
     return {
       allowed: false,
       limitReached: true,
-      reason: `Has alcanzado el límite de ${limits.maxMembers} usuarios permitidos en tu cuenta (${limits.name}). Actualiza tu suscripción para invitar a más colaboradores.`,
+      reason: `Has alcanzado el lÃ­mite de ${limits.maxMembers} usuarios permitidos en tu cuenta (${limits.name}). Actualiza tu suscripciÃ³n para invitar a mÃ¡s colaboradores.`,
       planId: effectivePlanId,
       maxMembers: limits.maxMembers,
       currentMembers: accountStats.totalUsers
@@ -3097,7 +3118,7 @@ export function getUserRoleInProject(projectId, user = null) {
 
   const uEmail = u.email.toLowerCase().trim();
   if (proj.ownerEmail && proj.ownerEmail.toLowerCase().trim() === uEmail) {
-    return 'owner'; // Dueño / Creador
+    return 'owner'; // DueÃ±o / Creador
   }
 
   if (Array.isArray(proj.members)) {
@@ -3120,7 +3141,7 @@ export function getUserRoleInProject(projectId, user = null) {
   return null;
 }
 
-// Determinar si el usuario actual tiene permisos de edición (escritura/eliminación) en el proyecto
+// Determinar si el usuario actual tiene permisos de ediciÃ³n (escritura/eliminaciÃ³n) en el proyecto
 export function canCurrentUserEditProject(projectId = null, user = null) {
   const u = user || getCurrentUser();
   const pId = projectId || getActiveProjectId();
@@ -3150,7 +3171,7 @@ export function canCurrentUserEditProject(projectId = null, user = null) {
 }
 
 // ==========================================
-// GESTIÓN DE INVITACIONES AL PLAN DE SUSCRIPCIÓN
+// GESTIÃ“N DE INVITACIONES AL PLAN DE SUSCRIPCIÃ“N
 // ==========================================
 export function getStoredPlanInvitations() {
   try {
@@ -3229,7 +3250,7 @@ export function getPlanCollaboratorsForOwner(ownerEmail) {
 
 export function canUserInviteToPlan(user = null, targetEmail = '') {
   const u = user || getCurrentUser();
-  if (!u || !u.email) return { allowed: false, reason: 'Debes iniciar sesión para invitar usuarios a tu plan.' };
+  if (!u || !u.email) return { allowed: false, reason: 'Debes iniciar sesiÃ³n para invitar usuarios a tu plan.' };
 
   const planId = getUserPlanId(u);
   const limits = getPlanLimits(planId);
@@ -3252,7 +3273,7 @@ export function canUserInviteToPlan(user = null, targetEmail = '') {
     return {
       allowed: false,
       limitReached: true,
-      reason: `Has alcanzado el límite de ${limits.maxMembers} usuarios permitidos en tu cuenta (${limits.name}: 1 titular + ${Math.max(0, limits.maxMembers - 1)} colaboradores). Actualiza tu plan para invitar más miembros.`,
+      reason: `Has alcanzado el lÃ­mite de ${limits.maxMembers} usuarios permitidos en tu cuenta (${limits.name}: 1 titular + ${Math.max(0, limits.maxMembers - 1)} colaboradores). Actualiza tu plan para invitar mÃ¡s miembros.`,
       planId,
       planName: limits.name,
       maxMembers: limits.maxMembers,
@@ -3274,7 +3295,7 @@ export function canUserInviteToPlan(user = null, targetEmail = '') {
 }
 
 export function createPlanInvitation({ email, name, role = 'editar', avatar = null, user = null }) {
-  if (!email) return { ok: false, error: 'Debes indicar un correo electrónico válido.' };
+  if (!email) return { ok: false, error: 'Debes indicar un correo electrÃ³nico vÃ¡lido.' };
 
   const currentUser = user || getCurrentUser();
   if (!currentUser || !currentUser.email) {
@@ -3306,7 +3327,7 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
   const newInv = {
     id: invId,
     ownerEmail: ownerEmail,
-    ownerName: currentUser.name || 'Anfitrión',
+    ownerName: currentUser.name || 'AnfitriÃ³n',
     ownerPlanId: planId,
     ownerPlanName: planLimits.name,
     email: cleanEmail,
@@ -3320,7 +3341,7 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
   filtered.push(newInv);
   saveStoredPlanInvitations(filtered);
 
-  // Vincular también a los proyectos propios para que aparezca en el equipo con acceso
+  // Vincular tambiÃ©n a los proyectos propios para que aparezca en el equipo con acceso
   const allProjects = getProjectsList();
   let modifiedProjects = false;
   allProjects.forEach(proj => {
@@ -3346,7 +3367,7 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
     saveProjectsList(allProjects);
   }
 
-  // Generar invitaciones en getStoredInvitations() para cada proyecto propio del anfitrión y emitir broadcast
+  // Generar invitaciones en getStoredInvitations() para cada proyecto propio del anfitriÃ³n y emitir broadcast
   const allStoredInvs = getStoredInvitations();
   allProjects.forEach(proj => {
     if ((proj.ownerEmail || '').toLowerCase().trim() === ownerEmail) {
@@ -3358,7 +3379,7 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
           projectName: proj.projectName || 'Proyecto de Obra',
           companyName: proj.companyName || '',
           ownerEmail: ownerEmail,
-          ownerName: currentUser.name || 'Anfitrión',
+          ownerName: currentUser.name || 'AnfitriÃ³n',
           ownerPlanId: planId,
           email: cleanEmail,
           name: newInv.name,
@@ -3396,7 +3417,7 @@ export function removePlanCollaborator(collaboratorEmail, user = null) {
   ));
   saveStoredPlanInvitations(invs);
 
-  // Remover también de los proyectos del anfitrión y sincronizar en Supabase
+  // Remover tambiÃ©n de los proyectos del anfitriÃ³n y sincronizar en Supabase
   const allProjects = getProjectsList();
   let modified = false;
   allProjects.forEach(proj => {
@@ -3426,7 +3447,7 @@ export function updatePlanCollaboratorRole(collaboratorEmail, newRole, user = nu
   const ownerEmail = currentUser.email.toLowerCase().trim();
   const targetEmail = collaboratorEmail.toLowerCase().trim();
 
-  // 1. Actualizar en invitaciones persistentes al plan de suscripción
+  // 1. Actualizar en invitaciones persistentes al plan de suscripciÃ³n
   const planInvs = getStoredPlanInvitations();
   let planInvsModified = false;
   planInvs.forEach(inv => {
@@ -3440,7 +3461,7 @@ export function updatePlanCollaboratorRole(collaboratorEmail, newRole, user = nu
     saveStoredPlanInvitations(planInvs);
   }
 
-  // 2. Actualizar en invitaciones pendientes a proyectos de este anfitrión
+  // 2. Actualizar en invitaciones pendientes a proyectos de este anfitriÃ³n
   const projInvs = getStoredInvitations();
   let projInvsModified = false;
   projInvs.forEach(inv => {
@@ -3454,7 +3475,7 @@ export function updatePlanCollaboratorRole(collaboratorEmail, newRole, user = nu
     saveStoredInvitations(projInvs);
   }
 
-  // 3. Actualizar en los miembros de todos los proyectos propiedad del dueño y sincronizar en Supabase
+  // 3. Actualizar en los miembros de todos los proyectos propiedad del dueÃ±o y sincronizar en Supabase
   const allProjects = getProjectsList();
   let projectsModified = false;
   allProjects.forEach(proj => {
@@ -3485,7 +3506,7 @@ export function updatePlanCollaboratorRole(collaboratorEmail, newRole, user = nu
 }
 
 // ==========================================
-// UTILIDADES DE CÁLCULO PARA EL RESUMEN
+// UTILIDADES DE CÃLCULO PARA EL RESUMEN
 // ==========================================
 export function calculateTreeTotal(nodes) {
   if (!Array.isArray(nodes)) return 0;
@@ -3536,7 +3557,7 @@ export function countTreePartidas(nodes) {
 
 
 // ==========================================
-// GESTIÓN DE ESPACIO DE TRABAJO ACTIVO
+// GESTIÃ“N DE ESPACIO DE TRABAJO ACTIVO
 // ==========================================
 export function setActiveWorkspaceData(ownerEmail, ownerName = '') {
   try {
@@ -3576,7 +3597,7 @@ export function getActiveWorkspaceData() {
 }
 
 // ==========================================
-// RESOLUCIÓN UNIFICADA DE PLAN, USUARIOS Y CONCEPTOS POR SUSCRIPCIÓN
+// RESOLUCIÃ“N UNIFICADA DE PLAN, USUARIOS Y CONCEPTOS POR SUSCRIPCIÃ“N
 // ==========================================
 const DEFAULT_SAMPLE_DEMO_EMAILS = new Set([
   'mariana.torres.costos@gmail.com',
@@ -3621,8 +3642,8 @@ export function resolveWorkspacePlanContext(projectIdOverride = null) {
 }
 
 /**
- * Calcula todos los usuarios reales únicos asociados a la cuenta de un propietario:
- * 1 propietario + colaboradores reales únicos (invitaciones de plan, invitaciones a obra aceptadas/pendientes y miembros no-muestra).
+ * Calcula todos los usuarios reales Ãºnicos asociados a la cuenta de un propietario:
+ * 1 propietario + colaboradores reales Ãºnicos (invitaciones de plan, invitaciones a obra aceptadas/pendientes y miembros no-muestra).
  */
 export function countAccountUsersForOwner(ownerEmail) {
   const oEmail = (ownerEmail || getCurrentUser()?.email || '').toLowerCase().trim();
@@ -3672,7 +3693,7 @@ export function countAccountUsersForOwner(ownerEmail) {
     });
   } catch (_) {}
 
-  // Miembros activos en proyectos propios (excluyendo presets de muestra no invitados explícitamente)
+  // Miembros activos en proyectos propios (excluyendo presets de muestra no invitados explÃ­citamente)
   try {
     const allProjects = getProjectsList();
     allProjects
@@ -3716,7 +3737,7 @@ export function canAddUserToOwnerAccount(ownerEmail, targetEmail = '', targetPro
         planId,
         maxMembers: limits.maxMembers,
         currentUsers: accountStats.totalUsers,
-        reason: `La cuenta ya excede el límite de ${limits.maxMembers} usuarios del Plan ${limits.name}. Actualiza tu plan o remueve colaboradores.`
+        reason: `La cuenta ya excede el lÃ­mite de ${limits.maxMembers} usuarios del Plan ${limits.name}. Actualiza tu plan o remueve colaboradores.`
       };
     }
     return {
@@ -3729,7 +3750,7 @@ export function canAddUserToOwnerAccount(ownerEmail, targetEmail = '', targetPro
     };
   }
 
-  // Verificar límite global por cuenta (1 a 3 / 10 / 30 usuarios totales incluyendo propietario)
+  // Verificar lÃ­mite global por cuenta (1 a 3 / 10 / 30 usuarios totales incluyendo propietario)
   if (accountStats.totalUsers >= limits.maxMembers) {
     return {
       allowed: false,
@@ -3737,11 +3758,11 @@ export function canAddUserToOwnerAccount(ownerEmail, targetEmail = '', targetPro
       planId,
       maxMembers: limits.maxMembers,
       currentUsers: accountStats.totalUsers,
-      reason: `Has alcanzado el límite de ${limits.maxMembers} usuarios en tu cuenta (Plan ${limits.name}). Actualiza a un plan superior para agregar más colaboradores.`
+      reason: `Has alcanzado el lÃ­mite de ${limits.maxMembers} usuarios en tu cuenta (Plan ${limits.name}). Actualiza a un plan superior para agregar mÃ¡s colaboradores.`
     };
   }
 
-  // Si se proporcionó un proyecto específico, validar que el proyecto tampoco rebase los miembros visibles de su plan
+  // Si se proporcionÃ³ un proyecto especÃ­fico, validar que el proyecto tampoco rebase los miembros visibles de su plan
   if (targetProjectId) {
     const proj = getProjectById(targetProjectId);
     if (proj && Array.isArray(proj.members)) {
@@ -3769,7 +3790,7 @@ export function canAddUserToOwnerAccount(ownerEmail, targetEmail = '', targetPro
 }
 
 /**
- * Valida límite de conceptos por proyecto (100 Gratuita, 1500 Plus, 3500 Pro) según el plan efectivo del dueño del proyecto.
+ * Valida lÃ­mite de conceptos por proyecto (100 Gratuita, 1500 Plus, 3500 Pro) segÃºn el plan efectivo del dueÃ±o del proyecto.
  */
 export function validateConceptAdditionLimit(projectId = null, additionalConcepts = 1, options = {}) {
   const ctx = resolveWorkspacePlanContext(projectId);
@@ -3799,7 +3820,7 @@ export function validateConceptAdditionLimit(projectId = null, additionalConcept
       currentConcepts,
       projectedTotal,
       maxConcepts,
-      reason: `Has alcanzado el límite de ${maxConcepts.toLocaleString('es-MX')} conceptos por proyecto para el Plan ${ctx.limits?.name || ctx.planId} (actuales: ${currentConcepts.toLocaleString('es-MX')}, proyectados: ${projectedTotal.toLocaleString('es-MX')}). Actualiza tu suscripción para continuar agregando conceptos.`
+      reason: `Has alcanzado el lÃ­mite de ${maxConcepts.toLocaleString('es-MX')} conceptos por proyecto para el Plan ${ctx.limits?.name || ctx.planId} (actuales: ${currentConcepts.toLocaleString('es-MX')}, proyectados: ${projectedTotal.toLocaleString('es-MX')}). Actualiza tu suscripciÃ³n para continuar agregando conceptos.`
     };
   }
 

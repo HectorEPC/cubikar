@@ -1,23 +1,23 @@
-// js/modules/insumosGenerales/insumosConsolidator.js
-// Consolidación de insumos de todas las matrices del presupuesto activo
+﻿// js/modules/insumosGenerales/insumosConsolidator.js
+// ConsolidaciÃ³n de insumos de todas las matrices del presupuesto activo
 
-import { state } from '../../state/store.js';
-import { round2, round5 } from '../../core/formatters.js';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js';
+import { state } from '../../state/store.js?v=20261116_cf3';
+import { round2, round5 } from '../../core/formatters.js?v=20261116_cf3';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf3';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261116_cf3';
 
-// Normalizar texto para agrupar insumos idénticos con precisión
+// Normalizar texto para agrupar insumos idÃ©nticos con precisiÃ³n
 export function normalizeInsumoText(text) {
   if (!text) return '';
   return text.toString()
     .toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Quitar acentos
-    .replace(/[.,;:\-_/()"'*]/g, ' ')               // Quitar signos de puntuación
-    .replace(/\s+/g, ' ')                           // Colapsar espacios múltiples
+    .replace(/[.,;:\-_/()"'*]/g, ' ')               // Quitar signos de puntuaciÃ³n
+    .replace(/\s+/g, ' ')                           // Colapsar espacios mÃºltiples
     .trim();
 }
 
-// Helper para mapear rubros a las 4 tablas de consolidación general (Agrupando Herramienta y Maquinaria en Equipo/Maquinaria/Herramienta)
+// Helper para mapear rubros a las 4 tablas de consolidaciÃ³n general (Agrupando Herramienta y Maquinaria en Equipo/Maquinaria/Herramienta)
 export function normalizeConsolidatedTipo(t) {
   const valid = ['Material', 'Mano de Obra', 'Herramienta', 'Equipo', 'Maquinaria', 'Subcontrato'];
   if (valid.includes(t)) return t;
@@ -30,26 +30,26 @@ export function normalizeConsolidatedTipo(t) {
   return 'Material';
 }
 
-// Generar una clave de agrupación robusta para un insumo
+// Generar una clave de agrupaciÃ³n robusta para un insumo
 export function getInsumoConsolidationKey(ins) {
   const tipo = normalizeConsolidatedTipo(ins.tipo);
   const cleanDesc = normalizeInsumoText(ins.descripcion || '');
   const cleanUnid = normalizeInsumoText(ins.unidad || 'pza');
   
-  // Clave del catálogo: si es un código formal de catálogo de referencia (ej. G300206-1000, 310300-3150, EFc0237, etc.)
+  // Clave del catÃ¡logo: si es un cÃ³digo formal de catÃ¡logo de referencia (ej. G300206-1000, 310300-3150, EFc0237, etc.)
   const clave = (ins.clave || '').trim();
   const isGeneric = !clave || /^(mat|mo|eq|sub|ins|herr|maq)[-_]?\d+$/i.test(clave);
 
-  // Si tiene clave oficial de catálogo y unidad congruente
+  // Si tiene clave oficial de catÃ¡logo y unidad congruente
   if (!isGeneric) {
     return `${tipo}_cve_${clave.toLowerCase()}_${cleanUnid}`;
   }
 
-  // De lo contrario, agrupar por tipo + descripción normalizada + unidad
+  // De lo contrario, agrupar por tipo + descripciÃ³n normalizada + unidad
   return `${tipo}_desc_${cleanDesc}_${cleanUnid}`;
 }
 
-// Consolidación general de insumos ÚNICAMENTE de los conceptos seleccionados en la columna checkbox de TAB1-CAT-BASE
+// ConsolidaciÃ³n general de insumos ÃšNICAMENTE de los conceptos seleccionados en la columna checkbox de TAB1-CAT-BASE
 export function getConsolidatedDataMap() {
   const consolidated = {
     'Material': {},
@@ -66,13 +66,13 @@ export function getConsolidatedDataMap() {
     nodes.forEach(node => {
       const isParent = Boolean(node.children && node.children.length > 0);
       if (!isParent) {
-        // FILTRADO ESTRICTO: Solo incluir conceptos que estén explícitamente marcados con el checkbox en TAB1-CAT-BASE
+        // FILTRADO ESTRICTO: Solo incluir conceptos que estÃ©n explÃ­citamente marcados con el checkbox en TAB1-CAT-BASE
         if (Boolean(node.selected)) {
           selectedConceptsCount++;
           const hasExplicitCant = node.cantidad !== undefined && node.cantidad !== null && String(node.cantidad).trim() !== '' && Number.isFinite(Number(node.cantidad));
           const cantConcepto = hasExplicitCant ? Math.max(0, round2(Number(node.cantidad))) : 1.00;
 
-          // Si el concepto tiene costo pero aún no tiene matriz asignada, generar su matriz integrada
+          // Si el concepto tiene costo pero aÃºn no tiene matriz asignada, generar su matriz integrada
           if (!node.insumos || node.insumos.length === 0) {
             if (parseFloat(node.precioUnitario) > 0 || parseFloat(node.costoDirecto) > 0) {
               const opusInsumos = getExactOpusInsumosForClave(node.clave);
@@ -102,7 +102,7 @@ export function getConsolidatedDataMap() {
                   key: key,
                   clave: ins.clave || `${tipo.substring(0, 3).toUpperCase()}-01`,
                   insumoName: ins.descripcion || '',
-                  descripcion: ins.descripcion || 'Sin descripción',
+                  descripcion: ins.descripcion || 'Sin descripciÃ³n',
                   unidad: ins.unidad || 'pza',
                   cantidadTotal: 0,
                   sumCantUnitaria: 0,

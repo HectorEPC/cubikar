@@ -1,15 +1,15 @@
-// js/modules/catalog/importFromProjectModal.js
+﻿// js/modules/catalog/importFromProjectModal.js
 // Asistente visual para explorar, seleccionar y copiar conceptos con sus matrices APU desde otro proyecto
 
-import { state, persistLocalData } from '../../state/store.js';
-import { saveState } from '../../state/history.js';
-import { showToast } from '../../ui/notifications.js';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../../config/constants.js';
-import { getProjectsList, getProjectById, getCurrentUser, getProjectsForUser } from '../portal/projectService.js';
-import { recalculateClaves, guardConceptLimit, countTreeConcepts } from './treeService.js';
-import { renderTAB1, selectRow } from './catalogView.js';
-import { getFactorSobrecosto, round2 } from '../../core/calculations.js';
-import { formatMoney, getCurrencySymbol } from '../../core/formatters.js';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf3';
+import { saveState } from '../../state/history.js?v=20261116_cf3';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../../config/constants.js?v=20261116_cf3';
+import { getProjectsList, getProjectById, getCurrentUser, getProjectsForUser } from '../portal/projectService.js?v=20261116_cf3';
+import { recalculateClaves, guardConceptLimit, countTreeConcepts } from './treeService.js?v=20261116_cf3';
+import { renderTAB1, selectRow } from './catalogView.js?v=20261116_cf3';
+import { getFactorSobrecosto, round2 } from '../../core/calculations.js?v=20261116_cf3';
+import { formatMoney, getCurrencySymbol } from '../../core/formatters.js?v=20261116_cf3';
 
 let activeSourceProjectId = null;
 let activeSourceTreeData = [];
@@ -37,8 +37,8 @@ export function openImportConceptsModal() {
   if (!selectEl) return;
 
   if (otherProjects.length === 0) {
-    selectEl.innerHTML = `<option value="">No hay otros proyectos creados aún</option>`;
-    renderSourceConceptsEmptyState('No tienes otros proyectos creados aún en tu perfil para transferir conceptos.');
+    selectEl.innerHTML = `<option value="">No hay otros proyectos creados aÃºn</option>`;
+    renderSourceConceptsEmptyState('No tienes otros proyectos creados aÃºn en tu perfil para transferir conceptos.');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     return;
@@ -46,7 +46,7 @@ export function openImportConceptsModal() {
 
   selectEl.innerHTML = otherProjects.map((p, idx) => `
     <option value="${p.id}" ${idx === 0 ? 'selected' : ''}>
-      ${p.projectName} (${p.companyName || 'Empresa'}) • ${p.conceptCount || 0} conceptos
+      ${p.projectName} (${p.companyName || 'Empresa'}) â€¢ ${p.conceptCount || 0} conceptos
     </option>
   `).join('');
 
@@ -74,7 +74,7 @@ export function closeImportConceptsModal() {
   activeSourceProjectId = null;
 }
 
-// Cargar catálogo y conceptos del proyecto seleccionado
+// Cargar catÃ¡logo y conceptos del proyecto seleccionado
 export function onSelectSourceProject(projectId) {
   activeSourceProjectId = projectId;
   selectedConceptIds.clear();
@@ -92,7 +92,7 @@ function loadSourceProjectConcepts(projectId) {
     const raw = localStorage.getItem(getStorageKey(projectId));
     activeSourceTreeData = raw ? JSON.parse(raw) : [];
   } catch (e) {
-    console.error('Error al cargar catálogo del proyecto origen:', e);
+    console.error('Error al cargar catÃ¡logo del proyecto origen:', e);
     activeSourceTreeData = [];
   }
 
@@ -100,13 +100,13 @@ function loadSourceProjectConcepts(projectId) {
   updateImportSelectionCounter();
 }
 
-// Búsqueda en vivo de conceptos
+// BÃºsqueda en vivo de conceptos
 export function onSearchSourceConcepts(query) {
   sourceSearchQuery = (query || '').trim().toLowerCase();
   renderSourceConceptsList();
 }
 
-// Aplanar conceptos del árbol con ruta de partida
+// Aplanar conceptos del Ã¡rbol con ruta de partida
 function flattenConcepts(nodes, parentPath = '') {
   const list = [];
   nodes.forEach(n => {
@@ -143,7 +143,7 @@ function renderSourceConceptsList() {
   }
 
   if (filtered.length === 0) {
-    renderSourceConceptsEmptyState(sourceSearchQuery ? 'No se encontraron conceptos que coincidan con la búsqueda.' : 'Este proyecto no contiene conceptos registrados.');
+    renderSourceConceptsEmptyState(sourceSearchQuery ? 'No se encontraron conceptos que coincidan con la bÃºsqueda.' : 'Este proyecto no contiene conceptos registrados.');
     return;
   }
 
@@ -155,7 +155,7 @@ function renderSourceConceptsList() {
     const pu = Number(n.precioUnitario || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const cd = Number(n.costoDirecto || n.precioUnitario || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    // Contadores por categoría de insumo
+    // Contadores por categorÃ­a de insumo
     const matCount = insumos.filter(i => i.tipo === 'Material').length;
     const moCount = insumos.filter(i => i.tipo === 'Mano de Obra').length;
     const eqCount = insumos.filter(i => i.tipo === 'Equipo').length;
@@ -174,7 +174,7 @@ function renderSourceConceptsList() {
     return `
       <div class="bg-white rounded-2xl border ${isChecked ? 'border-blue-500 ring-2 ring-blue-100 bg-blue-50/20' : 'border-slate-200 hover:border-slate-300'} p-3.5 transition shadow-2xs space-y-2.5">
         
-        <!-- Fila Superior: Checkbox, Clave, Descripción y Acción Rápida -->
+        <!-- Fila Superior: Checkbox, Clave, DescripciÃ³n y AcciÃ³n RÃ¡pida -->
         <div class="flex items-start gap-3">
           <input type="checkbox" onchange="toggleConceptSelection('${n.id}', this.checked)" ${isChecked ? 'checked' : ''} 
                  class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer mt-0.5 shrink-0">
@@ -194,7 +194,7 @@ function renderSourceConceptsList() {
             </h4>
           </div>
 
-          <!-- Botón Rápido 1-Clic: Copiar y Pegar de inmediato -->
+          <!-- BotÃ³n RÃ¡pido 1-Clic: Copiar y Pegar de inmediato -->
           <button type="button" onclick="quickCopyPasteSingleConcept('${n.id}')" 
                   class="bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold text-[10px] px-2.5 py-1.5 rounded-xl border border-blue-200 hover:border-blue-600 transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs active:scale-95" 
                   title="Copiar e insertar este concepto con su matriz directamente en el proyecto actual">
@@ -203,7 +203,7 @@ function renderSourceConceptsList() {
           </button>
         </div>
 
-        <!-- Fila Inferior: Métricas, Badge de Matriz y Toggle de Vista Previa -->
+        <!-- Fila Inferior: MÃ©tricas, Badge de Matriz y Toggle de Vista Previa -->
         <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
           <div class="flex items-center gap-3 text-[11px] text-slate-600">
             <span>Unidad: <strong class="text-slate-800 font-mono">${n.unidad || 'pza'}</strong></span>
@@ -234,12 +234,12 @@ function renderSourceConceptsList() {
           </div>
         </div>
 
-        <!-- Acordeón Plegable: Vista Previa de la Matriz APU -->
+        <!-- AcordeÃ³n Plegable: Vista Previa de la Matriz APU -->
         ${insumosCount > 0 ? `
           <div id="matrix-preview-container-${n.id}" class="hidden pt-2 border-t border-slate-100 animate-in fade-in">
             <div class="bg-slate-50 rounded-xl p-2.5 border border-slate-200 space-y-1.5">
               <div class="flex items-center justify-between text-[10px] font-bold text-slate-600 uppercase tracking-wider pb-1 border-b border-slate-200">
-                <span>Insumo y Descripción</span>
+                <span>Insumo y DescripciÃ³n</span>
                 <span>Consumo Unitario y Costo</span>
               </div>
               <div class="space-y-1 max-h-40 overflow-y-auto pr-1">
@@ -251,7 +251,7 @@ function renderSourceConceptsList() {
                     </div>
                     <div class="text-right shrink-0 font-mono text-[10px] text-slate-700">
                       <span>${Number(ins.cantidad || 0).toFixed(5)} ${ins.unidad}</span>
-                      <span class="text-slate-400 mx-1">×</span>
+                      <span class="text-slate-400 mx-1">Ã—</span>
                       <span class="font-bold text-slate-900">$${Number(ins.costoUnitario || 0).toFixed(2)}</span>
                     </div>
                   </div>
@@ -281,7 +281,7 @@ function renderSourceConceptsEmptyState(message) {
   }
 }
 
-// Alternar vista previa de la matriz en el acordeón
+// Alternar vista previa de la matriz en el acordeÃ³n
 export function toggleMatrixPreviewAccordion(nodeId) {
   const container = document.getElementById(`matrix-preview-container-${nodeId}`);
   const btnText = document.getElementById(`preview-btn-text-${nodeId}`);
@@ -301,7 +301,7 @@ export function toggleMatrixPreviewAccordion(nodeId) {
   }
 }
 
-// Selección individual y masiva
+// SelecciÃ³n individual y masiva
 export function toggleConceptSelection(nodeId, isChecked) {
   if (isChecked) {
     selectedConceptIds.add(nodeId);
@@ -411,7 +411,7 @@ export function quickCopyPasteSingleConcept(nodeId) {
   selectRow(clonedNode.id);
 
   const insCount = Array.isArray(clonedNode.insumos) ? clonedNode.insumos.length : 0;
-  showToast(`¡Concepto "${clonedNode.descripcion.slice(0, 30)}..." copiado con su Matriz APU (${insCount} insumos) desde "${sourceName}"!`, 'success');
+  showToast(`Â¡Concepto "${clonedNode.descripcion.slice(0, 30)}..." copiado con su Matriz APU (${insCount} insumos) desde "${sourceName}"!`, 'success');
   closeImportConceptsModal();
 }
 
@@ -473,7 +473,7 @@ export function importSelectedConceptsToCurrentProject() {
 
   closeImportConceptsModal();
 
-  showToast(`¡${newNodes.length} concepto${newNodes.length === 1 ? '' : 's'} con sus matrices APU (${totalInsumosImportados} insumos en total) copiados desde "${sourceName}"!`, 'success');
+  showToast(`Â¡${newNodes.length} concepto${newNodes.length === 1 ? '' : 's'} con sus matrices APU (${totalInsumosImportados} insumos en total) copiados desde "${sourceName}"!`, 'success');
 }
 
 function findParentList(nodes, targetId) {

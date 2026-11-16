@@ -1,19 +1,19 @@
-// js/ui/brandingController.js
-// Controlador para personalización de Nombre de Empresa, Proyecto, Ubicación y Logotipo con visor interactivo, recorte y zoom
+﻿// js/ui/brandingController.js
+// Controlador para personalizaciÃ³n de Nombre de Empresa, Proyecto, UbicaciÃ³n y Logotipo con visor interactivo, recorte y zoom
 
-import { state, persistSettings } from '../state/store.js';
-import { showToast } from './notifications.js';
+import { state, persistSettings } from '../state/store.js?v=20261116_cf3';
+import { showToast } from './notifications.js?v=20261116_cf3';
 import {
   blobToDataUrl,
   dataUrlToFile,
   processFileForUpload
-} from '../utils/fileCompressor.js';
-import { validatePreCompressionFile } from '../services/storageQuotaService.js';
-import { uploadManagedFile } from '../services/s3StorageService.js';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js';
-import { guardTabUnlocked } from './tabLockController.js';
+} from '../utils/fileCompressor.js?v=20261116_cf3';
+import { validatePreCompressionFile } from '../services/storageQuotaService.js?v=20261116_cf3';
+import { uploadManagedFile } from '../services/s3StorageService.js?v=20261116_cf3';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261116_cf3';
+import { guardTabUnlocked } from './tabLockController.js?v=20261116_cf3';
 
-// Dimensiones estándar del área de recorte para el logotipo (cuadrado 1:1)
+// Dimensiones estÃ¡ndar del Ã¡rea de recorte para el logotipo (cuadrado 1:1)
 const CROP_WIDTH = 180;
 const CROP_HEIGHT = 180;
 
@@ -41,13 +41,13 @@ export function initBranding() {
   renderBrandingUI();
 }
 
-// Actualizar elementos visuales del encabezado y formularios de configuración
+// Actualizar elementos visuales del encabezado y formularios de configuraciÃ³n
 export function renderBrandingUI() {
   const companyName = (state.settings && state.settings.companyName) || 'Sistema de Control de Obra';
   const companySubtitle = (state.settings && state.settings.companySubtitle) || '';
   const companyLogo = (state.settings && state.settings.companyLogo) || '';
   const projectName = (state.settings && state.settings.projectName) || 'Proyecto de Obra Base';
-  const projectLocation = (state.settings && state.settings.projectLocation) || 'Ciudad de México, CDMX';
+  const projectLocation = (state.settings && state.settings.projectLocation) || 'Ciudad de MÃ©xico, CDMX';
 
   // 1. Campo de texto de la empresa en la barra superior
   const inputName = document.getElementById('header-company-name');
@@ -55,7 +55,7 @@ export function renderBrandingUI() {
     inputName.value = companyName;
   }
 
-  // 2. Campo de texto del proyecto (en Catálogo e Insumos Generales)
+  // 2. Campo de texto del proyecto (en CatÃ¡logo e Insumos Generales)
   const inputProject = document.getElementById('header-project-name');
   if (inputProject && inputProject.value !== projectName) {
     inputProject.value = projectName;
@@ -65,7 +65,7 @@ export function renderBrandingUI() {
     inputInsumosProject.value = projectName;
   }
 
-  // 3. Campo de texto de la ubicación del proyecto (en Catálogo e Insumos Generales)
+  // 3. Campo de texto de la ubicaciÃ³n del proyecto (en CatÃ¡logo e Insumos Generales)
   const inputLocation = document.getElementById('header-project-location');
   if (inputLocation && inputLocation.value !== projectLocation) {
     inputLocation.value = projectLocation;
@@ -115,7 +115,7 @@ export function renderBrandingUI() {
     }
   }
 
-  // 5. Sincronizar en modal de Configuración si los campos existen
+  // 5. Sincronizar en modal de ConfiguraciÃ³n si los campos existen
   const modalName = document.getElementById('cfg-company-name');
   if (modalName && modalName.value !== companyName) modalName.value = companyName;
 
@@ -149,7 +149,7 @@ export function renderBrandingUI() {
 
 function guardBrandingMutation() {
   if (!canCurrentUserEditProject()) {
-    showToast('🔒 Modo lectura: tu rol no permite editar la información o imagen del proyecto.', 'warning');
+    showToast('ðŸ”’ Modo lectura: tu rol no permite editar la informaciÃ³n o imagen del proyecto.', 'warning');
     return false;
   }
   if (typeof document !== 'undefined') {
@@ -179,7 +179,7 @@ export function updateCompanyName(name) {
   showToast('Nombre de la empresa guardado', 'success');
 }
 
-// Sincronización en vivo bidireccional entre pestaña INFORMACIÓN, CATÁLOGO BASE, INSUMOS GENERALES y Encabezado
+// SincronizaciÃ³n en vivo bidireccional entre pestaÃ±a INFORMACIÃ“N, CATÃLOGO BASE, INSUMOS GENERALES y Encabezado
 export function syncCompanyName(val) {
   if (!guardBrandingMutation()) {
     renderBrandingUI();
@@ -243,21 +243,21 @@ export function updateProjectName(name) {
   showToast('Nombre del proyecto guardado', 'success');
 }
 
-// Actualizar ubicación del proyecto
+// Actualizar ubicaciÃ³n del proyecto
 export function updateProjectLocation(loc) {
   if (!guardBrandingMutation()) {
     renderBrandingUI();
     return;
   }
-  const cleanLoc = (loc || '').trim() || 'Ciudad de México, CDMX';
+  const cleanLoc = (loc || '').trim() || 'Ciudad de MÃ©xico, CDMX';
   if (!state.settings) state.settings = {};
   state.settings.projectLocation = cleanLoc;
   persistSettings();
   renderBrandingUI();
-  showToast('Ubicación del proyecto guardada', 'success');
+  showToast('UbicaciÃ³n del proyecto guardada', 'success');
 }
 
-// Actualizar subtítulo de la empresa
+// Actualizar subtÃ­tulo de la empresa
 export function updateCompanySubtitle(sub) {
   if (!guardBrandingMutation()) {
     renderBrandingUI();
@@ -276,7 +276,7 @@ export function triggerCompanyLogoUpload() {
   if (input) input.click();
 }
 
-// Manejar selección de imagen e iniciar el ajustador interactivo
+// Manejar selecciÃ³n de imagen e iniciar el ajustador interactivo
 export async function handleCompanyLogoUpload(event) {
   if (!guardBrandingMutation()) {
     if (event?.target) event.target.value = '';
@@ -286,7 +286,7 @@ export async function handleCompanyLogoUpload(event) {
   if (!file) return;
 
   if (!file.type.startsWith('image/')) {
-    showToast('Selecciona un archivo de imagen válido (PNG, JPG, SVG, WebP).', 'warning');
+    showToast('Selecciona un archivo de imagen vÃ¡lido (PNG, JPG, SVG, WebP).', 'warning');
     return;
   }
 
@@ -334,11 +334,11 @@ export function removeCompanyLogo(event) {
   state.settings.companyLogo = '';
   persistSettings();
   renderBrandingUI();
-  showToast('Logotipo restablecido al ícono predeterminado', 'info');
+  showToast('Logotipo restablecido al Ã­cono predeterminado', 'info');
 }
 
 // --------------------------------------------------------------------------
-// MÓDULO DE AJUSTE, RECORTE, PAN Y ZOOM INTERACTIVO DE LOGOTIPO
+// MÃ“DULO DE AJUSTE, RECORTE, PAN Y ZOOM INTERACTIVO DE LOGOTIPO
 // --------------------------------------------------------------------------
 
 function setupAdjusterCanvasListeners() {
@@ -346,7 +346,7 @@ function setupAdjusterCanvasListeners() {
   if (!canvas || adjusterState.listenersAttached) return;
   adjusterState.listenersAttached = true;
 
-  // Arrastre con ratón
+  // Arrastre con ratÃ³n
   canvas.addEventListener('mousedown', (e) => {
     if (!adjusterState.image) return;
     adjusterState.isDragging = true;
@@ -369,7 +369,7 @@ function setupAdjusterCanvasListeners() {
     adjusterState.isDragging = false;
   });
 
-  // Arrastre táctil
+  // Arrastre tÃ¡ctil
   canvas.addEventListener('touchstart', (e) => {
     if (!adjusterState.image || e.touches.length === 0) return;
     adjusterState.isDragging = true;
@@ -393,7 +393,7 @@ function setupAdjusterCanvasListeners() {
     adjusterState.isDragging = false;
   });
 
-  // Zoom con rueda del ratón
+  // Zoom con rueda del ratÃ³n
   canvas.addEventListener('wheel', (e) => {
     if (!adjusterState.image) return;
     e.preventDefault();
@@ -414,7 +414,7 @@ export function renderAdjusterCanvas() {
   // Limpiar
   ctx.clearRect(0, 0, w, h);
 
-  // Fondo con cuadrícula sutil (damero) para visibilidad de transparencias
+  // Fondo con cuadrÃ­cula sutil (damero) para visibilidad de transparencias
   ctx.fillStyle = '#e2e8f0';
   ctx.fillRect(0, 0, w, h);
 
@@ -449,7 +449,7 @@ export function renderAdjusterCanvas() {
     ctx.restore();
   }
 
-  // Máscara oscura para delimitar el área que no quedará en el corte
+  // MÃ¡scara oscura para delimitar el Ã¡rea que no quedarÃ¡ en el corte
   ctx.fillStyle = 'rgba(15, 23, 42, 0.70)';
   // Superior
   ctx.fillRect(0, 0, w, cropY);
@@ -465,7 +465,7 @@ export function renderAdjusterCanvas() {
   ctx.lineWidth = 2;
   ctx.strokeRect(cropX, cropY, CROP_WIDTH, CROP_HEIGHT);
 
-  // Guías de esquinas blancas
+  // GuÃ­as de esquinas blancas
   const cornerLen = 14;
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 3;
@@ -498,7 +498,7 @@ export function renderAdjusterCanvas() {
   ctx.lineTo(cropX + CROP_WIDTH, cropY + CROP_HEIGHT - cornerLen);
   ctx.stroke();
 
-  // Cruz tenue de alineación central
+  // Cruz tenue de alineaciÃ³n central
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 4]);
@@ -510,7 +510,7 @@ export function renderAdjusterCanvas() {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Actualizar previsualización en vivo
+  // Actualizar previsualizaciÃ³n en vivo
   updateLivePreviews();
 }
 
@@ -576,7 +576,7 @@ export function adjustLogoZoom(delta) {
   setLogoZoom(adjusterState.scale + delta * adjusterState.baseFitScale);
 }
 
-// Restablecer posición y zoom al centro óptimo
+// Restablecer posiciÃ³n y zoom al centro Ã³ptimo
 export function resetLogoPosition() {
   if (!adjusterState.image) return;
   adjusterState.scale = adjusterState.baseFitScale;
@@ -652,7 +652,7 @@ export function closeLogoAdjusterModal() {
   }
 }
 
-// Guardar logotipo ajustado en el sistema (con validación de cuota y respaldo S3)
+// Guardar logotipo ajustado en el sistema (con validaciÃ³n de cuota y respaldo S3)
 export async function applyAdjustedLogo() {
   if (!guardBrandingMutation()) return;
   if (!adjusterState.image) return;
@@ -680,7 +680,7 @@ export async function applyAdjustedLogo() {
     persistSettings();
     renderBrandingUI();
     closeLogoAdjusterModal();
-    showToast(`¡Logotipo optimizado y guardado (${uploadRes.sizeLabel || 'listo'})!`, 'success');
+    showToast(`Â¡Logotipo optimizado y guardado (${uploadRes.sizeLabel || 'listo'})!`, 'success');
   } catch (err) {
     console.error('Error al aplicar logo:', err);
     showToast('Error al guardar logotipo: ' + err.message, 'error');

@@ -1,12 +1,12 @@
-import { state, persistLocalData } from '../../state/store.js';
-import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js';
-import { getFactorSobrecosto } from '../../core/calculations.js';
-import { renderTAB1 } from '../catalog/catalogView.js';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
-import { updateModalIfOpen } from './matrizModal.js';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js';
-import { isTabLocked } from '../../ui/tabLockController.js';
-import { canCurrentUserEditProject } from '../portal/projectService.js';
+﻿import { state, persistLocalData } from '../../state/store.js?v=20261116_cf3';
+import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261116_cf3';
+import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf3';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf3';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf3';
+import { updateModalIfOpen } from './matrizModal.js?v=20261116_cf3';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261116_cf3';
+import { isTabLocked } from '../../ui/tabLockController.js?v=20261116_cf3';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf3';
 
 // Renderizar tabla Matriz APU del concepto seleccionado
 let selectedApuInsumoIdx = null;
@@ -29,7 +29,7 @@ export function renderAPUInsumos(node) {
   if (!node) return;
   if (!node.insumos) node.insumos = [];
 
-  // Si es un concepto final de obra y aún no tiene matriz inicializada ni personalizada
+  // Si es un concepto final de obra y aÃºn no tiene matriz inicializada ni personalizada
   const isLeaf = !node.children || node.children.length === 0;
   if (isLeaf && !node.isMatrixCustomized && !node.userClearedMatrix && (!Array.isArray(node.insumos) || node.insumos.length === 0)) {
     const opusInsumos = getExactOpusInsumosForClave(node.clave);
@@ -49,7 +49,7 @@ export function renderAPUInsumos(node) {
   const tbody = document.getElementById('apu-insumos-body');
   if (!tbody) return;
 
-  // Actualizar encabezado dinámicamente con la unidad del concepto (ej. Cant. para 1 m2)
+  // Actualizar encabezado dinÃ¡micamente con la unidad del concepto (ej. Cant. para 1 m2)
   const thCant = document.getElementById('th-apu-cantidad');
   if (thCant) {
     const cUnid = node.unidad || 'ud';
@@ -105,7 +105,7 @@ export function renderAPUInsumos(node) {
           <textarea ${isCatLocked ? 'disabled readonly' : ''} onchange="updateInsumo(${idx}, 'descripcion', this.value)" 
                     spellcheck="false" autocorrect="off" autocapitalize="sentences" lang="es"
                     class="desc-input w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 px-1 py-0.5 rounded text-[10px] font-sans text-justify leading-snug break-words whitespace-normal font-medium block" 
-                    placeholder="Descripción insumo">${ins.descripcion || ''}</textarea>
+                    placeholder="DescripciÃ³n insumo">${ins.descripcion || ''}</textarea>
         </div>
         <div class="flex items-center gap-2 mt-0.5">
           <input type="text" ${isCatLocked ? 'disabled readonly' : ''} value="${ins.clave || ''}" onchange="updateInsumo(${idx}, 'clave', this.value)" 
@@ -202,7 +202,7 @@ export function renderAPUInsumos(node) {
   const puEl = document.getElementById('apu-calculated-pu');
   if (puEl) puEl.innerText = formatMoney(totalPU);
 
-  // Renderizar recuadro de Google Search Grounding si hay búsquedas o fuentes
+  // Renderizar recuadro de Google Search Grounding si hay bÃºsquedas o fuentes
   const groundingBox = document.getElementById('apu-grounding-box');
   if (groundingBox) {
     const queriesContainer = document.getElementById('apu-grounding-queries-container');
@@ -314,7 +314,7 @@ export function renderInsumosUnitarios(node) {
         ${ins.clave || (ins.tipo ? ins.tipo.substring(0, 3).toUpperCase() : 'INS')}
       </td>
       <td class="p-1 border-b border-slate-100 text-[9px] text-slate-700 text-justify leading-snug break-words align-top" title="${ins.descripcion || ''}">
-        ${ins.descripcion || 'Sin descripción'}
+        ${ins.descripcion || 'Sin descripciÃ³n'}
       </td>
       <td class="p-1 border-b border-slate-100 text-right text-[9px] font-bold text-blue-900 align-top">
         ${formatQty(cantidadTotalObra)}

@@ -1,26 +1,26 @@
-import { state, persistLocalData, persistSettings } from '../state/store.js';
-import { defaultTreeData } from '../config/defaultData.js';
-import { saveState, updateUndoRedoButtons } from '../state/history.js';
-import { showToast } from './notifications.js';
-import { formatQty, round2, round5 } from '../core/formatters.js';
-import { getFactorSobrecosto } from '../core/calculations.js';
-import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../modules/catalog/treeService.js';
-import { renderTAB1, closeApuPanel } from '../modules/catalog/catalogView.js';
-import { renderAPUInsumos } from '../modules/apu/apuView.js';
-import { renderInsumosGenerales } from '../modules/insumosGenerales/insumosView.js';
-import { renderCalendarioObra } from '../modules/calendario/calendarioView.js';
-import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView.js';
-import { renderExpensesView } from '../modules/compras/expensesView.js';
-import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js';
-import { renderBrandingUI } from './brandingController.js';
-import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js';
-import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js';
+﻿import { state, persistLocalData, persistSettings } from '../state/store.js?v=20261116_cf3';
+import { defaultTreeData } from '../config/defaultData.js?v=20261116_cf3';
+import { saveState, updateUndoRedoButtons } from '../state/history.js?v=20261116_cf3';
+import { showToast } from './notifications.js?v=20261116_cf3';
+import { formatQty, round2, round5 } from '../core/formatters.js?v=20261116_cf3';
+import { getFactorSobrecosto } from '../core/calculations.js?v=20261116_cf3';
+import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../modules/catalog/treeService.js?v=20261116_cf3';
+import { renderTAB1, closeApuPanel } from '../modules/catalog/catalogView.js?v=20261116_cf3';
+import { renderAPUInsumos } from '../modules/apu/apuView.js?v=20261116_cf3';
+import { renderInsumosGenerales } from '../modules/insumosGenerales/insumosView.js?v=20261116_cf3';
+import { renderCalendarioObra } from '../modules/calendario/calendarioView.js?v=20261116_cf3';
+import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView.js?v=20261116_cf3';
+import { renderExpensesView } from '../modules/compras/expensesView.js?v=20261116_cf3';
+import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js?v=20261116_cf3';
+import { renderBrandingUI } from './brandingController.js?v=20261116_cf3';
+import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js?v=20261116_cf3';
+import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf3';
 
 // Modo de destino del modal Google IA: 'single' (solo concepto activo en matriz) o 'batch' (conceptos con casilla)
 export let aiModalTargetMode = 'single';
 export let aiModalSingleNodeId = null;
 
-// Modal de Generación APU con Google Search Grounding
+// Modal de GeneraciÃ³n APU con Google Search Grounding
 export function openAiGeneratorModal(singleSelectedOnly = false) {
   let node = null;
   const isSingle = Boolean(singleSelectedOnly);
@@ -79,7 +79,7 @@ export function openAiGeneratorModal(singleSelectedOnly = false) {
     const checkedNodes = getSelectedLeafConcepts ? getSelectedLeafConcepts() : [];
     if (modalPathEl) modalPathEl.innerText = `Lote de ${checkedNodes.length} conceptos seleccionados con casilla`;
     if (modalClaveEl) modalClaveEl.innerText = `${checkedNodes.length} sel.`;
-    if (modalDescEl) modalDescEl.innerText = checkedNodes.map(c => `[${c.clave || ''}] ${c.descripcion}`).slice(0, 4).join(', ') + (checkedNodes.length > 4 ? ` (+${checkedNodes.length - 4} más)` : '');
+    if (modalDescEl) modalDescEl.innerText = checkedNodes.map(c => `[${c.clave || ''}] ${c.descripcion}`).slice(0, 4).join(', ') + (checkedNodes.length > 4 ? ` (+${checkedNodes.length - 4} mÃ¡s)` : '');
     if (modalUnidEl) modalUnidEl.innerText = 'Varias';
     if (modalUnidHintEl) modalUnidHintEl.innerText = 'cada concepto seleccionado';
     if (modalCantEl) modalCantEl.innerText = `${checkedNodes.length} conceptos`;
@@ -89,7 +89,7 @@ export function openAiGeneratorModal(singleSelectedOnly = false) {
 
     if (modalPathEl) modalPathEl.innerText = parentPath;
     if (modalClaveEl) modalClaveEl.innerText = node.clave || '---';
-    if (modalDescEl) modalDescEl.innerText = node.descripcion || 'Sin descripción';
+    if (modalDescEl) modalDescEl.innerText = node.descripcion || 'Sin descripciÃ³n';
     if (modalUnidEl) modalUnidEl.innerText = node.unidad || 'pza';
     if (modalUnidHintEl) modalUnidHintEl.innerText = `1 ${node.unidad || 'pza'}`;
     if (modalCantEl) modalCantEl.innerText = formatQty(node.cantidad || 1);
@@ -134,8 +134,8 @@ export function updateAiModalRunButtonLabel() {
   } else {
     btnRun.className = 'px-4 py-1.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded font-medium shadow-sm transition text-xs flex items-center gap-1.5 hover:scale-105 active:scale-95';
     btnRun.innerHTML = aiModalTargetMode === 'batch'
-      ? `<i class="fa-solid fa-microchip text-[10px] text-sky-200"></i> Generar ${count} Matrices (IA Estándar)`
-      : `<i class="fa-solid fa-microchip text-[10px] text-sky-200"></i> Generar Matriz (IA Estándar)`;
+      ? `<i class="fa-solid fa-microchip text-[10px] text-sky-200"></i> Generar ${count} Matrices (IA EstÃ¡ndar)`
+      : `<i class="fa-solid fa-microchip text-[10px] text-sky-200"></i> Generar Matriz (IA EstÃ¡ndar)`;
   }
 }
 
@@ -158,11 +158,11 @@ export function refreshAiQuotaBadges() {
         <div class="flex flex-wrap items-center justify-between gap-1.5 text-[10px]">
           <div class="flex items-center gap-1.5">
             ${keyBadge}
-            <span class="text-slate-700 font-medium">IA Estándar: <strong>${stdText}</strong></span>
+            <span class="text-slate-700 font-medium">IA EstÃ¡ndar: <strong>${stdText}</strong></span>
           </div>
           <div class="flex items-center gap-2 text-slate-600">
             <span>Web Search: <strong class="${!usingOwnKey && summary.webMax === 0 ? 'text-rose-600' : 'text-amber-700'}">${webText}</strong></span>
-            <span class="text-emerald-700">Caché: <strong>${summary.cacheEntries}</strong></span>
+            <span class="text-emerald-700">CachÃ©: <strong>${summary.cacheEntries}</strong></span>
           </div>
         </div>
       `;
@@ -213,7 +213,7 @@ export function toggleAiModalKeyVisibility() {
   }
 }
 
-// Modal de Configuración General
+// Modal de ConfiguraciÃ³n General
 export function openSettingsModal(tab = 'informacion') {
   let targetTab = tab;
   if (!targetTab || targetTab === 'general' || targetTab === 'empresa') {
@@ -239,7 +239,7 @@ export function openSettingsModal(tab = 'informacion') {
   const keyEl = document.getElementById('cfg-api-key');
   if (keyEl) keyEl.value = state.settings.apiKey || '';
 
-  // Configuración de Moneda
+  // ConfiguraciÃ³n de Moneda
   const curSelect = document.getElementById('cfg-currency-select');
   const curSymbol = document.getElementById('cfg-currency-symbol');
   const curCode = document.getElementById('cfg-currency-code');
@@ -286,7 +286,7 @@ export function onCurrencySelectChange(val) {
   updateCurrencyPreview();
 }
 
-// Vista previa dinámica del formato de moneda
+// Vista previa dinÃ¡mica del formato de moneda
 export function updateCurrencyPreview() {
   const symbol = (document.getElementById('cfg-currency-symbol')?.value || '$').trim();
   const code = (document.getElementById('cfg-currency-code')?.value || 'MXN').trim();
@@ -343,7 +343,7 @@ export function updateCalculatedFactorPreview() {
   if (previewEl) previewEl.innerText = `${factor.toFixed(4)} (+${pct}%)`;
 }
 
-// Vista previa dinámica del FASAR
+// Vista previa dinÃ¡mica del FASAR
 export function updateFasarPreview() {
   const el = document.getElementById('cfg-fasar');
   const badge = document.getElementById('cfg-fasar-badge');
@@ -379,7 +379,7 @@ export function saveSettings() {
   state.settings.currencySymbol = newSymbol;
   state.settings.showCurrencyCode = showCode;
 
-  // Guardar Datos de Empresa, Proyecto, Ubicación y Logo
+  // Guardar Datos de Empresa, Proyecto, UbicaciÃ³n y Logo
   const compName = (document.getElementById('cfg-company-name')?.value || '').trim();
   if (compName) state.settings.companyName = compName;
   const projName = (document.getElementById('cfg-project-name')?.value || '').trim();
@@ -422,7 +422,7 @@ export function saveSettings() {
   const viewInsumosEl = document.getElementById('view-insumos');
   if (!viewInsumosEl || !viewInsumosEl.classList.contains('hidden')) { renderInsumosGenerales(); }
 
-  showToast(`✅ Configuración guardada. Moneda activa: ${newSymbol} (${newCurrency})`, 'success');
+  showToast(`âœ… ConfiguraciÃ³n guardada. Moneda activa: ${newSymbol} (${newCurrency})`, 'success');
 }
 
 export function toggleApiKeyVisibility() {
@@ -439,17 +439,17 @@ export function toggleApiKeyVisibility() {
 }
 
 export function resetToDemoData() {
-  if (!confirm('¿Restablecer el catálogo al ejemplo demo? Se sobrescribirán los datos actuales.')) return;
+  if (!confirm('Â¿Restablecer el catÃ¡logo al ejemplo demo? Se sobrescribirÃ¡n los datos actuales.')) return;
   state.treeData = JSON.parse(JSON.stringify(defaultTreeData));
   saveState();
   closeSettingsModal();
   closeApuPanel();
   // closeApuPanel() ya limpia activeSelectedId y ejecuta renderTAB1() una sola vez
-  showToast('Catálogo demo restablecido', 'info');
+  showToast('CatÃ¡logo demo restablecido', 'info');
 }
 
 export function clearAllData() {
-  if (!confirm('¿Estás seguro de vaciar todo el catálogo de obra?')) return;
+  if (!confirm('Â¿EstÃ¡s seguro de vaciar todo el catÃ¡logo de obra?')) return;
   state.treeData = [];
   saveState();
   closeSettingsModal();
@@ -458,13 +458,13 @@ export function clearAllData() {
   showToast('Presupuesto vaciado', 'warning');
 }
 
-// Cambio de pestañas principales: Catálogo vs Insumos Generales vs Calendario de Obra vs Estimaciones
+// Cambio de pestaÃ±as principales: CatÃ¡logo vs Insumos Generales vs Calendario de Obra vs Estimaciones
 export let activePresupuestoSubTab = 'cat';
 
 export function switchPresupuestoSubTab(subTab) {
   if ((subTab === 'cat' || subTab === 'insumos') && typeof canCurrentUserAccessTab === 'function' && !canCurrentUserAccessTab(subTab)) {
-    const label = subTab === 'cat' ? 'Catálogo Base y APU' : 'Insumos Generales';
-    showToast(`🔒 No tienes permiso asignado para acceder a "${label}".`, 'warning');
+    const label = subTab === 'cat' ? 'CatÃ¡logo Base y APU' : 'Insumos Generales';
+    showToast(`ðŸ”’ No tienes permiso asignado para acceder a "${label}".`, 'warning');
     return;
   }
   activePresupuestoSubTab = subTab;
@@ -492,7 +492,7 @@ export function switchPresupuestoSubTab(subTab) {
 }
 
 export function switchTab(tab) {
-  // Soporte directo para 'cat' e 'insumos' redirigiendo a la pestaña unificada 'presupuesto'
+  // Soporte directo para 'cat' e 'insumos' redirigiendo a la pestaÃ±a unificada 'presupuesto'
   let targetTab = tab;
   let targetSubTab = null;
   if (tab === 'cat') {
@@ -502,7 +502,7 @@ export function switchTab(tab) {
     targetTab = 'presupuesto';
     targetSubTab = 'insumos';
   } else if (tab === 'presupuesto' && typeof canCurrentUserAccessTab === 'function') {
-    // Si un colaborador invitado solo tiene permiso en Insumos (y no en Catálogo), abrir directo en Insumos
+    // Si un colaborador invitado solo tiene permiso en Insumos (y no en CatÃ¡logo), abrir directo en Insumos
     if (!canCurrentUserAccessTab('cat') && canCurrentUserAccessTab('insumos')) {
       targetSubTab = 'insumos';
     }
@@ -512,14 +512,14 @@ export function switchTab(tab) {
   if (typeof canCurrentUserAccessTab === 'function' && !canCurrentUserAccessTab(accessCheckKey)) {
     const tabNames = {
       presupuesto: 'Presupuesto',
-      cat: 'Catálogo Base y APU',
+      cat: 'CatÃ¡logo Base y APU',
       insumos: 'Insumos Generales',
       calendario: 'Calendario de Obra',
       estimaciones: 'Estimaciones de Obra',
       compras: 'Compras y Pagos',
-      bitacora: 'Bitácora de Obra'
+      bitacora: 'BitÃ¡cora de Obra'
     };
-    showToast(`🔒 No tienes permiso asignado para acceder a la pestaña "${tabNames[accessCheckKey] || accessCheckKey}". Esta pestaña está restringida solo a los miembros autorizados por el administrador.`, 'warning');
+    showToast(`ðŸ”’ No tienes permiso asignado para acceder a la pestaÃ±a "${tabNames[accessCheckKey] || accessCheckKey}". Esta pestaÃ±a estÃ¡ restringida solo a los miembros autorizados por el administrador.`, 'warning');
     return;
   }
 
@@ -593,7 +593,7 @@ export function switchTab(tab) {
   }
 }
 
-// Modal de Información de la Plataforma (Hero, Funciones Estrella y Comparativo)
+// Modal de InformaciÃ³n de la Plataforma (Hero, Funciones Estrella y Comparativo)
 export function openPlatformInfoModal() {
   const modal = document.getElementById('modal-platform-info');
   if (modal) {
@@ -634,7 +634,7 @@ export function handlePlatformInfoVerPlanes() {
 }
 
 // =========================================================================
-// CIERRE AUTOMÁTICO AL HACER CLIC FUERA DE VENTANAS FLOTANTES Y MODALES
+// CIERRE AUTOMÃTICO AL HACER CLIC FUERA DE VENTANAS FLOTANTES Y MODALES
 // =========================================================================
 
 const BACKDROP_MODAL_CLOSERS = {
@@ -722,7 +722,7 @@ function getTopmostVisibleBackdropModal() {
     const zDiff = getEffectiveZIndex(candidate) - getEffectiveZIndex(topEl);
     if (zDiff > 0) return candidate;
     if (zDiff < 0) return topEl;
-    // Desempate por orden real de apilamiento en el DOM (último queda al frente)
+    // Desempate por orden real de apilamiento en el DOM (Ãºltimo queda al frente)
     return (topEl.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING) ? candidate : topEl;
   }, null);
 }
@@ -812,7 +812,7 @@ function closeOpenNonModalPopovers(target, downTarget) {
 }
 
 /**
- * Registra listeners globales en fase de captura para cerrar modales, menús y ventanas
+ * Registra listeners globales en fase de captura para cerrar modales, menÃºs y ventanas
  * flotantes al hacer clic fuera de su contenido, ignorando arrastres iniciados dentro.
  */
 export function initFloatingWindowOutsideClose() {
@@ -840,7 +840,7 @@ export function initFloatingWindowOutsideClose() {
     const topmostModal = getTopmostVisibleBackdropModal();
     if (topmostModal) {
       if (e.target === topmostModal) {
-        // Evitar cerrar si el usuario inició un arrastre o selección dentro del modal y soltó fuera
+        // Evitar cerrar si el usuario iniciÃ³ un arrastre o selecciÃ³n dentro del modal y soltÃ³ fuera
         const dragStartedInsideDialog = Boolean(
           downTarget instanceof Node &&
           downTarget !== topmostModal &&

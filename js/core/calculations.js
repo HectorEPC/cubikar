@@ -1,9 +1,9 @@
-import { state } from '../state/store.js';
-import { formatMoney, round2, round5 } from './formatters.js';
+﻿import { state } from '../state/store.js?v=20261116_cf3';
+import { formatMoney, round2, round5 } from './formatters.js?v=20261116_cf3';
 
 export { round2, round5 };
 
-// Cálculo del Factor de Sobrecosto (FSR/Indirectos/Financiamiento/Utilidad/Seguros y Fianzas)
+// CÃ¡lculo del Factor de Sobrecosto (FSR/Indirectos/Financiamiento/Utilidad/Seguros y Fianzas)
 export function getFactorSobrecosto() {
   if (!state.settings.applySobrecosto) return 1.0;
   const fInd = 1 + ((parseFloat(state.settings.pctIndirectos) || 0) / 100);
