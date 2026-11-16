@@ -19,7 +19,7 @@ import {
   resolveCleanHostName,
   markProjectDeleted,
   isProjectMarkedDeleted
-} from '../modules/portal/projectService.js?v=20261115_v16';
+} from '../modules/portal/projectService.js?v=20261115_v19_purge_fix';
 
 function getDeletedProjectsList() {
   try {
@@ -430,28 +430,75 @@ export function restoreUserCollaborationFromCloud(user = null) {
   // Consultar proyectos en Supabase PostgreSQL (public.proyectos + public.proyecto_colaboradores)
   if (isSupabaseConfigured()) {
     fetchCloudProjects().then(cloudList => {
-      if (Array.isArray(cloudList) && cloudList.length > 0) {
-        const curList = typeof getProjectsList === 'function' ? getProjectsList() : [];
-        let updated = false;
-        cloudList.forEach(cp => {
-          if (isDeleted(cp.id) || isDeleted(cp.cloudId)) return;
-          const idx = curList.findIndex(lp => lp.id === cp.id || lp.cloudId === cp.id);
-          if (idx === -1) {
-            curList.unshift(cp);
-            updated = true;
-          } else {
-            curList[idx] = { ...curList[idx], ...cp, isCloudSynced: true };
-            updated = true;
-          }
-        });
-        if (updated && typeof saveProjectsList === 'function') {
-          saveProjectsList(curList);
-          if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
-            window.refreshProjectsGridUI();
+      const activeCloud = Array.isArray(cloudList) ? cloudList : [];
+      const curList = typeof getProjectsList === 'function' ? getProjectsList() : [];
+      let updated = false;
+
+      // 1. Agregar o actualizar proyectos vigentes devueltos por Supabase
+      activeCloud.forEach(cp => {
+        if (isDeleted(cp.id) || isDeleted(cp.cloudId)) return;
+        const idx = curList.findIndex(lp => lp.id === cp.id || lp.cloudId === cp.id);
+        if (idx === -1) {
+          curList.unshift(cp);
+          updated = true;
+        } else {
+          curList[idx] = { ...curList[idx], ...cp, isCloudSynced: true };
+          updated = true;
+        }
+      });
+
+      // 2. RECONCILIACIÓN ESTRICTA (Confirmación 1 y 2):
+      // Si un proyecto en localStorage pertenece a otro usuario (anfitrión) y NO vino en activeCloud
+      // (lo cual significa que el anfitrión lo eliminó o revocó la invitación), ¡PURGAR DE INMEDIATO!
+      const activeCloudIds = new Set(activeCloud.map(cp => cp.id));
+      let prunedCollab = 0;
+      const cleanList = curList.filter(p => {
+        const pOwner = (p.ownerEmail || '').toLowerCase().trim();
+        if (!pOwner || pOwner === myEmail || p.isSample || (typeof p.id === 'string' && (p.id.startsWith('proj-default') || p.id.startsWith('proj-demo')))) {
+          return true;
+        }
+        if (!activeCloudIds.has(p.id) && !activeCloudIds.has(p.cloudId)) {
+          markProjectDeleted(p.id);
+          if (p.cloudId) markProjectDeleted(p.cloudId);
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.removeItem(getSettingsKey(p.id));
+              localStorage.removeItem(getStorageKey(p.id));
+              localStorage.removeItem(`estimaciones_data_${p.id}`);
+              localStorage.removeItem(`adm_const_chat_${p.id}`);
+              localStorage.removeItem(`control_obra_chat_${p.id}`);
+              localStorage.removeItem(`adm_const_signatures_${p.id}`);
+              localStorage.removeItem(`adm_const_bitacora_${p.id}`);
+              localStorage.removeItem(`adm_const_expenses_${p.id}`);
+              localStorage.removeItem(`adm_const_suppliers_${p.id}`);
+            }
+          } catch (_) {}
+          prunedCollab++;
+          return false;
+        }
+        return true;
+      });
+
+      if (prunedCollab > 0) {
+        updated = true;
+        if (currentUser && currentUser.user_metadata?.cubikar_cloud_state_v2) {
+          const cs = currentUser.user_metadata.cubikar_cloud_state_v2;
+          if (Array.isArray(cs.collaboratedProjects)) {
+            cs.collaboratedProjects = cs.collaboratedProjects.filter(p => !isProjectMarkedDeleted(p.id) && !isProjectMarkedDeleted(p.cloudId));
+            saveCurrentUser(currentUser);
           }
         }
       }
-    }).catch(() => {});
+
+      if (updated && typeof saveProjectsList === 'function') {
+        saveProjectsList(cleanList);
+        if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+          window.refreshProjectsGridUI();
+        }
+      }
+    }).catch(err => {
+      console.warn('[CloudSync] Aviso al reconciliar proyectos con Supabase:', err);
+    });
   }
 
   if (hasChanges) {
@@ -589,6 +636,11 @@ export async function syncHostWorkspaceProjects(hostEmail) {
       if (!window.__hostActiveManifest) window.__hostActiveManifest = {};
       window.__hostActiveManifest[targetHost] = Array.from(activeIdsSet);
     }
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem(`cubikar_host_manifest_${targetHost}`, JSON.stringify(Array.from(activeIdsSet)));
+      }
+    } catch (_) {}
 
     let prunedCount = 0;
 
@@ -631,11 +683,22 @@ export async function syncHostWorkspaceProjects(hostEmail) {
 
     if (prunedCount > 0) {
       saveProjectsList(updatedList);
+      if (user && user.user_metadata?.cubikar_cloud_state_v2) {
+        const cs = user.user_metadata.cubikar_cloud_state_v2;
+        if (Array.isArray(cs.collaboratedProjects)) {
+          cs.collaboratedProjects = cs.collaboratedProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() !== targetHost || activeIdsSet.has(p.id) || (p.cloudId && activeIdsSet.has(p.cloudId)));
+          saveCurrentUser(user);
+        }
+      }
       console.info(`[HostWorkspaceSync] Se purgaron ${prunedCount} proyectos inexistentes o sin permiso del anfitrión ${targetHost}.`);
       if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
         window.refreshProjectsGridUI();
       }
       return true;
+    } else {
+      if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+        window.refreshProjectsGridUI();
+      }
     }
   } catch (err) {
     console.warn('[HostWorkspaceSync] Error al sincronizar proyectos del anfitrión:', err);

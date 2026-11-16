@@ -298,6 +298,7 @@ CREATE POLICY "conceptos_delete" ON public.catalogo_conceptos
 -- 7.4 Políticas para public.chat_mensajes
 DROP POLICY IF EXISTS "chat_select" ON public.chat_mensajes;
 DROP POLICY IF EXISTS "chat_insert" ON public.chat_mensajes;
+DROP POLICY IF EXISTS "chat_update" ON public.chat_mensajes;
 DROP POLICY IF EXISTS "chat_delete" ON public.chat_mensajes;
 
 CREATE POLICY "chat_select" ON public.chat_mensajes
@@ -311,6 +312,13 @@ CREATE POLICY "chat_insert" ON public.chat_mensajes
         proyecto_id LIKE '__cubikar_%'
         OR public.check_user_project_access(proyecto_id::text)
         OR auth.role() = 'authenticated'
+    );
+
+CREATE POLICY "chat_update" ON public.chat_mensajes
+    FOR UPDATE USING (
+        proyecto_id LIKE '__cubikar_%'
+        OR LOWER(autor_email) = public.current_user_email()
+        OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar'])
     );
 
 CREATE POLICY "chat_delete" ON public.chat_mensajes
