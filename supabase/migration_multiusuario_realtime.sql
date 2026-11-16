@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS public.proyectos (
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Asegurar columnas si la tabla ya existía en versiones previas
+-- Asegurar columnas si la tabla ya existía previamente
 DO $$
 BEGIN
     ALTER TABLE public.proyectos ADD COLUMN IF NOT EXISTS owner_email VARCHAR(255) NOT NULL DEFAULT '';
@@ -131,7 +131,7 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_chat_proyecto ON public.chat_mensajes(proyecto_id, created_at DESC);
 
 -- ==============================================================================
--- 6. FUNCIONES DE SEGURIDAD Y ACCESO MULTIUSUARIO (ANTI-RECURSIÓN)
+-- 6. FUNCIONES DE SEGURIDAD Y ACCESO MULTIUSUARIO (ANTI-RECURSIÓN Y POLIMÓRFICAS)
 -- ==============================================================================
 
 -- Función 1: Obtener email del JWT autenticado en minúsculas y limpio
@@ -140,9 +140,9 @@ RETURNS TEXT AS $$
     SELECT LOWER(COALESCE(auth.jwt()->>'email', ''));
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
 
--- Función 2: Validar acceso a un proyecto para cualquier usuario autenticado
+-- Función 2A: Validar acceso a un proyecto recibiendo TEXT (compatible con UUID, TEXT o VARCHAR)
 CREATE OR REPLACE FUNCTION public.check_user_project_access(
-    proj_id UUID, 
+    proj_id TEXT, 
     req_roles TEXT[] DEFAULT ARRAY['owner', 'admin', 'editar', 'escribir', 'leer']
 )
 RETURNS BOOLEAN AS $$
@@ -162,7 +162,7 @@ BEGIN
     -- Acceso directo si es el propietario
     IF EXISTS (
         SELECT 1 FROM public.proyectos p
-        WHERE p.id = proj_id
+        WHERE p.id::text = proj_id
         AND LOWER(p.owner_email) = u_email
     ) THEN
         RETURN TRUE;
@@ -171,11 +171,22 @@ BEGIN
     -- Acceso si es colaborador invitado con rol permitido
     RETURN EXISTS (
         SELECT 1 FROM public.proyecto_colaboradores pc
-        WHERE pc.proyecto_id = proj_id
+        WHERE pc.proyecto_id::text = proj_id
         AND LOWER(pc.email_colaborador) = u_email
         AND pc.rol = ANY(req_roles)
         AND pc.estado_invitacion IN ('accepted', 'pending')
     );
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- Función 2B: Sobrecarga para UUID (delega transparentemente a TEXT)
+CREATE OR REPLACE FUNCTION public.check_user_project_access(
+    proj_id UUID, 
+    req_roles TEXT[] DEFAULT ARRAY['owner', 'admin', 'editar', 'escribir', 'leer']
+)
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN public.check_user_project_access(proj_id::text, req_roles);
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
@@ -217,13 +228,13 @@ DROP POLICY IF EXISTS "proyectos_update_colaboracion" ON public.proyectos;
 DROP POLICY IF EXISTS "proyectos_delete_owner" ON public.proyectos;
 
 CREATE POLICY "proyectos_select_colaboracion" ON public.proyectos
-    FOR SELECT USING (public.check_user_project_access(id));
+    FOR SELECT USING (public.check_user_project_access(id::text));
 
 CREATE POLICY "proyectos_insert_auth" ON public.proyectos
     FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 CREATE POLICY "proyectos_update_colaboracion" ON public.proyectos
-    FOR UPDATE USING (public.check_user_project_access(id, ARRAY['owner', 'admin', 'editar']));
+    FOR UPDATE USING (public.check_user_project_access(id::text, ARRAY['owner', 'admin', 'editar']));
 
 CREATE POLICY "proyectos_delete_owner" ON public.proyectos
     FOR DELETE USING (
@@ -240,24 +251,24 @@ DROP POLICY IF EXISTS "colaboradores_delete" ON public.proyecto_colaboradores;
 CREATE POLICY "colaboradores_select" ON public.proyecto_colaboradores
     FOR SELECT USING (
         LOWER(email_colaborador) = public.current_user_email()
-        OR public.check_user_project_access(proyecto_id)
+        OR public.check_user_project_access(proyecto_id::text)
     );
 
 CREATE POLICY "colaboradores_insert" ON public.proyecto_colaboradores
     FOR INSERT WITH CHECK (
-        public.check_user_project_access(proyecto_id, ARRAY['owner', 'admin', 'editar'])
+        public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar'])
         OR auth.role() = 'authenticated'
     );
 
 CREATE POLICY "colaboradores_update" ON public.proyecto_colaboradores
     FOR UPDATE USING (
-        public.check_user_project_access(proyecto_id, ARRAY['owner', 'admin', 'editar'])
+        public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar'])
         OR LOWER(email_colaborador) = public.current_user_email()
     );
 
 CREATE POLICY "colaboradores_delete" ON public.proyecto_colaboradores
     FOR DELETE USING (
-        public.check_user_project_access(proyecto_id, ARRAY['owner', 'admin', 'editar'])
+        public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar'])
         OR LOWER(email_colaborador) = public.current_user_email()
     );
 
@@ -269,16 +280,16 @@ DROP POLICY IF EXISTS "conceptos_delete" ON public.catalogo_conceptos;
 DROP POLICY IF EXISTS "Acceso a conceptos si perteneces al proyecto" ON public.catalogo_conceptos;
 
 CREATE POLICY "conceptos_select" ON public.catalogo_conceptos
-    FOR SELECT USING (public.check_user_project_access(proyecto_id));
+    FOR SELECT USING (public.check_user_project_access(proyecto_id::text));
 
 CREATE POLICY "conceptos_insert" ON public.catalogo_conceptos
-    FOR INSERT WITH CHECK (public.check_user_project_access(proyecto_id, ARRAY['owner', 'admin', 'editar', 'escribir']));
+    FOR INSERT WITH CHECK (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']));
 
 CREATE POLICY "conceptos_update" ON public.catalogo_conceptos
-    FOR UPDATE USING (public.check_user_project_access(proyecto_id, ARRAY['owner', 'admin', 'editar', 'escribir']));
+    FOR UPDATE USING (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']));
 
 CREATE POLICY "conceptos_delete" ON public.catalogo_conceptos
-    FOR DELETE USING (public.check_user_project_access(proyecto_id, ARRAY['owner', 'admin', 'editar']));
+    FOR DELETE USING (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar']));
 
 -- 7.4 Políticas para public.chat_mensajes
 DROP POLICY IF EXISTS "chat_select" ON public.chat_mensajes;
@@ -286,15 +297,15 @@ DROP POLICY IF EXISTS "chat_insert" ON public.chat_mensajes;
 DROP POLICY IF EXISTS "chat_delete" ON public.chat_mensajes;
 
 CREATE POLICY "chat_select" ON public.chat_mensajes
-    FOR SELECT USING (public.check_user_project_access(proyecto_id));
+    FOR SELECT USING (public.check_user_project_access(proyecto_id::text));
 
 CREATE POLICY "chat_insert" ON public.chat_mensajes
-    FOR INSERT WITH CHECK (public.check_user_project_access(proyecto_id));
+    FOR INSERT WITH CHECK (public.check_user_project_access(proyecto_id::text));
 
 CREATE POLICY "chat_delete" ON public.chat_mensajes
     FOR DELETE USING (
         LOWER(autor_email) = public.current_user_email()
-        OR public.check_user_project_access(proyecto_id, ARRAY['owner', 'admin'])
+        OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin'])
     );
 
 -- ==============================================================================
@@ -308,16 +319,23 @@ ALTER TABLE public.chat_mensajes REPLICA IDENTITY FULL;
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'proyectos') THEN
+    BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.proyectos;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'proyecto_colaboradores') THEN
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.proyecto_colaboradores;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'catalogo_conceptos') THEN
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.catalogo_conceptos;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'chat_mensajes') THEN
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_mensajes;
-    END IF;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
 END $$;
