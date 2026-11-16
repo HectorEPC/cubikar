@@ -8,14 +8,14 @@
  * [Agregar al diccionario] y [Mejorar con IA].
  */
 
-import { state, persistLocalData } from '../state/store.js?v=20261116_cf7';
-import { wordAutocorrectService } from '../core/wordAutocorrectService.js?v=20261116_cf7';
-import { renderTAB1 } from '../modules/catalog/catalogView.js?v=20261116_cf7';
-import { findNodeById } from '../modules/catalog/treeService.js?v=20261116_cf7';
-import { renderAPUInsumos } from '../modules/apu/apuView.js?v=20261116_cf7';
-import { showToast } from './notifications.js?v=20261116_cf7';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261116_cf7';
-import { guardTabUnlocked } from './tabLockController.js?v=20261116_cf7';
+import { state, persistLocalData } from '../state/store.js?v=20261116_cf8';
+import { wordAutocorrectService } from '../core/wordAutocorrectService.js?v=20261116_cf8';
+import { renderTAB1 } from '../modules/catalog/catalogView.js?v=20261116_cf8';
+import { findNodeById } from '../modules/catalog/treeService.js?v=20261116_cf8';
+import { renderAPUInsumos } from '../modules/apu/apuView.js?v=20261116_cf8';
+import { showToast } from './notifications.js?v=20261116_cf8';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261116_cf8';
+import { guardTabUnlocked } from './tabLockController.js?v=20261116_cf8';
 
 let activeErrors = [];
 let currentErrorIndex = 0;

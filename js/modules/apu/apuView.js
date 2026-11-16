@@ -1,12 +1,12 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf7';
-import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261116_cf7';
-import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf7';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf7';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf7';
-import { updateModalIfOpen } from './matrizModal.js?v=20261116_cf7';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261116_cf7';
-import { isTabLocked } from '../../ui/tabLockController.js?v=20261116_cf7';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf7';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf8';
+import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261116_cf8';
+import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf8';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf8';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf8';
+import { updateModalIfOpen } from './matrizModal.js?v=20261116_cf8';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261116_cf8';
+import { isTabLocked } from '../../ui/tabLockController.js?v=20261116_cf8';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf8';
 
 // Renderizar tabla Matriz APU del concepto seleccionado
 let selectedApuInsumoIdx = null;

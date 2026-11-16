@@ -3,8 +3,8 @@
 // conectada con Partidas de Nivel 1 (icono de alta visibilidad fa-comments),
 // Usuarios Asignados (@), Estimaciones (#), Reportes (!) y Notificaciones de Menciones en la barra lateral izquierda.
 
-import { state } from '../../state/store.js?v=20261116_cf7';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf7';
+import { state } from '../../state/store.js?v=20261116_cf8';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf8';
 import {
   getProjectById,
   getProjectsList,
@@ -20,15 +20,15 @@ import {
   getStoredPlanInvitations,
   saveStoredPlanInvitations,
   getDeletedProjectsList
-} from '../portal/projectService.js?v=20261116_cf7';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf7';
-import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261116_cf7';
-import { getExpensesRecords } from '../compras/expensesModel.js?v=20261116_cf7';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf7';
-import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261116_cf7';
-import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261116_cf7';
-import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf7';
-import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261116_cf7';
+} from '../portal/projectService.js?v=20261116_cf8';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf8';
+import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261116_cf8';
+import { getExpensesRecords } from '../compras/expensesModel.js?v=20261116_cf8';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf8';
+import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261116_cf8';
+import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261116_cf8';
+import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf8';
+import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261116_cf8';
 
 let isChatDockExpanded = false; // Inicia como pequeño círculo flotante abajo a la derecha
 let isChatMaximized = false; // Permite maximizar o restaurar el tamaño de la ventana del chat

@@ -450,33 +450,43 @@ export default async function handler(req, res) {
 
         const beforeChars = JSON.stringify(prevMeta).length;
         const cleanedMeta = buildCompactUserMetadata(prevMeta);
-        const selfPutRes = await fetch(`${sbUrl}/auth/v1/user`, {
-          method: 'PUT',
-          headers: {
-            apikey: sbAnonKey,
-            Authorization: `Bearer ${rawToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ data: cleanedMeta })
-        });
-        if (!selfPutRes.ok) {
-          const errTxt = await selfPutRes.text().catch(() => '');
-          return res.status(selfPutRes.status).json({
-            error: `No se pudo auto-compactar sesión (${selfPutRes.status}): ${errTxt}`,
+        try {
+          const selfPutRes = await fetch(`${sbUrl}/auth/v1/user`, {
+            method: 'PUT',
+            headers: {
+              apikey: sbAnonKey,
+              Authorization: `Bearer ${rawToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ data: cleanedMeta })
+          });
+          if (!selfPutRes.ok) {
+            const errTxt = await selfPutRes.text().catch(() => '');
+            const statusOut = selfPutRes.status === 431 ? 422 : selfPutRes.status;
+            return res.status(statusOut).json({
+              error: `No se pudo auto-compactar sesión (${selfPutRes.status}): ${errTxt}`,
+              needsServiceRoleKey: selfPutRes.status === 431 || !serviceRoleKey,
+              misconfiguredAnonKey: Boolean(misconfiguredAnonKey)
+            });
+          }
+          const updatedSelf = await selfPutRes.json().catch(() => null);
+          const actualAfterChars = updatedSelf?.user_metadata
+            ? JSON.stringify(updatedSelf.user_metadata).length
+            : JSON.stringify(cleanedMeta).length;
+          return res.status(200).json({
+            ok: true,
+            repaired: true,
+            method: 'self',
+            beforeChars,
+            afterChars: actualAfterChars
+          });
+        } catch (selfErr) {
+          return res.status(422).json({
+            error: `El token actual excede el límite HTTP para self-repair (${rawToken.length} bytes): ${selfErr?.message || selfErr}`,
+            needsServiceRoleKey: true,
             misconfiguredAnonKey: Boolean(misconfiguredAnonKey)
           });
         }
-        const updatedSelf = await selfPutRes.json().catch(() => null);
-        const actualAfterChars = updatedSelf?.user_metadata
-          ? JSON.stringify(updatedSelf.user_metadata).length
-          : JSON.stringify(cleanedMeta).length;
-        return res.status(200).json({
-          ok: true,
-          repaired: true,
-          method: 'self',
-          beforeChars,
-          afterChars: actualAfterChars
-        });
       } catch (err) {
         return res.status(500).json({ error: err.message || 'Error interno compactando sesión JWT.' });
       }

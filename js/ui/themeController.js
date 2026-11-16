@@ -1,5 +1,5 @@
 // Controlador global de Tema Visual: Vista de Día (predeterminado) y Modo Nocturno
-import { showToast } from './notifications.js?v=20261116_cf7';
+import { showToast } from './notifications.js?v=20261116_cf8';
 
 export const STORAGE_KEY_THEME = 'adm_const_theme_mode';
 
