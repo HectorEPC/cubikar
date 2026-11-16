@@ -1,10 +1,10 @@
-﻿// js/core/collaborationCloudService.js
-// SincronizaciÃ³n integral en la nube (Supabase Auth user_metadata) para garantizar
-// persistencia total de proyectos, anfitriones, invitaciones y membresÃ­as
-// al iniciar sesiÃ³n en cualquier computadora, navegador o dispositivo.
+// js/core/collaborationCloudService.js
+// Sincronización integral en la nube (Supabase Auth user_metadata) para garantizar
+// persistencia total de proyectos, anfitriones, invitaciones y membresías
+// al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf3';
-import { syncProjectToCloud, fetchCloudProjects } from './cloudProjectService.js?v=20261116_cf3';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf4';
+import { syncProjectToCloud, fetchCloudProjects } from './cloudProjectService.js?v=20261116_cf4';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -20,9 +20,9 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261116_cf3';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf3';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf3';
+} from '../modules/portal/projectService.js?v=20261116_cf4';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf4';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf4';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
@@ -46,8 +46,8 @@ export function isRecentInternalCloudAuthUpdate(windowMs = 6000) {
 }
 
 /**
- * Sincroniza hacia la nube de Supabase (user_metadata para perfil/suscripciÃ³n/invitaciones/lÃ¡pidas
- * y public.proyectos como Ãºnica fuente de verdad para los proyectos).
+ * Sincroniza hacia la nube de Supabase (user_metadata para perfil/suscripción/invitaciones/lápidas
+ * y public.proyectos como única fuente de verdad para los proyectos).
  */
 export async function syncUserCollaborationToCloud(user = null) {
   const sb = getSupabaseClient();
@@ -90,7 +90,7 @@ export async function syncUserCollaborationToCloud(user = null) {
       (i.email || '').toLowerCase().trim() === myEmail
     );
 
-    // 5. Invitaciones emitidas por este usuario hacia otros (como anfitriÃ³n)
+    // 5. Invitaciones emitidas por este usuario hacia otros (como anfitrión)
     const mySentPlanInvs = allPlanInvs.filter(pi => 
       (pi.ownerEmail || '').toLowerCase().trim() === myEmail
     );
@@ -98,7 +98,7 @@ export async function syncUserCollaborationToCloud(user = null) {
       (i.ownerEmail || '').toLowerCase().trim() === myEmail
     );
 
-    // 6. SuscripciÃ³n activa del usuario
+    // 6. Suscripción activa del usuario
     let currentSub = currentUser.subscription;
     if (!currentSub && typeof localStorage !== 'undefined') {
       try {
@@ -159,7 +159,7 @@ export async function syncUserCollaborationToCloud(user = null) {
       }
     }
 
-    // Persistir proyectos nuevos del propietario que aÃºn no han sido sincronizados a PostgreSQL
+    // Persistir proyectos nuevos del propietario que aún no han sido sincronizados a PostgreSQL
     const rawProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail && !p.isCloudSynced && !isProjectMarkedDeleted(p.id) && !isProjectMarkedDeleted(p.cloudId));
     let localProjectsUpdated = false;
     for (const p of rawProjects) {
@@ -184,17 +184,17 @@ export async function syncUserCollaborationToCloud(user = null) {
       saveProjectsList(allProjects);
     }
 
-    // Publicar manifiesto de proyectos activos del anfitriÃ³n en Supabase para sincronizaciÃ³n inter-usuarios
+    // Publicar manifiesto de proyectos activos del anfitrión en Supabase para sincronización inter-usuarios
     if (myEmail) {
       try {
         await recordHostActiveManifest(myEmail, myOwnedActiveProjects.map(p => p.cloudId || p.id));
       } catch (_) {}
     }
 
-    console.info(`[CloudSync] Estado respaldado en la nube con Ã©xito (${myOwnedActiveProjects.length} propias activas, ${myPlanInvs.length} anfitriones).`);
+    console.info(`[CloudSync] Estado respaldado en la nube con éxito (${myOwnedActiveProjects.length} propias activas, ${myPlanInvs.length} anfitriones).`);
     return true;
   } catch (err) {
-    console.warn('[CloudSync] ExcepciÃ³n al respaldar en la nube:', err);
+    console.warn('[CloudSync] Excepción al respaldar en la nube:', err);
     return false;
   } finally {
     isCloudSyncInFlight = false;
@@ -220,7 +220,7 @@ function mapProjectForCloudSync(p) {
     const rawTree = localStorage.getItem(getStorageKey(p.id));
     if (rawTree) {
       const parsedTree = JSON.parse(rawTree);
-      // Incluir catÃ¡logo si no supera 200 conceptos para mantener tamaÃ±o Ã¡gil
+      // Incluir catálogo si no supera 200 conceptos para mantener tamaño ágil
       if (Array.isArray(parsedTree) && parsedTree.length <= 200) {
         localTree = parsedTree;
       }
@@ -240,7 +240,7 @@ function mapProjectForCloudSync(p) {
     companyName: p.companyName || '',
     companyLogo: p.companyLogo || '',
     projectLocation: p.projectLocation || '',
-    tipoObra: p.tipoObra || 'EdificaciÃ³n',
+    tipoObra: p.tipoObra || 'Edificación',
     currency: p.currency || 'MXN',
     currencySymbol: p.currencySymbol || '$',
     factorSobrecosto: p.factorSobrecosto || 1.0,
@@ -279,7 +279,7 @@ export function restoreUserCollaborationFromCloud(user = null) {
 
   let hasChanges = false;
 
-  // 1. Restaurar suscripciÃ³n en localStorage de esta computadora
+  // 1. Restaurar suscripción en localStorage de esta computadora
   if (state.subscription && state.subscription.planId) {
     try {
       localStorage.setItem(`adm_const_subscription_${myEmail}`, JSON.stringify(state.subscription));
@@ -298,12 +298,12 @@ export function restoreUserCollaborationFromCloud(user = null) {
     });
   }
 
-  // Usar Ãºnicamente public.proyectos + public.proyectos_eliminados como fuente de verdad
+  // Usar únicamente public.proyectos + public.proyectos_eliminados como fuente de verdad
   // (no reinyectar state.ownedProjects ni state.collaboratedProjects desde user_metadata).
   const deletedList = typeof getDeletedProjectsList === 'function' ? getDeletedProjectsList() : [];
   const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
 
-  // Limpiar copias obsoletas en localStorage segÃºn lÃ¡pidas conocidas
+  // Limpiar copias obsoletas en localStorage según lápidas conocidas
   try {
     const localProjects = typeof getProjectsList === 'function' ? getProjectsList() : [];
     const surviving = localProjects.filter(lp => lp && !isDeleted(lp.id) && !(lp.cloudId && isDeleted(lp.cloudId)));
@@ -423,9 +423,9 @@ export function restoreUserCollaborationFromCloud(user = null) {
         }
       });
 
-      // 2. RECONCILIACIÃ“N DE PROYECTOS COLABORADOS:
+      // 2. RECONCILIACIÓN DE PROYECTOS COLABORADOS:
       // No marcar como eliminado permanentemente (markProjectDeleted) un proyecto colaborado si no vino en esta consulta
-      // (podrÃ­a estar reciÃ©n creado o con invitaciÃ³n pendiente). Tampoco purgar jamÃ¡s el proyecto activo en el workspace.
+      // (podría estar recién creado o con invitación pendiente). Tampoco purgar jamás el proyecto activo en el workspace.
       const activeCloudIds = new Set(activeCloud.map(cp => cp.id));
       const activePId = typeof window !== 'undefined' && window.location?.search ? new URLSearchParams(window.location.search).get('project') : null;
       let prunedCollab = 0;
@@ -438,7 +438,7 @@ export function restoreUserCollaborationFromCloud(user = null) {
         if (activePId && (p.id === activePId || p.cloudId === activePId)) {
           return true;
         }
-        // Si fue explÃ­citamente eliminado por lÃ¡pida, purgarlo
+        // Si fue explícitamente eliminado por lápida, purgarlo
         if (isProjectMarkedDeleted(p.id) || (p.cloudId && isProjectMarkedDeleted(p.cloudId))) {
           prunedCollab++;
           return false;
@@ -477,13 +477,13 @@ export function restoreUserCollaborationFromCloud(user = null) {
   }
 
   if (hasChanges) {
-    console.info('[CloudSync] Estado restaurado desde la nube en este navegador con Ã©xito.');
+    console.info('[CloudSync] Estado restaurado desde la nube en este navegador con éxito.');
   }
   return hasChanges;
 }
 
 /**
- * Registrar lÃ¡pida (tombstone) de proyecto eliminado en Supabase (tabla chat_mensajes)
+ * Registrar lápida (tombstone) de proyecto eliminado en Supabase (tabla chat_mensajes)
  * para asegurar que usuarios desconectados o en otros navegadores lo eliminen al reconectar.
  */
 export async function recordDeletedProjectTombstone(projectId, ownerEmail = null, opts = {}) {
@@ -530,14 +530,14 @@ export async function recordDeletedProjectTombstone(projectId, ownerEmail = null
     }, { onConflict: 'id' });
     return true;
   } catch (err) {
-    console.warn('[CloudSync] Error al registrar lÃ¡pida de eliminaciÃ³n:', err);
+    console.warn('[CloudSync] Error al registrar lápida de eliminación:', err);
     return false;
   }
 }
 
 /**
- * Publicar manifiesto de proyectos activos del anfitriÃ³n en Supabase (tabla chat_mensajes).
- * Contiene la lista autoritativa de IDs de proyectos vigentes de este anfitriÃ³n.
+ * Publicar manifiesto de proyectos activos del anfitrión en Supabase (tabla chat_mensajes).
+ * Contiene la lista autoritativa de IDs de proyectos vigentes de este anfitrión.
  */
 export async function recordHostActiveManifest(ownerEmail, activeProjectIds = []) {
   if (!ownerEmail) return false;
@@ -565,14 +565,14 @@ export async function recordHostActiveManifest(ownerEmail, activeProjectIds = []
     }, { onConflict: 'id' });
     return true;
   } catch (err) {
-    console.warn('[CloudSync] Error al registrar manifiesto del anfitriÃ³n:', err);
+    console.warn('[CloudSync] Error al registrar manifiesto del anfitrión:', err);
     return false;
   }
 }
 
 /**
- * Sincroniza y purga en la mÃ¡quina del usuario invitado cualquier proyecto de un anfitriÃ³n
- * que ya haya sido eliminado por dicho anfitriÃ³n.
+ * Sincroniza y purga en la máquina del usuario invitado cualquier proyecto de un anfitrión
+ * que ya haya sido eliminado por dicho anfitrión.
  */
 export async function syncHostWorkspaceProjects(hostEmail) {
   if (!hostEmail) return false;
@@ -584,8 +584,8 @@ export async function syncHostWorkspaceProjects(hostEmail) {
   const myEmail = (user?.email || '').toLowerCase().trim();
 
   try {
-    // Consultar proyectos del anfitriÃ³n directamente desde la tabla public.proyectos en Supabase.
-    // RLS de Supabase devuelve Ãºnicamente las obras de este anfitriÃ³n donde el usuario
+    // Consultar proyectos del anfitrión directamente desde la tabla public.proyectos en Supabase.
+    // RLS de Supabase devuelve únicamente las obras de este anfitrión donde el usuario
     // actual tiene permiso activo aceptado.
     const { data: hostProjects, error } = await sb
       .from('proyectos')
@@ -593,7 +593,7 @@ export async function syncHostWorkspaceProjects(hostEmail) {
       .ilike('owner_email', targetHost);
 
     if (error) {
-      console.warn('[HostWorkspaceSync] Error al consultar proyectos del anfitriÃ³n en Supabase:', error.message);
+      console.warn('[HostWorkspaceSync] Error al consultar proyectos del anfitrión en Supabase:', error.message);
       return false;
     }
 
@@ -601,7 +601,7 @@ export async function syncHostWorkspaceProjects(hostEmail) {
     const activeCloudProjects = Array.isArray(hostProjects) ? hostProjects : [];
     const activeIdsSet = new Set(activeCloudProjects.map(p => p.id));
 
-    // Si la consulta directa a proyectos devolviÃ³ vacÃ­o o incompleto, consultar tambiÃ©n el manifiesto del anfitriÃ³n
+    // Si la consulta directa a proyectos devolvió vacío o incompleto, consultar también el manifiesto del anfitrión
     if (activeIdsSet.size === 0) {
       try {
         const { data: manifestRow } = await sb
@@ -639,7 +639,7 @@ export async function syncHostWorkspaceProjects(hostEmail) {
         if (activePId && (p.id === activePId || p.cloudId === activePId)) {
           return true;
         }
-        // Si fue eliminado por lÃ¡pida, purgarlo
+        // Si fue eliminado por lápida, purgarlo
         if (isProjectMarkedDeleted(p.id) || (p.cloudId && isProjectMarkedDeleted(p.cloudId))) {
           prunedCount++;
           return false;
@@ -698,7 +698,7 @@ export async function syncHostWorkspaceProjects(hostEmail) {
           saveCurrentUser(user);
         }
       }
-      console.info(`[HostWorkspaceSync] Se purgaron ${prunedCount} proyectos inexistentes o sin permiso del anfitriÃ³n ${targetHost}.`);
+      console.info(`[HostWorkspaceSync] Se purgaron ${prunedCount} proyectos inexistentes o sin permiso del anfitrión ${targetHost}.`);
       if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
         window.refreshProjectsGridUI();
       }
@@ -709,13 +709,13 @@ export async function syncHostWorkspaceProjects(hostEmail) {
       }
     }
   } catch (err) {
-    console.warn('[HostWorkspaceSync] Error al sincronizar proyectos del anfitriÃ³n:', err);
+    console.warn('[HostWorkspaceSync] Error al sincronizar proyectos del anfitrión:', err);
   }
   return false;
 }
 
 /**
- * Reconciliar lÃ¡pidas globales de proyectos eliminados en la nube
+ * Reconciliar lápidas globales de proyectos eliminados en la nube
  */
 export async function reconcileDeletedProjectsWithCloud() {
   const sb = getSupabaseClient();
@@ -795,23 +795,23 @@ export async function reconcileDeletedProjectsWithCloud() {
     }
     return changed;
   } catch (err) {
-    console.warn('[CloudSync] Error al reconciliar lÃ¡pidas:', err);
+    console.warn('[CloudSync] Error al reconciliar lápidas:', err);
     return false;
   }
 }
 
 /**
- * SincronizaciÃ³n automÃ¡tica de arranque:
- * 1. Reconcilia lÃ¡pidas de proyectos eliminados en la nube.
+ * Sincronización automática de arranque:
+ * 1. Reconcilia lápidas de proyectos eliminados en la nube.
  * 2. Restaura lo que haya en la nube desde public.proyectos + metadatos.
- * 3. Si localStorage contiene obras no respaldadas aÃºn o metadata legado por limpiar, sincroniza.
+ * 3. Si localStorage contiene obras no respaldadas aún o metadata legado por limpiar, sincroniza.
  */
 export async function autoSyncCollaborationOnStartup(user = null) {
   if (isCloudSyncInFlight || isRecentInternalCloudAuthUpdate(3000)) return;
   const currentUser = user || getCurrentUser();
   if (!currentUser || !currentUser.email) return;
 
-  // Paso 1: Reconciliar lÃ¡pidas de proyectos eliminados en la nube
+  // Paso 1: Reconciliar lápidas de proyectos eliminados en la nube
   try {
     await reconcileDeletedProjectsWithCloud();
   } catch (_) {}
@@ -844,7 +844,7 @@ export async function autoSyncCollaborationOnStartup(user = null) {
 }
 
 /**
- * Disparador con debounce para evitar saturar peticiones ante mÃºltiples guardados rÃ¡pidos
+ * Disparador con debounce para evitar saturar peticiones ante múltiples guardados rápidos
  */
 export function triggerDebouncedCloudStateSync(user = null) {
   if (syncDebounceTimer) clearTimeout(syncDebounceTimer);

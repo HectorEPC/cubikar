@@ -1,10 +1,10 @@
-﻿// js/ui/appSwitcher.js
+// js/ui/appSwitcher.js
 // Selector Unificado de Aplicaciones del Ecosistema Cubikar (Estilo Google Workspace Waffle 9-puntos)
 
-import { appendSsoToUrlFromStorage } from '../core/ssoHelper.js?v=20261116_cf3';
-import { getCurrentUser, getProjectsList, getDeletedProjectsList } from '../modules/portal/projectService.js?v=20261116_cf3';
-import { getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf3';
-import { getSupabaseClient } from '../core/supabaseClient.js?v=20261116_cf3';
+import { appendSsoToUrlFromStorage } from '../core/ssoHelper.js?v=20261116_cf4';
+import { getCurrentUser, getProjectsList, getDeletedProjectsList } from '../modules/portal/projectService.js?v=20261116_cf4';
+import { getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf4';
+import { getSupabaseClient } from '../core/supabaseClient.js?v=20261116_cf4';
 
 function csvEsc(val) {
   const s = String(val ?? '').replace(/\r?\n/g, ' ');
@@ -42,9 +42,9 @@ export async function exportProjectsBackupZip(appLabel = 'Construccion') {
   const JSZipRef = typeof window !== 'undefined' ? window.JSZip : undefined;
   if (!JSZipRef) {
     if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
-      window.showToast('Cargando librerÃ­a de compresiÃ³n ZIP. Intenta nuevamente en un momento.', 'warning');
+      window.showToast('Cargando librería de compresión ZIP. Intenta nuevamente en un momento.', 'warning');
     } else {
-      alert('Cargando librerÃ­a de compresiÃ³n ZIP. Intenta nuevamente en un momento.');
+      alert('Cargando librería de compresión ZIP. Intenta nuevamente en un momento.');
     }
     return;
   }
@@ -104,7 +104,7 @@ export async function exportProjectsBackupZip(appLabel = 'Construccion') {
     } catch (_) {}
   }
 
-  // Complementar si existen proyectos remotos adicionales en Supabase aÃºn no cacheados localmente
+  // Complementar si existen proyectos remotos adicionales en Supabase aún no cacheados localmente
   try {
     const sb = getSupabaseClient();
     if (sb && user?.id) {
@@ -165,7 +165,7 @@ export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', curr
 
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-  // URLs de destino segÃºn entorno
+  // URLs de destino según entorno
   const urls = {
     portal: isLocalhost ? (currentApp === 'portal' ? '#' : '../Cubikar/index.html') : 'https://cubikar.app/',
     const: isLocalhost ? (currentApp === 'const' ? '#' : '../ADM_CONST/index.html') : 'https://const.cubikar.app/',
@@ -176,7 +176,7 @@ export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', curr
     <div class="relative inline-block text-left" id="cubikar-app-switcher-wrapper">
       <button type="button" id="cubikar-app-switcher-btn" 
               class="w-10 h-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 transition flex items-center justify-center cursor-pointer shadow-xs"
-              title="Ecosistema Cubikar (Cambiar de AplicaciÃ³n)">
+              title="Ecosistema Cubikar (Cambiar de Aplicación)">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <circle cx="5" cy="5" r="2.2" />
           <circle cx="12" cy="5" r="2.2" />
@@ -204,7 +204,7 @@ export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', curr
         </div>
 
         <div class="space-y-1.5">
-          <!-- 1. CUBIKAR CONSTRUCCIÃ“N -->
+          <!-- 1. CUBIKAR CONSTRUCCIÓN -->
           <a href="${urls.const}" 
              data-cubikar-sso-link="const"
              data-base-href="${urls.const}"
@@ -214,10 +214,10 @@ export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', curr
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-white">Cubikar ConstrucciÃ³n</span>
+                <span class="text-xs font-bold text-white">Cubikar Construcción</span>
                 ${currentApp === 'const' ? '<span class="text-[9px] font-black text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded">EN USO</span>' : ''}
               </div>
-              <p class="text-[10.5px] text-slate-400 truncate">Obras, Matrices APU y BitÃ¡cora Legal</p>
+              <p class="text-[10.5px] text-slate-400 truncate">Obras, Matrices APU y Bitácora Legal</p>
             </div>
           </a>
 
@@ -248,7 +248,7 @@ export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', curr
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-white">Portal &amp; FacturaciÃ³n</span>
+                <span class="text-xs font-bold text-white">Portal &amp; Facturación</span>
                 ${currentApp === 'portal' ? '<span class="text-[9px] font-black text-slate-300 bg-slate-700 px-1.5 py-0.5 rounded">ACTUAL</span>' : ''}
               </div>
               <p class="text-[10.5px] text-slate-400 truncate">Planes, Suscripciones y Mi Cuenta</p>
@@ -256,7 +256,7 @@ export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', curr
           </a>
         </div>
 
-        <!-- BotÃ³n RÃ¡pido de Respaldo -->
+        <!-- Botón Rápido de Respaldo -->
         <div class="mt-2 pt-2 border-t border-slate-800">
           <button type="button" onclick="window.triggerDemoBackupDownload && window.triggerDemoBackupDownload()" 
                   class="w-full py-2 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold flex items-center justify-center gap-2 transition cursor-pointer">

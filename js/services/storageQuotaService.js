@@ -1,16 +1,16 @@
-﻿import { getActiveProjectId } from '../config/constants.js?v=20261116_cf3';
-import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261116_cf3';
-import { getCurrentUser, getProjectById, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf3';
-import { recordStorageUsage } from '../modules/admin/cubikarAdmin.js?v=20261116_cf3';
-import { formatBytes } from '../utils/fileCompressor.js?v=20261116_cf3';
-import { getLocalMediaStats } from './mediaCacheDb.js?v=20261116_cf3';
+import { getActiveProjectId } from '../config/constants.js?v=20261116_cf4';
+import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261116_cf4';
+import { getCurrentUser, getProjectById, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf4';
+import { recordStorageUsage } from '../modules/admin/cubikarAdmin.js?v=20261116_cf4';
+import { formatBytes } from '../utils/fileCompressor.js?v=20261116_cf4';
+import { getLocalMediaStats } from './mediaCacheDb.js?v=20261116_cf4';
 
 export const MB_BYTES = 1024 * 1024;
 export const GB_BYTES = 1024 * MB_BYTES;
 
 /**
- * Especificaciones unificadas de almacenamiento por plan de suscripciÃ³n del AnfitriÃ³n.
- * Incluye apartado reservado para CatÃ¡logo Maestro (6 / 50 / 200 MB) dentro de la cuota global (200 MB / 2 GB / 5 GB).
+ * Especificaciones unificadas de almacenamiento por plan de suscripción del Anfitrión.
+ * Incluye apartado reservado para Catálogo Maestro (6 / 50 / 200 MB) dentro de la cuota global (200 MB / 2 GB / 5 GB).
  */
 export const UNIFIED_STORAGE_PLANS = {
   free: {
@@ -72,7 +72,7 @@ export function getPlanStorageSpec(planId) {
 }
 
 /**
- * Resuelve el dueÃ±o/anfitriÃ³n responsable de la cuota del proyecto activo o de la sesiÃ³n actual.
+ * Resuelve el dueño/anfitrión responsable de la cuota del proyecto activo o de la sesión actual.
  */
 export function resolveHostStorageContext(projectIdOverride = '') {
   const user = getCurrentUser();
@@ -140,19 +140,19 @@ function withTimeout(promise, ms, fallbackValue) {
 
 async function fetchLocalCatalogUsageBytes(ownerEmail = '') {
   try {
-    const mod = await import('../modules/reference/referenceDb.js?v=20261116_cf3');
+    const mod = await import('../modules/reference/referenceDb.js?v=20261116_cf4');
     if (typeof mod.getReferenceDatabaseStats === 'function') {
       const stats = await mod.getReferenceDatabaseStats(ownerEmail || null);
       return Number(stats?.totalBytes ?? stats?.estimatedBytes ?? 0);
     }
   } catch {
-    // Fallback silencioso si IndexedDB aÃºn no inicializa
+    // Fallback silencioso si IndexedDB aún no inicializa
   }
   return 0;
 }
 
 /**
- * Calcula el resumen completo de consumo y disponibilidad del AnfitriÃ³n.
+ * Calcula el resumen completo de consumo y disponibilidad del Anfitrión.
  */
 export async function getHostStorageSummary({ projectId = '', forceRefresh = false } = {}) {
   const ctx = resolveHostStorageContext(projectId);
@@ -220,7 +220,7 @@ export async function getHostStorageSummary({ projectId = '', forceRefresh = fal
       recordStorageUsage(ctx.ownerEmail, Number((totalUsedBytes / MB_BYTES).toFixed(2)));
     }
   } catch {
-    // No bloquear por mÃ©tricas administrativas
+    // No bloquear por métricas administrativas
   }
 
   return summary;
@@ -231,7 +231,7 @@ export function getCachedStorageSummary() {
 }
 
 /**
- * Valida un archivo antes de comprimirlo (lÃ­mite por archivo individual y cuota ya agotada al 100%).
+ * Valida un archivo antes de comprimirlo (límite por archivo individual y cuota ya agotada al 100%).
  */
 export async function validatePreCompressionFile(file, { projectId = '', categoria = 'project_files' } = {}) {
   const summary = await getHostStorageSummary({ projectId });
@@ -241,7 +241,7 @@ export async function validatePreCompressionFile(file, { projectId = '', categor
   if (rawBytes > spec.maxFileBytes) {
     return {
       allowed: false,
-      reason: `"${file?.name || 'Archivo'}" pesa ${formatBytes(rawBytes)} y supera el mÃ¡ximo de ${spec.maxFileMb} MB por archivo para el ${spec.label}.`,
+      reason: `"${file?.name || 'Archivo'}" pesa ${formatBytes(rawBytes)} y supera el máximo de ${spec.maxFileMb} MB por archivo para el ${spec.label}.`,
       summary
     };
   }
@@ -253,7 +253,7 @@ export async function validatePreCompressionFile(file, { projectId = '', categor
       allowed: false,
       blockedByQuota: true,
       reason: isCatalog
-        ? `Tu espacio apartado de CatÃ¡logo Maestro (${spec.catalogReservedMb} MB en ${spec.label}) estÃ¡ lleno. Libera catÃ¡logos o actualiza tu plan.`
+        ? `Tu espacio apartado de Catálogo Maestro (${spec.catalogReservedMb} MB en ${spec.label}) está lleno. Libera catálogos o actualiza tu plan.`
         : `Has alcanzado el 100% de tu cuota de almacenamiento (${summary.formatted.used} / ${summary.formatted.quota} en ${spec.label}). Libera espacio o actualiza tu plan.`,
       summary
     };
@@ -263,7 +263,7 @@ export async function validatePreCompressionFile(file, { projectId = '', categor
 }
 
 /**
- * Valida que el archivo ya procesado (comprimido) quepa dentro del espacio disponible del anfitriÃ³n.
+ * Valida que el archivo ya procesado (comprimido) quepa dentro del espacio disponible del anfitrión.
  */
 export async function validatePostCompressionQuota(finalBytes, { projectId = '', categoria = 'project_files' } = {}) {
   const summary = await getHostStorageSummary({ projectId });
@@ -284,7 +284,7 @@ export async function validatePostCompressionQuota(finalBytes, { projectId = '',
       level: 'blocked',
       usagePctAfter: pctAfter,
       reason: isCatalog
-        ? `Este catÃ¡logo (${formatBytes(incoming)}) supera el espacio apartado disponible (${formatBytes(remaining)} libres de ${spec.catalogReservedMb} MB en ${spec.label}).`
+        ? `Este catálogo (${formatBytes(incoming)}) supera el espacio apartado disponible (${formatBytes(remaining)} libres de ${spec.catalogReservedMb} MB en ${spec.label}).`
         : `Espacio insuficiente: este archivo (${formatBytes(incoming)}) excede tu espacio disponible (${formatBytes(remaining)} libres en ${spec.label}). Actualiza tu plan o libera archivos.`,
       summary
     };
@@ -298,7 +298,7 @@ export async function validatePostCompressionQuota(finalBytes, { projectId = '',
     level: warning90 ? 'amber' : 'ok',
     usagePctAfter: pctAfter,
     warningMessage: warning90
-      ? `Advertencia: estÃ¡s usando el ${pctAfter}% de tu espacio de ${isCatalog ? 'CatÃ¡logo Maestro' : 'Almacenamiento'} (${spec.label}). Considera liberar espacio o actualizar plan.`
+      ? `Advertencia: estás usando el ${pctAfter}% de tu espacio de ${isCatalog ? 'Catálogo Maestro' : 'Almacenamiento'} (${spec.label}). Considera liberar espacio o actualizar plan.`
       : '',
     summary
   };
@@ -306,7 +306,7 @@ export async function validatePostCompressionQuota(finalBytes, { projectId = '',
 
 /**
  * Genera el HTML reutilizable del medidor de espacio:
- * "Espacio utilizado: 1.2 GB / 2 GB (Plan Plus)" + barra de progreso + apartado CatÃ¡logo Maestro.
+ * "Espacio utilizado: 1.2 GB / 2 GB (Plan Plus)" + barra de progreso + apartado Catálogo Maestro.
  */
 export function renderStorageMeterHtml(summary, options = {}) {
   const s = summary;
@@ -317,7 +317,7 @@ export function renderStorageMeterHtml(summary, options = {}) {
   const isBlocked = s.level === 'blocked' || pct >= 100;
   const isAmber = s.level === 'amber' || (pct >= 90 && !isBlocked);
 
-  // Tema claro (usado Ãºnicamente en ventanas modales con fondo blanco)
+  // Tema claro (usado únicamente en ventanas modales con fondo blanco)
   if (options.theme === 'light') {
     const barColorLight = isBlocked
       ? 'bg-rose-600'
@@ -341,9 +341,9 @@ export function renderStorageMeterHtml(summary, options = {}) {
             </div>
             ${!compact ? `
               <p class="text-[10.5px] text-slate-500 mt-0.5">
-                Proyectos S3: <strong>${s.formatted.projectUsed}</strong> / ${s.formatted.projectCap} Â·
-                CatÃ¡logo Maestro reservado: <strong>${s.formatted.catalogUsed}</strong> / ${s.formatted.catalogCap} Â·
-                MÃ¡x/archivo: <strong>${s.formatted.maxFile}</strong>
+                Proyectos S3: <strong>${s.formatted.projectUsed}</strong> / ${s.formatted.projectCap} ·
+                Catálogo Maestro reservado: <strong>${s.formatted.catalogUsed}</strong> / ${s.formatted.catalogCap} ·
+                Máx/archivo: <strong>${s.formatted.maxFile}</strong>
               </p>
             ` : ''}
           </div>
@@ -364,14 +364,14 @@ export function renderStorageMeterHtml(summary, options = {}) {
         ` : ''}
         ${s.pendingCount > 0 ? `
           <p class="mt-1 text-[10px] text-slate-500 flex items-center gap-1">
-            <i class="fa-solid fa-clock-rotate-left text-amber-500"></i> ${s.pendingCount} archivo(s) en cachÃ© local pendientes de sincronizar a S3.
+            <i class="fa-solid fa-clock-rotate-left text-amber-500"></i> ${s.pendingCount} archivo(s) en caché local pendientes de sincronizar a S3.
           </p>
         ` : ''}
       </div>
     `;
   }
 
-  // TEMA OSCURO INTEGRADO (DISEÃ‘O IDÃ‰NTICO A "MONITOREO DE AMORTIZACIÃ“N DEL ANTICIPO")
+  // TEMA OSCURO INTEGRADO (DISEÑO IDÉNTICO A "MONITOREO DE AMORTIZACIÓN DEL ANTICIPO")
   const barGradient = isBlocked
     ? 'bg-gradient-to-r from-rose-600 via-rose-500 to-red-400'
     : (isAmber
@@ -402,7 +402,7 @@ export function renderStorageMeterHtml(summary, options = {}) {
 
   return `
     <div class="cubikar-storage-meter p-4 sm:p-5 rounded-2xl ${containerBorder} text-white space-y-3.5 shadow-xl border">
-      <!-- Encabezado: Icono, TÃ­tulo y Porcentaje Total -->
+      <!-- Encabezado: Icono, Título y Porcentaje Total -->
       <div class="flex items-center justify-between flex-wrap gap-2.5">
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm shadow-inner shrink-0">
@@ -428,13 +428,13 @@ export function renderStorageMeterHtml(summary, options = {}) {
         </div>
       </div>
 
-      <!-- Barra de progreso visual estilo Monitoreo de AmortizaciÃ³n -->
+      <!-- Barra de progreso visual estilo Monitoreo de Amortización -->
       <div class="w-full h-3 rounded-full bg-slate-950/80 p-0.5 overflow-hidden shadow-inner border border-slate-800">
         <div class="h-full rounded-full transition-all duration-500 ${barGradient}" 
              style="width: ${Math.min(100, Math.max(pct > 0 ? 1.5 : 0, pct))}%;"></div>
       </div>
 
-      <!-- MÃ©tricas Clave en 3 Columnas (Igual a Monitoreo de AmortizaciÃ³n) -->
+      <!-- Métricas Clave en 3 Columnas (Igual a Monitoreo de Amortización) -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2.5 border-t border-slate-800/80">
         <div>
           <span class="text-[10px] text-slate-400 block font-bold tracking-wider">1. ESPACIO UTILIZADO:</span>
@@ -451,10 +451,10 @@ export function renderStorageMeterHtml(summary, options = {}) {
         </div>
 
         <div>
-          <span class="text-[10.5px] text-emerald-300 block font-bold tracking-wider">3. CATÃLOGO MAESTRO RESERVADO:</span>
+          <span class="text-[10.5px] text-emerald-300 block font-bold tracking-wider">3. CATÁLOGO MAESTRO RESERVADO:</span>
           <span class="text-sm font-black font-mono text-emerald-400">
             ${s.formatted.catalogUsed} <span class="text-xs text-emerald-500/70 font-normal">/ ${s.formatted.catalogCap}</span>
-            <span class="text-[10.5px] text-slate-400 font-normal ml-1">Â· MÃ¡x/arch: <strong class="text-slate-300">${s.formatted.maxFile}</strong></span>
+            <span class="text-[10.5px] text-slate-400 font-normal ml-1">· Máx/arch: <strong class="text-slate-300">${s.formatted.maxFile}</strong></span>
           </span>
         </div>
       </div>
@@ -469,14 +469,14 @@ export function renderStorageMeterHtml(summary, options = {}) {
       ${s.level === 'blocked' ? `
         <div class="mt-2 text-[11px] font-semibold text-rose-300 flex items-center gap-2 bg-rose-500/10 border border-rose-500/30 p-2.5 rounded-xl">
           <i class="fa-solid fa-circle-xmark text-rose-400 shrink-0"></i>
-          <span>Cuota de almacenamiento al 100%. Las nuevas subidas estÃ¡n bloqueadas hasta liberar espacio o cambiar de plan.</span>
+          <span>Cuota de almacenamiento al 100%. Las nuevas subidas están bloqueadas hasta liberar espacio o cambiar de plan.</span>
         </div>
       ` : ''}
 
       ${s.pendingCount > 0 ? `
         <div class="text-[10.5px] text-slate-400 flex items-center gap-1.5 pt-0.5">
           <i class="fa-solid fa-clock-rotate-left text-amber-400"></i>
-          <span>${s.pendingCount} archivo(s) en cachÃ© local pendientes de sincronizar a la nube S3.</span>
+          <span>${s.pendingCount} archivo(s) en caché local pendientes de sincronizar a la nube S3.</span>
         </div>
       ` : ''}
     </div>

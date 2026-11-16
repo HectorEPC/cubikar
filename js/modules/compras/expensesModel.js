@@ -1,9 +1,9 @@
-﻿// js/modules/compras/expensesModel.js
+// js/modules/compras/expensesModel.js
 // Modelo de datos y persistencia para CONTROL DE GASTOS, COMPRAS Y ERP FINANCIERO
-// Cumple con la especificaciÃ³n tÃ©cnica de expensesControl (OpciÃ³n B)
+// Cumple con la especificación técnica de expensesControl (Opción B)
 
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf3';
-import { scheduleExpensesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261116_cf3';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf4';
+import { scheduleExpensesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261116_cf4';
 
 const STORAGE_KEY_PREFIX = 'expenses_control_';
 
@@ -14,9 +14,9 @@ export function getExpensesStorageKey(projectId = null) {
 
 export function getDefaultExpensesSignatures() {
   return [
-    { rol: 'CONTROL DE COSTOS / COMPRAS', nombre: '', cargo: 'ElaborÃ³' },
-    { rol: 'RESIDENCIA DE OBRA', nombre: '', cargo: 'RevisÃ³' },
-    { rol: 'DIRECCIÃ“N GENERAL / SUPERVISIÃ“N', nombre: '', cargo: 'AutorizÃ³' }
+    { rol: 'CONTROL DE COSTOS / COMPRAS', nombre: '', cargo: 'Elaboró' },
+    { rol: 'RESIDENCIA DE OBRA', nombre: '', cargo: 'Revisó' },
+    { rol: 'DIRECCIÓN GENERAL / SUPERVISIÓN', nombre: '', cargo: 'Autorizó' }
   ];
 }
 
@@ -39,7 +39,7 @@ export function getDefaultExpensesData() {
       },
       {
         id: 'prov-002',
-        name: 'Aceros y Perfiles de MÃ©xico S.A.',
+        name: 'Aceros y Perfiles de México S.A.',
         rfc: 'APM850312AB1',
         phone: '8189876543',
         email: 'pedidos@acerosmexico.com',
@@ -51,8 +51,8 @@ export function getDefaultExpensesData() {
         name: 'Cuadrilla Maestro Don Lupe (Destajos)',
         rfc: 'LUPE750404H10',
         phone: '8114567890',
-        email: 'donlupe.albaÃ±ileria@gmail.com',
-        contactPerson: 'J. Guadalupe RodrÃ­guez',
+        email: 'donlupe.albañileria@gmail.com',
+        contactPerson: 'J. Guadalupe Rodríguez',
         address: 'Col. Obrera, Monterrey'
       }
     ],
@@ -105,7 +105,7 @@ export function saveExpensesData(data, projectId = null) {
 }
 
 /**
- * Obtener configuraciÃ³n actual
+ * Obtener configuración actual
  */
 export function getExpensesConfig() {
   const data = loadExpensesData();
@@ -113,7 +113,7 @@ export function getExpensesConfig() {
 }
 
 /**
- * Actualizar configuraciÃ³n
+ * Actualizar configuración
  */
 export function updateExpensesConfig(newConfig) {
   const data = loadExpensesData();
@@ -218,7 +218,7 @@ export function saveExpenseRecord(recordData) {
     recordData.id = generateNextExpenseId(data.records);
   }
   
-  // Normalizar valores numÃ©ricos
+  // Normalizar valores numéricos
   recordData.quantity = Math.max(0, parseFloat(recordData.quantity) || 0);
   recordData.unitPrice = Math.max(0, parseFloat(recordData.unitPrice) || 0);
   recordData.subtotal = Math.round(((recordData.quantity * recordData.unitPrice) + Number.EPSILON) * 100) / 100;
@@ -235,7 +235,7 @@ export function saveExpenseRecord(recordData) {
   if (idx >= 0) {
     data.records[idx] = Object.assign({}, data.records[idx], recordData);
   } else {
-    data.records.unshift(recordData); // Insertar al inicio para mostrar el mÃ¡s reciente
+    data.records.unshift(recordData); // Insertar al inicio para mostrar el más reciente
   }
   
   saveExpensesData(data);

@@ -1,13 +1,13 @@
-﻿// js/modules/io/printService.js
-// Servicio de ImpresiÃ³n de Formatos Profesionales para TAB1-CAT-BASE y MATRIZ / INSUMOS UNITARIOS
+// js/modules/io/printService.js
+// Servicio de Impresión de Formatos Profesionales para TAB1-CAT-BASE y MATRIZ / INSUMOS UNITARIOS
 
-import { state } from '../../state/store.js?v=20261116_cf3';
-import { formatMoney, formatCurrency, formatQty, formatMatrixQty, getCurrencySymbol, getCurrencyCode, round2, round5 } from '../../core/formatters.js?v=20261116_cf3';
-import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal } from '../../core/calculations.js?v=20261116_cf3';
-import { findNodeById } from '../catalog/treeService.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf3';
-import { getConsolidatedDataMap } from '../insumosGenerales/insumosConsolidator.js?v=20261116_cf3';
+import { state } from '../../state/store.js?v=20261116_cf4';
+import { formatMoney, formatCurrency, formatQty, formatMatrixQty, getCurrencySymbol, getCurrencyCode, round2, round5 } from '../../core/formatters.js?v=20261116_cf4';
+import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal } from '../../core/calculations.js?v=20261116_cf4';
+import { findNodeById } from '../catalog/treeService.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf4';
+import { getConsolidatedDataMap } from '../insumosGenerales/insumosConsolidator.js?v=20261116_cf4';
 import {
   extractScheduleItems,
   getScheduleSettings,
@@ -22,11 +22,11 @@ import {
   getWorkdaysSettings,
   getDateWorkdayInfo,
   getProjectCreationDate
-} from '../calendario/calendarioModel.js?v=20261116_cf3';
-import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261116_cf3';
-import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js?v=20261116_cf3';
-import { resolveActivePrintBranding } from './printBrandingService.js?v=20261116_cf3';
-import { getBudgetSignatures } from '../catalog/signaturesModal.js?v=20261116_cf3';
+} from '../calendario/calendarioModel.js?v=20261116_cf4';
+import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261116_cf4';
+import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js?v=20261116_cf4';
+import { resolveActivePrintBranding } from './printBrandingService.js?v=20261116_cf4';
+import { getBudgetSignatures } from '../catalog/signaturesModal.js?v=20261116_cf4';
 
 // Escapar caracteres especiales en texto HTML
 function escapeHtml(str) {
@@ -39,7 +39,7 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// Renderizar bloque de firmas institucionales configuradas dinÃ¡micamente en el proyecto
+// Renderizar bloque de firmas institucionales configuradas dinámicamente en el proyecto
 export function renderInstitutionalSignaturesHtml(marginTop = 14) {
   const budgetSignatures = getBudgetSignatures();
   const sigCols = Math.min(Math.max(budgetSignatures.length, 1), 5);
@@ -58,7 +58,7 @@ export function renderInstitutionalSignaturesHtml(marginTop = 14) {
 }
 
 
-// Estilos CSS compartidos optimizados para impresiÃ³n estÃ¡ndar (Carta / A4)
+// Estilos CSS compartidos optimizados para impresión estándar (Carta / A4)
 const PRINT_BASE_STYLES = `
   @page {
     size: letter portrait;
@@ -363,15 +363,15 @@ export function buildPrintableHtmlDocument(docTitle, bodyContent, orientation = 
   <!-- Barra de Acciones Flotante (Oculta al Imprimir) -->
   <div class="no-print" style="flex-wrap: wrap; gap: 10px; ${isDark ? 'background-color: #070d1e; border-bottom: 1px solid #1e293b;' : ''}">
     <div style="font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-      <span>ðŸ“‘ ${escapeHtml(docTitle)}</span>
+      <span>📑 ${escapeHtml(docTitle)}</span>
     </div>
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
       ${extraToolbarHtml}
       <button class="btn-print" onclick="window.print()">
-        ðŸ–¨ï¸ Imprimir / Guardar como PDF
+        🖨️ Imprimir / Guardar como PDF
       </button>
       <button class="btn-close" onclick="window.close()">
-        âœ–ï¸ Cerrar
+        ✖️ Cerrar
       </button>
     </div>
   </div>
@@ -386,7 +386,7 @@ export function buildPrintableHtmlDocument(docTitle, bodyContent, orientation = 
   <script>
     ${extraScripts}
     ${shouldAutoPrint ? `
-    // Auto-disparar diÃ¡logo de impresiÃ³n exactamente UNA SOLA VEZ tras completar la carga
+    // Auto-disparar diálogo de impresión exactamente UNA SOLA VEZ tras completar la carga
     let __printedOnce = false;
     function autoTriggerNativePrint() {
       if (__printedOnce) return;
@@ -413,13 +413,13 @@ export function buildPrintableHtmlDocument(docTitle, bodyContent, orientation = 
 </html>`;
 }
 
-// Bandera de guardia para evitar aperturas o disparos mÃºltiples simultÃ¡neos
+// Bandera de guardia para evitar aperturas o disparos múltiples simultáneos
 let isPrintWindowBusy = false;
 
-// Abrir documento e invocar diÃ¡logo de impresiÃ³n (una sola ventana y un solo diÃ¡logo)
+// Abrir documento e invocar diálogo de impresión (una sola ventana y un solo diálogo)
 export function openPrintWindow(docTitle, bodyContent, orientation = 'portrait', options = {}) {
   if (isPrintWindowBusy) {
-    console.warn('[PrintService] ImpresiÃ³n en curso, ignorando clic repetido.');
+    console.warn('[PrintService] Impresión en curso, ignorando clic repetido.');
     return;
   }
   isPrintWindowBusy = true;
@@ -434,7 +434,7 @@ export function openPrintWindow(docTitle, bodyContent, orientation = 'portrait',
     printWindow = null;
   }
 
-  // Si el navegador permitiÃ³ abrir la ventana emergente Ãºnica
+  // Si el navegador permitió abrir la ventana emergente única
   if (printWindow && !printWindow.closed) {
     try {
       printWindow.document.open();
@@ -447,7 +447,7 @@ export function openPrintWindow(docTitle, bodyContent, orientation = 'portrait',
     }
   }
 
-  // Fallback 100% infalible si el navegador bloqueÃ³ las ventanas emergentes (Pop-up Blocker)
+  // Fallback 100% infalible si el navegador bloqueó las ventanas emergentes (Pop-up Blocker)
   try {
     let iframe = document.getElementById('global-print-fallback-iframe');
     if (!iframe) {
@@ -469,7 +469,7 @@ export function openPrintWindow(docTitle, bodyContent, orientation = 'portrait',
       iframeDoc.open();
       iframeDoc.write(html);
       iframeDoc.close();
-      showToast('Generando formato de impresiÃ³n...', 'info');
+      showToast('Generando formato de impresión...', 'info');
       setTimeout(() => {
         try {
           iframe.contentWindow.focus();
@@ -485,16 +485,16 @@ export function openPrintWindow(docTitle, bodyContent, orientation = 'portrait',
     console.warn('[PrintService] Error en fallback iframe:', iframeErr);
   }
 
-  // Ãšltimo recurso: avisar al usuario
-  showToast('Por favor permite ventanas emergentes en tu navegador para ver la impresiÃ³n completa.', 'warning');
+  // Último recurso: avisar al usuario
+  showToast('Por favor permite ventanas emergentes en tu navegador para ver la impresión completa.', 'warning');
 }
 
 // -------------------------------------------------------------
-// 1. IMPRIMIR FORMATO TAB1-CAT-BASE (CATÃLOGO DE PRESUPUESTO)
+// 1. IMPRIMIR FORMATO TAB1-CAT-BASE (CATÁLOGO DE PRESUPUESTO)
 // -------------------------------------------------------------
 export function printTab1Catalog() {
   if (!state.treeData || state.treeData.length === 0) {
-    showToast('No hay conceptos en el CatÃ¡logo Base (TAB1-CAT-BASE) para imprimir.', 'warning');
+    showToast('No hay conceptos en el Catálogo Base (TAB1-CAT-BASE) para imprimir.', 'warning');
     return;
   }
 
@@ -515,7 +515,7 @@ export function printTab1Catalog() {
   const projectName = (state.settings && state.settings.projectName) || 'Proyecto de Obra Base';
   const projectLocation = (state.settings && state.settings.projectLocation) || '';
 
-  // Aplanar el Ã¡rbol jerÃ¡rquico preservando niveles y cÃ¡lculos
+  // Aplanar el árbol jerárquico preservando niveles y cálculos
   const flatItems = [];
   function flattenNodes(nodes, level = 1) {
     for (const node of nodes) {
@@ -552,7 +552,7 @@ export function printTab1Catalog() {
     const isParent = item.isParent;
     const indentPx = (item.level - 1) * 14;
 
-    // Resaltado jerÃ¡rquico elegante
+    // Resaltado jerárquico elegante
     let rowStyle = '';
     let claveStyle = 'font-weight: 600; color: #1e293b;';
     let descStyle = 'line-height: 1.4;';
@@ -577,7 +577,7 @@ export function printTab1Catalog() {
         <td class="text-center font-mono" style="font-size: 7.5pt; color: #64748b; width: 32px;">${item.level}</td>
         <td class="font-mono" style="${claveStyle} width: 75px; white-space: nowrap;">${escapeHtml(item.clave || '-')}</td>
         <td class="text-justify" style="${descStyle} padding-left: ${indentPx + 6}px;">
-          ${escapeHtml(item.descripcion || 'Sin descripciÃ³n')}
+          ${escapeHtml(item.descripcion || 'Sin descripción')}
         </td>
         <td class="text-right font-mono" style="width: 75px;">${cantidad}</td>
         <td class="text-center font-mono" style="width: 48px;">${escapeHtml(unidad)}</td>
@@ -599,9 +599,9 @@ export function printTab1Catalog() {
           <div style="font-size: 11pt; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.2;">
             ${escapeHtml(companyName)}
           </div>
-          <!-- Fila 2: CATÃLOGO Y PRESUPUESTO DE OBRA BASE -->
+          <!-- Fila 2: CATÁLOGO Y PRESUPUESTO DE OBRA BASE -->
           <h1 class="doc-title" style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
-            CATÃLOGO Y PRESUPUESTO DE OBRA BASE
+            CATÁLOGO Y PRESUPUESTO DE OBRA BASE
           </h1>
           <!-- Fila 3: Nombre de Proyecto -->
           <div style="font-size: 9.5pt; font-weight: 700; color: #475569; line-height: 1.2;">
@@ -612,12 +612,12 @@ export function printTab1Catalog() {
 
       <!-- Lado Derecho: 4 Filas de Metadatos -->
       <div class="doc-meta" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 74px; text-align: right; font-size: 8pt; line-height: 1.35;">
-        <!-- Fila 1: Fecha de emisiÃ³n -->
-        <div><strong>Fecha de emisiÃ³n:</strong> ${currentDate}</div>
+        <!-- Fila 1: Fecha de emisión -->
+        <div><strong>Fecha de emisión:</strong> ${currentDate}</div>
         <!-- Fila 2: Proyecto -->
         <div><strong>Proyecto:</strong> <span class="meta-tag font-bold" style="color: #1d4ed8; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectName)}</span></div>
-        <!-- Fila 3: UbicaciÃ³n -->
-        <div><strong>UbicaciÃ³n:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span></div>
+        <!-- Fila 3: Ubicación -->
+        <div><strong>Ubicación:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span></div>
         <!-- Fila 4: Moneda de trabajo y Sobrecosto -->
         <div><strong>Moneda de trabajo:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span> &nbsp;<strong>Sobrecosto:</strong> ${applySobrecosto ? `<span class="meta-tag" style="background:#fef3c7; border-color:#fde68a; color:#92400e; font-size: 7.5pt; padding: 1px 6px;">+${pctSobrecosto}%</span>` : '<span class="meta-tag" style="font-size: 7.5pt; padding: 1px 6px;">Costo Directo</span>'}</div>
       </div>
@@ -629,7 +629,7 @@ export function printTab1Catalog() {
         <tr>
           <th style="width: 32px;" class="text-center">Niv</th>
           <th style="width: 75px;" class="text-left">Clave</th>
-          <th class="text-left">DescripciÃ³n de Concepto de Obra</th>
+          <th class="text-left">Descripción de Concepto de Obra</th>
           <th style="width: 75px;" class="text-right">Cant.</th>
           <th style="width: 48px;" class="text-center">Unid</th>
           <th style="width: 95px;" class="text-right">Precio Unit.</th>
@@ -641,12 +641,12 @@ export function printTab1Catalog() {
       </tbody>
     </table>
 
-    <!-- Resumen EconÃ³mico Final -->
+    <!-- Resumen Económico Final -->
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14px;">
       <div style="font-size: 8pt; color: #64748b; max-width: 480px; line-height: 1.5;">
         <p style="margin: 0 0 4px 0;"><strong>Notas generales:</strong></p>
-        <p style="margin: 0;">â€¢ Los importes expresados incluyen todos los materiales, mano de obra, equipo, herramienta y cargos directos e indirectos correspondientes para la correcta ejecuciÃ³n de los trabajos segÃºn catÃ¡logo de conceptos.</p>
-        <p style="margin: 3px 0 0 0;">â€¢ Total de partidas y conceptos procesados: <strong>${flatItems.length}</strong> registros.</p>
+        <p style="margin: 0;">• Los importes expresados incluyen todos los materiales, mano de obra, equipo, herramienta y cargos directos e indirectos correspondientes para la correcta ejecución de los trabajos según catálogo de conceptos.</p>
+        <p style="margin: 3px 0 0 0;">• Total de partidas y conceptos procesados: <strong>${flatItems.length}</strong> registros.</p>
       </div>
 
       <div class="summary-card">
@@ -667,7 +667,7 @@ export function printTab1Catalog() {
       </div>
     </div>
 
-    <!-- Ãrea de Firmas Institucionales y Responsables de Obra -->
+    <!-- Área de Firmas Institucionales y Responsables de Obra -->
     ${renderInstitutionalSignaturesHtml(14)}
   `;
 
@@ -685,7 +685,7 @@ export function printApuMatrix() {
 
   const node = findNodeById(state.treeData, state.activeSelectedId);
   if (!node) {
-    showToast('No se encontrÃ³ el concepto seleccionado.', 'error');
+    showToast('No se encontró el concepto seleccionado.', 'error');
     return;
   }
 
@@ -694,7 +694,7 @@ export function printApuMatrix() {
     return;
   }
 
-  // Si no tiene insumos pero tiene costo, generar automÃ¡ticamente la matriz congruente
+  // Si no tiene insumos pero tiene costo, generar automáticamente la matriz congruente
   if ((!node.insumos || node.insumos.length === 0) && (parseFloat(node.precioUnitario) > 0 || parseFloat(node.costoDirecto) > 0)) {
     node.insumos = generateIntegratedMatrixForConcept(node);
   }
@@ -722,12 +722,12 @@ export function printApuMatrix() {
 
   // Clasificar insumos por rubros
   const rubros = [
-    { key: 'Material', label: '1. MATERIALES', icon: 'ðŸ“¦' },
-    { key: 'Mano de Obra', label: '2. MANO DE OBRA', icon: 'ðŸ‘·' },
-    { key: 'Herramienta', label: '3. HERRAMIENTA', icon: 'ðŸ”§' },
-    { key: 'Equipo', label: '4. EQUIPO', icon: 'ðŸ› ï¸' },
-    { key: 'Maquinaria', label: '5. MAQUINARIA', icon: 'ðŸšœ' },
-    { key: 'Subcontrato', label: '6. SUBCONTRATOS Y TRABAJOS ESPECIALIZADOS', icon: 'ðŸ“‘' }
+    { key: 'Material', label: '1. MATERIALES', icon: '📦' },
+    { key: 'Mano de Obra', label: '2. MANO DE OBRA', icon: '👷' },
+    { key: 'Herramienta', label: '3. HERRAMIENTA', icon: '🔧' },
+    { key: 'Equipo', label: '4. EQUIPO', icon: '🛠️' },
+    { key: 'Maquinaria', label: '5. MAQUINARIA', icon: '🚜' },
+    { key: 'Subcontrato', label: '6. SUBCONTRATOS Y TRABAJOS ESPECIALIZADOS', icon: '📑' }
   ];
 
   let totalCostoDirecto = 0;
@@ -770,7 +770,7 @@ export function printApuMatrix() {
               ${escapeHtml(ins.clave || '-')}
             </td>
             <td class="text-justify" style="line-height: 1.35;">
-              ${escapeHtml(ins.descripcion || 'Sin descripciÃ³n')}
+              ${escapeHtml(ins.descripcion || 'Sin descripción')}
             </td>
             <td class="text-center font-mono" style="width: 45px;">
               ${escapeHtml(ins.unidad || 'pza')}
@@ -809,7 +809,7 @@ export function printApuMatrix() {
   const importeTotalPresupuesto = round2(conceptoCantidad * precioUnitarioFinal);
 
   // -----------------------------------------------------------
-  // TABLA 2: INSUMOS UNITARIOS (EXPLOSIÃ“N TOTAL DE OBRA)
+  // TABLA 2: INSUMOS UNITARIOS (EXPLOSIÓN TOTAL DE OBRA)
   // -----------------------------------------------------------
   let totalImporteObra = 0;
   const insumosUnitariosRows = insumos.map(ins => {
@@ -828,7 +828,7 @@ export function printApuMatrix() {
           ${escapeHtml(ins.tipo || 'Material')}
         </td>
         <td class="text-justify" style="line-height: 1.35;">
-          ${escapeHtml(ins.descripcion || 'Sin descripciÃ³n')}
+          ${escapeHtml(ins.descripcion || 'Sin descripción')}
         </td>
         <td class="text-right font-mono font-bold" style="width: 80px; color: #1e40af;">
           ${formatQty(cantidadTotalObra)}
@@ -858,9 +858,9 @@ export function printApuMatrix() {
           <div style="font-size: 11pt; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.2;">
             ${escapeHtml(companyName)}
           </div>
-          <!-- Fila 2: ANÃLISIS DE PRECIO UNITARIO (APU) -->
+          <!-- Fila 2: ANÁLISIS DE PRECIO UNITARIO (APU) -->
           <h1 class="doc-title" style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
-            ANÃLISIS DE PRECIO UNITARIO (APU)
+            ANÁLISIS DE PRECIO UNITARIO (APU)
           </h1>
           <!-- Fila 3: Nombre de Proyecto -->
           <div style="font-size: 9.5pt; font-weight: 700; color: #475569; line-height: 1.2;">
@@ -871,18 +871,18 @@ export function printApuMatrix() {
 
       <!-- Lado Derecho: 4 Filas de Metadatos -->
       <div class="doc-meta" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 74px; text-align: right; font-size: 8pt; line-height: 1.35;">
-        <!-- Fila 1: Fecha de emisiÃ³n -->
-        <div><strong>Fecha de emisiÃ³n:</strong> ${currentDate}</div>
+        <!-- Fila 1: Fecha de emisión -->
+        <div><strong>Fecha de emisión:</strong> ${currentDate}</div>
         <!-- Fila 2: Proyecto -->
         <div><strong>Proyecto:</strong> <span class="meta-tag font-bold" style="color: #1d4ed8; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectName)}</span></div>
-        <!-- Fila 3: UbicaciÃ³n -->
-        <div><strong>UbicaciÃ³n:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span></div>
+        <!-- Fila 3: Ubicación -->
+        <div><strong>Ubicación:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span></div>
         <!-- Fila 4: Moneda de trabajo y Sobrecosto -->
         <div><strong>Moneda de trabajo:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span> &nbsp;<strong>Factor Sobrecosto:</strong> ${applySobrecosto ? `<span class="meta-tag font-mono" style="background:#fef3c7; border-color:#fde68a; color:#92400e; font-size: 7.5pt; padding: 1px 6px;">+${pctSobrecosto}%</span>` : '<span class="meta-tag" style="font-size: 7.5pt; padding: 1px 6px;">Costo Directo</span>'}</div>
       </div>
     </div>
 
-    <!-- Ficha TÃ©cnica del Concepto Seleccionado -->
+    <!-- Ficha Técnica del Concepto Seleccionado -->
     <div class="concept-card">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px;">
         <div>
@@ -898,17 +898,17 @@ export function printApuMatrix() {
 
       <div style="font-size: 8.5pt; color: #1e293b;">
         <span style="font-size: 7.5pt; font-weight: 700; color: #64748b; display: block; text-transform: uppercase; margin-bottom: 3px;">
-          DescripciÃ³n Detallada del Concepto:
+          Descripción Detallada del Concepto:
         </span>
         <div class="text-justify" style="line-height: 1.45; font-size: 9pt;">
-          ${escapeHtml(node.descripcion || 'Sin descripciÃ³n')}
+          ${escapeHtml(node.descripcion || 'Sin descripción')}
         </div>
       </div>
     </div>
 
-    <!-- SECCIÃ“N 1: MATRIZ DE PRECIO UNITARIO -->
+    <!-- SECCIÓN 1: MATRIZ DE PRECIO UNITARIO -->
     <div class="section-banner">
-      <span>1. Matriz de AnÃ¡lisis de Precio Unitario (Consumo por 1 ${escapeHtml(conceptoUnidad)})</span>
+      <span>1. Matriz de Análisis de Precio Unitario (Consumo por 1 ${escapeHtml(conceptoUnidad)})</span>
       <span style="font-size: 7.5pt; font-weight: 600; text-transform: none;">Base: 1 ${escapeHtml(conceptoUnidad)}</span>
     </div>
 
@@ -916,7 +916,7 @@ export function printApuMatrix() {
       <thead>
         <tr>
           <th style="width: 75px;" class="text-center">Clave</th>
-          <th class="text-left">DescripciÃ³n del Insumo / Cuadrilla / Maquinaria</th>
+          <th class="text-left">Descripción del Insumo / Cuadrilla / Maquinaria</th>
           <th style="width: 45px;" class="text-center">Unidad</th>
           <th style="width: 75px;" class="text-right">Rdto./Cant.</th>
           <th style="width: 85px;" class="text-right">Costo Unit.</th>
@@ -928,11 +928,11 @@ export function printApuMatrix() {
       </tbody>
     </table>
 
-    <!-- Resumen AnalÃ­tico del Precio Unitario -->
+    <!-- Resumen Analítico del Precio Unitario -->
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 8px;">
       <div style="font-size: 8pt; color: #64748b; max-width: 460px; line-height: 1.45;">
-        <p style="margin: 0;">â€¢ Rendimientos y consumos analizados estrictamente para producir <strong>1 ${escapeHtml(conceptoUnidad)}</strong> del concepto justificado arriba.</p>
-        <p style="margin: 3px 0 0 0;">â€¢ Total de insumos intervinientes en la matriz: <strong>${insumos.length}</strong> insumos.</p>
+        <p style="margin: 0;">• Rendimientos y consumos analizados estrictamente para producir <strong>1 ${escapeHtml(conceptoUnidad)}</strong> del concepto justificado arriba.</p>
+        <p style="margin: 3px 0 0 0;">• Total de insumos intervinientes en la matriz: <strong>${insumos.length}</strong> insumos.</p>
       </div>
 
       <div class="summary-card">
@@ -953,9 +953,9 @@ export function printApuMatrix() {
       </div>
     </div>
 
-    <!-- SECCIÃ“N 2: INSUMOS UNITARIOS (EXPLOSIÃ“N TOTAL DE OBRA) -->
+    <!-- SECCIÓN 2: INSUMOS UNITARIOS (EXPLOSIÓN TOTAL DE OBRA) -->
     <div class="section-banner" style="margin-top: 24px; background-color: #1e3a8a;">
-      <span>2. Insumos Unitarios â€” Totales Requeridos para la Obra (${formatQty(conceptoCantidad)} ${escapeHtml(conceptoUnidad)})</span>
+      <span>2. Insumos Unitarios — Totales Requeridos para la Obra (${formatQty(conceptoCantidad)} ${escapeHtml(conceptoUnidad)})</span>
     </div>
 
     <table class="report-table" style="margin-top: 0; border-top: none;">
@@ -963,7 +963,7 @@ export function printApuMatrix() {
         <tr>
           <th style="width: 75px;" class="text-center">Clave</th>
           <th style="width: 65px;" class="text-center">Rubro</th>
-          <th class="text-left">DescripciÃ³n del Insumo</th>
+          <th class="text-left">Descripción del Insumo</th>
           <th style="width: 80px;" class="text-right">Cant. Obra</th>
           <th style="width: 45px;" class="text-center">Unidad</th>
           <th style="width: 85px;" class="text-right">Costo Unit.</th>
@@ -985,7 +985,7 @@ export function printApuMatrix() {
       </tfoot>
     </table>
 
-    <!-- Ãrea de Firmas Institucionales y Responsables -->
+    <!-- Área de Firmas Institucionales y Responsables -->
     ${renderInstitutionalSignaturesHtml(14)}
   `;
 
@@ -1000,12 +1000,12 @@ export function printInsumosGenerales() {
   const consolidated = getConsolidatedDataMap();
 
   const rubros = [
-    { key: 'Material', label: '1. MATERIALES', icon: 'ðŸ“¦' },
-    { key: 'Mano de Obra', label: '2. MANO DE OBRA', icon: 'ðŸ‘·' },
-    { key: 'Herramienta', label: '3. HERRAMIENTA MENOR Y EQUIPO DE SEGURIDAD', icon: 'ðŸ”§' },
-    { key: 'Equipo', label: '4. EQUIPO', icon: 'âš™ï¸' },
-    { key: 'Maquinaria', label: '5. MAQUINARIA Y EQUIPO PESADO', icon: 'ðŸšœ' },
-    { key: 'Subcontrato', label: '6. SUBCONTRATOS Y TRABAJOS ESPECIALIZADOS', icon: 'ðŸ“‘' }
+    { key: 'Material', label: '1. MATERIALES', icon: '📦' },
+    { key: 'Mano de Obra', label: '2. MANO DE OBRA', icon: '👷' },
+    { key: 'Herramienta', label: '3. HERRAMIENTA MENOR Y EQUIPO DE SEGURIDAD', icon: '🔧' },
+    { key: 'Equipo', label: '4. EQUIPO', icon: '⚙️' },
+    { key: 'Maquinaria', label: '5. MAQUINARIA Y EQUIPO PESADO', icon: '🚜' },
+    { key: 'Subcontrato', label: '6. SUBCONTRATOS Y TRABAJOS ESPECIALIZADOS', icon: '📑' }
   ];
 
   let totalItemsCount = 0;
@@ -1038,7 +1038,7 @@ export function printInsumosGenerales() {
   const projectName = (state.settings && state.settings.projectName) || 'Proyecto de Obra Base';
   const projectLocation = (state.settings && state.settings.projectLocation) || '';
 
-  // Generar filas agrupadas por categorÃ­a
+  // Generar filas agrupadas por categoría
   const tableRowsHtml = [];
   const categoryTotals = {};
 
@@ -1063,7 +1063,7 @@ export function printInsumosGenerales() {
         </tr>
       `);
     } else {
-      // Ordenar por clave o descripciÃ³n
+      // Ordenar por clave o descripción
       items.sort((a, b) => (a.clave || '').localeCompare(b.clave || '') || (a.descripcion || '').localeCompare(b.descripcion || ''));
 
       items.forEach(item => {
@@ -1078,7 +1078,7 @@ export function printInsumosGenerales() {
               ${escapeHtml(item.clave || '-')}
             </td>
             <td class="text-justify" style="line-height: 1.35;">
-              ${escapeHtml(item.descripcion || item.insumoName || 'Sin descripciÃ³n')}
+              ${escapeHtml(item.descripcion || item.insumoName || 'Sin descripción')}
             </td>
             <td class="text-right font-mono font-bold" style="width: 85px; color: #1e40af;">
               ${formatQty(cant)}
@@ -1099,7 +1099,7 @@ export function printInsumosGenerales() {
 
     categoryTotals[rubro.key] = subtotalRubro;
 
-    // Fila de subtotal por categorÃ­a
+    // Fila de subtotal por categoría
     tableRowsHtml.push(`
       <tr style="background-color: #f8fafc; font-weight: 700;">
         <td colspan="5" class="text-right" style="font-size: 7.5pt; color: #475569; text-transform: uppercase;">
@@ -1123,9 +1123,9 @@ export function printInsumosGenerales() {
           <div style="font-size: 11pt; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.2;">
             ${escapeHtml(companyName)}
           </div>
-          <!-- Fila 2: EXPLOSIÃ“N DE INSUMOS GENERALES DE OBRA -->
+          <!-- Fila 2: EXPLOSIÓN DE INSUMOS GENERALES DE OBRA -->
           <h1 class="doc-title" style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
-            EXPLOSIÃ“N DE INSUMOS GENERALES DE OBRA
+            EXPLOSIÓN DE INSUMOS GENERALES DE OBRA
           </h1>
           <!-- Fila 3: Nombre de Proyecto -->
           <div style="font-size: 9.5pt; font-weight: 700; color: #475569; line-height: 1.2;">
@@ -1136,12 +1136,12 @@ export function printInsumosGenerales() {
 
       <!-- Lado Derecho: 4 Filas de Metadatos -->
       <div class="doc-meta" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 74px; text-align: right; font-size: 8pt; line-height: 1.35;">
-        <!-- Fila 1: Fecha de emisiÃ³n -->
-        <div><strong>Fecha de emisiÃ³n:</strong> ${currentDate}</div>
+        <!-- Fila 1: Fecha de emisión -->
+        <div><strong>Fecha de emisión:</strong> ${currentDate}</div>
         <!-- Fila 2: Proyecto -->
         <div><strong>Proyecto:</strong> <span class="meta-tag font-bold" style="color: #1d4ed8; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectName)}</span></div>
-        <!-- Fila 3: UbicaciÃ³n -->
-        <div><strong>UbicaciÃ³n:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span></div>
+        <!-- Fila 3: Ubicación -->
+        <div><strong>Ubicación:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span></div>
         <!-- Fila 4: Moneda de trabajo y Total de insumos -->
         <div><strong>Moneda de trabajo:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span> &nbsp;<strong>Total Insumos:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${totalItemsCount} registros</span></div>
       </div>
@@ -1152,7 +1152,7 @@ export function printInsumosGenerales() {
       <thead>
         <tr>
           <th style="width: 80px;" class="text-center">Clave</th>
-          <th class="text-left">DescripciÃ³n del Insumo Consolidado</th>
+          <th class="text-left">Descripción del Insumo Consolidado</th>
           <th style="width: 85px;" class="text-right">Cantidad Obra</th>
           <th style="width: 48px;" class="text-center">Unidad</th>
           <th style="width: 90px;" class="text-right">Costo Ref.</th>
@@ -1164,12 +1164,12 @@ export function printInsumosGenerales() {
       </tbody>
     </table>
 
-    <!-- Resumen EconÃ³mico Final -->
+    <!-- Resumen Económico Final -->
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14px;">
       <div style="font-size: 8pt; color: #64748b; max-width: 480px; line-height: 1.5;">
         <p style="margin: 0 0 4px 0;"><strong>Notas del consolidado de insumos:</strong></p>
-        <p style="margin: 0;">â€¢ Las cantidades totales representan la multiplicaciÃ³n de los rendimientos unitarios analizados en las matrices de precios por los volÃºmenes totales presupuestados de cada concepto.</p>
-        <p style="margin: 3px 0 0 0;">â€¢ Este reporte consolida compras globales de materiales, asignaciÃ³n de cuadrillas y requerimientos de maquinaria para la obra.</p>
+        <p style="margin: 0;">• Las cantidades totales representan la multiplicación de los rendimientos unitarios analizados en las matrices de precios por los volúmenes totales presupuestados de cada concepto.</p>
+        <p style="margin: 3px 0 0 0;">• Este reporte consolida compras globales de materiales, asignación de cuadrillas y requerimientos de maquinaria para la obra.</p>
       </div>
 
       <div class="summary-card">
@@ -1204,7 +1204,7 @@ export function printInsumosGenerales() {
       </div>
     </div>
 
-    <!-- Ãrea de Firmas Institucionales y Responsables -->
+    <!-- Área de Firmas Institucionales y Responsables -->
     ${renderInstitutionalSignaturesHtml(14)}
   `;
 
@@ -1232,10 +1232,10 @@ function getScaleLabel(scale) {
   const norm = normalizePrintScale(scale);
   if (norm === 'meses') return 'Mensual (Meses)';
   if (norm === 'semanas') return 'Semanal (Semanas)';
-  return 'Diaria (DÃ­as)';
+  return 'Diaria (Días)';
 }
 
-// Generar subdivisiones exactas de escala temporal (DÃ­as, Semanas o Meses) para el Diagrama de Gantt de impresiÃ³n
+// Generar subdivisiones exactas de escala temporal (Días, Semanas o Meses) para el Diagrama de Gantt de impresión
 function generatePrintGanttTimeline(minDate, maxDate, scale = 'dias') {
   const normScale = normalizePrintScale(scale);
   const totalDays = Math.max(1, diffDays(minDate, maxDate) + 1);
@@ -1295,7 +1295,7 @@ function generatePrintGanttTimeline(minDate, maxDate, scale = 'dias') {
       }
     }
 
-    // DÃ­as individuales exactos de este mes (para escala 'dias')
+    // Días individuales exactos de este mes (para escala 'dias')
     const monthDaysList = [];
     let dayCursor = new Date(effStart.getFullYear(), effStart.getMonth(), effStart.getDate());
     const effEndClean = new Date(effEnd.getFullYear(), effEnd.getMonth(), effEnd.getDate());
@@ -1342,8 +1342,8 @@ function generatePrintGanttTimeline(minDate, maxDate, scale = 'dias') {
 }
 
 // -------------------------------------------------------------
-// CONSTRUCTOR 1: IMPRESIÃ“N MODO DIAGRAMA DE GANTT (LANDSCAPE)
-// Respeta estrictamente la escala seleccionada: DÃ­as, Semanas o Meses
+// CONSTRUCTOR 1: IMPRESIÓN MODO DIAGRAMA DE GANTT (LANDSCAPE)
+// Respeta estrictamente la escala seleccionada: Días, Semanas o Meses
 // -------------------------------------------------------------
 function buildGanttPrintHtml({
   scheduleData,
@@ -1369,7 +1369,7 @@ function buildGanttPrintHtml({
   const conceptosCount = scheduleData.items.filter(it => !it.isParent).length;
 
   // Dividir horizontalmente en hojas equilibradas solo si la cantidad de columnas de la escala elegida
-  // rebasa el ancho legible de una hoja Carta Horizontal, respetando SIEMPRE DÃ­as, Semanas o Meses.
+  // rebasa el ancho legible de una hoja Carta Horizontal, respetando SIEMPRE Días, Semanas o Meses.
   const fullTimeline = generatePrintGanttTimeline(minDate, maxDate, normScale);
   const sheetSlices = [];
 
@@ -1437,7 +1437,7 @@ function buildGanttPrintHtml({
 
     const headerRowsCount = normScale === 'meses' ? 2 : 3;
 
-    // Generar filas unificadas de CatÃ¡logo + Diagrama de Gantt para esta hoja
+    // Generar filas unificadas de Catálogo + Diagrama de Gantt para esta hoja
     const tableRows = scheduleData.items.map(item => {
       const isParent = item.isParent;
       const isLevel1 = item.level === 1;
@@ -1464,7 +1464,7 @@ function buildGanttPrintHtml({
       const sDateFormatted = formatPrintDate(item.startDate);
       const eDateFormatted = formatPrintDate(item.endDate);
 
-      // CÃ¡lculo matemÃ¡tico exacto de la barra Gantt dentro del tramo de esta hoja [sliceStart, sliceEnd]
+      // Cálculo matemático exacto de la barra Gantt dentro del tramo de esta hoja [sliceStart, sliceEnd]
       let barHtml = '';
       if (item.startDate && item.endDate) {
         const sDate = parseDate(item.startDate);
@@ -1517,7 +1517,7 @@ function buildGanttPrintHtml({
 
             barHtml = `
               <div style="position: absolute; top: 5px; bottom: 5px; left: ${leftPct}%; width: ${widthPct}%; min-width: 4px; background-color: ${barColor}; border-radius: ${borderRadiusCss}; border: 1px solid rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; overflow: hidden; z-index: 2; box-shadow: 0 1px 2px rgba(0,0,0,0.12);"
-                   title="${escapeHtml(item.clave)} - ${escapeHtml(item.descripcion)}: ${item.startDate} al ${item.endDate} (${fullBarDays} dÃ­as)">
+                   title="${escapeHtml(item.clave)} - ${escapeHtml(item.descripcion)}: ${item.startDate} al ${item.endDate} (${fullBarDays} días)">
                 ${labelInside}
               </div>
             `;
@@ -1525,7 +1525,7 @@ function buildGanttPrintHtml({
         }
       }
 
-      // CuadrÃ­cula de fondo respetando estrictamente la escala seleccionada (DÃ­as, Semanas o Meses)
+      // Cuadrícula de fondo respetando estrictamente la escala seleccionada (Días, Semanas o Meses)
       let gridLinesHtml = '';
       if (normScale === 'meses') {
         gridLinesHtml = months.map((m, idx) => `
@@ -1546,7 +1546,7 @@ function buildGanttPrintHtml({
           <td class="text-center font-mono" style="font-size: 7pt; color: #64748b; width: 22px;">${item.level}</td>
           <td class="font-mono text-center" style="${claveStyle} width: 48px; white-space: nowrap; font-size: 7.5pt;">${escapeHtml(item.clave || '-')}</td>
           <td class="text-justify" style="${descStyle} padding-left: ${indentPx}px; min-width: 155px; max-width: 210px;">
-            ${escapeHtml(item.descripcion || 'Sin descripciÃ³n')}
+            ${escapeHtml(item.descripcion || 'Sin descripción')}
           </td>
           <td class="text-center font-mono" style="width: 28px; font-size: 7pt;">${escapeHtml(unidad)}</td>
           <td class="text-right font-mono" style="width: 38px; font-size: 7pt;">${cantidad}</td>
@@ -1556,12 +1556,12 @@ function buildGanttPrintHtml({
           
           <!-- Celda del Diagrama de Gantt en el Timeline -->
           <td colspan="${colSpanCount}" class="gantt-timeline-cell" style="position: relative; padding: 0 !important; height: 25px; border: 1px solid #cbd5e1; background-color: ${rowBg}; vertical-align: middle;">
-            <!-- CuadrÃ­cula de Fondo -->
+            <!-- Cuadrícula de Fondo -->
             <div style="position: absolute; inset: 0; display: flex; pointer-events: none; height: 100%;">
               ${gridLinesHtml}
             </div>
 
-            <!-- LÃ­nea de HOY (Corte) si estÃ¡ dentro del tramo -->
+            <!-- Línea de HOY (Corte) si está dentro del tramo -->
             ${showTodayLine ? `
               <div style="position: absolute; top: 0; bottom: 0; left: ${todayPct}%; width: 2px; background-color: #ef4444; z-index: 4;" title="Fecha de corte / Hoy: ${todayStr}"></div>
             ` : ''}
@@ -1573,16 +1573,16 @@ function buildGanttPrintHtml({
       `;
     }).join('');
 
-    // Encabezado temporal respetando estrictamente DÃ­as, Semanas o Meses
+    // Encabezado temporal respetando estrictamente Días, Semanas o Meses
     const TIMELINE_SHARE_PCT = 58;
     let scaleHeaderHtml = '';
     if (normScale === 'meses') {
       scaleHeaderHtml = `
         <tr class="gantt-scale-row-months" style="background-color: #e2e8f0; font-size: 7pt;">
           ${months.map(m => `
-            <th class="gantt-scale-month-th" style="width: ${(m.pct * TIMELINE_SHARE_PCT / 100).toFixed(3)}%; text-align: center; border: 1px solid #cbd5e1; background-color: #f8fafc;" title="${m.title} (${m.daysInMonth} dÃ­as)">
+            <th class="gantt-scale-month-th" style="width: ${(m.pct * TIMELINE_SHARE_PCT / 100).toFixed(3)}%; text-align: center; border: 1px solid #cbd5e1; background-color: #f8fafc;" title="${m.title} (${m.daysInMonth} días)">
               <div style="font-weight: 800; color: #1e3a8a; font-size: 7pt; text-transform: uppercase; white-space: nowrap;">${months.length <= 8 ? m.title : m.shortTitle}</div>
-              <div style="font-size: 6pt; color: #64748b; font-weight: 600; white-space: nowrap;">${m.daysInMonth} dÃ­as</div>
+              <div style="font-size: 6pt; color: #64748b; font-weight: 600; white-space: nowrap;">${m.daysInMonth} días</div>
             </th>
           `).join('')}
         </tr>
@@ -1606,7 +1606,7 @@ function buildGanttPrintHtml({
         </tr>
       `;
     } else {
-      // Escala DÃAS: SIEMPRE muestra Meses arriba + cada DÃ­a del mes y su letra (L, M, M, J, V, S, D) abajo
+      // Escala DÍAS: SIEMPRE muestra Meses arriba + cada Día del mes y su letra (L, M, M, J, V, S, D) abajo
       scaleHeaderHtml = `
         <tr class="gantt-scale-row-months" style="background-color: #e2e8f0; font-size: 6.5pt;">
           ${months.map(m => `
@@ -1641,16 +1641,16 @@ function buildGanttPrintHtml({
               </h1>
               <div style="font-size: 9.5pt; font-weight: 700; color: #475569; line-height: 1.2;">
                 <span style="color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 8.5pt;">Proyecto: </span>${escapeHtml(projectName)}
-                ${totalSheetsCount > 1 ? `<span style="margin-left: 8px; color: #1e40af; font-weight: 800; font-size: 8pt;">â€¢ HOJA ${sheetIdx + 1} DE ${totalSheetsCount} (${sliceStartStr} al ${sliceEndStr})</span>` : ''}
+                ${totalSheetsCount > 1 ? `<span style="margin-left: 8px; color: #1e40af; font-weight: 800; font-size: 8pt;">• HOJA ${sheetIdx + 1} DE ${totalSheetsCount} (${sliceStartStr} al ${sliceEndStr})</span>` : ''}
               </div>
             </div>
           </div>
 
           <div class="doc-meta" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 74px; text-align: right; font-size: 8pt; line-height: 1.35;">
-            <div><strong>Fecha de emisiÃ³n:</strong> ${currentDate}</div>
+            <div><strong>Fecha de emisión:</strong> ${currentDate}</div>
             <div><strong>Proyecto:</strong> <span class="meta-tag font-bold" style="color: #1d4ed8; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectName)}</span></div>
-            <div><strong>UbicaciÃ³n:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span> &nbsp;<strong>Escala:</strong> <span class="meta-tag font-bold" style="color: #0369a1; background: #e0f2fe; border-color: #bae6fd; font-size: 7.5pt; padding: 1px 6px;">${getScaleLabel(normScale)}</span></div>
-            <div><strong>Plazo Contractual:</strong> <span class="meta-tag font-mono font-bold" style="font-size: 7.5pt; padding: 1px 6px; background:#eff6ff; color:#1e40af; border-color:#bfdbfe;">${totalDurationDays} dÃ­as naturales</span> &nbsp;<strong>Moneda:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span></div>
+            <div><strong>Ubicación:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span> &nbsp;<strong>Escala:</strong> <span class="meta-tag font-bold" style="color: #0369a1; background: #e0f2fe; border-color: #bae6fd; font-size: 7.5pt; padding: 1px 6px;">${getScaleLabel(normScale)}</span></div>
+            <div><strong>Plazo Contractual:</strong> <span class="meta-tag font-mono font-bold" style="font-size: 7.5pt; padding: 1px 6px; background:#eff6ff; color:#1e40af; border-color:#bfdbfe;">${totalDurationDays} días naturales</span> &nbsp;<strong>Moneda:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span></div>
           </div>
         </div>
 
@@ -1668,37 +1668,37 @@ function buildGanttPrintHtml({
               <span style="font-size: 6.5pt; color: #94a3b8;">Arranque de obra</span>
             </div>
             <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
-              <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Fecha ConclusiÃ³n</span>
+              <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Fecha Conclusión</span>
               <div style="font-size: 10pt; font-weight: 800; color: #1e40af; font-family: monospace; margin-top: 2px;">${maxDateStr}</div>
               <span style="font-size: 6.5pt; color: #94a3b8;">Entrega contractual</span>
             </div>
             <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
-              <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Plazo de EjecuciÃ³n</span>
-              <div style="font-size: 10pt; font-weight: 900; color: #047857; font-family: monospace; margin-top: 2px;">${totalDurationDays} dÃ­as</div>
-              <span style="font-size: 6.5pt; color: #94a3b8;">DÃ­as naturales (${getScaleLabel(normScale)})</span>
+              <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Plazo de Ejecución</span>
+              <div style="font-size: 10pt; font-weight: 900; color: #047857; font-family: monospace; margin-top: 2px;">${totalDurationDays} días</div>
+              <span style="font-size: 6.5pt; color: #94a3b8;">Días naturales (${getScaleLabel(normScale)})</span>
             </div>
             <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
               <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Total Actividades</span>
               <div style="font-size: 10pt; font-weight: 800; color: #475569; font-family: monospace; margin-top: 2px;">${scheduleData.items.length}</div>
-              <span style="font-size: 6.5pt; color: #94a3b8;">${partidasCount} partidas â€¢ ${conceptosCount} conc.</span>
+              <span style="font-size: 6.5pt; color: #94a3b8;">${partidasCount} partidas • ${conceptosCount} conc.</span>
             </div>
           </div>
         ` : ''}
 
-        <!-- Tabla Unificada: CatÃ¡logo de Obra + Diagrama de Gantt -->
+        <!-- Tabla Unificada: Catálogo de Obra + Diagrama de Gantt -->
         <table class="report-table gantt-print-table" style="width: 100%; border-collapse: collapse; font-size: 7.5pt;">
           <thead>
             <tr style="background-color: #f1f5f9; color: #0f172a;">
               <th rowspan="${headerRowsCount}" style="width: 22px;" class="text-center">Niv</th>
               <th rowspan="${headerRowsCount}" style="width: 48px;" class="text-center">Clave</th>
-              <th rowspan="${headerRowsCount}" class="text-left" style="min-width: 155px;">Concepto de Obra / DescripciÃ³n</th>
+              <th rowspan="${headerRowsCount}" class="text-left" style="min-width: 155px;">Concepto de Obra / Descripción</th>
               <th rowspan="${headerRowsCount}" style="width: 28px;" class="text-center">Unid</th>
               <th rowspan="${headerRowsCount}" style="width: 38px;" class="text-right">Volumen</th>
               <th rowspan="${headerRowsCount}" style="width: 46px;" class="text-center">Inicio</th>
               <th rowspan="${headerRowsCount}" style="width: 46px;" class="text-center">Fin</th>
-              <th rowspan="${headerRowsCount}" style="width: 28px;" class="text-center">DÃ­as</th>
+              <th rowspan="${headerRowsCount}" style="width: 28px;" class="text-center">Días</th>
               <th colspan="${colSpanCount}" class="text-center" style="background-color: #0f172a !important; color: #ffffff !important; font-weight: 800; letter-spacing: 0.04em; padding: 4px 6px !important;">
-                CRONOGRAMA GENERAL - ${getScaleLabel(normScale).toUpperCase()} (${totalSheetsCount > 1 ? `DEL ${sliceStartStr} AL ${sliceEndStr} â€¢ ${totalDays} DÃAS` : `${totalDurationDays} DÃAS NATURALES`})
+                CRONOGRAMA GENERAL - ${getScaleLabel(normScale).toUpperCase()} (${totalSheetsCount > 1 ? `DEL ${sliceStartStr} AL ${sliceEndStr} • ${totalDays} DÍAS` : `${totalDurationDays} DÍAS NATURALES`})
               </th>
             </tr>
             ${scaleHeaderHtml}
@@ -1716,7 +1716,7 @@ function buildGanttPrintHtml({
               <td class="text-center font-mono" style="white-space: nowrap !important; color: #ffffff; font-size: 7pt; font-weight: 800; border: 1px solid #1e293b; padding: 5px 3px;">${totalDurationDays}d</td>
               <td colspan="${colSpanCount}" class="text-center" style="white-space: nowrap !important; padding: 5px 6px; background-color: #0f172a; color: #ffffff; vertical-align: middle; border: 1px solid #1e293b;">
                 <span style="white-space: nowrap !important; font-size: 6.5pt; font-weight: 800; color: #ffffff; letter-spacing: 0.01em; text-transform: uppercase; display: inline-block;">
-                  PLAZO TOTAL: ${totalDurationDays} DÃAS NATURALES (${minDateStr} AL ${maxDateStr}) â€¢ ESCALA: ${getScaleLabel(normScale).toUpperCase()}
+                  PLAZO TOTAL: ${totalDurationDays} DÍAS NATURALES (${minDateStr} AL ${maxDateStr}) • ESCALA: ${getScaleLabel(normScale).toUpperCase()}
                 </span>
               </td>
             </tr>
@@ -1727,10 +1727,10 @@ function buildGanttPrintHtml({
           <!-- Resumen y Notas Generales -->
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 12px;">
             <div style="font-size: 7.5pt; color: #64748b; max-width: 680px; line-height: 1.45;">
-              <p style="margin: 0 0 3px 0;"><strong>Consideraciones tÃ©cnicas del programa de obra:</strong></p>
-              <p style="margin: 0;">â€¢ Las fechas de inicio y terminaciÃ³n han sido calendarizadas considerando rendimientos oficiales de cuadrillas, tiempos de fraguado, secuencias constructivas y suministro continuo de materiales.</p>
-              <p style="margin: 2px 0 0 0;">â€¢ Las actividades crÃ­ticas deberÃ¡n ser supervisadas periÃ³dicamente para evitar desviaciones sobre la ruta crÃ­tica del proyecto.</p>
-              <p style="margin: 2px 0 0 0;">â€¢ Cronograma emitido bajo escala <strong>${getScaleLabel(normScale)}</strong> comprendiendo un plazo total de <strong>${totalDurationDays} dÃ­as naturales</strong>.</p>
+              <p style="margin: 0 0 3px 0;"><strong>Consideraciones técnicas del programa de obra:</strong></p>
+              <p style="margin: 0;">• Las fechas de inicio y terminación han sido calendarizadas considerando rendimientos oficiales de cuadrillas, tiempos de fraguado, secuencias constructivas y suministro continuo de materiales.</p>
+              <p style="margin: 2px 0 0 0;">• Las actividades críticas deberán ser supervisadas periódicamente para evitar desviaciones sobre la ruta crítica del proyecto.</p>
+              <p style="margin: 2px 0 0 0;">• Cronograma emitido bajo escala <strong>${getScaleLabel(normScale)}</strong> comprendiendo un plazo total de <strong>${totalDurationDays} días naturales</strong>.</p>
             </div>
 
             <div class="summary-card" style="width: 290px;">
@@ -1744,7 +1744,7 @@ function buildGanttPrintHtml({
               </div>
               <div class="summary-row">
                 <span style="color: #475569;">Plazo Contractual:</span>
-                <span class="font-mono font-bold" style="color: #1e40af;">${totalDurationDays} dÃ­as naturales</span>
+                <span class="font-mono font-bold" style="color: #1e40af;">${totalDurationDays} días naturales</span>
               </div>
               <div class="summary-row summary-total">
                 <span>MONTO PROGRAMADO:</span>
@@ -1753,7 +1753,7 @@ function buildGanttPrintHtml({
             </div>
           </div>
 
-          <!-- Ãrea de Firmas Institucionales y Responsables -->
+          <!-- Área de Firmas Institucionales y Responsables -->
           ${renderInstitutionalSignaturesHtml(14)}
         ` : `
           <div class="gantt-page-break" style="page-break-after: always; break-after: page; height: 0; margin: 0; padding: 0;"></div>
@@ -1816,8 +1816,8 @@ function buildGanttPrintHtml({
 }
 
 // -------------------------------------------------------------
-// CONSTRUCTOR 2: IMPRESIÃ“N MODO PROGRAMA FINANCIERO (LANDSCAPE)
-// Adaptable DinÃ¡micamente para Evitar Desbordamientos y Cortes
+// CONSTRUCTOR 2: IMPRESIÓN MODO PROGRAMA FINANCIERO (LANDSCAPE)
+// Adaptable Dinámicamente para Evitar Desbordamientos y Cortes
 // -------------------------------------------------------------
 function buildFinancialPrintHtml({
   scheduleData,
@@ -1857,11 +1857,11 @@ function buildFinancialPrintHtml({
   const maxDateStr = formatDate(maxDate);
   const totalDurationDays = Math.max(1, diffDays(minDate, maxDate) + 1);
 
-  // AdaptaciÃ³n dinÃ¡mica del horizonte temporal para evitar que se corte informaciÃ³n
+  // Adaptación dinámica del horizonte temporal para evitar que se corte información
   // En hoja horizontal Carta (Letter Landscape):
-  // Si n <= 16: se emite en 1 sola hoja ajustando zoom y compactaciÃ³n.
-  // Si n > 16: se pagina equilibradamente por bloques de perÃ­odos (hojas secuenciales),
-  // repitiendo el catÃ¡logo de conceptos a la izquierda y presentando totales consolidados en la Ãºltima hoja.
+  // Si n <= 16: se emite en 1 sola hoja ajustando zoom y compactación.
+  // Si n > 16: se pagina equilibradamente por bloques de períodos (hojas secuenciales),
+  // repitiendo el catálogo de conceptos a la izquierda y presentando totales consolidados en la última hoja.
   const MAX_PERIODS_PER_SHEET = 16;
   const totalSheets = Math.max(1, Math.ceil(n / MAX_PERIODS_PER_SHEET));
   const periodsPerSheet = Math.ceil(n / totalSheets);
@@ -1876,7 +1876,7 @@ function buildFinancialPrintHtml({
     const isFirstSheet = (sheetIdx === 0);
     const isLastSheet = (sheetIdx === totalSheets - 1);
 
-    // Ajustes tipogrÃ¡ficos adaptativos segÃºn la densidad de perÃ­odos en la hoja
+    // Ajustes tipográficos adaptativos según la densidad de períodos en la hoja
     const isVeryCompact = numSheetPeriods > 13;
     const isCompact = numSheetPeriods > 9;
     const colFontSize = isVeryCompact ? '5.2pt' : (isCompact ? '5.8pt' : '6.5pt');
@@ -1884,10 +1884,10 @@ function buildFinancialPrintHtml({
     const headerSubFontSize = isVeryCompact ? '4.8pt' : (isCompact ? '5pt' : '5.5pt');
     const colPadding = isVeryCompact ? '1px 1px' : (isCompact ? '2px 2px' : '2px 3px');
 
-    // EstimaciÃ³n de ancho total para cÃ¡lculo de auto-escalado (zoom)
-    // Ancho imprimible disponible en Letter Landscape con mÃ¡rgenes 5-6mm: ~1015px
+    // Estimación de ancho total para cálculo de auto-escalado (zoom)
+    // Ancho imprimible disponible en Letter Landscape con márgenes 5-6mm: ~1015px
     const FIXED_LEFT_COLS_WIDTH = 16 + 38 + 130 + 20 + 28 + 38 + 48; // 318px
-    const FIXED_RIGHT_COLS_WIDTH = 48 + 28; // 76px (solo en Ãºltima hoja)
+    const FIXED_RIGHT_COLS_WIDTH = 48 + 28; // 76px (solo en última hoja)
     const periodColEstWidth = isVeryCompact ? 38 : (isCompact ? 42 : 48);
     const estimatedTableWidth = FIXED_LEFT_COLS_WIDTH + (isLastSheet ? FIXED_RIGHT_COLS_WIDTH : 0) + (numSheetPeriods * periodColEstWidth);
     const availableWidth = 1015;
@@ -1895,12 +1895,12 @@ function buildFinancialPrintHtml({
       ? Math.min(1.0, Math.max(0.70, Math.floor((availableWidth / estimatedTableWidth) * 100) / 100))
       : 1.0;
 
-    // TÃ­tulo descriptivo del rango cubierto en esta hoja
+    // Título descriptivo del rango cubierto en esta hoja
     const sheetFirstPeriod = sheetPeriods[0];
     const sheetLastPeriod = sheetPeriods[sheetPeriods.length - 1];
     const sheetCoverageTitle = (sheetFirstPeriod && sheetLastPeriod)
       ? `${sheetFirstPeriod.label} al ${sheetLastPeriod.label}`
-      : `PerÃ­odos ${startIdx + 1} a ${endIdx}`;
+      : `Períodos ${startIdx + 1} a ${endIdx}`;
 
     // Filas de conceptos para esta hoja
     const tableRows = scheduleData.items.map(item => {
@@ -1929,7 +1929,7 @@ function buildFinancialPrintHtml({
       const pu = isParent ? '-' : formatMoney(item.precioUnitario || 0);
       const totalItemImp = isParent ? (item.totalImporte || 0) : (item.importe || 0);
 
-      // Celdas de perÃ­odos de esta hoja
+      // Celdas de períodos de esta hoja
       const periodCells = sheetPeriods.map(p => {
         const d = item.periodData ? item.periodData[p.key] : null;
         const imp = d ? d.importe : 0;
@@ -1954,7 +1954,7 @@ function buildFinancialPrintHtml({
           <td class="text-center font-mono" style="font-size: 6pt; color: #64748b; width: 16px; border: 1px solid #cbd5e1;">${item.level}</td>
           <td class="font-mono text-center" style="${claveStyle} width: 38px; white-space: nowrap; font-size: 6.5pt; border: 1px solid #cbd5e1;">${escapeHtml(item.clave || '-')}</td>
           <td class="text-left" style="${descStyle} padding-left: ${indentPx}px; width: 130px; max-width: 140px; font-size: 6.5pt; border: 1px solid #cbd5e1; word-break: break-word; line-height: 1.25;">
-            ${escapeHtml(item.descripcion || 'Sin descripciÃ³n')}
+            ${escapeHtml(item.descripcion || 'Sin descripción')}
           </td>
           <td class="text-center font-mono" style="width: 20px; font-size: 6pt; border: 1px solid #cbd5e1;">${escapeHtml(unidad)}</td>
           <td class="text-right font-mono" style="width: 28px; font-size: 6pt; border: 1px solid #cbd5e1;">${cantidad}</td>
@@ -1977,7 +1977,7 @@ function buildFinancialPrintHtml({
       `;
     }).join('');
 
-    // Encabezado de perÃ­odos (semana / dÃ­a / mes) en 2 niveles compactos
+    // Encabezado de períodos (semana / día / mes) en 2 niveles compactos
     const periodHeadersHtml = sheetPeriods.map(p => {
       let mainLabel = '';
       let subLabel = '';
@@ -1987,7 +1987,7 @@ function buildFinancialPrintHtml({
         const sDate = p.startDate;
         subLabel = `${String(sDate.getDate()).padStart(2, '0')}/${String(sDate.getMonth() + 1).padStart(2, '0')}`;
       } else if (scale === 'dias') {
-        const dowNames = ['Dom', 'Lun', 'Mar', 'MiÃ©', 'Jue', 'Vie', 'SÃ¡b'];
+        const dowNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
         const sDate = p.startDate;
         mainLabel = `${dowNames[sDate.getDay()]} ${p.index}`;
         subLabel = `${String(sDate.getDate()).padStart(2, '0')}/${String(sDate.getMonth() + 1).padStart(2, '0')}`;
@@ -2022,16 +2022,16 @@ function buildFinancialPrintHtml({
               </h1>
               <div style="font-size: 9pt; font-weight: 700; color: #475569; line-height: 1.2;">
                 <span style="color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 8pt;">Proyecto: </span>${escapeHtml(projectName)}
-                ${totalSheets > 1 ? `<span style="margin-left: 8px; color: #1e40af; font-weight: 800; font-size: 8pt;">â€¢ HOJA ${sheetIdx + 1} DE ${totalSheets} (${escapeHtml(sheetCoverageTitle)})</span>` : ''}
+                ${totalSheets > 1 ? `<span style="margin-left: 8px; color: #1e40af; font-weight: 800; font-size: 8pt;">• HOJA ${sheetIdx + 1} DE ${totalSheets} (${escapeHtml(sheetCoverageTitle)})</span>` : ''}
               </div>
             </div>
           </div>
 
           <div class="doc-meta" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 68px; text-align: right; font-size: 7.5pt; line-height: 1.35;">
-            <div><strong>Fecha de emisiÃ³n:</strong> ${currentDate}</div>
+            <div><strong>Fecha de emisión:</strong> ${currentDate}</div>
             <div><strong>Proyecto:</strong> <span class="meta-tag font-bold" style="color: #1d4ed8; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectName)}</span></div>
-            <div><strong>UbicaciÃ³n:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span> &nbsp;<strong>Escala:</strong> <span class="meta-tag font-bold" style="color: #0369a1; background: #e0f2fe; border-color: #bae6fd; font-size: 7.5pt; padding: 1px 6px;">${getScaleLabel(scale)}</span></div>
-            <div><strong>Plazo Contractual:</strong> <span class="meta-tag font-mono font-bold" style="font-size: 7.5pt; padding: 1px 6px; background:#eff6ff; color:#1e40af; border-color:#bfdbfe;">${totalDurationDays} dÃ­as naturales</span> &nbsp;<strong>Moneda:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span></div>
+            <div><strong>Ubicación:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span> &nbsp;<strong>Escala:</strong> <span class="meta-tag font-bold" style="color: #0369a1; background: #e0f2fe; border-color: #bae6fd; font-size: 7.5pt; padding: 1px 6px;">${getScaleLabel(scale)}</span></div>
+            <div><strong>Plazo Contractual:</strong> <span class="meta-tag font-mono font-bold" style="font-size: 7.5pt; padding: 1px 6px; background:#eff6ff; color:#1e40af; border-color:#bfdbfe;">${totalDurationDays} días naturales</span> &nbsp;<strong>Moneda:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span></div>
           </div>
         </div>
 
@@ -2044,7 +2044,7 @@ function buildFinancialPrintHtml({
               <span style="font-size: 6pt; color: #94a3b8;">100% Contratado</span>
             </div>
             <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px;">
-              <span style="font-size: 6.5pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">PerÃ­odo Pico (MÃ¡x InversiÃ³n)</span>
+              <span style="font-size: 6.5pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Período Pico (Máx Inversión)</span>
               <div style="font-size: 9.5pt; font-weight: 800; color: #1e40af; font-family: monospace; margin-top: 1px;">${formatCurrency(picoMonto, currencySymbol)}</div>
               <span style="font-size: 6pt; color: #94a3b8;">${picoPeriod ? picoPeriod.label : '-'}</span>
             </div>
@@ -2054,13 +2054,13 @@ function buildFinancialPrintHtml({
               <span style="font-size: 6pt; color: #94a3b8;">Arranque contractual</span>
             </div>
             <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px;">
-              <span style="font-size: 6.5pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">ConclusiÃ³n Estimada</span>
+              <span style="font-size: 6.5pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Conclusión Estimada</span>
               <div style="font-size: 9.5pt; font-weight: 800; color: #0f172a; font-family: monospace; margin-top: 1px;">${maxDateStr}</div>
-              <span style="font-size: 6pt; color: #94a3b8;">Entrega fÃ­sica de obra</span>
+              <span style="font-size: 6pt; color: #94a3b8;">Entrega física de obra</span>
             </div>
             <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px;">
               <span style="font-size: 6.5pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Horizonte Temporal</span>
-              <div style="font-size: 9.5pt; font-weight: 900; color: #047857; font-family: monospace; margin-top: 1px;">${periods.length} perÃ­odos</div>
+              <div style="font-size: 9.5pt; font-weight: 900; color: #047857; font-family: monospace; margin-top: 1px;">${periods.length} períodos</div>
               <span style="font-size: 6pt; color: #94a3b8;">Distribuido en ${getScaleLabel(scale)}</span>
             </div>
           </div>
@@ -2071,10 +2071,10 @@ function buildFinancialPrintHtml({
           <thead>
             <tr style="background-color: #0f172a; color: #ffffff;">
               <th colspan="7" class="text-left" style="padding: 4px 6px; font-weight: 800; letter-spacing: 0.03em; font-size: 6.5pt;">
-                CATÃLOGO GENERAL DE CONCEPTOS DE OBRA
+                CATÁLOGO GENERAL DE CONCEPTOS DE OBRA
               </th>
               <th colspan="${numSheetPeriods}" class="text-center" style="background-color: #1e3a8a; padding: 4px 6px; font-weight: 800; letter-spacing: 0.03em; font-size: 6.5pt;">
-                DISTRIBUCIÃ“N FINANCIERA PROGRAMADA (${getScaleLabel(scale).toUpperCase()})
+                DISTRIBUCIÓN FINANCIERA PROGRAMADA (${getScaleLabel(scale).toUpperCase()})
               </th>
               ${isLastSheet ? `
                 <th colspan="2" class="text-center" style="background-color: #0f172a; padding: 4px 6px; font-weight: 800; letter-spacing: 0.03em; font-size: 6.5pt;">
@@ -2103,10 +2103,10 @@ function buildFinancialPrintHtml({
             ${tableRows}
           </tbody>
           <tfoot style="border-top: 2px solid #0f172a; white-space: nowrap !important; background-color: #ffffff;">
-            <!-- Fila 1: Total PerÃ­odo -->
+            <!-- Fila 1: Total Período -->
             <tr style="background-color: #ffffff; color: #0f172a; font-weight: 800; font-size: 6.5pt; border-bottom: 1px solid #cbd5e1; white-space: nowrap !important;">
               <td colspan="7" class="text-right font-bold" style="text-transform: uppercase; padding: 4px 6px; color: #0f172a; font-weight: 800; white-space: nowrap !important; border: 1px solid #cbd5e1; font-size: 6.5pt;">
-                TOTAL INVERSIÃ“N PERÃODO ($):
+                TOTAL INVERSIÓN PERÍODO ($):
               </td>
               ${sheetPeriods.map(p => {
                 const tot = periodTotals[p.key];
@@ -2122,10 +2122,10 @@ function buildFinancialPrintHtml({
               ` : ''}
             </tr>
 
-            <!-- Fila 2: % Avance PerÃ­odo -->
+            <!-- Fila 2: % Avance Período -->
             <tr style="background-color: #ffffff; color: #0f172a; font-size: 6pt; font-weight: 800; border-bottom: 1px solid #cbd5e1; white-space: nowrap !important;">
               <td colspan="7" class="text-right font-bold" style="text-transform: uppercase; padding: 3px 6px; color: #0f172a; font-weight: 800; white-space: nowrap !important; border: 1px solid #cbd5e1; font-size: 6pt;">
-                % AVANCE FÃSICO / FINANCIERO PERÃODO:
+                % AVANCE FÍSICO / FINANCIERO PERÍODO:
               </td>
               ${sheetPeriods.map(p => {
                 const tot = periodTotals[p.key];
@@ -2144,7 +2144,7 @@ function buildFinancialPrintHtml({
             <!-- Fila 3: Total Acumulado -->
             <tr style="background-color: #ffffff; color: #0f172a; font-weight: 800; font-size: 6.5pt; border-bottom: 1px solid #cbd5e1; white-space: nowrap !important;">
               <td colspan="7" class="text-right font-bold" style="text-transform: uppercase; padding: 4px 6px; color: #0f172a; font-weight: 800; white-space: nowrap !important; border: 1px solid #cbd5e1; font-size: 6.5pt;">
-                TOTAL INVERSIÃ“N ACUMULADA ($):
+                TOTAL INVERSIÓN ACUMULADA ($):
               </td>
               ${sheetPeriods.map(p => {
                 const tot = periodTotals[p.key];
@@ -2182,13 +2182,13 @@ function buildFinancialPrintHtml({
         </table>
 
         ${isLastSheet ? `
-          <!-- Resumen y Notas Generales (Solo en la Ãšltima Hoja) -->
+          <!-- Resumen y Notas Generales (Solo en la Última Hoja) -->
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 10px;">
             <div style="font-size: 7pt; color: #64748b; max-width: 680px; line-height: 1.4;">
-              <p style="margin: 0 0 2px 0;"><strong>Consideraciones tÃ©cnicas del programa financiero:</strong></p>
-              <p style="margin: 0;">â€¢ Los montos programados corresponden al calendario valorizado de erogaciones y flujo de fondos requeridos para la ejecuciÃ³n continua del proyecto.</p>
-              <p style="margin: 2px 0 0 0;">â€¢ El perÃ­odo de mayor exigencia financiera corresponde a <strong>${picoPeriod ? picoPeriod.label : '-'}</strong> con un importe programado de <strong>${formatCurrency(picoMonto, currencySymbol)}</strong>.</p>
-              <p style="margin: 2px 0 0 0;">â€¢ Programa financiero proyectado en <strong>${getScaleLabel(scale)}</strong> para un plazo total de <strong>${totalDurationDays} dÃ­as naturales</strong>.</p>
+              <p style="margin: 0 0 2px 0;"><strong>Consideraciones técnicas del programa financiero:</strong></p>
+              <p style="margin: 0;">• Los montos programados corresponden al calendario valorizado de erogaciones y flujo de fondos requeridos para la ejecución continua del proyecto.</p>
+              <p style="margin: 2px 0 0 0;">• El período de mayor exigencia financiera corresponde a <strong>${picoPeriod ? picoPeriod.label : '-'}</strong> con un importe programado de <strong>${formatCurrency(picoMonto, currencySymbol)}</strong>.</p>
+              <p style="margin: 2px 0 0 0;">• Programa financiero proyectado en <strong>${getScaleLabel(scale)}</strong> para un plazo total de <strong>${totalDurationDays} días naturales</strong>.</p>
             </div>
 
             <div class="summary-card" style="width: 280px; padding: 8px 10px;">
@@ -2197,12 +2197,12 @@ function buildFinancialPrintHtml({
                 <span class="font-mono font-bold">${formatCurrency(grandTotalObra, currencySymbol)}</span>
               </div>
               <div class="summary-row" style="font-size: 7pt; padding: 2px 0;">
-                <span style="color: #475569;">InversiÃ³n MÃ¡x. (Pico):</span>
+                <span style="color: #475569;">Inversión Máx. (Pico):</span>
                 <span class="font-mono font-bold" style="color: #1e40af;">${formatCurrency(picoMonto, currencySymbol)}</span>
               </div>
               <div class="summary-row" style="font-size: 7pt; padding: 2px 0;">
                 <span style="color: #475569;">Plazo Contractual:</span>
-                <span class="font-mono font-bold">${totalDurationDays} dÃ­as naturales</span>
+                <span class="font-mono font-bold">${totalDurationDays} días naturales</span>
               </div>
               <div class="summary-row summary-total" style="font-size: 7.5pt; padding: 3px 0; margin-top: 2px;">
                 <span>MONTO CONTRATADO:</span>
@@ -2211,7 +2211,7 @@ function buildFinancialPrintHtml({
             </div>
           </div>
 
-          <!-- Ãrea de Firmas Institucionales y Responsables -->
+          <!-- Área de Firmas Institucionales y Responsables -->
           ${renderInstitutionalSignaturesHtml(14)}
         ` : ''}
 
@@ -2267,7 +2267,7 @@ function buildFinancialPrintHtml({
 }
 
 // -------------------------------------------------------------
-// CONSTRUCTOR 3: IMPRESIÃ“N MODO CURVA "S" Y FLUJO (LANDSCAPE)
+// CONSTRUCTOR 3: IMPRESIÓN MODO CURVA "S" Y FLUJO (LANDSCAPE)
 // -------------------------------------------------------------
 function buildCurvaSPrintHtml({
   scheduleData,
@@ -2307,7 +2307,7 @@ function buildCurvaSPrintHtml({
   const maxDateStr = formatDate(maxDate);
   const totalDurationDays = Math.max(1, diffDays(minDate, maxDate) + 1);
 
-  // ParÃ¡metros del grÃ¡fico SVG vectorial de alta resoluciÃ³n para hoja horizontal
+  // Parámetros del gráfico SVG vectorial de alta resolución para hoja horizontal
   const svgW = 1040;
   const svgH = 310;
   const padLeft = 70;
@@ -2357,7 +2357,7 @@ function buildCurvaSPrintHtml({
   const polylineStr = points.map(pt => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(' ');
   const areaPolygonStr = `${points[0].x.toFixed(1)},${(padTop + chartH).toFixed(1)} ${polylineStr} ${points[points.length - 1].x.toFixed(1)},${(padTop + chartH).toFixed(1)}`;
 
-  // LÃ­nea de corte / Hoy
+  // Línea de corte / Hoy
   const todayStr = getGanttTodayDate();
   const todayDate = parseDate(todayStr);
   let todayLineHtml = '';
@@ -2462,7 +2462,7 @@ function buildCurvaSPrintHtml({
             ${escapeHtml(companyName)}
           </div>
           <h1 class="doc-title" style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
-            PROGRAMA DE OBRA: CURVA "S" Y FLUJO FINANCIERO DE INVERSIÃ“N
+            PROGRAMA DE OBRA: CURVA "S" Y FLUJO FINANCIERO DE INVERSIÓN
           </h1>
           <div style="font-size: 9.5pt; font-weight: 700; color: #475569; line-height: 1.2;">
             <span style="color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 8.5pt;">Proyecto: </span>${escapeHtml(projectName)}
@@ -2471,10 +2471,10 @@ function buildCurvaSPrintHtml({
       </div>
 
       <div class="doc-meta" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 74px; text-align: right; font-size: 8pt; line-height: 1.35;">
-        <div><strong>Fecha de emisiÃ³n:</strong> ${currentDate}</div>
+        <div><strong>Fecha de emisión:</strong> ${currentDate}</div>
         <div><strong>Proyecto:</strong> <span class="meta-tag font-bold" style="color: #1d4ed8; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectName)}</span></div>
-        <div><strong>UbicaciÃ³n:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span> &nbsp;<strong>Escala:</strong> <span class="meta-tag font-bold" style="color: #0369a1; background: #e0f2fe; border-color: #bae6fd; font-size: 7.5pt; padding: 1px 6px;">${getScaleLabel(scale)}</span></div>
-        <div><strong>Plazo Contractual:</strong> <span class="meta-tag font-mono font-bold" style="font-size: 7.5pt; padding: 1px 6px; background:#eff6ff; color:#1e40af; border-color:#bfdbfe;">${totalDurationDays} dÃ­as naturales</span> &nbsp;<strong>Moneda:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span></div>
+        <div><strong>Ubicación:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span> &nbsp;<strong>Escala:</strong> <span class="meta-tag font-bold" style="color: #0369a1; background: #e0f2fe; border-color: #bae6fd; font-size: 7.5pt; padding: 1px 6px;">${getScaleLabel(scale)}</span></div>
+        <div><strong>Plazo Contractual:</strong> <span class="meta-tag font-mono font-bold" style="font-size: 7.5pt; padding: 1px 6px; background:#eff6ff; color:#1e40af; border-color:#bfdbfe;">${totalDurationDays} días naturales</span> &nbsp;<strong>Moneda:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span></div>
       </div>
     </div>
 
@@ -2486,7 +2486,7 @@ function buildCurvaSPrintHtml({
         <span style="font-size: 6.5pt; color: #94a3b8;">100% Contratado</span>
       </div>
       <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
-        <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">PerÃ­odo Pico (MÃ¡x InversiÃ³n)</span>
+        <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Período Pico (Máx Inversión)</span>
         <div style="font-size: 10pt; font-weight: 800; color: #1e40af; font-family: monospace; margin-top: 2px;">${formatMoney(picoMonto)}</div>
         <span style="font-size: 6.5pt; color: #94a3b8;">${picoPeriod ? picoPeriod.label : '-'}</span>
       </div>
@@ -2496,28 +2496,28 @@ function buildCurvaSPrintHtml({
         <span style="font-size: 6.5pt; color: #94a3b8;">Arranque contractual</span>
       </div>
       <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
-        <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">ConclusiÃ³n Estimada</span>
+        <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Conclusión Estimada</span>
         <div style="font-size: 10pt; font-weight: 800; color: #0f172a; font-family: monospace; margin-top: 2px;">${maxDateStr}</div>
-        <span style="font-size: 6.5pt; color: #94a3b8;">Entrega fÃ­sica de obra</span>
+        <span style="font-size: 6.5pt; color: #94a3b8;">Entrega física de obra</span>
       </div>
       <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
         <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Horizonte Temporal</span>
-        <div style="font-size: 10pt; font-weight: 900; color: #047857; font-family: monospace; margin-top: 2px;">${periods.length} perÃ­odos</div>
+        <div style="font-size: 10pt; font-weight: 900; color: #047857; font-family: monospace; margin-top: 2px;">${periods.length} períodos</div>
         <span style="font-size: 6.5pt; color: #94a3b8;">${getScaleLabel(scale)}</span>
       </div>
     </div>
 
-    <!-- GrÃ¡fico SVG Vectorial: Curva S y Flujo de Fondos -->
+    <!-- Gráfico SVG Vectorial: Curva S y Flujo de Fondos -->
     <div style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0;">
         <span style="font-size: 8.5pt; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.02em;">
-          PROYECCIÃ“N DE AVANCE ACUMULADO (CURVA "S") Y FLUJO DE EFECTIVO PERIÃ“DICO
+          PROYECCIÓN DE AVANCE ACUMULADO (CURVA "S") Y FLUJO DE EFECTIVO PERIÓDICO
         </span>
         <!-- Leyenda Institucional -->
         <div style="display: flex; align-items: center; gap: 14px; font-size: 7pt; font-weight: 600;">
           <div style="display: flex; align-items: center; gap: 4px;">
             <div style="width: 12px; height: 10px; background-color: #93c5fd; border: 1px solid #2563eb; border-radius: 2px;"></div>
-            <span>InversiÃ³n por PerÃ­odo ($)</span>
+            <span>Inversión por Período ($)</span>
           </div>
           <div style="display: flex; align-items: center; gap: 4px;">
             <div style="width: 16px; height: 3px; background-color: #1e3a8a; border-radius: 2px;"></div>
@@ -2526,7 +2526,7 @@ function buildCurvaSPrintHtml({
           </div>
           <div style="display: flex; align-items: center; gap: 4px;">
             <div style="width: 14px; height: 2px; background-color: #dc2626; border-top: 2px dashed #dc2626;"></div>
-            <span style="color: #dc2626;">DÃ­a Actual / Corte</span>
+            <span style="color: #dc2626;">Día Actual / Corte</span>
           </div>
         </div>
       </div>
@@ -2545,7 +2545,7 @@ function buildCurvaSPrintHtml({
         <!-- Barras de Flujo de Efectivo -->
         ${barElements.join('')}
 
-        <!-- Ãrea Sombreada de la Curva S -->
+        <!-- Área Sombreada de la Curva S -->
         <polygon points="${areaPolygonStr}" fill="url(#printCurvaAreaGrad)" />
 
         <!-- Trazo Vectorial de la Curva S -->
@@ -2554,7 +2554,7 @@ function buildCurvaSPrintHtml({
         <!-- Nodos y Etiquetas de Porcentaje -->
         ${nodesHtml}
 
-        <!-- LÃ­nea de HOY / CORTE -->
+        <!-- Línea de HOY / CORTE -->
         ${todayLineHtml}
       </svg>
     </div>
@@ -2564,13 +2564,13 @@ function buildCurvaSPrintHtml({
       <thead>
         <tr style="background-color: #0f172a; color: #ffffff;">
           <th style="width: 32px;" class="text-center">#</th>
-          <th class="text-left" style="min-width: 180px;">PerÃ­odo / Rango Temporal</th>
+          <th class="text-left" style="min-width: 180px;">Período / Rango Temporal</th>
           <th style="width: 44px;" class="text-center">Plazo</th>
-          <th style="width: 90px;" class="text-right">InversiÃ³n PerÃ­odo ($)</th>
+          <th style="width: 90px;" class="text-right">Inversión Período ($)</th>
           <th style="width: 60px;" class="text-right">% Parcial</th>
-          <th style="width: 95px;" class="text-right">InversiÃ³n Acumulada ($)</th>
+          <th style="width: 95px;" class="text-right">Inversión Acumulada ($)</th>
           <th style="width: 70px;" class="text-right">% Acumulado</th>
-          <th style="width: 130px;" class="text-center">Avance GrÃ¡fico</th>
+          <th style="width: 130px;" class="text-center">Avance Gráfico</th>
         </tr>
       </thead>
       <tbody>
@@ -2593,10 +2593,10 @@ function buildCurvaSPrintHtml({
     <!-- Resumen y Notas Generales -->
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 12px;">
       <div style="font-size: 7.5pt; color: #64748b; max-width: 680px; line-height: 1.45;">
-        <p style="margin: 0 0 3px 0;"><strong>Consideraciones tÃ©cnicas de la Curva S y flujo de fondos:</strong></p>
-        <p style="margin: 0;">â€¢ La Curva "S" representa la trayectoria acumulada estÃ¡ndar de inversiÃ³n y avance de obra fÃ­sica/financiera a lo largo del plazo contractual.</p>
-        <p style="margin: 2px 0 0 0;">â€¢ Las desviaciones entre el avance real y la Curva "S" programada deberÃ¡n ser reportadas en bitÃ¡cora para aplicar medidas correctivas de reprogramaciÃ³n.</p>
-        <p style="margin: 2px 0 0 0;">â€¢ ProyecciÃ³n temporal bajo <strong>${getScaleLabel(scale)}</strong> para un plazo total de <strong>${totalDurationDays} dÃ­as naturales</strong>.</p>
+        <p style="margin: 0 0 3px 0;"><strong>Consideraciones técnicas de la Curva S y flujo de fondos:</strong></p>
+        <p style="margin: 0;">• La Curva "S" representa la trayectoria acumulada estándar de inversión y avance de obra física/financiera a lo largo del plazo contractual.</p>
+        <p style="margin: 2px 0 0 0;">• Las desviaciones entre el avance real y la Curva "S" programada deberán ser reportadas en bitácora para aplicar medidas correctivas de reprogramación.</p>
+        <p style="margin: 2px 0 0 0;">• Proyección temporal bajo <strong>${getScaleLabel(scale)}</strong> para un plazo total de <strong>${totalDurationDays} días naturales</strong>.</p>
       </div>
 
       <div class="summary-card" style="width: 290px;">
@@ -2605,12 +2605,12 @@ function buildCurvaSPrintHtml({
           <span class="font-mono font-bold">${formatMoney(grandTotalObra)}</span>
         </div>
         <div class="summary-row">
-          <span style="color: #475569;">InversiÃ³n MÃ¡x. (Pico):</span>
+          <span style="color: #475569;">Inversión Máx. (Pico):</span>
           <span class="font-mono font-bold" style="color: #1e40af;">${formatMoney(picoMonto)}</span>
         </div>
         <div class="summary-row">
           <span style="color: #475569;">Plazo Contractual:</span>
-          <span class="font-mono font-bold">${totalDurationDays} dÃ­as naturales</span>
+          <span class="font-mono font-bold">${totalDurationDays} días naturales</span>
         </div>
         <div class="summary-row summary-total">
           <span>MONTO PROGRAMADO:</span>
@@ -2619,18 +2619,18 @@ function buildCurvaSPrintHtml({
       </div>
     </div>
 
-    <!-- Ãrea de Firmas Institucionales y Responsables -->
+    <!-- Área de Firmas Institucionales y Responsables -->
     ${renderInstitutionalSignaturesHtml(14)}
   `;
 }
 
 // -------------------------------------------------------------
 // 4. IMPRIMIR FORMATO "CALENDARIO DE OBRA"
-// DETECCIÃ“N AUTOMÃTICA DE VISTA ACTIVA (GANTT, FINANCIERO, CURVA S) Y ESCALA (DÃAS, SEMANAS, MESES)
+// DETECCIÓN AUTOMÁTICA DE VISTA ACTIVA (GANTT, FINANCIERO, CURVA S) Y ESCALA (DÍAS, SEMANAS, MESES)
 // -------------------------------------------------------------
 export function printCalendarioObraFormat() {
   if (!state.treeData || state.treeData.length === 0) {
-    showToast('No hay conceptos en el CatÃ¡logo Base para generar el Calendario de Obra.', 'warning');
+    showToast('No hay conceptos en el Catálogo Base para generar el Calendario de Obra.', 'warning');
     return;
   }
 
@@ -2736,10 +2736,10 @@ export function printCalendarioObraFormat() {
 // -------------------------------------------------------------
 // 5. IMPRIMIR FORMATO "ESTIMACIONES DE OBRA"
 // Incluye:
-//   - Hoja 1: RESUMEN DE LA ESTIMACIÃ“N (solo conceptos con cantidad > 0 en "Esta EstimaciÃ³n (Actual) -> Cantidad Eje")
-//   - Hoja 2+ (Opcional en vista previa): CATÃLOGO GENERAL COMPLETO Y ESTADO DE CUENTA
+//   - Hoja 1: RESUMEN DE LA ESTIMACIÓN (solo conceptos con cantidad > 0 en "Esta Estimación (Actual) -> Cantidad Eje")
+//   - Hoja 2+ (Opcional en vista previa): CATÁLOGO GENERAL COMPLETO Y ESTADO DE CUENTA
 // -------------------------------------------------------------
-// Helper para la impresiÃ³n de la CarÃ¡tula de EstimaciÃ³n 0 (Anticipo Inicial)
+// Helper para la impresión de la Carátula de Estimación 0 (Anticipo Inicial)
 export function renderPrintEstimacionZeroHTML(data, companyLogo, companyName, projectName, projectLocation, currentDate, currencyCode, currencySymbol) {
   const { activeEst, kpis } = data;
   const anticipoKpi = kpis.anticipo;
@@ -2762,7 +2762,7 @@ export function renderPrintEstimacionZeroHTML(data, companyLogo, companyName, pr
               ${escapeHtml(companyName)}
             </div>
             <h1 class="doc-title" style="font-size: 12pt; font-weight: 900; color: #b45309; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
-              FICHA EJECUTIVA DE COBRO DE ANTICIPO â€” ESTIMACIÃ“N 0
+              FICHA EJECUTIVA DE COBRO DE ANTICIPO — ESTIMACIÓN 0
             </h1>
             <div style="font-size: 9.5pt; font-weight: 700; color: #475569; line-height: 1.2;">
               <span style="color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 8.5pt;">Proyecto: </span>${escapeHtml(projectName)}
@@ -2771,7 +2771,7 @@ export function renderPrintEstimacionZeroHTML(data, companyLogo, companyName, pr
         </div>
 
         <div class="doc-meta" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 74px; text-align: right; font-size: 8pt; line-height: 1.35;">
-          <div><strong>Fecha de emisiÃ³n:</strong> ${escapeHtml(currentDate)}</div>
+          <div><strong>Fecha de emisión:</strong> ${escapeHtml(currentDate)}</div>
           <div><strong>Fecha de cobro:</strong> <span class="meta-tag font-mono font-bold" style="font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.fechaCobro || activeEst.fechaInicio || currentDate)}</span></div>
           <div><strong>Proyecto:</strong> <span class="meta-tag font-bold" style="color: #1d4ed8; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectName)}</span></div>
           <div><strong>Estado de Cobro:</strong> <span class="meta-tag font-bold" style="color: ${isCobrada ? '#047857; background:#ecfdf5; border-color:#a7f3d0;' : '#b45309; background:#fffbeb; border-color:#fde68a;'} font-size: 7.5pt; padding: 1px 6px;">${isCobrada ? 'COBRADA / PAGADA' : 'PENDIENTE DE PAGO'}</span></div>
@@ -2802,12 +2802,12 @@ export function renderPrintEstimacionZeroHTML(data, companyLogo, companyName, pr
         </div>
       </div>
 
-      <!-- Bloque de Datos Fiscales y Fianza de GarantÃ­a -->
+      <!-- Bloque de Datos Fiscales y Fianza de Garantía -->
       <table style="width: 100%; border-collapse: collapse; font-size: 7.5pt; margin-bottom: 15px; border: 1px solid #cbd5e1;">
         <thead>
           <tr style="background-color: #0f172a; color: #ffffff;">
             <th colspan="4" style="text-align: left; padding: 5px 8px; font-weight: 800; font-size: 7.5pt;">
-              DATOS FISCALES Y GARANTÃA DE ANTICIPO
+              DATOS FISCALES Y GARANTÍA DE ANTICIPO
             </th>
           </tr>
         </thead>
@@ -2815,13 +2815,13 @@ export function renderPrintEstimacionZeroHTML(data, companyLogo, companyName, pr
           <tr style="background-color: #ffffff; border-bottom: 1px solid #e2e8f0;">
             <td style="padding: 6px 8px; font-weight: 700; color: #475569; width: 22%;">Folio de Factura / UUID:</td>
             <td style="padding: 6px 8px; font-family: monospace; font-weight: 800; color: #0f172a; width: 28%;">${escapeHtml(factura.folio || 'No asignado')}</td>
-            <td style="padding: 6px 8px; font-weight: 700; color: #475569; width: 22%;">PÃ³liza de Fianza:</td>
+            <td style="padding: 6px 8px; font-weight: 700; color: #475569; width: 22%;">Póliza de Fianza:</td>
             <td style="padding: 6px 8px; font-family: monospace; font-weight: 800; color: #0f172a; width: 28%;">${escapeHtml(activeEst.fianzaPoliza || 'Sin fianza registrada')}</td>
           </tr>
           <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-            <td style="padding: 6px 8px; font-weight: 700; color: #475569;">Fecha de EmisiÃ³n:</td>
+            <td style="padding: 6px 8px; font-weight: 700; color: #475569;">Fecha de Emisión:</td>
             <td style="padding: 6px 8px; font-family: monospace; color: #334155;">${escapeHtml(factura.fechaEmision || 'No especificada')}</td>
-            <td style="padding: 6px 8px; font-weight: 700; color: #475569;">CompaÃ±Ã­a Afianzadora:</td>
+            <td style="padding: 6px 8px; font-weight: 700; color: #475569;">Compañía Afianzadora:</td>
             <td style="padding: 6px 8px; color: #334155;">${escapeHtml(activeEst.fianzaAfianzadora || 'No especificada')}</td>
           </tr>
           <tr style="background-color: #ffffff;">
@@ -2836,11 +2836,11 @@ export function renderPrintEstimacionZeroHTML(data, companyLogo, companyName, pr
         </tbody>
       </table>
 
-      <!-- Monitoreo HistÃ³rico de AmortizaciÃ³n -->
+      <!-- Monitoreo Histórico de Amortización -->
       <div style="background-color: #0f172a; color: #ffffff; border-radius: 6px; padding: 10px 14px; margin-bottom: 15px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
           <span style="font-weight: 800; font-size: 7.5pt; text-transform: uppercase; color: #fde68a;">
-            MONITOREO DE AMORTIZACIÃ“N PROGRESIVA DEL ANTICIPO
+            MONITOREO DE AMORTIZACIÓN PROGRESIVA DEL ANTICIPO
           </span>
           <span style="font-family: monospace; font-weight: 800; font-size: 8pt; color: #a7f3d0;">
             ${anticipoKpi.pctAmortizado.toFixed(1)}% Amortizado
@@ -2862,7 +2862,7 @@ export async function printEstimacionesFormat() {
   const { activeEst, rows, kpis } = data;
 
   if ((!rows || rows.length === 0) && activeEst.numero > 0) {
-    showToast('No hay conceptos en el CatÃ¡logo Base para generar la EstimaciÃ³n de Obra.', 'warning');
+    showToast('No hay conceptos en el Catálogo Base para generar la Estimación de Obra.', 'warning');
     return;
   }
 
@@ -2901,7 +2901,7 @@ export async function printEstimacionesFormat() {
   }
 
   // =============================================================
-  // A) CONSTRUIR "RESUMEN DE LA ESTIMACIÃ“N" (SOLO CANT EJE > 0)
+  // A) CONSTRUIR "RESUMEN DE LA ESTIMACIÓN" (SOLO CANT EJE > 0)
   // =============================================================
   const totalLeafConcepts = rows.filter(r => !r.isParent).length;
   const resumenRows = [];
@@ -2987,7 +2987,7 @@ export async function printEstimacionesFormat() {
               <!-- Anterior -->
               <td class="text-center font-mono" style="width: 48px; color: #94a3b8; border: 1px solid #cbd5e1;">-</td>
               <td class="text-right font-mono font-bold" style="width: 68px; color: #1e293b; border: 1px solid #cbd5e1; white-space: nowrap;">${formatMoney(row.executedImporteAnt)}</td>
-              <!-- Esta EstimaciÃ³n (Actual) -->
+              <!-- Esta Estimación (Actual) -->
               <td class="text-center font-mono" style="width: 54px; color: #047857; background-color: #ecfdf5; border: 1px solid #cbd5e1;">-</td>
               <td class="text-right font-mono font-bold" style="width: 76px; color: #047857; background-color: #ecfdf5; border: 1px solid #cbd5e1; white-space: nowrap;">${formatMoney(row.executedTotalEje)}</td>
               <!-- Acumulado y Saldo -->
@@ -3003,7 +3003,7 @@ export async function printEstimacionesFormat() {
               <td class="text-center font-mono" style="font-size: 6.5pt; color: #64748b; width: 22px; border: 1px solid #cbd5e1;">${row.level}</td>
               <td class="text-center font-mono" style="width: 48px; font-weight: 700; color: #1e40af; border: 1px solid #cbd5e1; white-space: nowrap;">${escapeHtml(row.clave)}</td>
               <td class="text-justify" style="padding-left: ${indentPx}px; line-height: 1.35; font-size: 7pt; border: 1px solid #cbd5e1; word-break: break-word;">
-                ${escapeHtml(row.descripcion || 'Sin descripciÃ³n')}
+                ${escapeHtml(row.descripcion || 'Sin descripción')}
               </td>
               <td class="text-center font-mono" style="width: 30px; font-size: 6.8pt; color: #475569; border: 1px solid #cbd5e1;">${escapeHtml(row.unidad || 'pza')}</td>
               <!-- Contratado -->
@@ -3012,7 +3012,7 @@ export async function printEstimacionesFormat() {
               <!-- Acumulado Anterior -->
               <td class="text-right font-mono" style="width: 48px; font-size: 6.8pt; border: 1px solid #cbd5e1; color: #475569;">${formatQty(row.cantAnt)}</td>
               <td class="text-right font-mono font-semibold" style="width: 68px; font-size: 6.8pt; border: 1px solid #cbd5e1; color: #1e293b; white-space: nowrap;">${formatMoney(row.importeAnt)}</td>
-              <!-- Esta EstimaciÃ³n (Actual): Cantidad Eje e Importe -->
+              <!-- Esta Estimación (Actual): Cantidad Eje e Importe -->
               <td class="text-right font-mono" style="width: 54px; font-size: 7pt; font-weight: 800; color: #047857; background-color: #ecfdf5; border: 1px solid #cbd5e1;">${formatQty(row.cantEje)}</td>
               <td class="text-right font-mono" style="width: 76px; font-size: 7pt; font-weight: 800; color: #047857; background-color: #ecfdf5; border: 1px solid #cbd5e1; white-space: nowrap;">${formatMoney(row.totalEje)}</td>
               <!-- Acumulado y Saldo -->
@@ -3026,7 +3026,7 @@ export async function printEstimacionesFormat() {
     : `
       <tr>
         <td colspan="13" class="text-center" style="padding: 18px 12px; color: #64748b; font-style: italic; font-size: 8pt; background-color: #f8fafc; border: 1px solid #cbd5e1;">
-          No existen conceptos con cantidad capturada en la columna <strong>"Esta EstimaciÃ³n (Actual) â€” Cantidad Eje"</strong> para <strong>${escapeHtml(activeEst.nombre)}</strong>.
+          No existen conceptos con cantidad capturada en la columna <strong>"Esta Estimación (Actual) — Cantidad Eje"</strong> para <strong>${escapeHtml(activeEst.nombre)}</strong>.
         </td>
       </tr>
     `;
@@ -3042,7 +3042,7 @@ export async function printEstimacionesFormat() {
         try {
           foto.displayUrl = await resolveManagedFileDataUrl(foto) || '';
         } catch (err) {
-          console.warn('Error resolviendo foto de estimaciÃ³n para impresiÃ³n:', err);
+          console.warn('Error resolviendo foto de estimación para impresión:', err);
         }
       }
     }
@@ -3057,17 +3057,17 @@ export async function printEstimacionesFormat() {
         return `
           <div style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background-color: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
             <div style="background-color: #0f172a; color: #ffffff; padding: 5px 10px; font-size: 7.5pt; font-weight: 800; display: flex; justify-content: space-between; align-items: center;">
-              <span>FOTOGRAFÃA ${numSlot} â€” CLAVE ${escapeHtml(row.clave)}</span>
+              <span>FOTOGRAFÍA ${numSlot} — CLAVE ${escapeHtml(row.clave)}</span>
               <span style="color: #94a3b8; font-weight: 600; font-size: 6.8pt;">${escapeHtml(activeEst.nombre)}</span>
             </div>
             <div style="height: 295px; background-color: #f8fafc; display: flex; align-items: center; justify-content: center; padding: 6px; overflow: hidden;">
               <img src="${escapeHtml(fotoObj.displayUrl)}"
                    referrerpolicy="no-referrer"
-                   alt="Evidencia FotogrÃ¡fica ${numSlot} - ${escapeHtml(row.clave)}"
+                   alt="Evidencia Fotográfica ${numSlot} - ${escapeHtml(row.clave)}"
                    style="max-width: 100%; max-height: 280px; width: auto; height: auto; object-fit: contain; border-radius: 4px;">
             </div>
             <div style="padding: 6px 10px; border-top: 1px solid #e2e8f0; background-color: #f8fafc; font-size: 7.5pt; color: #1e293b; min-height: 28px;">
-              <strong>DescripciÃ³n / Pie de foto ${numSlot}:</strong> ${escapeHtml(fotoObj.nota || `Evidencia de ejecuciÃ³n del concepto ${row.clave} en ${activeEst.nombre}`)}
+              <strong>Descripción / Pie de foto ${numSlot}:</strong> ${escapeHtml(fotoObj.nota || `Evidencia de ejecución del concepto ${row.clave} en ${activeEst.nombre}`)}
             </div>
           </div>
         `;
@@ -3075,11 +3075,11 @@ export async function printEstimacionesFormat() {
       return `
         <div style="border: 1px dashed #cbd5e1; border-radius: 8px; overflow: hidden; background-color: #f8fafc; display: flex; flex-direction: column; justify-content: space-between;">
           <div style="background-color: #334155; color: #ffffff; padding: 5px 10px; font-size: 7.5pt; font-weight: 700; display: flex; justify-content: space-between;">
-            <span>FOTOGRAFÃA ${numSlot} â€” CLAVE ${escapeHtml(row.clave)}</span>
+            <span>FOTOGRAFÍA ${numSlot} — CLAVE ${escapeHtml(row.clave)}</span>
             <span style="font-size: 6.8pt; color: #cbd5e1;">Espacio de evidencia</span>
           </div>
           <div style="height: 295px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 8pt; padding: 12px; text-align: center;">
-            <span>Sin enlace fotogrÃ¡fico asignado en FotografÃ­a ${numSlot}</span>
+            <span>Sin enlace fotográfico asignado en Fotografía ${numSlot}</span>
           </div>
           <div style="padding: 6px 10px; border-top: 1px solid #e2e8f0; background-color: #ffffff; font-size: 7.5pt; color: #64748b; min-height: 28px;">
             <strong>Observaciones:</strong> ____________________________________________________________________________
@@ -3091,7 +3091,7 @@ export async function printEstimacionesFormat() {
     return `
       <div class="page-break hoja-concepto-fotografico" style="padding-top: 4px;">
         <div class="preview-divider-banner">
-          RESUMEN DE ESTIMACIÃ“N â€” HOJA DE CONCEPTO Y REPORTE FOTOGRÃFICO (${idx + 1} DE ${conceptosParaHojasResumen.length})
+          RESUMEN DE ESTIMACIÓN — HOJA DE CONCEPTO Y REPORTE FOTOGRÁFICO (${idx + 1} DE ${conceptosParaHojasResumen.length})
         </div>
 
         <!-- Encabezado Institucional de la Hoja del Concepto -->
@@ -3103,7 +3103,7 @@ export async function printEstimacionesFormat() {
                 ${escapeHtml(companyName)}
               </div>
               <h2 class="doc-title" style="font-size: 11pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2;">
-                RESUMEN DE ESTIMACIÃ“N (CONCEPTO Y REPORTE FOTOGRÃFICO) â€” ${escapeHtml(activeEst.nombre.toUpperCase())}
+                RESUMEN DE ESTIMACIÓN (CONCEPTO Y REPORTE FOTOGRÁFICO) — ${escapeHtml(activeEst.nombre.toUpperCase())}
               </h2>
               <div style="font-size: 9pt; font-weight: 700; color: #475569; line-height: 1.2;">
                 <span style="color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 8pt;">Partida: </span>${escapeHtml(row.partidaNombre || 'General')}
@@ -3114,17 +3114,17 @@ export async function printEstimacionesFormat() {
           <div class="doc-meta" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 68px; text-align: right; font-size: 7.8pt; line-height: 1.35;">
             <div><strong>Concepto en Resumen:</strong> <span class="meta-tag font-bold" style="color: #1d4ed8; font-size: 7.5pt; padding: 1px 6px;">Hoja ${idx + 1} de ${conceptosParaHojasResumen.length}</span></div>
             <div><strong>Proyecto:</strong> <span class="meta-tag font-bold" style="color: #0f172a; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectName)}</span></div>
-            <div><strong>PerÃ­odo:</strong> <span class="meta-tag font-mono font-medium" style="font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.fechaInicio)} al ${escapeHtml(activeEst.fechaFin)}</span></div>
+            <div><strong>Período:</strong> <span class="meta-tag font-mono font-medium" style="font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.fechaInicio)} al ${escapeHtml(activeEst.fechaFin)}</span></div>
             <div><strong>Fecha de corte:</strong> ${escapeHtml(activeEst.fechaCorte || activeEst.fechaFin || currentDate)}</div>
           </div>
         </div>
 
-        <!-- Tabla del Concepto Ãšnico en esta Hoja -->
+        <!-- Tabla del Concepto Único en esta Hoja -->
         <table class="report-table estimacion-print-table" style="width: 100%; border-collapse: collapse; font-size: 7.2pt; margin-bottom: 10px;">
           <thead>
             <tr style="background-color: #0f172a; color: #ffffff;">
               <th style="width: 60px; padding: 4px 6px;" class="text-center">Clave</th>
-              <th class="text-left" style="padding: 4px 8px;">DescripciÃ³n del Concepto de Obra a Cobrar</th>
+              <th class="text-left" style="padding: 4px 8px;">Descripción del Concepto de Obra a Cobrar</th>
               <th style="width: 38px; padding: 4px 4px;" class="text-center">Unid</th>
               <th style="width: 58px; padding: 4px 6px; background-color: #1e3a8a;" class="text-right">Cant Base</th>
               <th style="width: 68px; padding: 4px 6px; background-color: #1e3a8a;" class="text-right">P.U. ($)</th>
@@ -3140,7 +3140,7 @@ export async function printEstimacionesFormat() {
             <tr style="background-color: #ffffff;">
               <td class="text-center font-mono font-bold" style="color: #1e40af; padding: 6px; border: 1px solid #cbd5e1;">${escapeHtml(row.clave)}</td>
               <td class="text-justify" style="padding: 6px 8px; line-height: 1.38; font-weight: 600; color: #0f172a; border: 1px solid #cbd5e1;">
-                ${escapeHtml(row.descripcion || 'Sin descripciÃ³n')}
+                ${escapeHtml(row.descripcion || 'Sin descripción')}
               </td>
               <td class="text-center font-mono" style="padding: 6px 4px; border: 1px solid #cbd5e1;">${escapeHtml(row.unidad || 'pza')}</td>
               <td class="text-right font-mono" style="padding: 6px; border: 1px solid #cbd5e1;">${formatQty(row.cantBase)}</td>
@@ -3155,20 +3155,20 @@ export async function printEstimacionesFormat() {
           </tbody>
         </table>
 
-        <!-- Recuadros de las 2 FotografÃ­as del Concepto -->
+        <!-- Recuadros de las 2 Fotografías del Concepto -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
           ${renderFotoBox(f1, 1)}
           ${renderFotoBox(f2, 2)}
         </div>
 
-        <!-- Firmas al pie de cada hoja de concepto y reporte fotogrÃ¡fico -->
+        <!-- Firmas al pie de cada hoja de concepto y reporte fotográfico -->
         ${(() => {
           const customSigs = Array.isArray(state.settings?.budgetSignatures) && state.settings.budgetSignatures.length > 0
             ? state.settings.budgetSignatures
             : [
-                { rol: 'ELABORÃ“ / CONTRATISTA', nombre: '', cargo: 'Superintendencia de ConstrucciÃ³n' },
-                { rol: 'REVISÃ“ / SUPERVISIÃ“N', nombre: '', cargo: 'SupervisiÃ³n Externa y Control de Calidad' },
-                { rol: 'AUTORIZÃ“ / RESIDENCIA', nombre: '', cargo: 'DirecciÃ³n General de Obra y SupervisiÃ³n' }
+                { rol: 'ELABORÓ / CONTRATISTA', nombre: '', cargo: 'Superintendencia de Construcción' },
+                { rol: 'REVISÓ / SUPERVISIÓN', nombre: '', cargo: 'Supervisión Externa y Control de Calidad' },
+                { rol: 'AUTORIZÓ / RESIDENCIA', nombre: '', cargo: 'Dirección General de Obra y Supervisión' }
               ];
           const sigCols = Math.min(Math.max(customSigs.length, 1), 5);
           return `
@@ -3188,7 +3188,7 @@ export async function printEstimacionesFormat() {
   }).join('');
 
   // =============================================================
-  // B) GENERAR FILAS DEL CATÃLOGO COMPLETO (VISTA OPCIONAL)
+  // B) GENERAR FILAS DEL CATÁLOGO COMPLETO (VISTA OPCIONAL)
   // =============================================================
   const tableRows = rows.map(row => {
     if (row.isParent) {
@@ -3214,7 +3214,7 @@ export async function printEstimacionesFormat() {
           <!-- Acumulado Anterior -->
           <td class="text-center font-mono text-muted" style="width: 42px; color: #94a3b8; border: 1px solid #cbd5e1;">-</td>
           <td class="text-right font-mono font-bold" style="width: 62px; color: #1e293b; border: 1px solid #cbd5e1; white-space: nowrap;">${formatMoney(row.importeAnt)}</td>
-          <!-- Esta EstimaciÃ³n -->
+          <!-- Esta Estimación -->
           <td class="text-center font-mono text-muted" style="width: 42px; color: #94a3b8; border: 1px solid #cbd5e1;">-</td>
           <td class="text-right font-mono font-bold" style="width: 62px; color: ${row.totalEje > 0 ? '#047857' : '#0f172a'}; background-color: ${row.totalEje > 0 ? '#ecfdf5' : rowBg}; border: 1px solid #cbd5e1; white-space: nowrap;">${formatMoney(row.totalEje)}</td>
           <!-- Acumulado al Corte -->
@@ -3235,7 +3235,7 @@ export async function printEstimacionesFormat() {
           <td class="text-center font-mono" style="font-size: 6pt; color: #64748b; width: 16px; border: 1px solid #cbd5e1;">${row.level}</td>
           <td class="text-center font-mono" style="width: 40px; font-weight: 600; color: #1e40af; border: 1px solid #cbd5e1; white-space: nowrap;">${escapeHtml(row.clave)}</td>
           <td class="text-justify" style="padding-left: ${indentPx}px; line-height: 1.3; font-size: 6.5pt; border: 1px solid #cbd5e1; word-break: break-word;">
-            ${escapeHtml(row.descripcion || 'Sin descripciÃ³n')}
+            ${escapeHtml(row.descripcion || 'Sin descripción')}
           </td>
           <td class="text-center font-mono" style="width: 24px; font-size: 6.5pt; color: #475569; border: 1px solid #cbd5e1;">${escapeHtml(row.unidad || 'pza')}</td>
           <!-- Base -->
@@ -3245,7 +3245,7 @@ export async function printEstimacionesFormat() {
           <!-- Acumulado Anterior -->
           <td class="text-right font-mono" style="width: 42px; font-size: 6pt; border: 1px solid #cbd5e1; color: #475569;">${formatQty(row.cantAnt)}</td>
           <td class="text-right font-mono font-semibold" style="width: 62px; font-size: 6.5pt; border: 1px solid #cbd5e1; color: #1e293b; white-space: nowrap;">${formatMoney(row.importeAnt)}</td>
-          <!-- Esta EstimaciÃ³n -->
+          <!-- Esta Estimación -->
           <td class="text-right font-mono" style="width: 42px; font-size: 6pt; border: 1px solid #cbd5e1; ${hasAvanceEsta ? 'font-weight: 700; color: #047857; background-color: #ecfdf5;' : 'color: #94a3b8;'}">${hasAvanceEsta ? formatQty(row.cantEje) : '-'}</td>
           <td class="text-right font-mono" style="width: 62px; font-size: 6.5pt; border: 1px solid #cbd5e1; white-space: nowrap; ${hasAvanceEsta ? 'font-weight: 700; color: #047857; background-color: #ecfdf5;' : 'color: #94a3b8;'}">${hasAvanceEsta ? formatMoney(row.totalEje) : '-'}</td>
           <!-- Acumulado al Corte -->
@@ -3307,10 +3307,10 @@ export async function printEstimacionesFormat() {
     </style>
 
     <!-- =========================================================================
-         SECCIÃ“N 1: HOJA DE RESUMEN DE LA ESTIMACIÃ“N (SOLO CONCEPTOS CON CANT EJE > 0)
+         SECCIÓN 1: HOJA DE RESUMEN DE LA ESTIMACIÓN (SOLO CONCEPTOS CON CANT EJE > 0)
          ========================================================================= -->
     <div id="seccion-resumen-estimacion">
-      <!-- Encabezado Institucional del Resumen de la EstimaciÃ³n -->
+      <!-- Encabezado Institucional del Resumen de la Estimación -->
       <div class="doc-header">
         <div style="display: flex; align-items: center; gap: 14px;">
           ${companyLogo ? `<img src="${companyLogo}" alt="Logo" style="height: 74px; width: 74px; min-width: 74px; aspect-ratio: 1/1; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; padding: 3px; background-color: #ffffff;">` : ''}
@@ -3319,7 +3319,7 @@ export async function printEstimacionesFormat() {
               ${escapeHtml(companyName)}
             </div>
             <h1 class="doc-title" style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
-              RESUMEN DE LA ESTIMACIÃ“N â€” ${escapeHtml(activeEst.nombre.toUpperCase())}
+              RESUMEN DE LA ESTIMACIÓN — ${escapeHtml(activeEst.nombre.toUpperCase())}
             </h1>
             <div style="font-size: 9.5pt; font-weight: 700; color: #475569; line-height: 1.2;">
               <span style="color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 8.5pt;">Proyecto: </span>${escapeHtml(projectName)}
@@ -3330,12 +3330,12 @@ export async function printEstimacionesFormat() {
         <div class="doc-meta" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 74px; text-align: right; font-size: 8pt; line-height: 1.35;">
           <div><strong>Fecha de corte:</strong> ${escapeHtml(activeEst.fechaCorte || activeEst.fechaFin || currentDate)}</div>
           <div><strong>Proyecto:</strong> <span class="meta-tag font-bold" style="color: #1d4ed8; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectName)}</span></div>
-          <div><strong>UbicaciÃ³n:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span></div>
-          <div><strong>EstimaciÃ³n:</strong> <span class="meta-tag font-bold" style="color: #047857; background:#ecfdf5; border-color:#a7f3d0; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.nombre)}</span> &nbsp;<strong>PerÃ­odo:</strong> <span class="meta-tag font-mono font-medium" style="font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.fechaInicio)} al ${escapeHtml(activeEst.fechaFin)}</span> &nbsp;<strong>Moneda:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span></div>
+          <div><strong>Ubicación:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span></div>
+          <div><strong>Estimación:</strong> <span class="meta-tag font-bold" style="color: #047857; background:#ecfdf5; border-color:#a7f3d0; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.nombre)}</span> &nbsp;<strong>Período:</strong> <span class="meta-tag font-mono font-medium" style="font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.fechaInicio)} al ${escapeHtml(activeEst.fechaFin)}</span> &nbsp;<strong>Moneda:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span></div>
         </div>
       </div>
 
-      <!-- Tarjetas KPI del Resumen de Esta EstimaciÃ³n -->
+      <!-- Tarjetas KPI del Resumen de Esta Estimación -->
       <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 10px;">
         <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
           <span style="font-size: 7pt; font-weight: 700; color: #1e3a8a; text-transform: uppercase; display: block;">Conceptos con Avance</span>
@@ -3344,14 +3344,14 @@ export async function printEstimacionesFormat() {
         </div>
         <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 7px 10px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 7pt; font-weight: 700; color: #047857; text-transform: uppercase;">Esta EstimaciÃ³n</span>
+            <span style="font-size: 7pt; font-weight: 700; color: #047857; text-transform: uppercase;">Esta Estimación</span>
             <span style="font-size: 6.5pt; font-weight: 700; color: #047857; background: #d1fae5; padding: 1px 4px; border-radius: 3px;">${kpis.pctAvanceEstaEstimacion.toFixed(2)}%</span>
           </div>
           <div style="font-size: 10pt; font-weight: 900; color: #047857; font-family: monospace; margin-top: 2px;">${formatMoney(kpis.grandTotalEjecutado)}</div>
-          <span style="font-size: 6.5pt; color: #059669;">Suma de Cantidad Eje Ã— P.U.</span>
+          <span style="font-size: 6.5pt; color: #059669;">Suma de Cantidad Eje × P.U.</span>
         </div>
         <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
-          <span style="font-size: 7pt; font-weight: 700; color: #b91c1c; text-transform: uppercase; display: block;">AmortizaciÃ³n Anticipo (${kpis.anticipo.pct}%)</span>
+          <span style="font-size: 7pt; font-weight: 700; color: #b91c1c; text-transform: uppercase; display: block;">Amortización Anticipo (${kpis.anticipo.pct}%)</span>
           <div style="font-size: 10pt; font-weight: 900; color: #b91c1c; font-family: monospace; margin-top: 2px;">-${formatMoney(kpis.anticipo.amortizacionEsta)}</div>
           <span style="font-size: 6.5pt; color: #64748b;">Saldo x amortizar: ${formatMoney(kpis.anticipo.saldoPendiente)}</span>
         </div>
@@ -3361,18 +3361,18 @@ export async function printEstimacionesFormat() {
           <span style="font-size: 6.5pt; color: #64748b;">${kpis.iva && kpis.iva.pct > 0 ? `IVA (${kpis.iva.pct}%): +${formatMoney(kpis.iva.estaEstimacion)}` : 'Sin IVA configurado'}</span>
         </div>
         <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 7px 10px;">
-          <span style="font-size: 7pt; font-weight: 800; color: #047857; text-transform: uppercase; display: block;">Alcance LÃ­quido ${kpis.iva && kpis.iva.pct > 0 ? '(Con IVA)' : 'a Cobrar'}</span>
+          <span style="font-size: 7pt; font-weight: 800; color: #047857; text-transform: uppercase; display: block;">Alcance Líquido ${kpis.iva && kpis.iva.pct > 0 ? '(Con IVA)' : 'a Cobrar'}</span>
           <div style="font-size: 10pt; font-weight: 900; color: #047857; font-family: monospace; margin-top: 2px;">${formatMoney(liquidoFinalCobrar)}</div>
-          <span style="font-size: 6.5pt; color: #059669;">${kpis.iva && kpis.iva.pct > 0 ? 'Neto + IVA incluido' : 'Total neto de esta estimaciÃ³n'}</span>
+          <span style="font-size: 6.5pt; color: #059669;">${kpis.iva && kpis.iva.pct > 0 ? 'Neto + IVA incluido' : 'Total neto de esta estimación'}</span>
         </div>
       </div>
 
-      <!-- Tabla de Resumen de la EstimaciÃ³n (Ãšnicamente conceptos con Cantidad Eje > 0) -->
+      <!-- Tabla de Resumen de la Estimación (Únicamente conceptos con Cantidad Eje > 0) -->
       <table id="tabla-resumen-estimacion" class="report-table estimacion-print-table" style="width: 100%; border-collapse: collapse; font-size: 7pt; margin-bottom: 10px;">
         <thead>
           <tr style="background-color: #0f172a; color: #ffffff;">
             <th colspan="4" class="text-left" style="background-color: #0f172a; color: #ffffff; padding: 4px 6px; font-weight: 800; font-size: 6.8pt; letter-spacing: 0.03em;">
-              CONCEPTOS EJECUTADOS EN ESTA ESTIMACIÃ“N (CANTIDAD EJE &gt; 0)
+              CONCEPTOS EJECUTADOS EN ESTA ESTIMACIÓN (CANTIDAD EJE &gt; 0)
             </th>
             <th colspan="2" class="text-center" style="background-color: #1e3a8a; color: #ffffff; padding: 4px 6px; font-weight: 800; font-size: 6.8pt; letter-spacing: 0.03em;">
               CONTRATADO
@@ -3381,7 +3381,7 @@ export async function printEstimacionesFormat() {
               ACUMULADO ANTERIOR
             </th>
             <th colspan="2" class="text-center" style="background-color: #047857; color: #ffffff; padding: 4px 6px; font-weight: 800; font-size: 6.8pt; letter-spacing: 0.03em;">
-              ESTA ESTIMACIÃ“N (ACTUAL)
+              ESTA ESTIMACIÓN (ACTUAL)
             </th>
             <th colspan="3" class="text-center" style="background-color: #1e3a8a; color: #ffffff; padding: 4px 6px; font-weight: 800; font-size: 6.8pt; letter-spacing: 0.03em;">
               ACUMULADO Y SALDO
@@ -3390,7 +3390,7 @@ export async function printEstimacionesFormat() {
           <tr style="background-color: #f1f5f9; color: #0f172a; font-size: 6.5pt;">
             <th style="width: 22px;" class="text-center">Niv</th>
             <th style="width: 48px;" class="text-center">Clave</th>
-            <th class="text-left" style="min-width: 180px;">DescripciÃ³n del Concepto de Obra</th>
+            <th class="text-left" style="min-width: 180px;">Descripción del Concepto de Obra</th>
             <th style="width: 30px;" class="text-center">Unid</th>
             <!-- Contratado -->
             <th style="width: 48px;" class="text-right">Cant Base</th>
@@ -3398,7 +3398,7 @@ export async function printEstimacionesFormat() {
             <!-- Anterior -->
             <th style="width: 48px;" class="text-right">Cant Ant</th>
             <th style="width: 68px;" class="text-right">Importe Ant</th>
-            <!-- Esta EstimaciÃ³n (Actual) -->
+            <!-- Esta Estimación (Actual) -->
             <th style="width: 54px; background-color: #ecfdf5; color: #047857;" class="text-right font-bold">Cantidad Eje</th>
             <th style="width: 76px; background-color: #ecfdf5; color: #047857;" class="text-right font-bold">Importe Eje ($)</th>
             <!-- Acumulado y Saldo -->
@@ -3413,14 +3413,14 @@ export async function printEstimacionesFormat() {
         <tfoot style="border-top: 2px solid #0f172a; background-color: #ffffff;">
           <tr style="background-color: #ffffff; color: #0f172a; font-weight: 800; font-size: 7pt; border-bottom: 1px solid #cbd5e1;">
             <td colspan="6" class="text-right font-bold" style="text-transform: uppercase; padding: 5px 8px; color: #0f172a; font-weight: 800; border: 1px solid #cbd5e1;">
-              TOTAL DE CONCEPTOS CON AVANCE EN ESTA ESTIMACIÃ“N (${executedLeafCount} CONCEPTOS):
+              TOTAL DE CONCEPTOS CON AVANCE EN ESTA ESTIMACIÓN (${executedLeafCount} CONCEPTOS):
             </td>
             <td class="text-center font-mono" style="color: #94a3b8; border: 1px solid #cbd5e1;">-</td>
             <td class="text-right font-mono font-bold" style="color: #1e3a8a; padding: 4px 6px; border: 1px solid #cbd5e1;">${formatMoney(sumResumenImporteAnt)}</td>
             <td class="text-center font-mono" style="color: #047857; background-color: #ecfdf5; border: 1px solid #cbd5e1;">-</td>
             <td class="text-right font-mono font-black" style="color: #047857; background-color: #ecfdf5; padding: 4px 6px; border: 1px solid #cbd5e1; font-size: 7.5pt;">${formatMoney(kpis.grandTotalEjecutado)}</td>
             <td colspan="3" class="text-center font-mono" style="color: #475569; border: 1px solid #cbd5e1; font-size: 6.5pt;">
-              Avance del perÃ­odo: <strong>${kpis.pctAvanceEstaEstimacion.toFixed(2)}%</strong>
+              Avance del período: <strong>${kpis.pctAvanceEstaEstimacion.toFixed(2)}%</strong>
             </td>
           </tr>
           <tr style="background-color: #f8fafc; color: #0f172a; font-size: 6.8pt; font-weight: 700;">
@@ -3428,35 +3428,35 @@ export async function printEstimacionesFormat() {
               Anticipo (${kpis.anticipo.pct}%): <strong>${formatMoney(kpis.anticipo.totalContratado)}</strong> | Saldo x Amortizar: <strong style="color: #b45309;">${formatMoney(kpis.anticipo.saldoPendiente)}</strong>
             </td>
             <td colspan="3" class="text-right font-mono" style="padding: 5px 8px; color: #b91c1c; border: 1px solid #cbd5e1; font-weight: 800;">
-              AmortizaciÃ³n Esta Est.: -${formatMoney(kpis.anticipo.amortizacionEsta)}
+              Amortización Esta Est.: -${formatMoney(kpis.anticipo.amortizacionEsta)}
             </td>
             <td colspan="4" class="text-right font-mono font-black" style="padding: 5px 8px; background-color: #ecfdf5; color: #047857; font-size: 7.5pt; border: 1px solid #cbd5e1;">
-              ALCANCE LÃQUIDO A COBRAR: ${formatMoney(liquidoFinalCobrar)}
+              ALCANCE LÍQUIDO A COBRAR: ${formatMoney(liquidoFinalCobrar)}
             </td>
           </tr>
         </tfoot>
       </table>
 
-      <!-- Resumen EconÃ³mico y Notas del Resumen de la EstimaciÃ³n -->
+      <!-- Resumen Económico y Notas del Resumen de la Estimación -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 12px;">
         <div style="font-size: 7.5pt; color: #64748b; max-width: 580px; line-height: 1.45;">
-          <p style="margin: 0 0 3px 0;"><strong>Notas del Resumen de la EstimaciÃ³n:</strong></p>
-          <p style="margin: 0;">â€¢ El presente resumen incluye Ãºnicamente los <strong>${executedLeafCount} concepto(s)</strong> que registran volumen ejecutado en la columna <strong>"Esta EstimaciÃ³n (Actual) â€” Cantidad Eje"</strong> durante el perÃ­odo del <strong>${escapeHtml(activeEst.fechaInicio)}</strong> al <strong>${escapeHtml(activeEst.fechaFin)}</strong>.</p>
-          <p style="margin: 2px 0 0 0;">â€¢ Los conceptos sin movimiento en este perÃ­odo se omiten en este resumen ejecutivo para facilitar la revisiÃ³n y autorizaciÃ³n de pago.</p>
-          <p style="margin: 2px 0 0 0;">â€¢ Avance acumulado global de la obra al corte: <strong>${formatMoney(kpis.grandTotalAcumulado)} (${kpis.pctAvanceGlobal.toFixed(2)}%)</strong> | Saldo total por ejecutar: <strong>${formatMoney(kpis.grandTotalSaldo)}</strong>.</p>
+          <p style="margin: 0 0 3px 0;"><strong>Notas del Resumen de la Estimación:</strong></p>
+          <p style="margin: 0;">• El presente resumen incluye únicamente los <strong>${executedLeafCount} concepto(s)</strong> que registran volumen ejecutado en la columna <strong>"Esta Estimación (Actual) — Cantidad Eje"</strong> durante el período del <strong>${escapeHtml(activeEst.fechaInicio)}</strong> al <strong>${escapeHtml(activeEst.fechaFin)}</strong>.</p>
+          <p style="margin: 2px 0 0 0;">• Los conceptos sin movimiento en este período se omiten en este resumen ejecutivo para facilitar la revisión y autorización de pago.</p>
+          <p style="margin: 2px 0 0 0;">• Avance acumulado global de la obra al corte: <strong>${formatMoney(kpis.grandTotalAcumulado)} (${kpis.pctAvanceGlobal.toFixed(2)}%)</strong> | Saldo total por ejecutar: <strong>${formatMoney(kpis.grandTotalSaldo)}</strong>.</p>
         </div>
 
         <div class="summary-card" style="width: 320px;">
           <div class="summary-row">
-            <span style="color: #475569;">Importe Ejecutado en el PerÃ­odo:</span>
+            <span style="color: #475569;">Importe Ejecutado en el Período:</span>
             <span class="font-mono font-bold">${formatMoney(kpis.grandTotalEjecutado)}</span>
           </div>
           <div class="summary-row" style="background-color: #fef2f2; color: #991b1b;">
-            <span>AmortizaciÃ³n de Anticipo (${kpis.anticipo.pct}%):</span>
+            <span>Amortización de Anticipo (${kpis.anticipo.pct}%):</span>
             <span class="font-mono font-bold">-${formatMoney(kpis.anticipo.amortizacionEsta)}</span>
           </div>
           <div class="summary-row">
-            <span style="color: #475569;">Subtotal Neto EstimaciÃ³n:</span>
+            <span style="color: #475569;">Subtotal Neto Estimación:</span>
             <span class="font-mono font-bold">${formatMoney(kpis.anticipo.netoEstaEstimacion)}</span>
           </div>
           ${kpis.iva && kpis.iva.pct > 0 ? `
@@ -3466,42 +3466,42 @@ export async function printEstimacionesFormat() {
             </div>
           ` : ''}
           <div class="summary-row summary-total">
-            <span>ALCANCE LÃQUIDO A COBRAR:</span>
+            <span>ALCANCE LÍQUIDO A COBRAR:</span>
             <span class="font-mono" style="color: #047857;">${formatMoney(liquidoFinalCobrar)}</span>
           </div>
         </div>
       </div>
 
-      <!-- Ãrea de Firmas Institucionales del Resumen -->
+      <!-- Área de Firmas Institucionales del Resumen -->
       <div class="signatures-grid">
         <div class="signature-box">
-          <strong>ELABORÃ“ / CONTRATISTA</strong>
-          <span>Superintendencia de ConstrucciÃ³n</span>
+          <strong>ELABORÓ / CONTRATISTA</strong>
+          <span>Superintendencia de Construcción</span>
         </div>
         <div class="signature-box">
-          <strong>REVISÃ“ / SUPERVISIÃ“N</strong>
-          <span>SupervisiÃ³n Externa y Control de Calidad</span>
+          <strong>REVISÓ / SUPERVISIÓN</strong>
+          <span>Supervisión Externa y Control de Calidad</span>
         </div>
         <div class="signature-box">
-          <strong>AUTORIZÃ“ / RESIDENCIA</strong>
-          <span>DirecciÃ³n General de Obra y SupervisiÃ³n</span>
+          <strong>AUTORIZÓ / RESIDENCIA</strong>
+          <span>Dirección General de Obra y Supervisión</span>
         </div>
       </div>
 
-      <!-- Hojas individuales por cada concepto del Resumen + sus FotografÃ­as desde la nube -->
+      <!-- Hojas individuales por cada concepto del Resumen + sus Fotografías desde la nube -->
       ${hojasConceptosConFotosHtml}
     </div>
 
     <!-- =========================================================================
-         SECCIÃ“N 2 (OPCIONAL EN VISTA PREVIA): CATÃLOGO GENERAL COMPLETO
+         SECCIÓN 2 (OPCIONAL EN VISTA PREVIA): CATÁLOGO GENERAL COMPLETO
          Oculto por defecto; el usuario puede mostrarlo u ocultarlo desde la barra superior
          ========================================================================= -->
     <div id="seccion-catalogo-completo-estimacion" class="catalogo-completo-hidden page-break">
       <div class="preview-divider-banner">
-        ANEXO: DETALLE COMPLETO DEL CATÃLOGO GENERAL DE CONCEPTOS (${rows.length} REGISTROS)
+        ANEXO: DETALLE COMPLETO DEL CATÁLOGO GENERAL DE CONCEPTOS (${rows.length} REGISTROS)
       </div>
 
-      <!-- Encabezado Institucional (Homologado con CatÃ¡logo Base) -->
+      <!-- Encabezado Institucional (Homologado con Catálogo Base) -->
       <div class="doc-header">
         <div style="display: flex; align-items: center; gap: 14px;">
           ${companyLogo ? `<img src="${companyLogo}" alt="Logo" style="height: 74px; width: 74px; min-width: 74px; aspect-ratio: 1/1; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; padding: 3px; background-color: #ffffff;">` : ''}
@@ -3510,7 +3510,7 @@ export async function printEstimacionesFormat() {
               ${escapeHtml(companyName)}
             </div>
             <h1 class="doc-title" style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
-              ESTIMACIÃ“N DE AVANCE DE OBRA â€” ${escapeHtml(activeEst.nombre.toUpperCase())}
+              ESTIMACIÓN DE AVANCE DE OBRA — ${escapeHtml(activeEst.nombre.toUpperCase())}
             </h1>
             <div style="font-size: 9.5pt; font-weight: 700; color: #475569; line-height: 1.2;">
               <span style="color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 8.5pt;">Proyecto: </span>${escapeHtml(projectName)}
@@ -3521,12 +3521,12 @@ export async function printEstimacionesFormat() {
         <div class="doc-meta" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 74px; text-align: right; font-size: 8pt; line-height: 1.35;">
           <div><strong>Fecha de corte:</strong> ${escapeHtml(activeEst.fechaCorte || activeEst.fechaFin || currentDate)}</div>
           <div><strong>Proyecto:</strong> <span class="meta-tag font-bold" style="color: #1d4ed8; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectName)}</span></div>
-          <div><strong>UbicaciÃ³n:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span></div>
-          <div><strong>EstimaciÃ³n:</strong> <span class="meta-tag font-bold" style="color: #047857; background:#ecfdf5; border-color:#a7f3d0; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.nombre)}</span> &nbsp;<strong>PerÃ­odo:</strong> <span class="meta-tag font-mono font-medium" style="font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.fechaInicio)} al ${escapeHtml(activeEst.fechaFin)}</span> &nbsp;<strong>Moneda:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span></div>
+          <div><strong>Ubicación:</strong> <span class="meta-tag font-medium" style="color: #334155; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(projectLocation || 'No especificada')}</span></div>
+          <div><strong>Estimación:</strong> <span class="meta-tag font-bold" style="color: #047857; background:#ecfdf5; border-color:#a7f3d0; font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.nombre)}</span> &nbsp;<strong>Período:</strong> <span class="meta-tag font-mono font-medium" style="font-size: 7.5pt; padding: 1px 6px;">${escapeHtml(activeEst.fechaInicio)} al ${escapeHtml(activeEst.fechaFin)}</span> &nbsp;<strong>Moneda:</strong> <span class="meta-tag font-mono" style="font-size: 7.5pt; padding: 1px 6px;">${currencyCode} (${currencySymbol})</span></div>
         </div>
       </div>
 
-      <!-- Bloque de Tarjetas Resumen Ejecutivo de la EstimaciÃ³n -->
+      <!-- Bloque de Tarjetas Resumen Ejecutivo de la Estimación -->
       <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 12px;">
         <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
           <span style="font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">Presupuesto Base</span>
@@ -3540,11 +3540,11 @@ export async function printEstimacionesFormat() {
         </div>
         <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 7pt; font-weight: 700; color: #047857; text-transform: uppercase;">Esta EstimaciÃ³n</span>
+            <span style="font-size: 7pt; font-weight: 700; color: #047857; text-transform: uppercase;">Esta Estimación</span>
             <span style="font-size: 6.5pt; font-weight: 700; color: #047857; background: #d1fae5; padding: 1px 4px; border-radius: 3px;">${kpis.pctAvanceEstaEstimacion.toFixed(2)}%</span>
           </div>
           <div style="font-size: 10pt; font-weight: 900; color: #047857; font-family: monospace; margin-top: 2px;">${formatMoney(kpis.grandTotalEjecutado)}</div>
-          <span style="font-size: 6.5pt; color: #059669;">Avance en este perÃ­odo</span>
+          <span style="font-size: 6.5pt; color: #059669;">Avance en este período</span>
         </div>
         <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -3574,7 +3574,7 @@ export async function printEstimacionesFormat() {
           <span style="margin: 0 6px; color: #cbd5e1;">|</span>
           <span style="color: #475569;">Amortizado Previo: <strong class="font-mono" style="color: #1e3a8a;">${formatMoney(kpis.anticipo.amortizadoAnterior)}</strong></span>
           <span style="margin: 0 6px; color: #cbd5e1;">|</span>
-          <span style="color: #475569;">AmortizaciÃ³n Esta: <strong class="font-mono" style="color: #b91c1c;">-${formatMoney(kpis.anticipo.amortizacionEsta)}</strong></span>
+          <span style="color: #475569;">Amortización Esta: <strong class="font-mono" style="color: #b91c1c;">-${formatMoney(kpis.anticipo.amortizacionEsta)}</strong></span>
           <span style="margin: 0 6px; color: #cbd5e1;">|</span>
           <span style="color: #475569;">Total Amortizado: <strong class="font-mono" style="color: #047857;">${formatMoney(kpis.anticipo.amortizadoAcumulado)}</strong> (${kpis.anticipo.pctAmortizado.toFixed(1)}%)</span>
           <span style="margin: 0 6px; color: #cbd5e1;">|</span>
@@ -3588,10 +3588,10 @@ export async function printEstimacionesFormat() {
         <div style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 12px; text-align: right;">
           ${kpis.iva && kpis.iva.pct > 0 ? `
             <span style="font-size: 6.5pt; font-weight: 700; color: #475569; text-transform: uppercase; display: block;">Subtotal Neto (Sin IVA): <strong style="font-family: monospace; color: #0f172a;">${formatMoney(kpis.anticipo.netoEstaEstimacion)}</strong></span>
-            <span style="font-size: 7pt; font-weight: 800; color: #047857; text-transform: uppercase; display: block; margin-top: 2px;">Alcance LÃ­quido (+IVA ${kpis.iva.pct}%):</span>
+            <span style="font-size: 7pt; font-weight: 800; color: #047857; text-transform: uppercase; display: block; margin-top: 2px;">Alcance Líquido (+IVA ${kpis.iva.pct}%):</span>
             <span style="font-size: 10.5pt; font-weight: 900; color: #047857; font-family: monospace;">${formatMoney(liquidoFinalCobrar)}</span>
           ` : `
-            <span style="font-size: 7pt; font-weight: 700; color: #475569; text-transform: uppercase; display: block;">Alcance LÃ­quido a Pagar:</span>
+            <span style="font-size: 7pt; font-weight: 700; color: #475569; text-transform: uppercase; display: block;">Alcance Líquido a Pagar:</span>
             <span style="font-size: 10.5pt; font-weight: 900; color: #047857; font-family: monospace;">${formatMoney(kpis.anticipo.netoEstaEstimacion)}</span>
           `}
         </div>
@@ -3602,7 +3602,7 @@ export async function printEstimacionesFormat() {
         <thead>
           <tr style="background-color: #0f172a; color: #ffffff;">
             <th colspan="4" class="text-left" style="background-color: #0f172a; color: #ffffff; padding: 4px 6px; font-weight: 800; font-size: 6.5pt; letter-spacing: 0.03em;">
-              CATÃLOGO GENERAL DE CONCEPTOS DE OBRA
+              CATÁLOGO GENERAL DE CONCEPTOS DE OBRA
             </th>
             <th colspan="3" class="text-center" style="background-color: #1e3a8a; color: #ffffff; padding: 4px 6px; font-weight: 800; font-size: 6.5pt; letter-spacing: 0.03em;">
               PRESUPUESTO BASE CONTRATADO
@@ -3611,7 +3611,7 @@ export async function printEstimacionesFormat() {
               ACUMULADO ANTERIOR
             </th>
             <th colspan="2" class="text-center" style="background-color: #047857; color: #ffffff; padding: 4px 6px; font-weight: 800; font-size: 6.5pt; letter-spacing: 0.03em;">
-              ESTA ESTIMACIÃ“N (${escapeHtml(activeEst.nombre)})
+              ESTA ESTIMACIÓN (${escapeHtml(activeEst.nombre)})
             </th>
             <th colspan="3" class="text-center" style="background-color: #1e3a8a; color: #ffffff; padding: 4px 6px; font-weight: 800; font-size: 6.5pt; letter-spacing: 0.03em;">
               ACUMULADO AL CORTE
@@ -3623,7 +3623,7 @@ export async function printEstimacionesFormat() {
           <tr style="background-color: #f1f5f9; color: #0f172a; font-size: 6pt;">
             <th style="width: 16px; min-width: 16px; max-width: 18px;" class="text-center">Niv</th>
             <th style="width: 40px; min-width: 38px; max-width: 44px;" class="text-center">Clave</th>
-            <th class="text-left" style="min-width: 130px;">DescripciÃ³n del Concepto de Obra</th>
+            <th class="text-left" style="min-width: 130px;">Descripción del Concepto de Obra</th>
             <th style="width: 24px; min-width: 22px; max-width: 26px;" class="text-center">Unid</th>
             <th style="width: 42px;" class="text-right">Cant Base</th>
             <th style="width: 48px;" class="text-right">P.U. ($)</th>
@@ -3645,7 +3645,7 @@ export async function printEstimacionesFormat() {
         <tfoot style="border-top: 2px solid #0f172a; background-color: #ffffff;">
           <tr style="background-color: #ffffff; color: #0f172a; font-weight: 800; font-size: 6.8pt; border-bottom: 1px solid #cbd5e1;">
             <td colspan="4" class="text-right font-bold" style="text-transform: uppercase; padding: 5px 8px; color: #0f172a; font-weight: 800; border: 1px solid #cbd5e1;">
-              TOTALES CONSOLIDADOS DE LA ESTIMACIÃ“N:
+              TOTALES CONSOLIDADOS DE LA ESTIMACIÓN:
             </td>
             <td class="text-center font-mono" style="color: #94a3b8; border: 1px solid #cbd5e1;">-</td>
             <td class="text-center font-mono" style="color: #94a3b8; border: 1px solid #cbd5e1;">-</td>
@@ -3665,37 +3665,37 @@ export async function printEstimacionesFormat() {
               Anticipo Contratado: <strong>${formatMoney(kpis.anticipo.totalContratado)}</strong> | Amort. Anterior: <strong>${formatMoney(kpis.anticipo.amortizadoAnterior)}</strong> | Saldo x Amortizar: <strong style="color: #b45309;">${formatMoney(kpis.anticipo.saldoPendiente)}</strong>
             </td>
             <td colspan="4" class="text-right font-mono" style="padding: 5px 8px; color: #b91c1c; border: 1px solid #cbd5e1; font-weight: 800;">
-              AmortizaciÃ³n en Esta EstimaciÃ³n: -${formatMoney(kpis.anticipo.amortizacionEsta)}
+              Amortización en Esta Estimación: -${formatMoney(kpis.anticipo.amortizacionEsta)}
             </td>
             <td colspan="5" class="text-right font-mono font-black" style="padding: 5px 8px; background-color: #ecfdf5; color: #047857; font-size: 7.2pt; border: 1px solid #cbd5e1;">
               ${kpis.iva && kpis.iva.pct > 0
-                ? `SUBTOTAL NETO (SIN IVA): ${formatMoney(kpis.anticipo.netoEstaEstimacion)} | ALCANCE LÃQUIDO (+IVA ${kpis.iva.pct}%): ${formatMoney(liquidoFinalCobrar)}`
-                : `ALCANCE LÃQUIDO A COBRAR: ${formatMoney(kpis.anticipo.netoEstaEstimacion)}`}
+                ? `SUBTOTAL NETO (SIN IVA): ${formatMoney(kpis.anticipo.netoEstaEstimacion)} | ALCANCE LÍQUIDO (+IVA ${kpis.iva.pct}%): ${formatMoney(liquidoFinalCobrar)}`
+                : `ALCANCE LÍQUIDO A COBRAR: ${formatMoney(kpis.anticipo.netoEstaEstimacion)}`}
             </td>
           </tr>
         </tfoot>
       </table>
 
-      <!-- Resumen EconÃ³mico y Notas Generales del CatÃ¡logo Completo -->
+      <!-- Resumen Económico y Notas Generales del Catálogo Completo -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 12px;">
         <div style="font-size: 7.5pt; color: #64748b; max-width: 580px; line-height: 1.45;">
-          <p style="margin: 0 0 3px 0;"><strong>Notas tÃ©cnicas y consideraciones de la estimaciÃ³n:</strong></p>
-          <p style="margin: 0;">â€¢ La presente estimaciÃ³n ampara los trabajos ejecutados a entera satisfacciÃ³n durante el perÃ­odo especificado (${escapeHtml(activeEst.fechaInicio)} al ${escapeHtml(activeEst.fechaFin)}), respaldados por los nÃºmeros generadores, notas de bitÃ¡cora y controles de calidad aplicables.</p>
-          <p style="margin: 2px 0 0 0;">â€¢ Total de partidas y conceptos procesados: <strong>${rows.length}</strong> registros en la <strong>${escapeHtml(activeEst.nombre)}</strong>.</p>
-          <p style="margin: 2px 0 0 0;">â€¢ El contratista acepta las retenciones y amortizaciones estipuladas conforme a las clÃ¡usulas contractuales vigentes.</p>
+          <p style="margin: 0 0 3px 0;"><strong>Notas técnicas y consideraciones de la estimación:</strong></p>
+          <p style="margin: 0;">• La presente estimación ampara los trabajos ejecutados a entera satisfacción durante el período especificado (${escapeHtml(activeEst.fechaInicio)} al ${escapeHtml(activeEst.fechaFin)}), respaldados por los números generadores, notas de bitácora y controles de calidad aplicables.</p>
+          <p style="margin: 2px 0 0 0;">• Total de partidas y conceptos procesados: <strong>${rows.length}</strong> registros en la <strong>${escapeHtml(activeEst.nombre)}</strong>.</p>
+          <p style="margin: 2px 0 0 0;">• El contratista acepta las retenciones y amortizaciones estipuladas conforme a las cláusulas contractuales vigentes.</p>
         </div>
 
         <div class="summary-card" style="width: 320px;">
           <div class="summary-row">
-            <span style="color: #475569;">Importe Ejecutado en el PerÃ­odo:</span>
+            <span style="color: #475569;">Importe Ejecutado en el Período:</span>
             <span class="font-mono font-bold">${formatMoney(kpis.grandTotalEjecutado)}</span>
           </div>
           <div class="summary-row" style="background-color: #fef2f2; color: #991b1b;">
-            <span>AmortizaciÃ³n de Anticipo (${kpis.anticipo.pct}%):</span>
+            <span>Amortización de Anticipo (${kpis.anticipo.pct}%):</span>
             <span class="font-mono font-bold">-${formatMoney(kpis.anticipo.amortizacionEsta)}</span>
           </div>
           <div class="summary-row">
-            <span style="color: #475569;">Subtotal Neto EstimaciÃ³n:</span>
+            <span style="color: #475569;">Subtotal Neto Estimación:</span>
             <span class="font-mono font-bold">${formatMoney(kpis.anticipo.netoEstaEstimacion)}</span>
           </div>
           ${kpis.iva && kpis.iva.pct > 0 ? `
@@ -3705,25 +3705,25 @@ export async function printEstimacionesFormat() {
             </div>
           ` : ''}
           <div class="summary-row summary-total">
-            <span>ALCANCE LÃQUIDO A COBRAR:</span>
+            <span>ALCANCE LÍQUIDO A COBRAR:</span>
             <span class="font-mono" style="color: #047857;">${formatMoney(liquidoFinalCobrar)}</span>
           </div>
         </div>
       </div>
 
-      <!-- Ãrea de Firmas Institucionales -->
+      <!-- Área de Firmas Institucionales -->
       <div class="signatures-grid">
         <div class="signature-box">
-          <strong>ELABORÃ“ / CONTRATISTA</strong>
-          <span>Superintendencia de ConstrucciÃ³n</span>
+          <strong>ELABORÓ / CONTRATISTA</strong>
+          <span>Superintendencia de Construcción</span>
         </div>
         <div class="signature-box">
-          <strong>REVISÃ“ / SUPERVISIÃ“N</strong>
-          <span>SupervisiÃ³n Externa y Control de Calidad</span>
+          <strong>REVISÓ / SUPERVISIÓN</strong>
+          <span>Supervisión Externa y Control de Calidad</span>
         </div>
         <div class="signature-box">
-          <strong>AUTORIZÃ“ / RESIDENCIA</strong>
-          <span>DirecciÃ³n General de Obra y SupervisiÃ³n</span>
+          <strong>AUTORIZÓ / RESIDENCIA</strong>
+          <span>Dirección General de Obra y Supervisión</span>
         </div>
       </div>
     </div>
@@ -3731,10 +3731,10 @@ export async function printEstimacionesFormat() {
 
   const extraToolbarHtml = `
     <span id="badge-modo-estimacion" style="font-size: 11.5px; background-color: #064e3b; color: #a7f3d0; border: 1px solid #059669; padding: 5px 10px; border-radius: 6px; font-weight: 600;">
-      âœ“ Resumen (${executedLeafCount} conceptos con Cantidad Eje &gt; 0)
+      ✓ Resumen (${executedLeafCount} conceptos con Cantidad Eje &gt; 0)
     </span>
     <button type="button" id="btn-toggle-catalogo-completo" onclick="toggleCatalogoCompleto()" style="background-color: #1e293b; color: #e2e8f0; border: 1px solid #475569; padding: 7px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 600;">
-      ðŸ“‹ Mostrar CatÃ¡logo Completo (${totalLeafConcepts} conceptos)
+      📋 Mostrar Catálogo Completo (${totalLeafConcepts} conceptos)
     </button>
   `;
 
@@ -3747,20 +3747,20 @@ export async function printEstimacionesFormat() {
 
       const isHidden = secCat.classList.toggle('catalogo-completo-hidden');
       if (isHidden) {
-        btn.innerHTML = 'ðŸ“‹ Mostrar CatÃ¡logo Completo (${totalLeafConcepts} conceptos)';
+        btn.innerHTML = '📋 Mostrar Catálogo Completo (${totalLeafConcepts} conceptos)';
         btn.style.backgroundColor = '#1e293b';
         btn.style.borderColor = '#475569';
         btn.style.color = '#e2e8f0';
         if (badge) {
-          badge.innerHTML = 'âœ“ Resumen (${executedLeafCount} conceptos con Cantidad Eje &gt; 0)';
+          badge.innerHTML = '✓ Resumen (${executedLeafCount} conceptos con Cantidad Eje &gt; 0)';
         }
       } else {
-        btn.innerHTML = 'ðŸ™ˆ Ocultar CatÃ¡logo Completo';
+        btn.innerHTML = '🙈 Ocultar Catálogo Completo';
         btn.style.backgroundColor = '#047857';
         btn.style.borderColor = '#10b981';
         btn.style.color = '#ffffff';
         if (badge) {
-          badge.innerHTML = 'âœ“ Resumen + CatÃ¡logo Completo';
+          badge.innerHTML = '✓ Resumen + Catálogo Completo';
         }
       }
     }

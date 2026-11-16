@@ -1,6 +1,6 @@
-﻿// Controlador del menÃº Split-Button unificado para generaciÃ³n de matrices APU y cotizaciÃ³n de insumos
-import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf3';
-import { isNightMode } from './themeController.js?v=20261116_cf3';
+// Controlador del menú Split-Button unificado para generación de matrices APU y cotización de insumos
+import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf4';
+import { isNightMode } from './themeController.js?v=20261116_cf4';
 
 const MENU_ID = 'ai-split-floating-menu';
 
@@ -92,7 +92,7 @@ function buildQuotaDescriptors(summary) {
   if (usingKey) {
     webBadge = { text: 'API propia', cls: 'bg-amber-500/15 text-amber-600 border-amber-500/30' };
   } else if (webBlockedPlan) {
-    webBadge = { text: 'ðŸ”’ Plus / Pro', cls: 'bg-slate-500/15 text-slate-500 border-slate-500/30' };
+    webBadge = { text: '🔒 Plus / Pro', cls: 'bg-slate-500/15 text-slate-500 border-slate-500/30' };
   } else {
     const exhausted = webUsed >= webMax;
     webBadge = {
@@ -134,8 +134,8 @@ function renderMenuContent(menu, scope) {
       action: 'local',
       icon: 'fa-solid fa-database',
       iconWrap: night ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-100 text-emerald-700',
-      title: 'Solo CatÃ¡logo Local',
-      desc: 'Usa Ãºnicamente tus catÃ¡logos importados o de referencia.',
+      title: 'Solo Catálogo Local',
+      desc: 'Usa únicamente tus catálogos importados o de referencia.',
       badgeText: 'Gratis ($0)',
       badgeCls: night
         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30'
@@ -148,10 +148,10 @@ function renderMenuContent(menu, scope) {
     action: 'standard',
     icon: 'fa-solid fa-wand-magic-sparkles',
     iconWrap: night ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-100 text-indigo-700',
-    title: cfg.includeLocalCatalog ? 'IA RÃ¡pida (Recomendada)' : 'IA RÃ¡pida (CachÃ© + Flash)',
+    title: cfg.includeLocalCatalog ? 'IA Rápida (Recomendada)' : 'IA Rápida (Caché + Flash)',
     desc: cfg.includeLocalCatalog
-      ? '1Âº Busca en catÃ¡logo/cachÃ© ($0) Â· 2Âº Gemini Flash sin Web.'
-      : '1Âº CachÃ© local ($0) Â· 2Âº EstimaciÃ³n estÃ¡ndar sin internet.',
+      ? '1º Busca en catálogo/caché ($0) · 2º Gemini Flash sin Web.'
+      : '1º Caché local ($0) · 2º Estimación estándar sin internet.',
     badgeText: stdBadge.text,
     badgeCls: stdBadge.cls,
     rowCls: defaultCardCls
@@ -232,7 +232,7 @@ function positionMenu(menu, triggerEl) {
 }
 
 /**
- * Cierra el menÃº desplegable de modos IA si estÃ¡ abierto.
+ * Cierra el menú desplegable de modos IA si está abierto.
  */
 export function closeAiSplitMenu() {
   if (typeof document === 'undefined') return;
@@ -244,7 +244,7 @@ export function closeAiSplitMenu() {
 }
 
 /**
- * Abre o alterna el menÃº Split-Button con los modos CatÃ¡logo Local, IA RÃ¡pida y Precios Web.
+ * Abre o alterna el menú Split-Button con los modos Catálogo Local, IA Rápida y Precios Web.
  */
 export function toggleAiSplitMenu(scope, triggerEl, ev) {
   if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();

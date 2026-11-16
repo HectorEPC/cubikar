@@ -1,13 +1,13 @@
-﻿import { resolveUserEmpresaId } from '../core/cloudProjectService.js?v=20261116_cf3';
-import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261116_cf3';
-import { getCurrentUser } from '../modules/portal/projectService.js?v=20261116_cf3';
-import { showToast } from '../ui/notifications.js?v=20261116_cf3';
+import { resolveUserEmpresaId } from '../core/cloudProjectService.js?v=20261116_cf4';
+import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261116_cf4';
+import { getCurrentUser } from '../modules/portal/projectService.js?v=20261116_cf4';
+import { showToast } from '../ui/notifications.js?v=20261116_cf4';
 import {
   computeSha256Hex,
   formatBytes,
   getFileExtension,
   processFileForUpload
-} from '../utils/fileCompressor.js?v=20261116_cf3';
+} from '../utils/fileCompressor.js?v=20261116_cf4';
 import {
   deleteCachedMediaRecord,
   getCachedMediaDataUrl,
@@ -16,13 +16,13 @@ import {
   listPendingUploads,
   markMediaUploaded,
   putCachedMediaBlob
-} from './mediaCacheDb.js?v=20261116_cf3';
+} from './mediaCacheDb.js?v=20261116_cf4';
 import {
   notifyStorageUsageChanged,
   resolveHostStorageContext,
   validatePostCompressionQuota,
   validatePreCompressionFile
-} from './storageQuotaService.js?v=20261116_cf3';
+} from './storageQuotaService.js?v=20261116_cf4';
 
 function getPresignApiUrl() {
   const customBase = (typeof window !== 'undefined' && window.__CUBIKAR_API_BASE__) ? String(window.__CUBIKAR_API_BASE__).replace(/\/+$/, '') : '';
@@ -53,7 +53,7 @@ async function callPresignEndpoint(payload, accessToken = '') {
 }
 
 /**
- * Consulta si las variables de AWS S3 ya estÃ¡n activas en el servidor Vercel.
+ * Consulta si las variables de AWS S3 ya están activas en el servidor Vercel.
  */
 export async function getS3BackendStatus() {
   try {
@@ -209,11 +209,11 @@ async function attemptDirectS3Upload({
 
 /**
  * Flujo unificado de subida:
- * 1. Valida lÃ­mite por archivo (5/15/25 MB) y cuota disponible.
- * 2. Comprime imÃ¡genes (<canvas> 1280px, JPEG/WebP 0.75) o deja PDF/XML intactos.
- * 3. Muestra toast de optimizaciÃ³n al usuario.
- * 4. Valida cuota resultante (alerta Ã¡mbar >= 90%, bloqueo >= 100%).
- * 5. Guarda en IndexedDB y sube vÃ­a URL prefirmada a AWS S3 + registra en Supabase.
+ * 1. Valida límite por archivo (5/15/25 MB) y cuota disponible.
+ * 2. Comprime imágenes (<canvas> 1280px, JPEG/WebP 0.75) o deja PDF/XML intactos.
+ * 3. Muestra toast de optimización al usuario.
+ * 4. Valida cuota resultante (alerta ámbar >= 90%, bloqueo >= 100%).
+ * 5. Guarda en IndexedDB y sube vía URL prefirmada a AWS S3 + registra en Supabase.
  */
 export async function uploadManagedFile({
   file,
@@ -228,7 +228,7 @@ export async function uploadManagedFile({
   metadata = {}
 } = {}) {
   if (!file) {
-    return { ok: false, reason: 'No se seleccionÃ³ ningÃºn archivo.' };
+    return { ok: false, reason: 'No se seleccionó ningún archivo.' };
   }
 
   const resolvedCat = categoria || (
@@ -239,7 +239,7 @@ export async function uploadManagedFile({
   const hostCtx = resolveHostStorageContext(proyectoId);
   const effectiveProjectId = String(proyectoId || hostCtx.projectId || '');
 
-  // Etapa 1: LÃ­mite individual y bloqueo previo si ya estÃ¡ al 100%
+  // Etapa 1: Límite individual y bloqueo previo si ya está al 100%
   const preCheck = await validatePreCompressionFile(file, {
     projectId: effectiveProjectId,
     categoria: resolvedCat
@@ -251,7 +251,7 @@ export async function uploadManagedFile({
     return { ok: false, blocked: true, reason: preCheck.reason, summary: preCheck.summary };
   }
 
-  // Etapa 2: CompresiÃ³n en cliente (PDF/XML quedan intactos)
+  // Etapa 2: Compresión en cliente (PDF/XML quedan intactos)
   const processed = await processFileForUpload(file, {
     preset,
     mimeType,
@@ -262,7 +262,7 @@ export async function uploadManagedFile({
     showToast(`Optimizando imagen (${processed.summaryText})...`, 'info', 3500);
   }
 
-  // Etapa 3: ValidaciÃ³n contra cuota restante despuÃ©s de comprimir
+  // Etapa 3: Validación contra cuota restante después de comprimir
   const postCheck = await validatePostCompressionQuota(processed.finalBytes, {
     projectId: effectiveProjectId,
     categoria: resolvedCat
@@ -281,7 +281,7 @@ export async function uploadManagedFile({
 
   const sha256 = await computeSha256Hex(processed.blob);
 
-  // Etapa 4: Guardar binario en IndexedDB local (cachÃ© instantÃ¡nea + cola offline)
+  // Etapa 4: Guardar binario en IndexedDB local (caché instantánea + cola offline)
   const cachedRecord = await putCachedMediaBlob({
     proyectoId: effectiveProjectId,
     ownerEmail: hostCtx.ownerEmail,
@@ -323,7 +323,7 @@ export async function uploadManagedFile({
       });
     }
   } catch (err) {
-    // Error explÃ­cito de cuota en servidor o fallo de S3 PUT
+    // Error explícito de cuota en servidor o fallo de S3 PUT
     const isQuotaErr = String(err?.message || '').toLowerCase().includes('cuota') ||
       String(err?.message || '').toLowerCase().includes('espacio');
     if (isQuotaErr) {
@@ -368,7 +368,7 @@ export async function uploadManagedFile({
 
 /**
  * Resuelve la URL utilizable de un archivo: primero desde IndexedDB local (cero descarga repetida),
- * despuÃ©s vÃ­a URL prefirmada GET de AWS S3, y finalmente cualquier legado en localDataUrl.
+ * después vía URL prefirmada GET de AWS S3, y finalmente cualquier legado en localDataUrl.
  */
 export async function resolveManagedFileUrl(ref = {}, options = {}) {
   const normalized = typeof ref === 'string'
@@ -423,7 +423,7 @@ export async function resolveManagedFileUrl(ref = {}, options = {}) {
 }
 
 /**
- * Obtiene un DataURL (Ãºtil para incrustar imÃ¡genes en jsPDF o cropper) desde IndexedDB o S3.
+ * Obtiene un DataURL (útil para incrustar imágenes en jsPDF o cropper) desde IndexedDB o S3.
  */
 export async function resolveManagedFileDataUrl(ref = {}) {
   const normalized = typeof ref === 'string'
@@ -478,7 +478,7 @@ export async function downloadManagedFileToDevice(ref = {}, suggestedName = 'arc
 
   const url = await resolveManagedFileUrl(normalized, { download: true, cacheRemote: true });
   if (!url) {
-    showToast('El archivo no estÃ¡ disponible en cachÃ© local ni en AWS S3.', 'warning');
+    showToast('El archivo no está disponible en caché local ni en AWS S3.', 'warning');
     return false;
   }
 

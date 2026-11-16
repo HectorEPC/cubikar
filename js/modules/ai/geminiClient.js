@@ -1,13 +1,13 @@
-﻿import { state, persistSettings, persistLocalData } from '../../state/store.js?v=20261116_cf3';
-import { saveState } from '../../state/history.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
-import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf3';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf3';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf3';
-import { closeAiGeneratorModal, openAiGeneratorModal, aiModalTargetMode, aiModalSingleNodeId } from '../../ui/modalController.js?v=20261116_cf3';
-import { round2, getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf3';
-import { round5 } from '../../core/formatters.js?v=20261116_cf3';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf3';
+import { state, persistSettings, persistLocalData } from '../../state/store.js?v=20261116_cf4';
+import { saveState } from '../../state/history.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf4';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf4';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf4';
+import { closeAiGeneratorModal, openAiGeneratorModal, aiModalTargetMode, aiModalSingleNodeId } from '../../ui/modalController.js?v=20261116_cf4';
+import { round2, getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf4';
+import { round5 } from '../../core/formatters.js?v=20261116_cf4';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf4';
 import {
   tryResolveConceptLocally,
   setCachedSupplyPrices,
@@ -17,11 +17,11 @@ import {
   recordAiQuotaConsumption,
   applyServerQuotaSnapshot,
   resolveActiveAiExecutionContext
-} from './aiQuotaAndCacheService.js?v=20261116_cf3';
+} from './aiQuotaAndCacheService.js?v=20261116_cf4';
 
 // Extractor robusto de JSON para respuestas de Gemini
 export function extractJsonFromAiResponse(text) {
-  if (!text) throw new Error('Respuesta vacÃ­a');
+  if (!text) throw new Error('Respuesta vacía');
   try {
     return JSON.parse(text);
   } catch (e) {
@@ -41,7 +41,7 @@ export function extractJsonFromAiResponse(text) {
   }
 }
 
-// Probar conexiÃ³n de API Key con Google Search Grounding
+// Probar conexión de API Key con Google Search Grounding
 export async function testGeminiConnection() {
   const apiKeyInput = (document.getElementById('ai-modal-api-key')?.value || '').trim();
   const errorBox = document.getElementById('ai-modal-error');
@@ -51,11 +51,11 @@ export async function testGeminiConnection() {
   if (!apiKeyInput) {
     if (errorBox) errorBox.classList.remove('hidden');
     if (errorTitle) errorTitle.innerText = 'Se requiere API Key';
-    if (errorMsg) errorMsg.innerText = 'Ingresa una API Key para probar la conexiÃ³n con Google Search Grounding.';
+    if (errorMsg) errorMsg.innerText = 'Ingresa una API Key para probar la conexión con Google Search Grounding.';
     return;
   }
 
-  showToast('Probando conexiÃ³n estÃ¡ndar con Gemini Flash (sin costo Web Search)...', 'info');
+  showToast('Probando conexión estándar con Gemini Flash (sin costo Web Search)...', 'info');
 
   const testModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   let testSuccess = false;
@@ -67,14 +67,14 @@ export async function testGeminiConnection() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Responde Ãºnicamente con: CONEXION_EXITOSA' }] }]
+          contents: [{ parts: [{ text: 'Responde únicamente con: CONEXION_EXITOSA' }] }]
         })
       });
 
       if (response.ok) {
         testSuccess = true;
         if (errorBox) errorBox.classList.add('hidden');
-        showToast(`âœ… ConexiÃ³n verificada con ${m}`, 'success');
+        showToast(`✅ Conexión verificada con ${m}`, 'success');
         break;
       } else {
         const errData = await response.json().catch(() => ({}));
@@ -87,13 +87,13 @@ export async function testGeminiConnection() {
 
   if (!testSuccess) {
     if (errorBox) errorBox.classList.remove('hidden');
-    if (errorTitle) errorTitle.innerText = 'Fallo en la prueba de conexiÃ³n';
+    if (errorTitle) errorTitle.innerText = 'Fallo en la prueba de conexión';
     if (errorMsg) errorMsg.innerText = testErr;
   }
 }
 
 /**
- * Helper compartido para aplicar insumos generados (local, cachÃ©, estÃ¡ndar o Search Grounding) sobre un nodo.
+ * Helper compartido para aplicar insumos generados (local, caché, estándar o Search Grounding) sobre un nodo.
  */
 function applyGeneratedMatrixToNode(node, rawInsumos, meta = {}) {
   const normalized = (Array.isArray(rawInsumos) ? rawInsumos : []).map((item, idx) => {
@@ -137,9 +137,9 @@ function applyGeneratedMatrixToNode(node, rawInsumos, meta = {}) {
 
 /**
  * Genera la matriz APU para el concepto activo usando cascada inteligente:
- *  - Modo EstÃ¡ndar (useWebSearch = false, defecto): 1Âº Motor Local + CachÃ© ($0) -> 2Âº Gemini Flash SIN googleSearch.
- *  - Modo Cotizador Web en Vivo (useWebSearch = true, acciÃ³n explÃ­cita): consulta Gemini con Google Search Grounding
- *    validando la cuota mensual global (0 Gratuita / 70 Plus / 200 Pro o API Key propia) y guarda precios en cachÃ©.
+ *  - Modo Estándar (useWebSearch = false, defecto): 1º Motor Local + Caché ($0) -> 2º Gemini Flash SIN googleSearch.
+ *  - Modo Cotizador Web en Vivo (useWebSearch = true, acción explícita): consulta Gemini con Google Search Grounding
+ *    validando la cuota mensual global (0 Gratuita / 70 Plus / 200 Pro o API Key propia) y guarda precios en caché.
  */
 export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, options = {}) {
   const targetId = targetNodeId || state.activeSelectedId;
@@ -147,7 +147,7 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
   const useWebSearch = Boolean(options?.useWebSearch === true);
 
   if (!node) {
-    showToast('Selecciona un concepto en el catÃ¡logo primero para generar su matriz APU.', 'warning');
+    showToast('Selecciona un concepto en el catálogo primero para generar su matriz APU.', 'warning');
     return false;
   }
 
@@ -156,7 +156,7 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
     return false;
   }
 
-  // PASO 1 DE CASCADA ($0 costo): Motor Local + CachÃ© de insumos cuando NO se pidiÃ³ bÃºsqueda web en vivo explÃ­cita
+  // PASO 1 DE CASCADA ($0 costo): Motor Local + Caché de insumos cuando NO se pidió búsqueda web en vivo explícita
   if (!useWebSearch) {
     const localRes = await tryResolveConceptLocally(node, options?.localCtx || null);
     if (localRes && localRes.matched && localRes.insumos.length > 0) {
@@ -164,14 +164,14 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
       applyGeneratedMatrixToNode(node, localRes.insumos, {
         googleSearchQueries: [],
         googleSources: [],
-        aiTips: `âš¡ Matriz resuelta automÃ¡ticamente por Motor Local + CachÃ© de Insumos ($0 consumo de IA, similitud ${Math.round((localRes.score || 0) * 100)}%).`
+        aiTips: `⚡ Matriz resuelta automáticamente por Motor Local + Caché de Insumos ($0 consumo de IA, similitud ${Math.round((localRes.score || 0) * 100)}%).`
       });
       persistLocalData();
       renderAPUInsumos(node);
       renderInsumosUnitarios(node);
       renderTAB1();
       if (!options?.silentLocalToast) {
-        showToast(`âš¡ Matriz resuelta localmente con Motor Local + CachÃ© para [${node.clave || ''}] ($0 costo IA).`, 'success');
+        showToast(`⚡ Matriz resuelta localmente con Motor Local + Caché para [${node.clave || ''}] ($0 costo IA).`, 'success');
       }
       if (typeof window !== 'undefined' && typeof window.refreshAiQuotaBadges === 'function') {
         window.refreshAiQuotaBadges();
@@ -180,14 +180,14 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
     }
   }
 
-  // PASO 2: Validar cuota mensual de IA EstÃ¡ndar (10/1500/3500) o Google Search Grounding (0/70/200)
+  // PASO 2: Validar cuota mensual de IA Estándar (10/1500/3500) o Google Search Grounding (0/70/200)
   const quotaCheck = useWebSearch
     ? checkWebSearchGroundingQuota(1)
     : checkStandardAiQuota(1);
 
   if (!quotaCheck.allowed) {
     if (options && typeof options === 'object') options._quotaStopped = true;
-    showToast(`ðŸ”’ ${quotaCheck.reason}`, 'warning');
+    showToast(`🔒 ${quotaCheck.reason}`, 'warning');
     if (!options?.silentQuotaModal && typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') {
       window.openSubscriptionModal();
     }
@@ -221,8 +221,8 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
   setLoadingState(true);
   showToast(
     useWebSearch
-      ? `ðŸŒ Cotizando precios en Web en Vivo (Google Search) para [${node.clave || ''}]...`
-      : `ðŸ¤– Generando matriz con Gemini Flash EstÃ¡ndar (sin Web Search) para [${node.clave || ''}]...`,
+      ? `🌐 Cotizando precios en Web en Vivo (Google Search) para [${node.clave || ''}]...`
+      : `🤖 Generando matriz con Gemini Flash Estándar (sin Web Search) para [${node.clave || ''}]...`,
     'info'
   );
 
@@ -284,15 +284,15 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
     }
 
     if (!Array.isArray(data.insumos) || data.insumos.length === 0) {
-      throw new Error('La IA no devolviÃ³ insumos utilizables para este concepto.');
+      throw new Error('La IA no devolvió insumos utilizables para este concepto.');
     }
 
     saveState();
 
-    // Guardar precios obtenidos en cachÃ© local para evitar consultas repetidas futuras
+    // Guardar precios obtenidos en caché local para evitar consultas repetidas futuras
     setCachedSupplyPrices(data.insumos, {
       usedWebSearch: Boolean(data.usedWebSearch || useWebSearch),
-      fuente: Boolean(data.usedWebSearch || useWebSearch) ? 'Google Search Grounding' : 'Gemini Flash EstÃ¡ndar'
+      fuente: Boolean(data.usedWebSearch || useWebSearch) ? 'Google Search Grounding' : 'Gemini Flash Estándar'
     });
 
     applyGeneratedMatrixToNode(node, data.insumos, {
@@ -320,8 +320,8 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
 
     showToast(
       useWebSearch
-        ? `ðŸŒ Matriz cotizada con Precios Web en Vivo para [${node.clave || ''}] (precios guardados en cachÃ©)`
-        : `âœ… Matriz generada con IA EstÃ¡ndar para [${node.clave || ''}]`,
+        ? `🌐 Matriz cotizada con Precios Web en Vivo para [${node.clave || ''}] (precios guardados en caché)`
+        : `✅ Matriz generada con IA Estándar para [${node.clave || ''}]`,
       'success'
     );
     return true;
@@ -340,7 +340,7 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
           if (typeof window !== 'undefined' && typeof window.refreshAiQuotaBadges === 'function') {
             window.refreshAiQuotaBadges();
           }
-          showToast(useWebSearch ? 'ðŸŒ Matriz cotizada con Google Search Grounding' : 'âœ… Matriz generada con Gemini Flash', 'success');
+          showToast(useWebSearch ? '🌐 Matriz cotizada con Google Search Grounding' : '✅ Matriz generada con Gemini Flash', 'success');
           return true;
         }
       } catch (fbErr) {
@@ -355,7 +355,7 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
   }
 }
 
-// Acciones explÃ­citas de Precios Web en Vivo (Google Search Grounding)
+// Acciones explícitas de Precios Web en Vivo (Google Search Grounding)
 export async function generarMatrizConBusquedaWebActiva(targetNodeId = null) {
   return generarMatrizConceptoActivoGoogleIA(targetNodeId, { useWebSearch: true });
 }
@@ -364,7 +364,7 @@ export async function generarMatrizCasillasConBusquedaWeb() {
   return generarMatrizCasillasGoogleIA({ useWebSearch: true });
 }
 
-// Generar matrices APU con IA para conceptos seleccionados (EstÃ¡ndar por defecto; Cascada Local -> Gemini sin Web Search)
+// Generar matrices APU con IA para conceptos seleccionados (Estándar por defecto; Cascada Local -> Gemini sin Web Search)
 export async function generarMatrizCasillasGoogleIA(options = {}) {
   const useWebSearch = Boolean(options?.useWebSearch === true);
   let selected = getSelectedLeafConcepts ? getSelectedLeafConcepts() : [];
@@ -421,8 +421,8 @@ export async function generarMatrizCasillasGoogleIA(options = {}) {
   if (successCount > 0) {
     showToast(
       useWebSearch
-        ? `ðŸŒ ${successCount} de ${selected.length} matrices cotizadas con Precios Web en Vivo.`
-        : `âœ… ${successCount} de ${selected.length} matrices procesadas (Motor Local + CachÃ© + IA EstÃ¡ndar).`,
+        ? `🌐 ${successCount} de ${selected.length} matrices cotizadas con Precios Web en Vivo.`
+        : `✅ ${successCount} de ${selected.length} matrices procesadas (Motor Local + Caché + IA Estándar).`,
       'success'
     );
   }
@@ -432,7 +432,7 @@ export async function generarMatrizCasillasGoogleIA(options = {}) {
  * Consulta directa a Gemini (usando API Key propia). Respeta useWebSearch (default: false).
  */
 export async function queryGeminiSingleConcept(node, apiKeyInput, onStatus, options = {}) {
-  if (!node) return { success: false, error: 'Nodo no vÃ¡lido' };
+  if (!node) return { success: false, error: 'Nodo no válido' };
   const useWebSearch = Boolean(options?.useWebSearch === true);
 
   const pathArr = getNodeHierarchyPath(state.treeData, node.id) || [];
@@ -441,35 +441,35 @@ export async function queryGeminiSingleConcept(node, apiKeyInput, onStatus, opti
   const fasarVal = state.settings?.pctFasar !== undefined ? Number(state.settings.pctFasar) : 70.0;
   const fasarFactor = (fasarVal > 0 && fasarVal < 5.0) ? fasarVal : (1 + (fasarVal / 100));
 
-  const promptText = `Eres un ingeniero civil especialista senior en AnÃ¡lisis de Precios Unitarios (APU) y costos de construcciÃ³n en MÃ©xico.
+  const promptText = `Eres un ingeniero civil especialista senior en Análisis de Precios Unitarios (APU) y costos de construcción en México.
 ${useWebSearch
-  ? 'Utiliza Google Search Grounding para investigar precios comerciales y rendimientos vigentes en el mercado de la construcciÃ³n en MÃ©xico (en Pesos Mexicanos MXN).'
-  : 'Calcula la matriz usando tabuladores tÃ©cnicos estÃ¡ndar mexicanos (CMIC / Neodata / Opus) en Pesos Mexicanos MXN sin bÃºsqueda web externa.'}
+  ? 'Utiliza Google Search Grounding para investigar precios comerciales y rendimientos vigentes en el mercado de la construcción en México (en Pesos Mexicanos MXN).'
+  : 'Calcula la matriz usando tabuladores técnicos estándar mexicanos (CMIC / Neodata / Opus) en Pesos Mexicanos MXN sin búsqueda web externa.'}
 
 Datos de la fila seleccionada en TAB1-CAT-BASE:
-- UbicaciÃ³n / Partida en presupuesto: "${fullPath}"
+- Ubicación / Partida en presupuesto: "${fullPath}"
 - Clave de concepto: "${node.clave || ''}"
-- DescripciÃ³n exacta del concepto: "${node.descripcion || ''}"
+- Descripción exacta del concepto: "${node.descripcion || ''}"
 - Unidad de medida del concepto: "${node.unidad || 'pza'}"
 - Cantidad de obra en presupuesto: ${node.cantidad || 1} ${node.unidad || 'pza'}
 
 REGLA FUNDAMENTAL DE PRECIOS UNITARIOS (APU):
 La propiedad 'cantidad' de CADA insumo (Material, Mano de Obra, Equipo/Herramienta, Subcontrato) DEBE SER ESTRICTAMENTE el consumo o rendimiento unitario necesario para elaborar EXACTAMENTE UNA UNIDAD (1 ${node.unidad || 'pza'}) del concepto.
-Â¡NO debes multiplicar por la cantidad total de obra del presupuesto (${node.cantidad || 1})! Ãšnicamente el consumo por 1 ${node.unidad || 'pza'}.
+¡NO debes multiplicar por la cantidad total de obra del presupuesto (${node.cantidad || 1})! Únicamente el consumo por 1 ${node.unidad || 'pza'}.
 
 Instrucciones:
-1. ${useWebSearch ? 'Realiza bÃºsquedas en Google de los precios actuales de mercado en MÃ©xico para los materiales comerciales (puestos en obra).' : 'Asigna precios unitarios comerciales promedio vigentes en MÃ©xico puestos en obra (sin IVA).'}
+1. ${useWebSearch ? 'Realiza búsquedas en Google de los precios actuales de mercado en México para los materiales comerciales (puestos en obra).' : 'Asigna precios unitarios comerciales promedio vigentes en México puestos en obra (sin IVA).'}
 2. Aplica el Factor de Salario Real (FASAR) configurado (+${fasarVal.toFixed(1)}% / Factor ${fasarFactor.toFixed(2)}) a cuadrillas de mano de obra.
 3. Clasifica en: "Material", "Mano de Obra", "Herramienta", "Equipo", "Maquinaria" o "Subcontrato".
 4. Devuelve OBLIGATORIAMENTE un bloque JSON:
 \`\`\`json
 {
-  "sugerencias": "RecomendaciÃ³n tÃ©cnica para este concepto...",
+  "sugerencias": "Recomendación técnica para este concepto...",
   "insumos": [
     {
       "clave": "MAT-01",
       "tipo": "Material",
-      "descripcion": "DescripciÃ³n comercial detallada del material",
+      "descripcion": "Descripción comercial detallada del material",
       "unidad": "m3/kg/pza/etc",
       "cantidad": 0.00,
       "costoUnitario": 0.00
@@ -497,7 +497,7 @@ Instrucciones:
       if (onStatus) {
         onStatus(att.tools
           ? `Buscando cotizaciones en Google Search Grounding con ${att.model}...`
-          : `Consultando modelo estÃ¡ndar ${att.model}...`);
+          : `Consultando modelo estándar ${att.model}...`);
       }
 
       const reqPayload = {
@@ -529,7 +529,7 @@ Instrucciones:
       const textContent = candidate?.content?.parts?.[0]?.text;
 
       if (!textContent) {
-        lastError = 'La IA no devolviÃ³ texto en su respuesta.';
+        lastError = 'La IA no devolvió texto en su respuesta.';
         continue;
       }
 
@@ -544,7 +544,7 @@ Instrucciones:
 
         setCachedSupplyPrices(parsed.insumos, {
           usedWebSearch: Boolean(att.tools),
-          fuente: att.tools ? 'Google Search Grounding' : 'Gemini Flash EstÃ¡ndar'
+          fuente: att.tools ? 'Google Search Grounding' : 'Gemini Flash Estándar'
         });
 
         applyGeneratedMatrixToNode(node, parsed.insumos, {
@@ -571,7 +571,7 @@ Instrucciones:
   return { success: false, error: lastError };
 }
 
-// EjecuciÃ³n desde Modal de IA: cascada Motor Local + CachÃ© -> IA EstÃ¡ndar (sin bÃºsqueda por defecto) o Web Search explÃ­cito
+// Ejecución desde Modal de IA: cascada Motor Local + Caché -> IA Estándar (sin búsqueda por defecto) o Web Search explícito
 export async function executeAiGeneration() {
   const apiKeyInput = (document.getElementById('ai-modal-api-key')?.value || '').trim();
   const useWebSearch = Boolean(document.getElementById('ai-modal-use-web-search')?.checked === true);
@@ -642,13 +642,13 @@ export async function executeAiGeneration() {
         quotaStopped = true;
         lastError = useWebSearch
           ? 'Cuota mensual de Precios Web en Vivo agotada o no incluida en tu plan.'
-          : 'Cuota mensual de IA EstÃ¡ndar agotada para este plan.';
+          : 'Cuota mensual de IA Estándar agotada para este plan.';
         break;
       } else {
         lastError = 'No se pudo procesar el concepto con IA.';
       }
     } catch (err) {
-      lastError = err.message || 'Error de conexiÃ³n';
+      lastError = err.message || 'Error de conexión';
       console.error(`Error en concepto ${node.clave}:`, err);
     }
   }
@@ -670,15 +670,15 @@ export async function executeAiGeneration() {
     renderTAB1();
 
     const msg = targets.length === 1
-      ? (useWebSearch ? 'ðŸŒ Matriz cotizada con Precios Web en Vivo' : 'âœ… Matriz generada con Cascada Local + IA EstÃ¡ndar')
-      : `âœ… Matrices generadas para ${successCount} de ${targets.length} conceptos`;
+      ? (useWebSearch ? '🌐 Matriz cotizada con Precios Web en Vivo' : '✅ Matriz generada con Cascada Local + IA Estándar')
+      : `✅ Matrices generadas para ${successCount} de ${targets.length} conceptos`;
     showToast(msg, 'success');
     if (quotaStopped && typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') {
       window.openSubscriptionModal();
     }
   } else {
     if (errorBox) errorBox.classList.remove('hidden');
-    if (errorTitle) errorTitle.innerText = quotaStopped ? 'LÃ­mite de SuscripciÃ³n Alcanzado' : 'Error al generar con IA';
+    if (errorTitle) errorTitle.innerText = quotaStopped ? 'Límite de Suscripción Alcanzado' : 'Error al generar con IA';
     if (errorMsg) errorMsg.innerText = lastError;
     if (quotaStopped && typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') {
       window.openSubscriptionModal();

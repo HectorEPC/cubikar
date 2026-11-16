@@ -1,29 +1,29 @@
-﻿// js/modules/bitacora/bitacoraDriveService.js
-// Servicio de Almacenamiento Unificado (AWS S3 + IndexedDB + Cuotas) para BitÃ¡cora de Obra.
-// Reemplaza por completo la antigua integraciÃ³n con Google Drive manteniendo propiedad Ãºnica del AnfitriÃ³n.
+// js/modules/bitacora/bitacoraDriveService.js
+// Servicio de Almacenamiento Unificado (AWS S3 + IndexedDB + Cuotas) para Bitácora de Obra.
+// Reemplaza por completo la antigua integración con Google Drive manteniendo propiedad única del Anfitrión.
 
-import { state } from '../../state/store.js?v=20261116_cf3';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf3';
-import { getCurrentUser, getProjectById } from '../portal/projectService.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
+import { state } from '../../state/store.js?v=20261116_cf4';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf4';
+import { getCurrentUser, getProjectById } from '../portal/projectService.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
 import {
   downloadManagedFileToDevice,
   resolveManagedFileDataUrl,
   resolveManagedFileUrl,
   syncPendingMediaUploads,
   uploadManagedFile
-} from '../../services/s3StorageService.js?v=20261116_cf3';
+} from '../../services/s3StorageService.js?v=20261116_cf4';
 import {
   getHostStorageSummary,
   resolveHostStorageContext
-} from '../../services/storageQuotaService.js?v=20261116_cf3';
+} from '../../services/storageQuotaService.js?v=20261116_cf4';
 import {
   attachCloudArtifactsToSealedNote,
   getBitacoraNotes
-} from './bitacoraModel.js?v=20261116_cf3';
+} from './bitacoraModel.js?v=20261116_cf4';
 
 /**
- * Determina el propietario/anfitriÃ³n real del proyecto y si el usuario actual es ese anfitriÃ³n.
+ * Determina el propietario/anfitrión real del proyecto y si el usuario actual es ese anfitrión.
  */
 export function getHostOwnershipStatus() {
   const user = getCurrentUser();
@@ -37,7 +37,7 @@ export function getHostOwnershipStatus() {
   return {
     currentEmail,
     hostEmail,
-    hostName: project?.ownerName || user?.name || 'Usuario AnfitriÃ³n',
+    hostName: project?.ownerName || user?.name || 'Usuario Anfitrión',
     isHost,
     projectName: state.settings?.projectName || project?.projectName || project?.name || 'Obra_Sin_Nombre',
     projectId: ctx.projectId
@@ -64,7 +64,7 @@ export function buildBitacoraPdfFileName(note) {
 }
 
 /**
- * Procesa, comprime (<canvas> 1280px @ 75%), valida cuota y respalda una fotografÃ­a en IndexedDB + AWS S3.
+ * Procesa, comprime (<canvas> 1280px @ 75%), valida cuota y respalda una fotografía en IndexedDB + AWS S3.
  */
 export async function uploadBitacoraEvidenceFile(file, noteId = '') {
   const res = await uploadManagedFile({
@@ -78,7 +78,7 @@ export async function uploadBitacoraEvidenceFile(file, noteId = '') {
   });
 
   if (!res.ok) {
-    throw new Error(res.reason || 'No se pudo cargar la fotografÃ­a.');
+    throw new Error(res.reason || 'No se pudo cargar la fotografía.');
   }
 
   const user = getCurrentUser();
@@ -107,7 +107,7 @@ export async function uploadBitacoraEvidenceFile(file, noteId = '') {
 }
 
 /**
- * Sube el PDF oficial firmado de una nota a AWS S3 (mÃ³dulo bitacora/reportes, sin compresiÃ³n).
+ * Sube el PDF oficial firmado de una nota a AWS S3 (módulo bitacora/reportes, sin compresión).
  */
 export async function uploadBitacoraOfficialPdf(pdfBlob, fileName, note = null) {
   if (!pdfBlob) {
@@ -143,7 +143,7 @@ export async function uploadBitacoraOfficialPdf(pdfBlob, fileName, note = null) 
       sizeBytes: res.finalBytes || 0
     };
   } catch (err) {
-    console.warn('[BitacoraStorage] PDF retenido en cachÃ© local:', err?.message);
+    console.warn('[BitacoraStorage] PDF retenido en caché local:', err?.message);
     return { uploaded: false, pendingSync: true };
   }
 }
@@ -169,7 +169,7 @@ export async function resolveBitacoraPhotoDataUrl(ev) {
 }
 
 /**
- * Sincroniza hacia AWS S3 todas las fotografÃ­as y PDFs oficiales en cola offline.
+ * Sincroniza hacia AWS S3 todas las fotografías y PDFs oficiales en cola offline.
  */
 export async function syncPendingBitacoraArtifactsToCloud({ generatePdfFn = null, silent = false } = {}) {
   const projectId = getActiveProjectId();
@@ -204,9 +204,9 @@ export async function syncPendingBitacoraArtifactsToCloud({ generatePdfFn = null
 
   if (!silent) {
     if (syncedCount > 0) {
-      showToast(`â˜ï¸ Sincronizados ${syncedCount} artefacto(s) de BitÃ¡cora en AWS S3.`, 'success');
+      showToast(`☁️ Sincronizados ${syncedCount} artefacto(s) de Bitácora en AWS S3.`, 'success');
     } else {
-      showToast('No hay archivos pendientes por sincronizar o AWS S3 aÃºn no estÃ¡ disponible.', 'info');
+      showToast('No hay archivos pendientes por sincronizar o AWS S3 aún no está disponible.', 'info');
     }
   }
 
@@ -214,7 +214,7 @@ export async function syncPendingBitacoraArtifactsToCloud({ generatePdfFn = null
 }
 
 /**
- * Resumen de almacenamiento S3 y titularidad para la UI de BitÃ¡cora.
+ * Resumen de almacenamiento S3 y titularidad para la UI de Bitácora.
  */
 export function getStorageConnectionSummary() {
   const hostStatus = getHostOwnershipStatus();

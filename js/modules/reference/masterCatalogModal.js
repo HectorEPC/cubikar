@@ -1,30 +1,30 @@
-﻿// js/modules/reference/masterCatalogModal.js
-// Modal de CatÃ¡logo Maestro y Biblioteca de Referencia (OpciÃ³n 1)
+// js/modules/reference/masterCatalogModal.js
+// Modal de Catálogo Maestro y Biblioteca de Referencia (Opción 1)
 
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf3';
-import { saveState } from '../../state/history.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
-import { formatMoney } from '../../core/formatters.js?v=20261116_cf3';
-import { findNodeById, recalculateClaves, guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf3';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf3';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf4';
+import { saveState } from '../../state/history.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+import { formatMoney } from '../../core/formatters.js?v=20261116_cf4';
+import { findNodeById, recalculateClaves, guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf4';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf4';
 import {
   listReferenceCatalogs,
   searchReferenceItems,
   deleteReferenceCatalog,
   getReferenceDatabaseStats,
   syncMasterCatalogsFromCloud
-} from './referenceDb.js?v=20261116_cf3';
-import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetCatalogs.js?v=20261116_cf3';
-import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js?v=20261116_cf3';
-import { openImportModal } from '../io/universalImporter.js?v=20261116_cf3';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf3';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf3';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf3';
+} from './referenceDb.js?v=20261116_cf4';
+import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetCatalogs.js?v=20261116_cf4';
+import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js?v=20261116_cf4';
+import { openImportModal } from '../io/universalImporter.js?v=20261116_cf4';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf4';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf4';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf4';
 
 let debounceTimer = null;
 let currentSearchResults = [];
 
-// Abrir modal de CatÃ¡logo Maestro
+// Abrir modal de Catálogo Maestro
 export async function openMasterCatalogModal() {
   const modal = document.getElementById('master-catalog-modal');
   if (!modal) return;
@@ -34,24 +34,24 @@ export async function openMasterCatalogModal() {
 
   switchMasterCatalogTab('search');
 
-  // Mostrar spinner en la tabla mientras se verifican e indexan los catÃ¡logos base
+  // Mostrar spinner en la tabla mientras se verifican e indexan los catálogos base
   const tbody = document.getElementById('master-cat-results-body');
   if (tbody) {
     tbody.innerHTML = `
       <tr>
         <td colspan="5" class="p-8 text-center text-slate-400">
           <i class="fa-solid fa-spinner fa-spin text-xl text-blue-600 mb-2"></i>
-          <p class="text-xs font-semibold text-slate-700">Verificando CatÃ¡logo Maestro y Biblioteca de Referencia...</p>
+          <p class="text-xs font-semibold text-slate-700">Verificando Catálogo Maestro y Biblioteca de Referencia...</p>
         </td>
       </tr>
     `;
   }
 
-  // Asegurar catÃ¡logos por defecto si aÃºn no han sido indexados en IndexedDB
+  // Asegurar catálogos por defecto si aún no han sido indexados en IndexedDB
   try {
     await ensureDefaultMasterCatalogs();
   } catch (err) {
-    console.warn('[MasterCatalog] Aviso al verificar catÃ¡logos base:', err);
+    console.warn('[MasterCatalog] Aviso al verificar catálogos base:', err);
   }
 
   await refreshMasterCatalogList();
@@ -59,7 +59,7 @@ export async function openMasterCatalogModal() {
 
   syncMasterCatalogsFromCloud().then(async (res) => {
     if (res?.restored > 0) {
-      showToast(`${res.restored} catÃ¡logo(s) maestro(s) restaurado(s) desde la nube AWS S3.`, 'success');
+      showToast(`${res.restored} catálogo(s) maestro(s) restaurado(s) desde la nube AWS S3.`, 'success');
       await refreshMasterCatalogList();
       triggerMasterCatalogSearch();
     }
@@ -75,31 +75,31 @@ export function closeMasterCatalogModal() {
   }
 }
 
-// Orden oficial estricto de catÃ¡logos base absorbidos por el sistema
+// Orden oficial estricto de catálogos base absorbidos por el sistema
 const OFFICIAL_DEFAULT_ORDER = [
   'catalogo_muestra_residencial',
   'cubikar_igi_2026',
   'cubikar_vivienda_2026'
 ];
 
-// Actualizar lista de catÃ¡logos en el filtro y estadÃ­sticas
+// Actualizar lista de catálogos en el filtro y estadísticas
 export async function refreshMasterCatalogList() {
   try {
     const stats = await getReferenceDatabaseStats();
 
-    // Obtener manifiesto para asegurar que los 3 catÃ¡logos base siempre aparezcan en orden debajo de muestra
+    // Obtener manifiesto para asegurar que los 3 catálogos base siempre aparezcan en orden debajo de muestra
     const manifest = await getPresetCatalogManifest().catch(() => []);
     const defaultPresets = manifest.filter(m => m.isDefault || m.absorbedByApp || m.isBase);
 
-    // Mapear catÃ¡logos actualmente guardados en IndexedDB
+    // Mapear catálogos actualmente guardados en IndexedDB
     const dbCatMap = new Map();
     (stats.catalogs || []).forEach(c => dbCatMap.set(c.id, c));
 
     // Construir lista ordenada:
     // 1. Catalogo muestra - Proyecto Residencial
-    // 2. CatÃ¡logo IngenierÃ­a e Infraestructura 2026
-    // 3. CatÃ¡logo Vivienda 2026
-    // 4. CatÃ¡logos importados por el usuario
+    // 2. Catálogo Ingeniería e Infraestructura 2026
+    // 3. Catálogo Vivienda 2026
+    // 4. Catálogos importados por el usuario
     const orderedCatalogs = [];
     OFFICIAL_DEFAULT_ORDER.forEach(defId => {
       if (dbCatMap.has(defId)) {
@@ -125,7 +125,7 @@ export async function refreshMasterCatalogList() {
       }
     });
 
-    // Agregar catÃ¡logos adicionales del usuario
+    // Agregar catálogos adicionales del usuario
     dbCatMap.forEach(c => orderedCatalogs.push(c));
 
     const totalItemsCount = orderedCatalogs.reduce((acc, c) => acc + (c.itemsCount || 0), 0);
@@ -150,30 +150,30 @@ export async function refreshMasterCatalogList() {
       wsBadgeEl.textContent = `${stats.ownerName} (${stats.planName})`;
     }
 
-    // Llenar selector de catÃ¡logos
+    // Llenar selector de catálogos
     const select = document.getElementById('master-cat-catalog-filter');
     if (select) {
       const currentVal = select.value;
-      select.innerHTML = '<option value="all">ðŸ“š Todos los CatÃ¡logos</option>';
+      select.innerHTML = '<option value="all">📚 Todos los Catálogos</option>';
       orderedCatalogs.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c.id;
         const isAbsorbed = Boolean(c.isPreset || c.isSystem || c.absorbedByApp || c.ownerEmail === 'system');
         const mbTxt = isAbsorbed ? 'Espacio absorbido' : (c.sizeMb !== undefined ? `${c.sizeMb} MB` : (c.sizeBytes ? `${(c.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : ''));
-        opt.textContent = `${c.name} (${(c.itemsCount || 0).toLocaleString()} reg â€¢ ${mbTxt})`;
+        opt.textContent = `${c.name} (${(c.itemsCount || 0).toLocaleString()} reg • ${mbTxt})`;
         select.appendChild(opt);
       });
       if (currentVal) select.value = currentVal;
     }
 
-    // Actualizar tabla de administraciÃ³n de catÃ¡logos
+    // Actualizar tabla de administración de catálogos
     await renderCatalogsManageList(orderedCatalogs, { ...stats, catalogsCount: totalCatsCount });
   } catch (err) {
-    console.error('Error cargando catÃ¡logos:', err);
+    console.error('Error cargando catálogos:', err);
   }
 }
 
-// Renderizar la lista de catÃ¡logos para administrar/eliminar
+// Renderizar la lista de catálogos para administrar/eliminar
 async function renderCatalogsManageList(catalogs, stats = null) {
   const container = document.getElementById('master-cat-manage-list');
   if (!container) return;
@@ -190,7 +190,7 @@ async function renderCatalogsManageList(catalogs, stats = null) {
         <div class="flex flex-wrap justify-between items-center text-xs mb-1.5 font-semibold gap-1">
           <span class="text-slate-700 flex items-center gap-1.5">
             <i class="fa-solid fa-hard-drive text-blue-600"></i>
-            <span>Apartado CatÃ¡logo Maestro (Plan ${stats.planName || 'Gratuita'}):</span>
+            <span>Apartado Catálogo Maestro (Plan ${stats.planName || 'Gratuita'}):</span>
           </span>
           <span class="font-mono text-slate-900 font-bold">${stats.totalMb} MB de ${stats.maxStorageMb} MB reservados (${pct}%)</span>
         </div>
@@ -199,20 +199,20 @@ async function renderCatalogsManageList(catalogs, stats = null) {
         </div>
         <div class="flex flex-wrap justify-between items-center text-[10px] text-slate-500 mt-1.5">
           <span>Titular del Espacio: <strong class="text-slate-700">${stats.ownerName || 'Mi Cuenta'}</strong> (${stats.ownerEmail || ''})</span>
-          <span>${catalogs.length} catÃ¡logo${catalogs.length === 1 ? '' : 's'} activo${catalogs.length === 1 ? '' : 's'} Â· Respaldo S3 automÃ¡tico</span>
+          <span>${catalogs.length} catálogo${catalogs.length === 1 ? '' : 's'} activo${catalogs.length === 1 ? '' : 's'} · Respaldo S3 automático</span>
         </div>
       </div>
     </div>
   ` : '';
 
   if (catalogs.length === 0) {
-    const ownerNameTxt = stats?.ownerName ? `en el espacio de trabajo de <strong>${stats.ownerName}</strong>` : 'aÃºn';
+    const ownerNameTxt = stats?.ownerName ? `en el espacio de trabajo de <strong>${stats.ownerName}</strong>` : 'aún';
     container.innerHTML = `
       ${storageHeader}
       <div class="p-6 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
         <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300"></i>
-        <p class="font-medium text-xs text-slate-600">No hay catÃ¡logos maestros cargados ${ownerNameTxt}.</p>
-        <p class="text-[11px] text-slate-400 mt-1">Usa el botÃ³n "Importar Archivo" para agregar tus archivos de Opus, Neodata, Gobierno, Excel o CSV.</p>
+        <p class="font-medium text-xs text-slate-600">No hay catálogos maestros cargados ${ownerNameTxt}.</p>
+        <p class="text-[11px] text-slate-400 mt-1">Usa el botón "Importar Archivo" para agregar tus archivos de Opus, Neodata, Gobierno, Excel o CSV.</p>
       </div>
     `;
     return;
@@ -223,7 +223,7 @@ async function renderCatalogsManageList(catalogs, stats = null) {
     const isAbsorbed = Boolean(c.isPreset || c.isSystem || c.absorbedByApp || c.ownerEmail === 'system');
     const fecha = c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
     const mbTxt = isAbsorbed 
-      ? '<span class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-200">0 MB â€¢ Absorbido por la app</span>'
+      ? '<span class="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-200">0 MB • Absorbido por la app</span>'
       : `<span class="bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded font-mono">${c.sizeMb !== undefined ? `${c.sizeMb} MB` : (c.sizeBytes ? `${(c.sizeBytes / (1024 * 1024)).toFixed(2)} MB` : '0.10 MB')}</span>`;
 
     let icon = 'fa-book';
@@ -231,7 +231,7 @@ async function renderCatalogsManageList(catalogs, stats = null) {
     if (c.id === 'catalogo_muestra_residencial' || c.name.toLowerCase().includes('residencial')) {
       icon = 'fa-house-chimney';
       iconColor = 'bg-purple-100 text-purple-700';
-    } else if (c.id === 'cubikar_igi_2026' || c.name.toLowerCase().includes('ingenierÃ­a')) {
+    } else if (c.id === 'cubikar_igi_2026' || c.name.toLowerCase().includes('ingeniería')) {
       icon = 'fa-bridge-water';
       iconColor = 'bg-teal-100 text-teal-700';
     } else if (c.id === 'cubikar_vivienda_2026' || c.name.toLowerCase().includes('vivienda')) {
@@ -253,20 +253,20 @@ async function renderCatalogsManageList(catalogs, stats = null) {
             <div class="flex flex-wrap items-center gap-2 text-[10px] text-slate-500 mt-0.5">
               <span class="bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded font-mono">${(c.itemsCount || 0).toLocaleString()} registros</span>
               ${mbTxt}
-              <span>â€¢</span>
+              <span>•</span>
               <span>${c.category || 'General'}</span>
-              <span>â€¢</span>
+              <span>•</span>
               <span>${fecha || '12 nov 2026'}</span>
             </div>
           </div>
         </div>
         <div class="flex items-center gap-2">
           ${isAbsorbed ? `
-            <span class="text-emerald-700 bg-emerald-50 text-[10px] font-bold px-2.5 py-1 rounded-md border border-emerald-200 flex items-center gap-1 shrink-0" title="CatÃ¡logo oficial del sistema (Espacio absorbido por Cubikar â€¢ No consume almacenamiento del usuario)">
+            <span class="text-emerald-700 bg-emerald-50 text-[10px] font-bold px-2.5 py-1 rounded-md border border-emerald-200 flex items-center gap-1 shrink-0" title="Catálogo oficial del sistema (Espacio absorbido por Cubikar • No consume almacenamiento del usuario)">
               <i class="fa-solid fa-circle-check text-emerald-600"></i> Por defecto
             </span>
           ` : `
-            <button onclick="handleDeleteCatalog('${c.id}', '${c.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition shrink-0 cursor-pointer" title="Eliminar este catÃ¡logo">
+            <button onclick="handleDeleteCatalog('${c.id}', '${c.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition shrink-0 cursor-pointer" title="Eliminar este catálogo">
               <i class="fa-solid fa-trash-can text-xs"></i>
             </button>
           `}
@@ -283,20 +283,20 @@ if (typeof window !== 'undefined') {
   window.triggerMasterCatalogSearch = triggerMasterCatalogSearch;
 }
 
-// Eliminar un catÃ¡logo con confirmaciÃ³n
+// Eliminar un catálogo con confirmación
 export async function handleDeleteCatalog(catalogId, catalogName) {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo lectura: no tienes permisos para eliminar catÃ¡logos de referencia.', 'warning');
+    showToast('🔒 Modo lectura: no tienes permisos para eliminar catálogos de referencia.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
-  if (!confirm(`Â¿EstÃ¡s seguro de eliminar el catÃ¡logo "${catalogName}" y todos sus conceptos?`)) {
+  if (!confirm(`¿Estás seguro de eliminar el catálogo "${catalogName}" y todos sus conceptos?`)) {
     return;
   }
 
   try {
     await deleteReferenceCatalog(catalogId);
-    showToast(`CatÃ¡logo "${catalogName}" eliminado`, 'info');
+    showToast(`Catálogo "${catalogName}" eliminado`, 'info');
     await refreshMasterCatalogList();
     triggerMasterCatalogSearch();
   } catch (err) {
@@ -304,7 +304,7 @@ export async function handleDeleteCatalog(catalogId, catalogName) {
   }
 }
 
-// BÃºsqueda con debounce
+// Búsqueda con debounce
 export function onMasterCatalogSearchInput() {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
@@ -312,7 +312,7 @@ export function onMasterCatalogSearchInput() {
   }, 250);
 }
 
-// Ejecutar bÃºsqueda en la base de datos IndexedDB
+// Ejecutar búsqueda en la base de datos IndexedDB
 export async function triggerMasterCatalogSearch() {
   const query = document.getElementById('master-cat-search-input')?.value || '';
   const tipo = document.getElementById('master-cat-tipo-filter')?.value || 'all';
@@ -326,7 +326,7 @@ export async function triggerMasterCatalogSearch() {
       <tr>
         <td colspan="5" class="p-8 text-center text-slate-400">
           <i class="fa-solid fa-spinner fa-spin text-xl text-blue-600 mb-2"></i>
-          <p class="text-xs">Buscando en catÃ¡logos de referencia...</p>
+          <p class="text-xs">Buscando en catálogos de referencia...</p>
         </td>
       </tr>
     `;
@@ -372,7 +372,7 @@ function renderSearchResultsTable(items) {
         <td colspan="5" class="p-8 text-center text-slate-400">
           <i class="fa-solid fa-magnifying-glass text-2xl text-slate-300 mb-2"></i>
           <p class="text-xs font-semibold text-slate-600">No se encontraron conceptos o insumos.</p>
-          <p class="text-[11px] text-slate-400 mt-1">Prueba con otros tÃ©rminos de bÃºsqueda o asegÃºrate de haber importado tus archivos.</p>
+          <p class="text-[11px] text-slate-400 mt-1">Prueba con otros términos de búsqueda o asegúrate de haber importado tus archivos.</p>
         </td>
       </tr>
     `;
@@ -385,7 +385,7 @@ function renderSearchResultsTable(items) {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-blue-50/60 border-b border-slate-100 transition group';
 
-    // Badge segÃºn tipo
+    // Badge según tipo
     let tipoBadge = '';
     if (item.tipo === 'Material') {
       tipoBadge = '<span class="text-[9px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">Material</span>';
@@ -411,8 +411,8 @@ function renderSearchResultsTable(items) {
       <td class="p-2 align-top text-xs text-slate-800 text-justify">
         <div class="font-medium leading-relaxed">${item.descripcion || '-'}</div>
         <div class="text-[10px] text-slate-400 mt-1 flex items-center gap-2">
-          <span><i class="fa-solid fa-book-bookmark text-[9px]"></i> ${item.catalogName || 'CatÃ¡logo'}</span>
-          ${item.familia ? `<span>â€¢ Familia: ${item.familia}</span>` : ''}
+          <span><i class="fa-solid fa-book-bookmark text-[9px]"></i> ${item.catalogName || 'Catálogo'}</span>
+          ${item.familia ? `<span>• Familia: ${item.familia}</span>` : ''}
         </div>
       </td>
       <td class="p-2 align-top text-center font-mono text-xs w-16 text-slate-600">
@@ -436,7 +436,7 @@ function renderSearchResultsTable(items) {
 // Insertar concepto seleccionado al presupuesto de obra (TAB1-CAT-BASE)
 export function insertConceptIntoBudget(resultIndex) {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo lectura: tu rol no permite insertar conceptos al presupuesto.', 'warning');
+    showToast('🔒 Modo lectura: tu rol no permite insertar conceptos al presupuesto.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -465,7 +465,7 @@ export function insertConceptIntoBudget(resultIndex) {
     children: []
   };
 
-  // Si hay una fila seleccionada en TAB1, insertarlo como hijo o a continuaciÃ³n
+  // Si hay una fila seleccionada en TAB1, insertarlo como hijo o a continuación
   if (state.activeSelectedId) {
     const selectedNode = findNodeById(state.treeData, state.activeSelectedId);
     if (selectedNode) {
@@ -487,7 +487,7 @@ export function insertConceptIntoBudget(resultIndex) {
   showToast(`Concepto "${item.clave || item.descripcion.slice(0, 25)}" insertado al presupuesto`, 'success');
 }
 
-// Alternar entre pestaÃ±a de BÃºsqueda y GestiÃ³n de CatÃ¡logos
+// Alternar entre pestaña de Búsqueda y Gestión de Catálogos
 export function switchMasterCatalogTab(tab) {
   const searchTab = document.getElementById('master-cat-tab-search');
   const manageTab = document.getElementById('master-cat-tab-manage');

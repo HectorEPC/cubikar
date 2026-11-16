@@ -1,54 +1,54 @@
-﻿import { parseSheetData } from './universalImporter.js?v=20261116_cf3';
-import { flattenPresetData } from '../ai/localMatrixEngine.js?v=20261116_cf3';
-ï»¿// js/modules/io/opusNeodataImporter.js
-// Importador nativo para paquetes de restauraciÃ³n Opus (.zip con .bak),
+import { parseSheetData } from './universalImporter.js?v=20261116_cf4';
+import { flattenPresetData } from '../ai/localMatrixEngine.js?v=20261116_cf4';
+﻿// js/modules/io/opusNeodataImporter.js
+// Importador nativo para paquetes de restauración Opus (.zip con .bak),
 // archivos de base de datos Opus (.bak) y exportaciones de Neodata.
-// Extrae conceptos, unidades, cantidades, precios unitarios reales y garantiza la integraciÃ³n de matrices completas.
+// Extrae conceptos, unidades, cantidades, precios unitarios reales y garantiza la integración de matrices completas.
 
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf3';
-import { CASA_LAURA_PROJECT } from './casaLauraData.js?v=20261116_cf3';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf4';
+import { CASA_LAURA_PROJECT } from './casaLauraData.js?v=20261116_cf4';
 
-// CatÃ¡logos oficiales de referencia conocidos vinculados a sus paquetes de restauraciÃ³n
+// Catálogos oficiales de referencia conocidos vinculados a sus paquetes de restauración
 const REFERENCE_RESTORE_MAPPING = [
   {
-    pattern: /edificaci[oÃ³]n/i,
+    pattern: /edificaci[oó]n/i,
     jsonPath: 'data/catalogo_edificacion.json',
-    catalogName: 'CatÃ¡logo de EdificaciÃ³n (Opus)',
-    category: 'EdificaciÃ³n'
+    catalogName: 'Catálogo de Edificación (Opus)',
+    category: 'Edificación'
   },
   {
     pattern: /infraestruct|urbaniz/i,
     jsonPath: 'data/catalogo_infraestructura.json',
-    catalogName: 'CatÃ¡logo de Infraestructura y UrbanizaciÃ³n (Opus)',
+    catalogName: 'Catálogo de Infraestructura y Urbanización (Opus)',
     category: 'Infraestructura'
   },
   {
-    pattern: /el[eÃ©]ctric|telecom/i,
+    pattern: /el[eé]ctric|telecom/i,
     jsonPath: 'data/catalogo_instalaciones_electricas.json',
-    catalogName: 'CatÃ¡logo de Instalaciones ElÃ©ctricas (Opus)',
-    category: 'Instalaciones ElÃ©ctricas'
+    catalogName: 'Catálogo de Instalaciones Eléctricas (Opus)',
+    category: 'Instalaciones Eléctricas'
   },
   {
-    pattern: /hidr[aÃ¡]ulic|sanitar/i,
+    pattern: /hidr[aá]ulic|sanitar/i,
     jsonPath: 'data/catalogo_instalaciones_hidraulicas.json',
-    catalogName: 'CatÃ¡logo de Instalaciones HidrÃ¡ulicas (Opus)',
-    category: 'Instalaciones HidrÃ¡ulicas'
+    catalogName: 'Catálogo de Instalaciones Hidráulicas (Opus)',
+    category: 'Instalaciones Hidráulicas'
   },
   {
     pattern: /aire.*acondicionado/i,
     jsonPath: 'data/catalogo_aire_acondicionado.json',
-    catalogName: 'CatÃ¡logo de Aire Acondicionado (Opus)',
+    catalogName: 'Catálogo de Aire Acondicionado (Opus)',
     category: 'Aire Acondicionado'
   },
   {
     pattern: /industrial|obra.*manten/i,
     jsonPath: 'data/catalogo_obra_industrial.json',
-    catalogName: 'CatÃ¡logo de Obra y Mantenimiento Industrial (Opus)',
+    catalogName: 'Catálogo de Obra y Mantenimiento Industrial (Opus)',
     category: 'Obra Industrial'
   }
 ];
 
-// Parser de montos en espaÃ±ol generados por Opus (ej. "CINCO MIL DOSCIENTOS SEIS PESOS 19/100 MXN")
+// Parser de montos en español generados por Opus (ej. "CINCO MIL DOSCIENTOS SEIS PESOS 19/100 MXN")
 export function parseSpanishCurrency(text) {
   if (!text) return 0;
   const matchCents = text.match(/(\d+)\/100/);
@@ -79,17 +79,17 @@ export function parseSpanishCurrency(text) {
       case 'TRECE': current += 13; break;
       case 'CATORCE': current += 14; break;
       case 'QUINCE': current += 15; break;
-      case 'DIECISEIS': case 'DIECISÃ‰IS': current += 16; break;
+      case 'DIECISEIS': case 'DIECISÉIS': current += 16; break;
       case 'DIECISIETE': current += 17; break;
       case 'DIECIOCHO': current += 18; break;
       case 'DIECINUEVE': current += 19; break;
       case 'VEINTE': current += 20; break;
-      case 'VEINTIUN': case 'VEINTIUNO': case 'VEINTIÃšN': current += 21; break;
-      case 'VEINTIDOS': case 'VEINTIDÃ“S': current += 22; break;
-      case 'VEINTITRES': case 'VEINTITRÃ‰S': current += 23; break;
+      case 'VEINTIUN': case 'VEINTIUNO': case 'VEINTIÚN': current += 21; break;
+      case 'VEINTIDOS': case 'VEINTIDÓS': current += 22; break;
+      case 'VEINTITRES': case 'VEINTITRÉS': current += 23; break;
       case 'VEINTICUATRO': current += 24; break;
       case 'VEINTICINCO': current += 25; break;
-      case 'VEINTISEIS': case 'VEINTISÃ‰IS': current += 26; break;
+      case 'VEINTISEIS': case 'VEINTISÉIS': current += 26; break;
       case 'VEINTISIETE': current += 27; break;
       case 'VEINTIOCHO': current += 28; break;
       case 'VEINTINUEVE': current += 29; break;
@@ -115,7 +115,7 @@ export function parseSpanishCurrency(text) {
         total += current;
         current = 0;
         break;
-      case 'MILLON': case 'MILLÃ“N': case 'MILLONES':
+      case 'MILLON': case 'MILLÓN': case 'MILLONES':
         if (current === 0) current = 1;
         current *= 1000000;
         total += current;
@@ -132,7 +132,7 @@ export function parseSpanishCurrency(text) {
 }
 
 /**
- * Proyecto completo "Casa Laura" (Opus 2014) con su estructura jerÃ¡rquica exacta,
+ * Proyecto completo "Casa Laura" (Opus 2014) con su estructura jerárquica exacta,
  * partidas en 'lote', precios reales, cantidades y matrices APU completas.
  */
 export function getCasaLauraExactProject() {
@@ -280,7 +280,7 @@ export function parseOpusBakBuffer(arrayBuffer) {
 
     if (renglones.length === 0 || recursos.size === 0) return null;
 
-    // Detectar nodo raÃ­z de la propuesta/presupuesto
+    // Detectar nodo raíz de la propuesta/presupuesto
     const candidateParents = new Map();
     renglones.forEach(r => {
       if (!candidateParents.has(r.parentId)) candidateParents.set(r.parentId, []);
@@ -306,7 +306,7 @@ export function parseOpusBakBuffer(arrayBuffer) {
     if (rawPartidas.length === 0) return null;
 
     const ORDER = [
-      'Preliminares', 'CimentaciÃ³n', 'Estructura', 'AlbaÃ±ileria',
+      'Preliminares', 'Cimentación', 'Estructura', 'Albañileria',
       'Instalacion Sanitaria', 'Instalacion Hidraulica', 'Instalacion Gas', 'Instalacion de Gas',
       'Instalacion Electrica', 'Acabados', 'Carpinteria', 'Herreria', 'Canceleria'
     ];
@@ -317,7 +317,7 @@ export function parseOpusBakBuffer(arrayBuffer) {
       return (ia !== -1 ? ia : 99) - (ib !== -1 ? ib : 99);
     });
 
-    // FunciÃ³n recursiva para extraer cualquier nivel de profundidad de sub-renglones y sub-conceptos
+    // Función recursiva para extraer cualquier nivel de profundidad de sub-renglones y sub-conceptos
     function buildTreeRecursive(parentId, currentNivel = 1) {
       const children = candidateParents.get(parentId) || [];
       const resultNodes = [];
@@ -382,7 +382,7 @@ export async function parseOpusOrNeodataFile(file) {
   const fileName = file.name;
   const ext = fileName.split('.').pop().toLowerCase();
 
-  // 1. Caso: Archivo comprimido .zip (paquete de restauraciÃ³n Opus o Neodata)
+  // 1. Caso: Archivo comprimido .zip (paquete de restauración Opus o Neodata)
   if (ext === 'zip') {
     return await parseZipPackage(file);
   }
@@ -401,7 +401,7 @@ export async function parseOpusOrNeodataFile(file) {
  */
 async function parseZipPackage(file) {
   if (!window.JSZip) {
-    throw new Error('La librerÃ­a JSZip no estÃ¡ disponible. Verifica js/vendor/jszip.min.js');
+    throw new Error('La librería JSZip no está disponible. Verifica js/vendor/jszip.min.js');
   }
 
   const arrayBuffer = await file.arrayBuffer();
@@ -410,7 +410,7 @@ async function parseZipPackage(file) {
 
   console.log(`[OpusImporter] Archivo ZIP abierto: ${file.name}. Entradas:`, fileEntries);
 
-  // 1.0 Si el ZIP contiene un archivo JSON directo (Paquete de CatÃ¡logo Maestro Base Cubikar / Opus APU)
+  // 1.0 Si el ZIP contiene un archivo JSON directo (Paquete de Catálogo Maestro Base Cubikar / Opus APU)
   const jsonFileKey = fileEntries.find(k => k.endsWith('.json') && !k.startsWith('__MACOSX'));
   if (jsonFileKey) {
     console.log(`[OpusImporter] Archivo JSON de matrices detectado dentro del ZIP: ${jsonFileKey}`);
@@ -419,9 +419,9 @@ async function parseZipPackage(file) {
 
     let cleanName = file.name.replace(/\.zip$/i, '').replace(/_/g, ' ');
     if (/ingenieria|infraestructura/i.test(file.name) || /ingenieria|infraestructura/i.test(jsonFileKey)) {
-      cleanName = 'CatÃ¡logo IngenierÃ­a e Infraestructura 2026';
+      cleanName = 'Catálogo Ingeniería e Infraestructura 2026';
     } else if (/vivienda/i.test(file.name) || /vivienda/i.test(jsonFileKey)) {
-      cleanName = 'CatÃ¡logo Vivienda 2026';
+      cleanName = 'Catálogo Vivienda 2026';
     } else if (/residencial|muestra/i.test(file.name) || /residencial|muestra/i.test(jsonFileKey)) {
       cleanName = 'Catalogo muestra - Proyecto Residencial';
     }
@@ -433,9 +433,9 @@ async function parseZipPackage(file) {
 
     return {
       catalogName: cleanName,
-      category: /infraestructura/i.test(cleanName) ? 'IngenierÃ­a e Infraestructura' : (/vivienda/i.test(cleanName) ? 'Vivienda y EdificaciÃ³n Residencial' : 'EdificaciÃ³n Residencial'),
+      category: /infraestructura/i.test(cleanName) ? 'Ingeniería e Infraestructura' : (/vivienda/i.test(cleanName) ? 'Vivienda y Edificación Residencial' : 'Edificación Residencial'),
       sourceFileName: file.name,
-      tipoDetectado: 'Paquete de CatÃ¡logo Maestro APU (.zip)',
+      tipoDetectado: 'Paquete de Catálogo Maestro APU (.zip)',
       hasHierarchy: Array.isArray(rawData) && rawData.some(n => n.children && n.children.length > 0),
       items: items
     };
@@ -447,7 +447,7 @@ async function parseZipPackage(file) {
     const items = getCasaLauraExactProject().map(i => ({ ...i, catalogName: 'Casa laura (Opus 2014)' }));
     return {
       catalogName: 'Casa laura (Opus 2014)',
-      category: 'EdificaciÃ³n Residencial',
+      category: 'Edificación Residencial',
       sourceFileName: file.name,
       tipoDetectado: 'Proyecto Opus 2014 (.zip con .bak)',
       hasHierarchy: true,
@@ -491,12 +491,12 @@ async function parseZipPackage(file) {
           catalogName: matchedMapping.catalogName,
           category: matchedMapping.category,
           sourceFileName: file.name,
-          tipoDetectado: 'Paquete de RestauraciÃ³n Opus (.zip con .bak)',
+          tipoDetectado: 'Paquete de Restauración Opus (.zip con .bak)',
           items: items
         };
       }
     } catch (e) {
-      console.warn('[OpusImporter] Error cargando catÃ¡logo local preset, intentando descompresiÃ³n interna...', e);
+      console.warn('[OpusImporter] Error cargando catálogo local preset, intentando descompresión interna...', e);
     }
   }
 
@@ -512,7 +512,7 @@ async function parseZipPackage(file) {
       catalogName: file.name,
       category: 'Opus/Neodata Excel',
       sourceFileName: file.name,
-      tipoDetectado: 'ExportaciÃ³n Opus/Neodata (Excel)',
+      tipoDetectado: 'Exportación Opus/Neodata (Excel)',
       hasHierarchy: parsed.hasLevels,
       items: parsed.items
     };
@@ -532,11 +532,11 @@ async function parseZipPackage(file) {
  * Analizador binario para archivos de base de datos SQL Server .bak de Opus
  */
 async function parseBakFile(buffer, fileName) {
-  // 1. Intentar extracciÃ³n binaria nativa ultra-rÃ¡pida de la base SQL Server Opus
-  console.log('[OpusImporter] Intentando extracciÃ³n nativa Opus .bak para ' + fileName + '...');
+  // 1. Intentar extracción binaria nativa ultra-rápida de la base SQL Server Opus
+  console.log('[OpusImporter] Intentando extracción nativa Opus .bak para ' + fileName + '...');
   const nativeTree = parseOpusBakBuffer(buffer);
   if (nativeTree && nativeTree.length > 0) {
-    console.log('[OpusImporter] ExtracciÃ³n nativa exitosa: ' + nativeTree.length + ' partidas extraÃ­das con matrices exactas');
+    console.log('[OpusImporter] Extracción nativa exitosa: ' + nativeTree.length + ' partidas extraídas con matrices exactas');
     const items = nativeTree.map(i => ({ ...i, catalogName: fileName }));
     return {
       catalogName: /casa.*laura|laura/i.test(fileName) ? 'Casa laura (Opus 2014)' : fileName.replace(/\.bak$/i, ''),
@@ -554,7 +554,7 @@ async function parseBakFile(buffer, fileName) {
     const items = getCasaLauraExactProject().map(i => ({ ...i, catalogName: 'Catalogo muestra - Proyecto Residencial' }));
     return {
       catalogName: 'Catalogo muestra - Proyecto Residencial',
-      category: 'EdificaciÃ³n Residencial',
+      category: 'Edificación Residencial',
       sourceFileName: fileName,
       tipoDetectado: 'Proyecto Opus (.bak)',
       hasHierarchy: true,
@@ -562,7 +562,7 @@ async function parseBakFile(buffer, fileName) {
     };
   }
 
-  // Comprobar si el nombre coincide con algÃºn catÃ¡logo oficial de referencia
+  // Comprobar si el nombre coincide con algún catálogo oficial de referencia
   const matchedMapping = REFERENCE_RESTORE_MAPPING.find(m => m.pattern.test(fileName));
   if (matchedMapping) {
     try {
@@ -591,8 +591,8 @@ async function parseBakFile(buffer, fileName) {
     } catch (e) {}
   }
 
-  // ExtracciÃ³n binaria heurÃ­stica de registros en el archivo .bak
-  console.log(`[OpusImporter] Escaneando pÃ¡ginas de ${fileName} (${buffer.byteLength.toLocaleString()} bytes)...`);
+  // Extracción binaria heurística de registros en el archivo .bak
+  console.log(`[OpusImporter] Escaneando páginas de ${fileName} (${buffer.byteLength.toLocaleString()} bytes)...`);
   const items = extractRecordsFromBakBinary(buffer, fileName);
 
   return {
@@ -633,7 +633,7 @@ function extractRecordsFromBakBinary(buffer, fileName) {
     const text = decoder.decode(chunkSlice);
 
     // 1. Detectar partidas o agrupadores con montos en pesos
-    const partidaMatches = text.matchAll(/([A-ZÃÃ‰ÃÃ“Ãša-zÃ±Ã¡Ã©Ã­Ã³Ãº\s]{4,40})1\s*([A-ZÃÃ‰ÃÃ“Ãš\s]+PESOS\s+\d\d\/100\s+MXN)/g);
+    const partidaMatches = text.matchAll(/([A-ZÁÉÍÓÚa-zñáéíóú\s]{4,40})1\s*([A-ZÁÉÍÓÚ\s]+PESOS\s+\d\d\/100\s+MXN)/g);
     for (const pm of partidaMatches) {
       const pName = pm[1].trim();
       const pPesos = pm[2].trim();
@@ -656,9 +656,9 @@ function extractRecordsFromBakBinary(buffer, fileName) {
       }
     }
 
-    // 2. Extraer conceptos Opus con clave y descripciÃ³n
+    // 2. Extraer conceptos Opus con clave y descripción
     // Patrones: G300206-1000, G140100-5005, TEMP*7, ELE-07, CANCELERIA-01, PINTURA-01, 140300-1010
-    const matches = text.matchAll(/([A-Z0-9\*\-]{3,20})\s*[-:]?\s*([A-Za-z0-9Ã¡Ã©Ã­Ã³ÃºÃÃ‰ÃÃ“ÃšÃ±Ã‘\s,\.\(\)""'/\-#%]{8,250}?)\s*(m2|m3|ml|m|kg|pza|lt|ton|lote|jor|hr|sal|jgo|tramo|viaje|serv|dm2|cm|cmo|pt|uso|cb\/19L|L|toma)\b/g);
+    const matches = text.matchAll(/([A-Z0-9\*\-]{3,20})\s*[-:]?\s*([A-Za-z0-9áéíóúÁÉÍÓÚñÑ\s,\.\(\)""'/\-#%]{8,250}?)\s*(m2|m3|ml|m|kg|pza|lt|ton|lote|jor|hr|sal|jgo|tramo|viaje|serv|dm2|cm|cmo|pt|uso|cb\/19L|L|toma)\b/g);
 
     for (const match of matches) {
       const clave = match[1].trim();
@@ -671,7 +671,7 @@ function extractRecordsFromBakBinary(buffer, fileName) {
 
       seenClaves.add(clave);
 
-      // Limpiar descripciÃ³n
+      // Limpiar descripción
       const cleanDesc = rawDesc.replace(/[^\x20-\x7E\u00A0-\u024F]/g, ' ').replace(/\s+/g, ' ').trim();
       if (!cleanDesc || cleanDesc.length < 5) continue;
 
@@ -683,7 +683,7 @@ function extractRecordsFromBakBinary(buffer, fileName) {
       let cantidad = 1.0;
 
       // Buscar monto en pesos
-      const pesosMatch = windowStr.match(/([A-ZÃÃ‰ÃÃ“Ãš\s]+PESOS\s+\d\d\/100\s+MXN)/i);
+      const pesosMatch = windowStr.match(/([A-ZÁÉÍÓÚ\s]+PESOS\s+\d\d\/100\s+MXN)/i);
       if (pesosMatch && !/CERO PESOS/i.test(pesosMatch[1])) {
         precio = parseSpanishCurrency(pesosMatch[1]);
       }
@@ -696,7 +696,7 @@ function extractRecordsFromBakBinary(buffer, fileName) {
       }
 
       if (precio <= 0) {
-        // Asignar precio base coherente segÃºn tipo de concepto
+        // Asignar precio base coherente según tipo de concepto
         if (unit === 'm3') precio = 1850.00;
         else if (unit === 'm2') precio = 280.00;
         else if (unit === 'm' || unit === 'ml') precio = 145.00;
@@ -737,7 +737,7 @@ function extractRecordsFromBakBinary(buffer, fileName) {
     if (items.length >= 3000) break;
   }
 
-  // Si no se detectÃ³ ninguna partida, crear partida raÃ­z
+  // Si no se detectó ninguna partida, crear partida raíz
   if (!items.some(i => i.tipo === 'Partida')) {
     const rootPartida = {
       clave: '1',
@@ -758,7 +758,7 @@ function extractRecordsFromBakBinary(buffer, fileName) {
 }
 
 /**
- * Parser de filas con integraciÃ³n obligatoria de matrices
+ * Parser de filas con integración obligatoria de matrices
  */
 function parseRowsWithMatrixGeneration(rawRows, fileName) {
   const items = [];
@@ -796,7 +796,7 @@ function parseRowsWithMatrixGeneration(rawRows, fileName) {
     });
   }
 
-  // Agregar partida raÃ­z si es necesario
+  // Agregar partida raíz si es necesario
   const rootPartida = {
     clave: '1',
     descripcion: 'Partida General',
@@ -814,7 +814,7 @@ function parseRowsWithMatrixGeneration(rawRows, fileName) {
     catalogName: fileName,
     category: 'Opus/Neodata Excel',
     sourceFileName: fileName,
-    tipoDetectado: 'ExportaciÃ³n Opus/Neodata',
+    tipoDetectado: 'Exportación Opus/Neodata',
     items: items
   };
 }

@@ -1,13 +1,13 @@
-﻿import { state, persistLocalData } from '../../state/store.js?v=20261116_cf3';
-import { saveState } from '../../state/history.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
-import { findNodeById, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf3';
-import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from './apuView.js?v=20261116_cf3';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf3';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf3';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf3';
-import { round2, round5 } from '../../core/formatters.js?v=20261116_cf3';
-import { updateGrandTotal } from '../../core/calculations.js?v=20261116_cf3';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf4';
+import { saveState } from '../../state/history.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+import { findNodeById, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf4';
+import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from './apuView.js?v=20261116_cf4';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf4';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf4';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf4';
+import { round2, round5 } from '../../core/formatters.js?v=20261116_cf4';
+import { updateGrandTotal } from '../../core/calculations.js?v=20261116_cf4';
 
 // Filtro de botones en la tabla Matriz APU
 export function filterMatriz(tipo) {
@@ -60,7 +60,7 @@ export function filterInsumos(tipo) {
 // Agregar nuevo insumo a la matriz del concepto activo
 export function addInsumo() {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo lectura: tu rol no permite modificar matrices APU.', 'warning');
+    showToast('🔒 Modo lectura: tu rol no permite modificar matrices APU.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -68,7 +68,7 @@ export function addInsumo() {
   const node = findNodeById(state.treeData, state.activeSelectedId);
   if (!node) return;
   if (node.children && node.children.length > 0) {
-    showToast('RestricciÃ³n: Esta fila contiene sub-conceptos y no puede tener matriz de insumos.', 'warning');
+    showToast('Restricción: Esta fila contiene sub-conceptos y no puede tener matriz de insumos.', 'warning');
     return;
   }
   saveState();
@@ -94,7 +94,7 @@ export function addInsumo() {
 // Actualizar un campo de un insumo (descripcion, tipo, unidad, cantidad, costoUnitario)
 export function updateInsumo(index, field, value) {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo lectura: tu rol no permite editar insumos APU.', 'warning');
+    showToast('🔒 Modo lectura: tu rol no permite editar insumos APU.', 'warning');
     const node = findNodeById(state.treeData, state.activeSelectedId);
     if (node) renderAPUInsumos(node);
     return;
@@ -123,7 +123,7 @@ export function updateInsumo(index, field, value) {
 // Eliminar un insumo de la matriz
 export function removeInsumo(index) {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo lectura: tu rol no permite eliminar insumos APU.', 'warning');
+    showToast('🔒 Modo lectura: tu rol no permite eliminar insumos APU.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -148,7 +148,7 @@ export function removeInsumo(index) {
 // Limpiar todo el contenido de la matriz del concepto seleccionado
 export function limpiarMatrizConceptoSeleccionado() {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo lectura: tu rol no permite limpiar matrices APU.', 'warning');
+    showToast('🔒 Modo lectura: tu rol no permite limpiar matrices APU.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -158,7 +158,7 @@ export function limpiarMatrizConceptoSeleccionado() {
   }
   const node = findNodeById(state.treeData, state.activeSelectedId);
   if (!node) {
-    showToast('No se encontrÃ³ el concepto seleccionado.', 'warning');
+    showToast('No se encontró el concepto seleccionado.', 'warning');
     return;
   }
 
@@ -168,13 +168,13 @@ export function limpiarMatrizConceptoSeleccionado() {
   }
 
   if (!node.insumos || node.insumos.length === 0) {
-    showToast('La matriz de este concepto ya estÃ¡ vacÃ­a.', 'info');
+    showToast('La matriz de este concepto ya está vacía.', 'info');
     return;
   }
 
   const claveDisplay = node.clave ? `[${node.clave}] ` : '';
   const count = node.insumos.length;
-  const confirmMsg = `Â¿Deseas vaciar toda la matriz del concepto seleccionado?\n\n${claveDisplay}${node.descripcion}\n\nSe eliminarÃ¡n los ${count} insumos que la conforman.`;
+  const confirmMsg = `¿Deseas vaciar toda la matriz del concepto seleccionado?\n\n${claveDisplay}${node.descripcion}\n\nSe eliminarán los ${count} insumos que la conforman.`;
   if (!confirm(confirmMsg)) {
     return;
   }
@@ -202,7 +202,7 @@ export function limpiarMatrizConceptoSeleccionado() {
 // Limpiar matrices APU de todos los conceptos que tengan casilla seleccionada
 export function limpiarMatricesCasillas() {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo lectura: tu rol no permite limpiar matrices APU.', 'warning');
+    showToast('🔒 Modo lectura: tu rol no permite limpiar matrices APU.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -231,8 +231,8 @@ export function limpiarMatricesCasillas() {
 
   const count = withInsumos.length;
   const msg = targets.length === 1
-    ? `Â¿Deseas vaciar la matriz del concepto seleccionado con casilla?\n\n[${targets[0].clave || ''}] ${targets[0].descripcion}\n\nSe eliminarÃ¡n los ${targets[0].insumos.length} insumos de su matriz.`
-    : `Â¿EstÃ¡s seguro de que deseas vaciar las matrices de los ${count} conceptos seleccionados con casilla?\n\nEsta acciÃ³n eliminarÃ¡ todos sus insumos y restablecerÃ¡ sus costos directos y precios unitarios a $0.00.`;
+    ? `¿Deseas vaciar la matriz del concepto seleccionado con casilla?\n\n[${targets[0].clave || ''}] ${targets[0].descripcion}\n\nSe eliminarán los ${targets[0].insumos.length} insumos de su matriz.`
+    : `¿Estás seguro de que deseas vaciar las matrices de los ${count} conceptos seleccionados con casilla?\n\nEsta acción eliminará todos sus insumos y restablecerá sus costos directos y precios unitarios a $0.00.`;
 
   if (!confirm(msg)) {
     return;
@@ -264,7 +264,7 @@ export function limpiarMatricesCasillas() {
   }
 
   const resultMsg = targets.length === 1
-    ? 'Â¡Matriz del concepto vaciada correctamente!'
-    : `âœ… Se vaciaron las matrices de ${count} conceptos seleccionados correctamente.`;
+    ? '¡Matriz del concepto vaciada correctamente!'
+    : `✅ Se vaciaron las matrices de ${count} conceptos seleccionados correctamente.`;
   showToast(resultMsg, 'success');
 }

@@ -1,11 +1,11 @@
-﻿// js/modules/bitacora/bitacoraModel.js
-// Modelo de datos, folios correlativos, mÃ©tricas de obra y reglas legales de inviolabilidad (LOPSRM / BESOP)
+// js/modules/bitacora/bitacoraModel.js
+// Modelo de datos, folios correlativos, métricas de obra y reglas legales de inviolabilidad (LOPSRM / BESOP)
 
-import { state } from '../../state/store.js?v=20261116_cf3';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf3';
-import { getCurrentUser, getProjectById } from '../portal/projectService.js?v=20261116_cf3';
-import { getScheduleSettings, extractScheduleItems, parseDate, formatDate, diffDays } from '../calendario/calendarioModel.js?v=20261116_cf3';
-import { scheduleBitacoraCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261116_cf3';
+import { state } from '../../state/store.js?v=20261116_cf4';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf4';
+import { getCurrentUser, getProjectById } from '../portal/projectService.js?v=20261116_cf4';
+import { getScheduleSettings, extractScheduleItems, parseDate, formatDate, diffDays } from '../calendario/calendarioModel.js?v=20261116_cf4';
+import { scheduleBitacoraCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261116_cf4';
 
 const STORAGE_KEY_PREFIX = 'adm_const_bitacora_';
 
@@ -20,8 +20,8 @@ export const BITACORA_NOTE_TYPES = [
     pdfColor: [16, 185, 129]
   },
   {
-    id: 'InstrucciÃ³n de SupervisiÃ³n',
-    label: 'InstrucciÃ³n de SupervisiÃ³n',
+    id: 'Instrucción de Supervisión',
+    label: 'Instrucción de Supervisión',
     icon: 'fa-clipboard-check',
     badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
     accentBorder: 'border-l-amber-500',
@@ -47,8 +47,8 @@ export const BITACORA_NOTE_TYPES = [
     pdfColor: [37, 99, 235]
   },
   {
-    id: 'SuspensiÃ³n/Clima',
-    label: 'SuspensiÃ³n / Clima',
+    id: 'Suspensión/Clima',
+    label: 'Suspensión / Clima',
     icon: 'fa-cloud-showers-heavy',
     badgeClass: 'bg-orange-100 text-orange-800 border-orange-300',
     accentBorder: 'border-l-orange-500',
@@ -76,19 +76,19 @@ export const BITACORA_NOTE_TYPES = [
 ];
 
 export const BITACORA_WEATHER_OPTIONS = [
-  { id: 'Soleado', label: 'Soleado', icon: 'fa-sun', emoji: 'â˜€ï¸' },
-  { id: 'Parcialmente Nublado', label: 'Parcialmente Nublado', icon: 'fa-cloud-sun', emoji: 'â›…' },
-  { id: 'Nublado', label: 'Nublado', icon: 'fa-cloud', emoji: 'â˜ï¸' },
-  { id: 'Lluvia Ligera', label: 'Lluvia Ligera', icon: 'fa-cloud-rain', emoji: 'ðŸŒ¦ï¸' },
-  { id: 'Lluvia Fuerte', label: 'Lluvia Fuerte / Tormenta', icon: 'fa-cloud-showers-heavy', emoji: 'â›ˆï¸' },
-  { id: 'Viento Fuerte', label: 'Viento Fuerte', icon: 'fa-wind', emoji: 'ðŸ’¨' },
-  { id: 'Condiciones Adversas', label: 'Inhabitable / SuspensiÃ³n', icon: 'fa-triangle-exclamation', emoji: 'âš ï¸' }
+  { id: 'Soleado', label: 'Soleado', icon: 'fa-sun', emoji: '☀️' },
+  { id: 'Parcialmente Nublado', label: 'Parcialmente Nublado', icon: 'fa-cloud-sun', emoji: '⛅' },
+  { id: 'Nublado', label: 'Nublado', icon: 'fa-cloud', emoji: '☁️' },
+  { id: 'Lluvia Ligera', label: 'Lluvia Ligera', icon: 'fa-cloud-rain', emoji: '🌦️' },
+  { id: 'Lluvia Fuerte', label: 'Lluvia Fuerte / Tormenta', icon: 'fa-cloud-showers-heavy', emoji: '⛈️' },
+  { id: 'Viento Fuerte', label: 'Viento Fuerte', icon: 'fa-wind', emoji: '💨' },
+  { id: 'Condiciones Adversas', label: 'Inhabitable / Suspensión', icon: 'fa-triangle-exclamation', emoji: '⚠️' }
 ];
 
 export const BITACORA_SIGNER_ROLES = [
   'Residente de Obra',
   'Supervisor de Obra',
-  'Superintendente de ConstrucciÃ³n',
+  'Superintendente de Construcción',
   'Director Responsable de Obra (DRO)',
   'Contratista / Representante Legal',
   'Coordinador de Obra'
@@ -146,7 +146,7 @@ export function loadBitacoraData(projectId = null) {
       };
     }
   } catch (err) {
-    console.warn('[BitacoraModel] Error al leer datos de bitÃ¡cora:', err);
+    console.warn('[BitacoraModel] Error al leer datos de bitácora:', err);
   }
   return defaults;
 }
@@ -173,8 +173,8 @@ export function saveBitacoraData(data, projectId = null) {
     localStorage.setItem(getBitacoraStorageKey(projectId), JSON.stringify(clean));
     scheduleBitacoraCloudSync(projectId);
   } catch (err) {
-    console.error('[BitacoraModel] Error al guardar en localStorage (posible exceso de tamaÃ±o):', err);
-    throw new Error('No se pudo guardar en almacenamiento local. Verifica el peso de las imÃ¡genes adjuntas.');
+    console.error('[BitacoraModel] Error al guardar en localStorage (posible exceso de tamaño):', err);
+    throw new Error('No se pudo guardar en almacenamiento local. Verifica el peso de las imágenes adjuntas.');
   }
   return clean;
 }
@@ -210,7 +210,7 @@ export function getNextFolioNumber(notes = null) {
 
 /**
  * Crear o actualizar una nota en estado BORRADOR.
- * Bloquea estrictamente cualquier intento de ediciÃ³n sobre una nota ya asentada ('sealed').
+ * Bloquea estrictamente cualquier intento de edición sobre una nota ya asentada ('sealed').
  */
 export function saveBitacoraDraftNote(noteInput, projectId = null) {
   const data = loadBitacoraData(projectId);
@@ -222,7 +222,7 @@ export function saveBitacoraDraftNote(noteInput, projectId = null) {
     if (idx >= 0) {
       const existing = data.notes[idx];
       if (existing.estado === 'sealed') {
-        throw new Error('BLOQUEO LEGAL: Esta nota ya fue asentada y firmada. No puede modificarse; crea una nota de AclaraciÃ³n / Fe de Erratas.');
+        throw new Error('BLOQUEO LEGAL: Esta nota ya fue asentada y firmada. No puede modificarse; crea una nota de Aclaración / Fe de Erratas.');
       }
 
       const updated = Object.assign({}, existing, {
@@ -283,7 +283,7 @@ export function saveBitacoraDraftNote(noteInput, projectId = null) {
 }
 
 /**
- * Eliminar una nota Ãºnicamente si sigue en estado BORRADOR.
+ * Eliminar una nota únicamente si sigue en estado BORRADOR.
  */
 export function deleteBitacoraDraftNote(noteId, projectId = null) {
   const data = loadBitacoraData(projectId);
@@ -298,7 +298,7 @@ export function deleteBitacoraDraftNote(noteId, projectId = null) {
 }
 
 /**
- * Calcular huella criptogrÃ¡fica determinÃ­stica (SHA-256) para el sello legal de la nota.
+ * Calcular huella criptográfica determinística (SHA-256) para el sello legal de la nota.
  */
 export async function computeNoteIntegrityHash(notePayload) {
   const canonical = JSON.stringify({
@@ -338,7 +338,7 @@ export async function computeNoteIntegrityHash(notePayload) {
 export function sealAndSignBitacoraNote(noteId, { firma, pdfDoc, evidenciasActualizadas = null }, projectId = null) {
   const data = loadBitacoraData(projectId);
   const idx = data.notes.findIndex(n => n.id === noteId);
-  if (idx < 0) throw new Error('No se encontrÃ³ la nota para asentar.');
+  if (idx < 0) throw new Error('No se encontró la nota para asentar.');
 
   const existing = data.notes[idx];
   if (existing.estado === 'sealed') {
@@ -361,7 +361,7 @@ export function sealAndSignBitacoraNote(noteId, { firma, pdfDoc, evidenciasActua
 
   data.notes[idx] = sealedNote;
 
-  // Recordar datos del Ãºltimo firmante como predeterminados para agilidad
+  // Recordar datos del último firmante como predeterminados para agilidad
   if (firma?.autorNombre) {
     data.config.residenteDefault = firma.autorNombre;
   }
@@ -377,8 +377,8 @@ export function sealAndSignBitacoraNote(noteId, { firma, pdfDoc, evidenciasActua
 }
 
 /**
- * Actualizar Ãºnicamente los metadatos de sincronizaciÃ³n en nube (AWS S3) en una nota ya sellada
- * (sin modificar jamÃ¡s el contenido legal, folio, texto, fecha o firma).
+ * Actualizar únicamente los metadatos de sincronización en nube (AWS S3) en una nota ya sellada
+ * (sin modificar jamás el contenido legal, folio, texto, fecha o firma).
  */
 export function attachCloudArtifactsToSealedNote(noteId, { pdfDocPatch = null, evidenciasPatch = null }, projectId = null) {
   const data = loadBitacoraData(projectId);
@@ -412,7 +412,7 @@ export function attachCloudArtifactsToSealedNote(noteId, { pdfDocPatch = null, e
 }
 
 /**
- * Extraer lista plana de conceptos del CatÃ¡logo Base del proyecto para vincular en BitÃ¡cora.
+ * Extraer lista plana de conceptos del Catálogo Base del proyecto para vincular en Bitácora.
  */
 export function getCatalogConceptsForBitacora() {
   const concepts = [];
@@ -428,7 +428,7 @@ export function getCatalogConceptsForBitacora() {
         concepts.push({
           id: node.id,
           clave: node.clave || 'S/C',
-          descripcion: node.descripcion || 'Concepto sin descripciÃ³n',
+          descripcion: node.descripcion || 'Concepto sin descripción',
           unidad: node.unidad || 'pza',
           cantidad: Number(node.cantidad) || 0,
           partidaPath: pathParts.join(' > ')
@@ -441,7 +441,7 @@ export function getCatalogConceptsForBitacora() {
 }
 
 /**
- * Obtener resumen ejecutivo de tiempos de obra y mÃ©tricas de bitÃ¡cora.
+ * Obtener resumen ejecutivo de tiempos de obra y métricas de bitácora.
  */
 export function getBitacoraWorkSummary(projectId = null) {
   const data = loadBitacoraData(projectId);
@@ -488,14 +488,14 @@ export function getBitacoraWorkSummary(projectId = null) {
 
   const sealedNotes = notes.filter(n => n.estado === 'sealed').sort((a, b) => (a.folioNumber || 0) - (b.folioNumber || 0));
   const draftNotes = notes.filter(n => n.estado !== 'sealed');
-  const incidentNotes = notes.filter(n => n.tipo === 'Incidencia' || n.tipo === 'SuspensiÃ³n/Clima');
+  const incidentNotes = notes.filter(n => n.tipo === 'Incidencia' || n.tipo === 'Suspensión/Clima');
   const pendingCloudNotes = sealedNotes.filter(n =>
     n.pdfDoc?.pendingSync ||
     (n.pdfDoc && !n.pdfDoc.s3Key) ||
     (Array.isArray(n.evidencias) && n.evidencias.some(ev => ev.pendingSync || !ev.s3Key))
   );
 
-  // Actualizar fecha de clima si cambiÃ³ el dÃ­a
+  // Actualizar fecha de clima si cambió el día
   const climaHoy = (cfg.climaFecha === todayStr && cfg.climaHoy) ? cfg.climaHoy : (cfg.climaHoy || 'Soleado');
 
   return {

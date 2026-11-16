@@ -1,8 +1,8 @@
-﻿// js/core/realtimeSync.js
-// SincronizaciÃ³n en tiempo real vÃ­a WebSockets (Supabase Realtime) y ColaboraciÃ³n en vivo
+// js/core/realtimeSync.js
+// Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf3';
-import { state } from '../state/store.js?v=20261116_cf3';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf4';
+import { state } from '../state/store.js?v=20261116_cf4';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -17,10 +17,10 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261116_cf3';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf3';
-import { findNodeById } from '../modules/catalog/treeService.js?v=20261116_cf3';
-import { showToast } from '../ui/notifications.js?v=20261116_cf3';
+} from '../modules/portal/projectService.js?v=20261116_cf4';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf4';
+import { findNodeById } from '../modules/catalog/treeService.js?v=20261116_cf4';
+import { showToast } from '../ui/notifications.js?v=20261116_cf4';
 
 let activeChannel = null;
 let currentSubscribedProjectId = null;
@@ -41,7 +41,7 @@ function showThrottledToast(message, type = 'info', author = '') {
 let onRemoteConceptUpdated = null;
 let onPresenceSyncCallback = null;
 
-// Canal de transmisiÃ³n local de baja latencia (0ms) entre pestaÃ±as y ventanas del mismo navegador
+// Canal de transmisión local de baja latencia (0ms) entre pestañas y ventanas del mismo navegador
 export const localBroadcastChannel = (typeof window !== 'undefined' && typeof window.BroadcastChannel === 'function')
   ? new window.BroadcastChannel('cubikar_realtime_local_v1')
   : null;
@@ -65,7 +65,7 @@ if (localBroadcastChannel) {
 }
 
 /**
- * Aplicar mutaciÃ³n granular a un Ã¡rbol de conceptos en memoria o almacenamiento local
+ * Aplicar mutación granular a un árbol de conceptos en memoria o almacenamiento local
  */
 export function applyTreePatch(tree, patch) {
   if (!Array.isArray(tree) || !patch || typeof patch !== 'object') return false;
@@ -314,28 +314,28 @@ export function subscribeToProjectRealtime(projectId) {
     }
   });
 
-  // Escuchar eliminaciÃ³n de mensajes de chat en tiempo real
+  // Escuchar eliminación de mensajes de chat en tiempo real
   activeChannel.on('broadcast', { event: 'chat_mensaje_eliminado' }, (payload) => {
     if (payload?.payload) {
       handleIncomingChatDelete(payload.payload);
     }
   });
 
-  // Escuchar eliminaciÃ³n de esta obra en tiempo real
+  // Escuchar eliminación de esta obra en tiempo real
   activeChannel.on('broadcast', { event: 'proyecto_eliminado' }, (payload) => {
     if (payload?.payload) {
       handleIncomingProjectDeleted(payload.payload);
     }
   });
 
-  // Escuchar remociÃ³n de colaboradores en tiempo real
+  // Escuchar remoción de colaboradores en tiempo real
   activeChannel.on('broadcast', { event: 'colaborador_removido' }, (payload) => {
     if (payload?.payload) {
       handleIncomingCollaboratorRemoved(payload.payload);
     }
   });
 
-  // 2. Escuchar cambios de base de datos en 'catalogo_conceptos' (Postgres CDC solo si hay UUID vÃ¡lido)
+  // 2. Escuchar cambios de base de datos en 'catalogo_conceptos' (Postgres CDC solo si hay UUID válido)
   if (isUuid(canonicalCloudId)) {
     activeChannel.on(
       'postgres_changes',
@@ -423,7 +423,7 @@ export function subscribeToProjectRealtime(projectId) {
     );
   });
 
-  // 4. SincronizaciÃ³n de presencia de usuarios (quiÃ©n estÃ¡ en la obra)
+  // 4. Sincronización de presencia de usuarios (quién está en la obra)
   activeChannel.on('presence', { event: 'sync' }, () => {
     if (!activeChannel) return;
     const presenceState = activeChannel.presenceState();
@@ -453,7 +453,7 @@ export function subscribeToProjectRealtime(projectId) {
 }
 
 /**
- * Emitir broadcast de mutaciÃ³n de proyecto en tiempo real (cambio de texto, adiciÃ³n, eliminaciÃ³n de fila, APU)
+ * Emitir broadcast de mutación de proyecto en tiempo real (cambio de texto, adición, eliminación de fila, APU)
  * a todos los colaboradores y anfitriones conectados al canal de la obra y global.
  */
 export function broadcastProjectMutation({
@@ -463,7 +463,7 @@ export function broadcastProjectMutation({
   immediate = false,
   changeType = 'general',
   highlightId = null,
-  changeDescription = 'cambios en el catÃ¡logo',
+  changeDescription = 'cambios en el catálogo',
   patch = null
 } = {}) {
   const pId = projectId || currentSubscribedProjectId || (typeof getActiveProjectId === 'function' ? getActiveProjectId() : null);
@@ -480,8 +480,8 @@ export function broadcastProjectMutation({
   const sendPayload = () => {
     let safeTreeData = null;
     let treeTooLarge = false;
-    // Si viene un parche granular (ediciÃ³n de celda, cantidad, precio, etc.), NO enviamos el Ã¡rbol completo por red
-    // para evitar saturar el ancho de banda y congelar la UI de los demÃ¡s usuarios.
+    // Si viene un parche granular (edición de celda, cantidad, precio, etc.), NO enviamos el árbol completo por red
+    // para evitar saturar el ancho de banda y congelar la UI de los demás usuarios.
     if (!patch && Array.isArray(treeData)) {
       try {
         const raw = JSON.stringify(treeData);
@@ -513,7 +513,7 @@ export function broadcastProjectMutation({
       timestamp: Date.now()
     };
 
-    // 0. Enviar localmente a otras pestaÃ±as/ventanas del navegador (0ms latencia)
+    // 0. Enviar localmente a otras pestañas/ventanas del navegador (0ms latencia)
     if (localBroadcastChannel) {
       try {
         localBroadcastChannel.postMessage({
@@ -526,7 +526,7 @@ export function broadcastProjectMutation({
     const sb = getSupabaseClient();
     if (!isSupabaseConfigured() || !sb) return;
 
-    // 1. Enviar vÃ­a canal de la obra activa (latencia < 30ms para quienes tienen la obra abierta)
+    // 1. Enviar vía canal de la obra activa (latencia < 30ms para quienes tienen la obra abierta)
     if (activeChannel) {
       try {
         activeChannel.send({
@@ -539,7 +539,7 @@ export function broadcastProjectMutation({
       }
     }
 
-    // 2. Enviar vÃ­a canal global solo metadata ligera para el dashboard (nunca enviamos safeTreeData al canal global si estamos editando)
+    // 2. Enviar vía canal global solo metadata ligera para el dashboard (nunca enviamos safeTreeData al canal global si estamos editando)
     if (!globalSyncChannel) initGlobalRealtimeSync();
     if (globalSyncChannel) {
       try {
@@ -581,7 +581,7 @@ export function broadcastProjectMutation({
 }
 
 /**
- * Procesar actualizaciÃ³n entrante de proyecto emitida por otro usuario en tiempo real
+ * Procesar actualización entrante de proyecto emitida por otro usuario en tiempo real
  */
 export function handleIncomingProjectUpdate(data) {
   if (!data || !data.projectId) return;
@@ -591,7 +591,7 @@ export function handleIncomingProjectUpdate(data) {
   const myEmail = currentUser.email.toLowerCase().trim();
   const authorEmail = (data.author?.email || '').toLowerCase().trim();
 
-  // Si el cambio fue emitido por esta misma pestaÃ±a/sesiÃ³n, ignorar para evitar bucles de actualizaciÃ³n
+  // Si el cambio fue emitido por esta misma pestaña/sesión, ignorar para evitar bucles de actualización
   if (data.senderSessionId && data.senderSessionId === LOCAL_CLIENT_SESSION_ID) {
     return;
   }
@@ -615,7 +615,7 @@ export function handleIncomingProjectUpdate(data) {
   const allProjects = getProjectsList();
   let projIdx = allProjects.findIndex(p => p.id === projectId || (p.cloudId && p.cloudId === projectId));
 
-  // Solo aceptar un proyecto nuevo por realtime si pertenece al usuario actual o si ya lo tiene abierto en el Ã¡rea de trabajo
+  // Solo aceptar un proyecto nuevo por realtime si pertenece al usuario actual o si ya lo tiene abierto en el área de trabajo
   if (projIdx < 0) {
     if (data.project && data.project.id && isAuthorizedProject(data.project)) {
       allProjects.unshift(data.project);
@@ -645,7 +645,7 @@ export function handleIncomingProjectUpdate(data) {
 
   const isCurrentActive = Boolean(currentPId && (currentPId === projectId || (proj && (currentPId === proj.id || currentPId === proj.cloudId))));
 
-  // 1. Aplicar mutaciÃ³n al Ã¡rbol local (memoria y localStorage)
+  // 1. Aplicar mutación al árbol local (memoria y localStorage)
   let treeMutated = false;
   if (data.patch) {
     if (isCurrentActive && Array.isArray(state.treeData)) {
@@ -728,10 +728,10 @@ export function handleIncomingProjectUpdate(data) {
   }
 
   const authorName = data.author?.name || data.author?.email || 'Un colaborador';
-  const desc = data.changeDescription || 'cambios en el catÃ¡logo';
-  showThrottledToast(`ðŸ”„ ${authorName} actualizÃ³ ${desc} en tiempo real`, 'info', authorEmail);
+  const desc = data.changeDescription || 'cambios en el catálogo';
+  showThrottledToast(`🔄 ${authorName} actualizó ${desc} en tiempo real`, 'info', authorEmail);
 
-  // Si somos el anfitriÃ³n/propietario, respaldar automÃ¡ticamente el nuevo estado en la nube
+  // Si somos el anfitrión/propietario, respaldar automáticamente el nuevo estado en la nube
   const isOwner = proj && (proj.ownerEmail || '').toLowerCase().trim() === myEmail;
   if (isOwner) {
     try {
@@ -770,7 +770,7 @@ function isRecentlyPushedLocally(id) {
 }
 
 /**
- * Emitir broadcast instantÃ¡neo a otros usuarios conectados a la misma obra
+ * Emitir broadcast instantáneo a otros usuarios conectados a la misma obra
  */
 export function broadcastConceptChange(concept) {
   if (!activeChannel || !concept) return;
@@ -807,7 +807,7 @@ export function broadcastConceptChange(concept) {
 function handleIncomingConceptUpdate(data) {
   if (!data || !data.id) return;
 
-  // Si el cambio fue emitido por esta misma sesiÃ³n o reciÃ©n enviado desde este dispositivo (eco CDC/Broadcast), ignorar
+  // Si el cambio fue emitido por esta misma sesión o recién enviado desde este dispositivo (eco CDC/Broadcast), ignorar
   if (data.senderSessionId && data.senderSessionId === LOCAL_CLIENT_SESSION_ID) {
     return;
   }
@@ -853,13 +853,13 @@ function handleIncomingConceptUpdate(data) {
         localStorage.setItem(getStorageKey(activePId), JSON.stringify(state.treeData));
       }
     } catch (_) {}
-    // Recalcular y refrescar la tabla si la funciÃ³n global estÃ¡ disponible
+    // Recalcular y refrescar la tabla si la función global está disponible
     if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
     if (typeof window.renderTAB1 === 'function') window.renderTAB1();
     if (typeof window.highlightCatalogRowInPlace === 'function') window.highlightCatalogRowInPlace(matchedNodeId || data.id);
 
     const autorNombre = data.autor || 'Otro usuario';
-    showThrottledToast(`ðŸ”„ Concepto "${data.clave || ''}" actualizado en vivo por ${autorNombre}`, 'info', autorNombre);
+    showThrottledToast(`🔄 Concepto "${data.clave || ''}" actualizado en vivo por ${autorNombre}`, 'info', autorNombre);
 
     if (onRemoteConceptUpdated) {
       onRemoteConceptUpdated(data);
@@ -868,7 +868,7 @@ function handleIncomingConceptUpdate(data) {
 }
 
 /**
- * Enviar actualizaciÃ³n de un concepto a Supabase en la tabla catalogo_conceptos
+ * Enviar actualización de un concepto a Supabase en la tabla catalogo_conceptos
  */
 export async function pushConceptUpdateToSupabase(concept) {
   const sb = getSupabaseClient();
@@ -941,7 +941,7 @@ export function unsubscribeFromProjectRealtime() {
 }
 
 // =========================================================================
-// CANAL GLOBAL DE INVITACIONES Y COLABORACIÃ“N EN TIEMPO REAL
+// CANAL GLOBAL DE INVITACIONES Y COLABORACIÓN EN TIEMPO REAL
 // =========================================================================
 let globalSyncChannel = null;
 
@@ -963,31 +963,31 @@ export function initGlobalRealtimeSync() {
     handleIncomingInvitation(payload.payload);
   });
 
-  // 2. Escuchar aceptaciÃ³n de invitaciones
+  // 2. Escuchar aceptación de invitaciones
   globalSyncChannel.on('broadcast', { event: 'invitacion_aceptada' }, (payload) => {
     if (!payload?.payload) return;
     handleIncomingInvitationAccepted(payload.payload);
   });
 
-  // 3. Escuchar rechazo o eliminaciÃ³n de invitaciones
+  // 3. Escuchar rechazo o eliminación de invitaciones
   globalSyncChannel.on('broadcast', { event: 'invitacion_rechazada' }, (payload) => {
     if (!payload?.payload) return;
     handleIncomingInvitationRejected(payload.payload);
   });
 
-  // 4. Escuchar creaciÃ³n de nuevos proyectos
+  // 4. Escuchar creación de nuevos proyectos
   globalSyncChannel.on('broadcast', { event: 'nuevo_proyecto' }, (payload) => {
     if (!payload?.payload) return;
     handleIncomingNewProject(payload.payload);
   });
 
-  // 5. Escuchar peticiones de sincronizaciÃ³n peer
+  // 5. Escuchar peticiones de sincronización peer
   globalSyncChannel.on('broadcast', { event: 'solicitar_sincronizacion_peer' }, (payload) => {
     if (!payload?.payload) return;
     handlePeerSyncRequest(payload.payload);
   });
 
-  // 6. Escuchar respuesta de sincronizaciÃ³n peer
+  // 6. Escuchar respuesta de sincronización peer
   globalSyncChannel.on('broadcast', { event: 'responder_sincronizacion_peer' }, (payload) => {
     if (!payload?.payload) return;
     handlePeerSyncResponse(payload.payload);
@@ -1000,35 +1000,35 @@ export function initGlobalRealtimeSync() {
     }
   });
 
-  // 8. Escuchar mensajes de chat globales (notificaciones y sincronizaciÃ³n de fondo)
+  // 8. Escuchar mensajes de chat globales (notificaciones y sincronización de fondo)
   globalSyncChannel.on('broadcast', { event: 'chat_mensaje_global' }, (payload) => {
     if (payload?.payload) {
       handleIncomingChatMessage(payload.payload);
     }
   });
 
-  // 9. Escuchar eliminaciÃ³n global de mensajes de chat
+  // 9. Escuchar eliminación global de mensajes de chat
   globalSyncChannel.on('broadcast', { event: 'chat_mensaje_eliminado_global' }, (payload) => {
     if (payload?.payload) {
       handleIncomingChatDelete(payload.payload);
     }
   });
 
-  // 10. Escuchar eliminaciÃ³n global de proyectos en tiempo real
+  // 10. Escuchar eliminación global de proyectos en tiempo real
   globalSyncChannel.on('broadcast', { event: 'proyecto_eliminado_global' }, (payload) => {
     if (payload?.payload) {
       handleIncomingProjectDeleted(payload.payload);
     }
   });
 
-  // 11. Escuchar remociÃ³n de colaboradores en tiempo real
+  // 11. Escuchar remoción de colaboradores en tiempo real
   globalSyncChannel.on('broadcast', { event: 'colaborador_removido' }, (payload) => {
     if (payload?.payload) {
       handleIncomingCollaboratorRemoved(payload.payload);
     }
   });
 
-  // 12. Escuchar eliminaciÃ³n directa de proyectos en Supabase PostgreSQL (CDC en tiempo real)
+  // 12. Escuchar eliminación directa de proyectos en Supabase PostgreSQL (CDC en tiempo real)
   globalSyncChannel.on(
     'postgres_changes',
     {
@@ -1043,7 +1043,7 @@ export function initGlobalRealtimeSync() {
     }
   );
 
-  // 12B. Escuchar lÃ¡pidas en public.proyectos_eliminados (CDC garantizada entre mÃºltiples PCs)
+  // 12B. Escuchar lápidas en public.proyectos_eliminados (CDC garantizada entre múltiples PCs)
   globalSyncChannel.on(
     'postgres_changes',
     {
@@ -1063,7 +1063,7 @@ export function initGlobalRealtimeSync() {
     }
   );
 
-  // 13. Escuchar remociÃ³n o cambios de colaboradores en Supabase PostgreSQL (CDC en tiempo real)
+  // 13. Escuchar remoción o cambios de colaboradores en Supabase PostgreSQL (CDC en tiempo real)
   globalSyncChannel.on(
     'postgres_changes',
     {
@@ -1078,8 +1078,8 @@ export function initGlobalRealtimeSync() {
 
       if (payload.eventType === 'DELETE') {
         const oldEmail = (payload.old?.email_colaborador || '').toLowerCase().trim();
-        // Solo expulsar si el registro eliminado explÃ­citamente pertenece a este usuario.
-        // Nunca expulsar por registros con email vacÃ­o o de otros usuarios.
+        // Solo expulsar si el registro eliminado explícitamente pertenece a este usuario.
+        // Nunca expulsar por registros con email vacío o de otros usuarios.
         if (oldEmail && oldEmail === myEmail) {
           handleIncomingCollaboratorRemoved({
             projectId: payload.old?.proyecto_id,
@@ -1118,7 +1118,7 @@ export function initGlobalRealtimeSync() {
 }
 
 /**
- * Emitir broadcast de una nueva invitaciÃ³n a un colaborador
+ * Emitir broadcast de una nueva invitación a un colaborador
  */
 export function broadcastNewInvitation(invitation, project) {
   if (!globalSyncChannel) initGlobalRealtimeSync();
@@ -1171,10 +1171,10 @@ function handleIncomingInvitation({ invitation, project }) {
   const myEmail = currentUser.email.toLowerCase().trim();
   const targetEmail = (invitation.email || '').toLowerCase().trim();
 
-  // Si la invitaciÃ³n no es para mÃ­, ignorar
+  // Si la invitación no es para mí, ignorar
   if (myEmail !== targetEmail) return;
 
-  // 1. Guardar la invitaciÃ³n en el almacenamiento local del invitado
+  // 1. Guardar la invitación en el almacenamiento local del invitado
   const invs = getStoredInvitations();
   const exists = invs.some(i => i.id === invitation.id || (i.projectId === invitation.projectId && (i.email || '').toLowerCase() === myEmail));
   if (!exists) {
@@ -1193,7 +1193,7 @@ function handleIncomingInvitation({ invitation, project }) {
     }
     saveProjectsList(list);
 
-    // Guardar catÃ¡logo y configuraciÃ³n para que el invitado tenga acceso inmediato completo
+    // Guardar catálogo y configuración para que el invitado tenga acceso inmediato completo
     if (Array.isArray(project.treeData)) {
       try {
         localStorage.setItem(getStorageKey(project.id), JSON.stringify(project.treeData));
@@ -1207,7 +1207,7 @@ function handleIncomingInvitation({ invitation, project }) {
   }
 
   // 3. Notificar al usuario
-  showToast(`ðŸ”” Â¡Has recibido una invitaciÃ³n de ${invitation.ownerName || 'un anfitriÃ³n'} para colaborar en "${invitation.projectName}"!`, 'info');
+  showToast(`🔔 ¡Has recibido una invitación de ${invitation.ownerName || 'un anfitrión'} para colaborar en "${invitation.projectName}"!`, 'info');
 
   // 4. Refrescar interfaz de notificaciones y dashboard
   if (typeof window.renderSidebarNotificationsUI === 'function') {
@@ -1219,7 +1219,7 @@ function handleIncomingInvitation({ invitation, project }) {
 }
 
 /**
- * Emitir broadcast cuando una invitaciÃ³n es aceptada
+ * Emitir broadcast cuando una invitación es aceptada
  */
 export function broadcastInvitationAccepted(invitation, user) {
   if (!globalSyncChannel) initGlobalRealtimeSync();
@@ -1273,7 +1273,7 @@ function handleIncomingInvitationAccepted({ projectId, projectName, ownerEmail, 
       saveProjectsList(list);
     }
 
-    showToast(`ðŸ‘¤ ${user.name || user.email} ha aceptado la invitaciÃ³n al proyecto "${projectName}"`, 'info');
+    showToast(`👤 ${user.name || user.email} ha aceptado la invitación al proyecto "${projectName}"`, 'info');
 
     if (typeof window.renderSidebarNotificationsUI === 'function') {
       window.renderSidebarNotificationsUI();
@@ -1291,7 +1291,7 @@ function handleIncomingInvitationAccepted({ projectId, projectName, ownerEmail, 
 }
 
 /**
- * Emitir broadcast cuando se rechaza una invitaciÃ³n
+ * Emitir broadcast cuando se rechaza una invitación
  */
 export function broadcastInvitationRejected(invitation, user) {
   if (!globalSyncChannel) initGlobalRealtimeSync();
@@ -1332,7 +1332,7 @@ function handleIncomingInvitationRejected({ projectId, email }) {
     return;
   }
 
-  // Si soy el anfitriÃ³n, actualizar el miembro del proyecto
+  // Si soy el anfitrión, actualizar el miembro del proyecto
   const list = getProjectsList();
   const proj = list.find(p => p.id === projectId);
   if (proj && Array.isArray(proj.members)) {
@@ -1375,7 +1375,7 @@ function handleIncomingNewProject({ project, creatorName, creatorEmail }) {
   const ownerEmail = (project.ownerEmail || '').toLowerCase().trim();
   const isMember = Array.isArray(project.members) && project.members.some(m => (m.email || '').toLowerCase().trim() === myEmail);
 
-  // Si soy el dueÃ±o o un miembro del proyecto
+  // Si soy el dueño o un miembro del proyecto
   if (ownerEmail === myEmail || isMember) {
     const list = getProjectsList();
     const exists = list.some(p => p.id === project.id);
@@ -1383,7 +1383,7 @@ function handleIncomingNewProject({ project, creatorName, creatorEmail }) {
       list.unshift(project);
       saveProjectsList(list);
 
-      showToast(`ðŸ¢ Â¡Nuevo proyecto "${project.projectName}" creado por ${creatorName || creatorEmail}!`, 'info');
+      showToast(`🏢 ¡Nuevo proyecto "${project.projectName}" creado por ${creatorName || creatorEmail}!`, 'info');
 
       if (typeof window.refreshProjectsGridUI === 'function') {
         window.refreshProjectsGridUI();
@@ -1405,7 +1405,7 @@ export function broadcastProjectDeleted(projectId, ownerEmail = null) {
     timestamp: Date.now()
   };
 
-  // 0. Enviar localmente a otras pestaÃ±as/ventanas del navegador (0ms latencia)
+  // 0. Enviar localmente a otras pestañas/ventanas del navegador (0ms latencia)
   if (localBroadcastChannel) {
     try {
       localBroadcastChannel.postMessage({
@@ -1418,7 +1418,7 @@ export function broadcastProjectDeleted(projectId, ownerEmail = null) {
   const sb = getSupabaseClient();
   if (!isSupabaseConfigured() || !sb) return;
 
-  // 1. Enviar vÃ­a canal de la obra si estÃ¡ activo
+  // 1. Enviar vía canal de la obra si está activo
   if (activeChannel && currentSubscribedProjectId === projectId) {
     try {
       activeChannel.send({
@@ -1427,11 +1427,11 @@ export function broadcastProjectDeleted(projectId, ownerEmail = null) {
         payload
       });
     } catch (err) {
-      console.warn('[Realtime] Aviso al emitir eliminaciÃ³n en canal de obra:', err);
+      console.warn('[Realtime] Aviso al emitir eliminación en canal de obra:', err);
     }
   }
 
-  // 2. Enviar vÃ­a canal global para sincronizar ventanas, dashboard y todos los colaboradores
+  // 2. Enviar vía canal global para sincronizar ventanas, dashboard y todos los colaboradores
   if (!globalSyncChannel) initGlobalRealtimeSync();
   if (globalSyncChannel) {
     try {
@@ -1441,13 +1441,13 @@ export function broadcastProjectDeleted(projectId, ownerEmail = null) {
         payload
       });
     } catch (err) {
-      console.warn('[Realtime] Aviso al emitir eliminaciÃ³n en canal global:', err);
+      console.warn('[Realtime] Aviso al emitir eliminación en canal global:', err);
     }
   }
 }
 
 /**
- * Procesar eliminaciÃ³n entrante de proyecto emitida por otro usuario en tiempo real
+ * Procesar eliminación entrante de proyecto emitida por otro usuario en tiempo real
  */
 export function handleIncomingProjectDeleted(data) {
   if (!data || !data.projectId) return;
@@ -1548,7 +1548,7 @@ export function handleIncomingProjectDeleted(data) {
   // 5. Si el usuario estaba dentro de este proyecto, expulsarlo cordialmente al portal
   if (isCurrentOpen) {
     if (typeof showToast === 'function') {
-      showToast('âš ï¸ Este proyecto fue eliminado.', 'warning');
+      showToast('⚠️ Este proyecto fue eliminado.', 'warning');
     }
     setTimeout(() => {
       if (typeof window.exitProjectToPortal === 'function') {
@@ -1618,7 +1618,7 @@ export function broadcastCollaboratorRemoved(projectId, email, cloudId = null) {
 }
 
 /**
- * Procesar remociÃ³n de colaborador recibida por tiempo real o Postgres CDC
+ * Procesar remoción de colaborador recibida por tiempo real o Postgres CDC
  */
 export function handleIncomingCollaboratorRemoved(data) {
   if (!data || (!data.projectId && !data.cloudId) || !data.email) return;
@@ -1664,7 +1664,7 @@ export function handleIncomingCollaboratorRemoved(data) {
     const currentPId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
     if (currentPId && candidateIds.includes(currentPId)) {
       if (typeof showToast === 'function') {
-        showToast('âš ï¸ Tu acceso a este proyecto fue retirado por el anfitriÃ³n.', 'warning');
+        showToast('⚠️ Tu acceso a este proyecto fue retirado por el anfitrión.', 'warning');
       }
       setTimeout(() => {
         if (typeof window.exitProjectToPortal === 'function') {
@@ -1696,7 +1696,7 @@ export function handleIncomingCollaboratorRemoved(data) {
 }
 
 /**
- * Solicitar sincronizaciÃ³n peer a otros usuarios conectados
+ * Solicitar sincronización peer a otros usuarios conectados
  */
 export function requestPeerSync() {
   if (!globalSyncChannel) return;
@@ -1719,11 +1719,11 @@ function handlePeerSyncRequest({ email }) {
   const targetEmail = email.toLowerCase().trim();
   if (targetEmail === currentUser.email.toLowerCase().trim()) return;
 
-  // Buscar invitaciones que yo (anfitriÃ³n) haya hecho hacia este email
+  // Buscar invitaciones que yo (anfitrión) haya hecho hacia este email
   const allInvs = getStoredInvitations();
   const myInvsForTarget = allInvs.filter(i => (i.email || '').toLowerCase().trim() === targetEmail);
 
-  // Buscar proyectos donde targetEmail sea miembro O donde targetEmail sea el dueÃ±o y yo sea miembro
+  // Buscar proyectos donde targetEmail sea miembro O donde targetEmail sea el dueño y yo sea miembro
   const allProjects = getProjectsList();
   const myProjectsForTarget = allProjects.filter(p => {
     const isTargetMember = Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === targetEmail);
@@ -1741,7 +1741,7 @@ function handlePeerSyncRequest({ email }) {
     };
   });
 
-  // Incluir tambiÃ©n invitaciones al plan
+  // Incluir también invitaciones al plan
   const allPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
   const myPlanInvsForTarget = allPlanInvs.filter(i => (i.email || '').toLowerCase().trim() === targetEmail);
   if (myPlanInvsForTarget.length > 0) {
@@ -1754,7 +1754,7 @@ function handlePeerSyncRequest({ email }) {
             projectName: p.projectName,
             companyName: p.companyName || '',
             ownerEmail: currentUser.email.toLowerCase().trim(),
-            ownerName: currentUser.name || 'AnfitriÃ³n',
+            ownerName: currentUser.name || 'Anfitrión',
             ownerPlanId: pi.ownerPlanId || 'free',
             email: targetEmail,
             name: pi.name,
@@ -1803,7 +1803,7 @@ async function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
     }
   }
 
-  // Mergear proyectos filtrando lÃ¡pidas locales y en la nube (sin resurrecciÃ³n)
+  // Mergear proyectos filtrando lápidas locales y en la nube (sin resurrección)
   if (Array.isArray(projects) && projects.length > 0) {
     const incomingIds = Array.from(new Set(
       projects.flatMap(p => [p?.id, p?.cloudId]).filter(Boolean).map(v => String(v).trim())
@@ -1852,7 +1852,7 @@ async function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
       const idx = currentProjs.findIndex(cp => cp.id === p.id || (cIdStr && (cp.id === cIdStr || cp.cloudId === cIdStr)));
       const incomingUpdated = p.updatedAt ? new Date(p.updatedAt).getTime() : 0;
 
-      // Si pertenece a la misma cuenta y no existe localmente, no reinyectar si es anterior al Ãºltimo cierre/purga
+      // Si pertenece a la misma cuenta y no existe localmente, no reinyectar si es anterior al último cierre/purga
       const pOwner = (p.ownerEmail || '').toLowerCase().trim();
       if (idx < 0 && pOwner === myEmail && lastSignoutTs > 0 && incomingUpdated > 0 && incomingUpdated < lastSignoutTs) {
         return;
@@ -1929,7 +1929,7 @@ async function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
 }
 
 // =========================================================================
-// SINCRONIZACIÃ“N DE CHAT DE PROYECTO EN TIEMPO REAL & PERSISTENCIA EN ANFITRIÃ“N
+// SINCRONIZACIÓN DE CHAT DE PROYECTO EN TIEMPO REAL & PERSISTENCIA EN ANFITRIÓN
 // =========================================================================
 
 export function resolveChatStorageKey(projectId = null) {
@@ -2010,7 +2010,7 @@ export function handleIncomingChatMessage(data) {
     try { window.renderSidebarNotificationsUI(); } catch (_) {}
   }
 
-  // 3. Si la obra estÃ¡ abierta actualmente en pantalla, actualizar la interfaz del dock
+  // 3. Si la obra está abierta actualmente en pantalla, actualizar la interfaz del dock
   if (isCurrentActive) {
     if (typeof window !== 'undefined' && typeof window.renderProjectChatDock === 'function') {
       window.renderProjectChatDock();
@@ -2027,7 +2027,7 @@ export function handleIncomingChatMessage(data) {
       const myHandle = (currentUser.name || currentUser.email).replace(/\s+/g, '');
       const isMentioned = mentions.some(m => m.toLowerCase().includes(myHandle.toLowerCase()) || m.toLowerCase().includes(myEmail));
       if (isMentioned) {
-        showToast(`ðŸ’¬ ${data.author?.name || 'Un colaborador'} te mencionÃ³ en el chat`, 'info');
+        showToast(`💬 ${data.author?.name || 'Un colaborador'} te mencionó en el chat`, 'info');
       }
     }
   }
@@ -2124,7 +2124,7 @@ export function broadcastChatMessage(projectId, message) {
     } catch (_) {}
   }
 
-  // 2. Broadcast en canal global de sincronizaciÃ³n
+  // 2. Broadcast en canal global de sincronización
   if (!globalSyncChannel) initGlobalRealtimeSync();
   if (globalSyncChannel) {
     try {
@@ -2139,7 +2139,7 @@ export function broadcastChatMessage(projectId, message) {
     } catch (_) {}
   }
 
-  // 3. Persistir en Supabase y cuenta del anfitriÃ³n
+  // 3. Persistir en Supabase y cuenta del anfitrión
   persistChatMessageToHostCloud(pId, message, proj);
 }
 
@@ -2172,7 +2172,7 @@ export function broadcastChatDelete(projectId, messageId) {
         payload
       });
       if (res && typeof res.catch === 'function') {
-        res.catch(err => console.warn('[Realtime] Error al emitir eliminaciÃ³n de chat:', err));
+        res.catch(err => console.warn('[Realtime] Error al emitir eliminación de chat:', err));
       }
     } catch (_) {}
   }
@@ -2186,7 +2186,7 @@ export function broadcastChatDelete(projectId, messageId) {
         payload
       });
       if (res && typeof res.catch === 'function') {
-        res.catch(err => console.warn('[Realtime] Error al emitir eliminaciÃ³n global de chat:', err));
+        res.catch(err => console.warn('[Realtime] Error al emitir eliminación global de chat:', err));
       }
     } catch (_) {}
   }
@@ -2234,11 +2234,11 @@ export async function persistChatMessageToHostCloud(projectId, message, proj) {
         console.warn('[Realtime] Error al persistir mensaje en chat_mensajes:', error.message || error);
       }
     } catch (err) {
-      console.warn('[Realtime] ExcepciÃ³n al persistir mensaje en chat_mensajes:', err);
+      console.warn('[Realtime] Excepción al persistir mensaje en chat_mensajes:', err);
     }
   }
 
-  // 2. Si el usuario actual es el anfitriÃ³n, respaldar en su estado en la nube
+  // 2. Si el usuario actual es el anfitrión, respaldar en su estado en la nube
   const currentUser = getCurrentUser();
   if (currentUser && (currentUser.email || '').toLowerCase().trim() === ownerEmail) {
     try {
@@ -2266,7 +2266,7 @@ export async function deleteChatMessageFromHostCloud(projectId, messageId) {
       console.warn('[Realtime] Error al eliminar mensaje en chat_mensajes:', error.message || error);
     }
   } catch (err) {
-    console.warn('[Realtime] ExcepciÃ³n al eliminar mensaje en chat_mensajes:', err);
+    console.warn('[Realtime] Excepción al eliminar mensaje en chat_mensajes:', err);
   }
 }
 

@@ -1,4 +1,4 @@
-﻿import { blobToDataUrl } from '../utils/fileCompressor.js?v=20261116_cf3';
+import { blobToDataUrl } from '../utils/fileCompressor.js?v=20261116_cf4';
 
 const DB_NAME = 'ADM_CONST_MEDIA_DB';
 const DB_VERSION = 1;
@@ -64,7 +64,7 @@ function makeMediaId() {
 }
 
 /**
- * Guarda un blob comprimido o documento en IndexedDB para lectura instantÃ¡nea
+ * Guarda un blob comprimido o documento en IndexedDB para lectura instantánea
  * y cola de reintentos sin saturar localStorage.
  */
 export async function putCachedMediaBlob(entry = {}) {

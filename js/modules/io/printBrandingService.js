@@ -1,6 +1,6 @@
-﻿// Servicio centralizado de Branding e ImpresiÃ³n por Plan de SuscripciÃ³n (Free / Plus / Pro)
-import { state } from '../../state/store.js?v=20261116_cf3';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf3';
+// Servicio centralizado de Branding e Impresión por Plan de Suscripción (Free / Plus / Pro)
+import { state } from '../../state/store.js?v=20261116_cf4';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf4';
 
 export const CUBIKAR_OFFICIAL_SVG = `<svg viewBox="0 0 512 512" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -93,7 +93,7 @@ export async function getCubikarLogoPngDataUrl(size = 192) {
 }
 
 /**
- * Resuelve el branding de impresiÃ³n/PDF segÃºn el plan efectivo del DUEÃ‘O del proyecto activo.
+ * Resuelve el branding de impresión/PDF según el plan efectivo del DUEÑO del proyecto activo.
  * - Plan 'free': Inyecta obligatoriamente el logo y nombre oficial de Cubikar (membrete + marca de agua).
  * - Plan 'plus' / 'pro': Usa exclusivamente el logotipo y nombre configurado por el usuario (marca blanca, sin marca de agua de Cubikar).
  */
@@ -106,16 +106,16 @@ export function resolveActivePrintBranding(settings = null, projectIdOverride = 
 
   if (planId === 'free') {
     const companyName = userCompanyName
-      ? `${userCompanyName}  â€¢  cubikar`
-      : 'cubikar â€” GestiÃ³n Integral de Obras';
+      ? `${userCompanyName}  •  cubikar`
+      : 'cubikar — Gestión Integral de Obras';
 
     const headerBadgeHtml = `
       <div class="cubikar-free-letterhead" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 12px;margin-bottom:10px;border:1px solid #cbd5e1;border-left:4px solid #0284c7;border-radius:6px;background:#f8fafc;">
         <div style="display:flex;align-items:center;gap:8px;">
           <img src="${CUBIKAR_LOGO_DATA_URL}" alt="cubikar" style="width:22px;height:22px;object-fit:contain;flex-shrink:0;">
           <div style="line-height:1.2;">
-            <div style="font-size:11px;font-weight:800;color:#0f172a;letter-spacing:0.3px;">cubikar <span style="font-weight:500;color:#475569;">â€” Software de Costos, Presupuestos y Obra</span></div>
-            <div style="font-size:8.5px;color:#64748b;">Documento generado con Plan Gratuita Â· Membrete oficial incluido</div>
+            <div style="font-size:11px;font-weight:800;color:#0f172a;letter-spacing:0.3px;">cubikar <span style="font-weight:500;color:#475569;">— Software de Costos, Presupuestos y Obra</span></div>
+            <div style="font-size:8.5px;color:#64748b;">Documento generado con Plan Gratuita · Membrete oficial incluido</div>
           </div>
         </div>
         <span style="font-size:8.5px;font-weight:700;color:#0369a1;background:#e0f2fe;padding:2px 8px;border-radius:999px;border:1px solid #bae6fd;">PLAN GRATUITA</span>
@@ -193,7 +193,7 @@ export function resolveActivePrintBranding(settings = null, projectIdOverride = 
       isFree: true,
       requiresAppWatermark: true,
       appName: 'cubikar',
-      appTagline: 'cubikar â€” Plan Gratuita',
+      appTagline: 'cubikar — Plan Gratuita',
       companyName,
       companyLogo: CUBIKAR_LOGO_DATA_URL,
       customUserCompanyName: userCompanyName,

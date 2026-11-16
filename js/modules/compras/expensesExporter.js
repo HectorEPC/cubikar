@@ -1,19 +1,19 @@
-﻿// js/modules/compras/expensesExporter.js
-// ExportaciÃ³n a Excel (.xlsx) y generaciÃ³n de formatos imprimibles oficiales de Orden de Compra y Reportes
+// js/modules/compras/expensesExporter.js
+// Exportación a Excel (.xlsx) y generación de formatos imprimibles oficiales de Orden de Compra y Reportes
 
-import { state } from '../../state/store.js?v=20261116_cf3';
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
-import { openPrintWindow } from '../io/printService.js?v=20261116_cf3';
-import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesSignatures } from './expensesModel.js?v=20261116_cf3';
-import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261116_cf3';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf3';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf3';
-import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261116_cf3';
-import { isNightMode } from '../../ui/themeController.js?v=20261116_cf3';
+import { state } from '../../state/store.js?v=20261116_cf4';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+import { openPrintWindow } from '../io/printService.js?v=20261116_cf4';
+import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesSignatures } from './expensesModel.js?v=20261116_cf4';
+import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261116_cf4';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf4';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf4';
+import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261116_cf4';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf4';
 
 /**
- * Renderizar bloque dinÃ¡mico de firmas configuradas para los reportes de Compras y Pagos
+ * Renderizar bloque dinámico de firmas configuradas para los reportes de Compras y Pagos
  */
 export function renderExpensesPrintSignaturesBlock(customSignatures = null, isDarkTheme = false) {
   const sigs = customSignatures || getExpensesSignatures();
@@ -50,18 +50,18 @@ function renderExpensesBrandHeaderBlock(companyName, companyLogo, projectName, p
       <div>
         <div style="font-size:${compact ? 18 : 20}px;font-weight:800;color:#0f172a;text-transform:${compact ? 'none' : 'uppercase'};letter-spacing:${compact ? '0' : '0.5px'};">${companyName}</div>
         <div style="font-size:${compact ? 12 : 13}px;font-weight:${compact ? 'bold' : '600'};color:#2563eb;margin-top:2px;">${compact ? 'OBRA' : 'PROYECTO'}: ${projectName}</div>
-        <div style="font-size:${compact ? 10 : 11}px;color:#64748b;margin-top:1px;">UBICACIÃ“N: ${projectLocation}</div>
+        <div style="font-size:${compact ? 10 : 11}px;color:#64748b;margin-top:1px;">UBICACIÓN: ${projectLocation}</div>
       </div>
     </div>
   `;
 }
 
 /**
- * Exportar BitÃ¡cora de Gastos, Comparativa Presupuestal y Proveedores a Microsoft Excel (.xlsx)
+ * Exportar Bitácora de Gastos, Comparativa Presupuestal y Proveedores a Microsoft Excel (.xlsx)
  */
 export function exportExpensesToExcel() {
   if (typeof window === 'undefined' || !window.XLSX) {
-    showToast('LibrerÃ­a XLSX no disponible para exportar.', 'error');
+    showToast('Librería XLSX no disponible para exportar.', 'error');
     return;
   }
 
@@ -71,17 +71,17 @@ export function exportExpensesToExcel() {
   const comparison = getInsumosBudgetVsActualComparison();
   const projectName = state.settings?.projectName || 'Obra';
 
-  // 1. Hoja 1: BitÃ¡cora de Gastos y Ã“rdenes de Compra
+  // 1. Hoja 1: Bitácora de Gastos y Órdenes de Compra
   const recordsRows = [
     [
       'Folio / ID',
       'Fecha',
       'Tipo de Gasto',
-      'CategorÃ­a / Partida',
+      'Categoría / Partida',
       'Clave Insumo',
-      'DescripciÃ³n del Insumo / Gasto',
+      'Descripción del Insumo / Gasto',
       'Proveedor',
-      'No. Factura / RemisiÃ³n',
+      'No. Factura / Remisión',
       'Cantidad',
       'Unidad',
       'Precio Unitario',
@@ -89,7 +89,7 @@ export function exportExpensesToExcel() {
       'IVA (16%)',
       'Total Egresos',
       'Estatus de Pago',
-      'MÃ©todo de Pago',
+      'Método de Pago',
       'Comprobante AWS S3 / Archivo',
       'Notas y Observaciones'
     ]
@@ -142,19 +142,19 @@ export function exportExpensesToExcel() {
     [
       'Clave',
       'Tipo',
-      'DescripciÃ³n del Insumo',
+      'Descripción del Insumo',
       'Unidad',
       'Cant. Presupuestada',
       'Cant. Comprada',
       'Saldo Disponible',
       'P.U. Presupuestado',
       'P.U. Real Promedio',
-      'VariaciÃ³n P.U.',
+      'Variación P.U.',
       'Importe Presupuestado',
       'Importe Comprado Real',
-      'DesviaciÃ³n de Importe',
+      'Desviación de Importe',
       '% Consumido',
-      'SemÃ¡foro Presupuestal'
+      'Semáforo Presupuestal'
     ]
   ];
 
@@ -180,7 +180,7 @@ export function exportExpensesToExcel() {
 
   // 3. Hoja 3: Directorio de Proveedores
   const supRows = [
-    ['ID Proveedor', 'RazÃ³n Social / Nombre', 'RFC', 'TelÃ©fono', 'Correo ElectrÃ³nico', 'Persona de Contacto', 'DirecciÃ³n']
+    ['ID Proveedor', 'Razón Social / Nombre', 'RFC', 'Teléfono', 'Correo Electrónico', 'Persona de Contacto', 'Dirección']
   ];
 
   suppliers.forEach(s => {
@@ -202,7 +202,7 @@ export function exportExpensesToExcel() {
   const wsComp = XLSX.utils.aoa_to_sheet(compRows);
   const wsSups = XLSX.utils.aoa_to_sheet(supRows);
 
-  XLSX.utils.book_append_sheet(wb, wsRecords, 'BitÃ¡cora Egresos');
+  XLSX.utils.book_append_sheet(wb, wsRecords, 'Bitácora Egresos');
   XLSX.utils.book_append_sheet(wb, wsComp, 'Presupuesto vs Real');
   XLSX.utils.book_append_sheet(wb, wsSups, 'Proveedores');
 
@@ -217,7 +217,7 @@ export function exportExpensesToExcel() {
     proyectoId: getActiveProjectId(),
     metadata: { tipo: 'compras_y_gastos', registros: records.length }
   });
-  showToast(`Â¡Archivo Excel "${fileName}" generado exitosamente!`, 'success');
+  showToast(`¡Archivo Excel "${fileName}" generado exitosamente!`, 'success');
 }
 
 /**
@@ -257,19 +257,19 @@ export function printSingleOrdenCompra(record) {
       </div>
     </div>
 
-    <!-- Cajas de InformaciÃ³n: Proveedor y Obra -->
+    <!-- Cajas de Información: Proveedor y Obra -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
       <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; background: #ffffff;">
         <div style="font-size: 11px; font-weight: 800; color: #1e293b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
           DATOS DEL PROVEEDOR
         </div>
         <table style="width: 100%; font-size: 11px; line-height: 1.4;">
-          <tr><td style="color:#64748b; width:75px;">RazÃ³n Social:</td><td><strong>${supName}</strong></td></tr>
+          <tr><td style="color:#64748b; width:75px;">Razón Social:</td><td><strong>${supName}</strong></td></tr>
           <tr><td style="color:#64748b;">R.F.C.:</td><td style="font-family:monospace;">${supRfc}</td></tr>
-          <tr><td style="color:#64748b;">AtenciÃ³n:</td><td>${supContact}</td></tr>
-          <tr><td style="color:#64748b;">TelÃ©fono:</td><td>${supPhone}</td></tr>
+          <tr><td style="color:#64748b;">Atención:</td><td>${supContact}</td></tr>
+          <tr><td style="color:#64748b;">Teléfono:</td><td>${supPhone}</td></tr>
           <tr><td style="color:#64748b;">Correo:</td><td>${supEmail}</td></tr>
-          <tr><td style="color:#64748b;">DirecciÃ³n:</td><td>${supAddress}</td></tr>
+          <tr><td style="color:#64748b;">Dirección:</td><td>${supAddress}</td></tr>
         </table>
       </div>
 
@@ -280,8 +280,8 @@ export function printSingleOrdenCompra(record) {
         <table style="width: 100%; font-size: 11px; line-height: 1.4;">
           <tr><td style="color:#64748b; width:95px;">Tipo de Gasto:</td><td><strong style="text-transform:uppercase;">${record.type || 'MATERIAL'}</strong></td></tr>
           <tr><td style="color:#64748b;">Partida / Rubro:</td><td>${record.category || 'General de Obra'}</td></tr>
-          <tr><td style="color:#64748b;">MÃ©todo Pago:</td><td><span style="text-transform:capitalize;">${record.paymentMethod || 'Transferencia'}</span></td></tr>
-          <tr><td style="color:#64748b;">Estado Pago:</td><td><strong style="color:${record.paymentStatus === 'paid' ? '#059669' : '#d97706'};">${record.paymentStatus === 'paid' ? 'PAGADO' : 'POR PAGAR / CRÃ‰DITO'}</strong></td></tr>
+          <tr><td style="color:#64748b;">Método Pago:</td><td><span style="text-transform:capitalize;">${record.paymentMethod || 'Transferencia'}</span></td></tr>
+          <tr><td style="color:#64748b;">Estado Pago:</td><td><strong style="color:${record.paymentStatus === 'paid' ? '#059669' : '#d97706'};">${record.paymentStatus === 'paid' ? 'PAGADO' : 'POR PAGAR / CRÉDITO'}</strong></td></tr>
           <tr><td style="color:#64748b;">Factura / Rem.:</td><td style="font-family:monospace; font-weight:bold;">${record.invoiceNumber || 'Pendiente'}</td></tr>
           <tr><td style="color:#64748b;">Moneda:</td><td>${currency}</td></tr>
         </table>
@@ -294,7 +294,7 @@ export function printSingleOrdenCompra(record) {
         <tr style="background: #0f172a; color: #ffffff; text-align: left;">
           <th style="padding: 7px 8px; border: 1px solid #0f172a; width: 35px; text-align:center;">#</th>
           <th style="padding: 7px 8px; border: 1px solid #0f172a; width: 90px;">CLAVE</th>
-          <th style="padding: 7px 8px; border: 1px solid #0f172a;">DESCRIPCIÃ“N DETALLADA DEL MATERIAL / SERVICIO</th>
+          <th style="padding: 7px 8px; border: 1px solid #0f172a;">DESCRIPCIÓN DETALLADA DEL MATERIAL / SERVICIO</th>
           <th style="padding: 7px 8px; border: 1px solid #0f172a; width: 50px; text-align:center;">UNID.</th>
           <th style="padding: 7px 8px; border: 1px solid #0f172a; width: 65px; text-align:right;">CANT.</th>
           <th style="padding: 7px 8px; border: 1px solid #0f172a; width: 90px; text-align:right;">P. UNITARIO</th>
@@ -337,17 +337,17 @@ export function printSingleOrdenCompra(record) {
       </div>
     </div>
 
-    <!-- Notas de Entrega y ClÃ¡usulas Operativas -->
+    <!-- Notas de Entrega y Cláusulas Operativas -->
     <div style="border: 1px dashed #94a3b8; border-radius: 6px; padding: 8px 12px; margin-bottom: 30px; font-size: 10px; color: #475569; background: #f8fafc;">
-      <strong>CLÃUSULAS Y CONDICIONES DE RECEPCIÃ“N:</strong>
+      <strong>CLÁUSULAS Y CONDICIONES DE RECEPCIÓN:</strong>
       <ol style="margin: 4px 0 0 16px; padding: 0;">
-        <li>Todo material debe entregarse a pie de obra debidamente empacado y con su nota de remisiÃ³n o factura original.</li>
-        <li>No se recibirÃ¡n materiales daÃ±ados, caducos o con especificaciones distintas a las indicadas en esta orden.</li>
-        <li>Indispensable citar el Folio <strong>${record.id}</strong> en su factura electrÃ³nica (CFDI).</li>
+        <li>Todo material debe entregarse a pie de obra debidamente empacado y con su nota de remisión o factura original.</li>
+        <li>No se recibirán materiales dañados, caducos o con especificaciones distintas a las indicadas en esta orden.</li>
+        <li>Indispensable citar el Folio <strong>${record.id}</strong> en su factura electrónica (CFDI).</li>
       </ol>
     </div>
 
-    <!-- Firmas Oficiales de Control y AutorizaciÃ³n -->
+    <!-- Firmas Oficiales de Control y Autorización -->
     ${renderExpensesPrintSignaturesBlock()}
   `;
 
@@ -355,11 +355,11 @@ export function printSingleOrdenCompra(record) {
 }
 
 /**
- * Imprimir Reporte General segÃºn la vista activa de Compras y Pagos
+ * Imprimir Reporte General según la vista activa de Compras y Pagos
  */
 
 /**
- * Renderizar el Tablero Resumen Financiero ERP en formato imprimible idÃ©ntico al Dashboard
+ * Renderizar el Tablero Resumen Financiero ERP en formato imprimible idéntico al Dashboard
  */
 export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNight = null) {
   const isNight = customIsNight !== null ? customIsNight : isNightMode();
@@ -435,7 +435,7 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
     `;
   }).join('');
 
-  // VelocÃ­metro SVG
+  // Velocímetro SVG
   const gaugeR = 68;
   const gaugeLen = Math.PI * gaugeR;
   const clampedGaugePct = Math.min(100, Math.max(0, pctGastado));
@@ -509,7 +509,7 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
               <span>TABLERO RESUMEN FINANCIERO ERP</span>
               <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${isNight ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'}">En Tiempo Real</span>
             </h1>
-            <p class="text-[11px] ${mutedText} font-medium">Control ejecutivo de costos, presupuesto contratado, ingresos por estimaciÃ³n y egresos por rubro</p>
+            <p class="text-[11px] ${mutedText} font-medium">Control ejecutivo de costos, presupuesto contratado, ingresos por estimación y egresos por rubro</p>
           </div>
         </div>
 
@@ -517,7 +517,7 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
           <div>
             <div class="text-xs font-black uppercase tracking-wider ${titleText}">${companyName}</div>
             <div class="text-[11px] font-bold ${isNight ? 'text-cyan-400' : 'text-blue-700'}">${projectName}</div>
-            <div class="text-[9.5px] ${mutedText}">UbicaciÃ³n: ${projectLocation} | Fecha: ${todayStr}</div>
+            <div class="text-[9.5px] ${mutedText}">Ubicación: ${projectLocation} | Fecha: ${todayStr}</div>
           </div>
           ${companyLogo ? `
             <img src="${companyLogo}" alt="Logo" class="h-10 w-10 object-contain rounded-lg border ${isNight ? 'border-slate-700 bg-white/5' : 'border-slate-300 bg-white'} p-1 shrink-0">
@@ -565,7 +565,7 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
           <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[9.5px] font-bold uppercase tracking-wider">Egresos Pagados</span>
             <span class="px-1.5 py-0.2 rounded text-[8.5px] font-bold ${isNight ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'}">
-              ${kpis?.totalRegistros || 0} Ã“RDENES
+              ${kpis?.totalRegistros || 0} ÓRDENES
             </span>
           </div>
           <div class="text-base font-black font-mono ${isNight ? 'text-rose-400' : 'text-rose-700'} tracking-tight">
@@ -613,14 +613,14 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
 
       </div>
 
-      <!-- FILA 2: VELOCÃMETRO (GAUGE) Y DONUT CHART DE 6 RUBROS -->
+      <!-- FILA 2: VELOCÍMETRO (GAUGE) Y DONUT CHART DE 6 RUBROS -->
       <div class="grid grid-cols-12 gap-3.5">
         
-        <!-- Panel Izquierdo: VelocÃ­metro / Gauge Radial del SemÃ¡foro (cols 5/12) -->
+        <!-- Panel Izquierdo: Velocímetro / Gauge Radial del Semáforo (cols 5/12) -->
         <div class="col-span-5 ${panelClass} border rounded-xl p-3.5 flex flex-col justify-between shadow-xs relative overflow-hidden">
           <div class="flex items-center justify-between pb-1.5 border-b ${borderDivider}">
             <div class="flex items-center gap-1.5">
-              <span class="text-xs font-black uppercase tracking-wider ${titleText}">SemÃ¡foro Presupuestal</span>
+              <span class="text-xs font-black uppercase tracking-wider ${titleText}">Semáforo Presupuestal</span>
               <span class="w-2 h-2 rounded-full ${semPulseColor}"></span>
             </div>
             <span class="px-2 py-0.5 rounded-full text-[9.5px] font-bold ${semBadgeClass} flex items-center gap-1">
@@ -629,7 +629,7 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
             </span>
           </div>
 
-          <!-- VelocÃ­metro SVG -->
+          <!-- Velocímetro SVG -->
           <div class="py-1.5 flex flex-col items-center justify-center">
             <svg viewBox="0 0 200 120" class="w-full max-w-[240px] mx-auto overflow-visible">
               <defs>
@@ -666,19 +666,19 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
               <span class="font-mono font-bold ${titleText}">${formatCurrency(kpis?.totalEgresosComprometidos || 0)}</span>
             </div>
             <div class="flex items-center justify-between text-[10.5px]">
-              <span class="${mutedText} font-semibold">LÃ­mite Contratado:</span>
+              <span class="${mutedText} font-semibold">Límite Contratado:</span>
               <span class="font-mono font-bold ${isNight ? 'text-cyan-300' : 'text-blue-700'}">${formatCurrency(kpis?.presupuestoContratado || 0)}</span>
             </div>
             <p class="text-[9px] ${mutedText} leading-tight pt-1 border-t ${borderDivider}">${sem.description || 'Monitoreo de gasto activo.'}</p>
           </div>
         </div>
 
-        <!-- Panel Derecho: Donut Chart & DistribuciÃ³n de los 6 Rubros (cols 7/12) -->
+        <!-- Panel Derecho: Donut Chart & Distribución de los 6 Rubros (cols 7/12) -->
         <div class="col-span-7 ${panelClass} border rounded-xl p-3.5 flex flex-col justify-between shadow-xs">
           <div class="flex items-center justify-between gap-2 pb-1.5 border-b ${borderDivider}">
             <div>
-              <h3 class="text-xs font-black uppercase tracking-wider ${titleText}">DistribuciÃ³n por Rubro</h3>
-              <p class="text-[9.5px] ${mutedText}">ProporciÃ³n de gasto en los 6 rubros constructivos</p>
+              <h3 class="text-xs font-black uppercase tracking-wider ${titleText}">Distribución por Rubro</h3>
+              <p class="text-[9.5px] ${mutedText}">Proporción de gasto en los 6 rubros constructivos</p>
             </div>
             <span class="text-[10px] font-mono font-bold px-2 py-0.5 ${isNight ? 'bg-slate-800 text-cyan-300 border border-slate-700' : 'bg-blue-50 text-blue-700 border border-blue-200'} rounded-md">
               ${totalSpendComprometido > 0 ? 'Gasto: ' + formatCurrency(totalSpendComprometido) : 'Base: ' + formatCurrency(totalBudgetDirecto)}
@@ -726,7 +726,7 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
           </div>
 
           <div class="pt-1.5 border-t ${borderDivider} text-[9.5px] ${mutedText} flex justify-between">
-            <span>6 rubros consolidados calculados desde la explosiÃ³n de insumos</span>
+            <span>6 rubros consolidados calculados desde la explosión de insumos</span>
             <span class="${isNight ? 'text-cyan-400' : 'text-blue-700'} font-bold font-mono">Total: ${formatCurrency(totalSpendComprometido > 0 ? totalSpendComprometido : totalBudgetDirecto)}</span>
           </div>
         </div>
@@ -822,7 +822,7 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
                     </div>
                     <div class="min-w-0">
                       <p class="font-bold ${isNight ? 'text-slate-200' : 'text-slate-800'} truncate text-[10px]">${sup.name}</p>
-                      <p class="text-[8.5px] ${mutedText} truncate">${sup.count} Ã³rdenes</p>
+                      <p class="text-[8.5px] ${mutedText} truncate">${sup.count} órdenes</p>
                     </div>
                   </div>
                   <div class="text-right shrink-0">
@@ -890,7 +890,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
     });
   } else if (activeSubTab === 'bitacora') {
     const records = getExpensesRecords();
-    const docTitle = `BitÃ¡cora de Egresos y Compras - ${projectName}`;
+    const docTitle = `Bitácora de Egresos y Compras - ${projectName}`;
 
     const rowsHtml = records.map((r, i) => {
       const sup = r.supplierId ? getSupplierById(r.supplierId) : null;
@@ -902,7 +902,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
           <td style="padding: 5px; border: 1px solid #cbd5e1; font-family: monospace; font-weight: bold; color: #2563eb;">${r.id}</td>
           <td style="padding: 5px; border: 1px solid #cbd5e1;">${r.date || '---'}</td>
           <td style="padding: 5px; border: 1px solid #cbd5e1; text-transform: capitalize;">${r.type || 'Material'}</td>
-          <td style="padding: 5px; border: 1px solid #cbd5e1; font-weight: 600;">${r.description || 'Sin descripciÃ³n'}</td>
+          <td style="padding: 5px; border: 1px solid #cbd5e1; font-weight: 600;">${r.description || 'Sin descripción'}</td>
           <td style="padding: 5px; border: 1px solid #cbd5e1;">${supName}</td>
           <td style="padding: 5px; border: 1px solid #cbd5e1; font-family: monospace;">${r.invoiceNumber || '---'}</td>
           <td style="padding: 5px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatNumber(r.quantity)} ${r.unit || 'pza'}</td>
@@ -923,7 +923,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
       <div style="border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: flex-start;">
         ${renderExpensesBrandHeaderBlock(companyName, companyLogo, projectName, projectLocation, true)}
         <div style="text-align: right;">
-          <div style="font-size: 14px; font-weight: 900; color: #0f172a;">BITÃCORA DE GASTOS Y COMPRAS</div>
+          <div style="font-size: 14px; font-weight: 900; color: #0f172a;">BITÁCORA DE GASTOS Y COMPRAS</div>
           <div style="font-size: 10px; color: #475569;">FECHA: <strong>${todayStr}</strong></div>
           <div style="font-size: 10px; color: #64748b;">TOTAL REGISTROS: <strong>${records.length}</strong></div>
         </div>
@@ -936,7 +936,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
             <th style="padding: 6px; border: 1px solid #0f172a; width: 75px;">Folio OC</th>
             <th style="padding: 6px; border: 1px solid #0f172a; width: 65px;">Fecha</th>
             <th style="padding: 6px; border: 1px solid #0f172a; width: 60px;">Tipo</th>
-            <th style="padding: 6px; border: 1px solid #0f172a;">DescripciÃ³n del Insumo / Gasto</th>
+            <th style="padding: 6px; border: 1px solid #0f172a;">Descripción del Insumo / Gasto</th>
             <th style="padding: 6px; border: 1px solid #0f172a;">Proveedor</th>
             <th style="padding: 6px; border: 1px solid #0f172a; width: 65px;">Factura</th>
             <th style="padding: 6px; border: 1px solid #0f172a; width: 60px; text-align: right;">Cant.</th>
@@ -971,7 +971,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
         <tr>
           <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: center;">${idx + 1}</td>
           <td style="padding: 4px 6px; border: 1px solid #cbd5e1; font-family: monospace; font-weight: bold; color: #2563eb;">${i.clave || '---'}</td>
-          <td style="padding: 4px 6px; border: 1px solid #cbd5e1; font-weight: 600;">${i.descripcion || 'Sin descripciÃ³n'}</td>
+          <td style="padding: 4px 6px; border: 1px solid #cbd5e1; font-weight: 600;">${i.descripcion || 'Sin descripción'}</td>
           <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: center;">${i.unidad || 'pza'}</td>
           <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatNumber(i.cantidadPresupuestada)}</td>
           <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-weight: bold;">${formatNumber(i.cantidadComprada)}</td>
@@ -995,7 +995,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
             <tr style="background: #f1f5f9; color: #334155; font-size: 9px;">
               <th style="padding: 4px 6px; border: 1px solid #cbd5e1; width: 25px;">#</th>
               <th style="padding: 4px 6px; border: 1px solid #cbd5e1; width: 80px;">Clave</th>
-              <th style="padding: 4px 6px; border: 1px solid #cbd5e1;">DescripciÃ³n Insumo</th>
+              <th style="padding: 4px 6px; border: 1px solid #cbd5e1;">Descripción Insumo</th>
               <th style="padding: 4px 6px; border: 1px solid #cbd5e1; width: 40px; text-align: center;">Unid.</th>
               <th style="padding: 4px 6px; border: 1px solid #cbd5e1; width: 65px; text-align: right;">Cant. Pres.</th>
               <th style="padding: 4px 6px; border: 1px solid #cbd5e1; width: 65px; text-align: right;">Cant. Real</th>
@@ -1003,7 +1003,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
               <th style="padding: 4px 6px; border: 1px solid #cbd5e1; width: 65px; text-align: right;">P.U. Pres.</th>
               <th style="padding: 4px 6px; border: 1px solid #cbd5e1; width: 65px; text-align: right;">P.U. Real</th>
               <th style="padding: 4px 6px; border: 1px solid #cbd5e1; width: 75px; text-align: right;">Importe Real</th>
-              <th style="padding: 4px 6px; border: 1px solid #cbd5e1; width: 85px; text-align: center;">SemÃ¡foro</th>
+              <th style="padding: 4px 6px; border: 1px solid #cbd5e1; width: 85px; text-align: center;">Semáforo</th>
             </tr>
           </thead>
           <tbody>
@@ -1052,11 +1052,11 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
 
   } catch (err) {
     console.error('[printExpensesActiveReport] Error al generar reporte de compras:', err);
-    showToast('Error al preparar impresiÃ³n de Compras: ' + (err.message || 'Error desconocido'), 'error');
+    showToast('Error al preparar impresión de Compras: ' + (err.message || 'Error desconocido'), 'error');
   }
 }
 
-// Exponer funciÃ³n de impresiÃ³n de compras globalmente
+// Exponer función de impresión de compras globalmente
 if (typeof window !== 'undefined') {
   window.printExpensesActiveReport = printExpensesActiveReport;
 }

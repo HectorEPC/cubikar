@@ -1,34 +1,34 @@
-﻿// js/modules/catalog/signaturesModal.js
-// Modal para configurar los responsables y firmantes del CatÃ¡logo y Presupuesto de Obra (TAB1-CAT-BASE)
+// js/modules/catalog/signaturesModal.js
+// Modal para configurar los responsables y firmantes del Catálogo y Presupuesto de Obra (TAB1-CAT-BASE)
 // Los nombres y cargos configurados se imprimen en la parte inferior del formato oficial.
 
-import { state, persistSettings } from '../../state/store.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
+import { state, persistSettings } from '../../state/store.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
 
 // Sanitizar texto con posibles caracteres corruptos (mojibake)
 export function sanitizeSignatureText(str) {
   if (typeof str !== 'string' || !str) return str || '';
   return str
-    .replace(/Ãƒâ€œ|Ãƒ\u201c|Ãƒ\u0093/g, 'Ã“')
-    .replace(/ÃƒÂ³/g, 'Ã³')
-    .replace(/ÃƒÂ­|Ãƒ\u00ad/g, 'Ã­')
-    .replace(/Ãƒâ€°/g, 'Ã‰')
-    .replace(/ÃƒÂ©/g, 'Ã©')
-    .replace(/ÃƒÂ|Ãƒ\u0081/g, 'Ã')
-    .replace(/ÃƒÂ¡/g, 'Ã¡')
-    .replace(/ÃƒÅ¡/g, 'Ãš')
-    .replace(/ÃƒÂº/g, 'Ãº')
-    .replace(/Ãƒâ€˜/g, 'Ã‘')
-    .replace(/ÃƒÂ±/g, 'Ã±')
-    .replace(/Ãƒ(?=[a-zA-ZÃ¡Ã©Ã­Ã³ÃºÃ±ÃÃ‰ÃÃ“ÃšÃ‘])/g, 'Ã­')
-    .replace(/Ã‚Â¿/g, 'Â¿')
-    .replace(/Ã‚Â¡/g, 'Â¡');
+    .replace(/Ã“|Ã\u201c|Ã\u0093/g, 'Ó')
+    .replace(/Ã³/g, 'ó')
+    .replace(/Ã­|Ã\u00ad/g, 'í')
+    .replace(/Ã‰/g, 'É')
+    .replace(/Ã©/g, 'é')
+    .replace(/Ã|Ã\u0081/g, 'Á')
+    .replace(/Ã¡/g, 'á')
+    .replace(/Ãš/g, 'Ú')
+    .replace(/Ãº/g, 'ú')
+    .replace(/Ã‘/g, 'Ñ')
+    .replace(/Ã±/g, 'ñ')
+    .replace(/Ã(?=[a-zA-ZáéíóúñÁÉÍÓÚÑ])/g, 'í')
+    .replace(/Â¿/g, '¿')
+    .replace(/Â¡/g, '¡');
 }
 
 export const DEFAULT_BUDGET_SIGNATURES = [
-  { rol: 'ELABORÃ“', nombre: '', cargo: 'Departamento de Precios Unitarios y Presupuestos' },
-  { rol: 'REVISÃ“', nombre: '', cargo: 'CoordinaciÃ³n de Costos e IngenierÃ­a' },
-  { rol: 'AUTORIZÃ“ / CLIENTE', nombre: '', cargo: 'DirecciÃ³n de Obra y SupervisiÃ³n' }
+  { rol: 'ELABORÓ', nombre: '', cargo: 'Departamento de Precios Unitarios y Presupuestos' },
+  { rol: 'REVISÓ', nombre: '', cargo: 'Coordinación de Costos e Ingeniería' },
+  { rol: 'AUTORIZÓ / CLIENTE', nombre: '', cargo: 'Dirección de Obra y Supervisión' }
 ];
 
 let draftSignatures = [];
@@ -52,7 +52,7 @@ export function getBudgetSignatures() {
       };
     });
 
-    // Reparar automÃ¡ticamente en el estado y almacenamiento persistente si venÃ­a corrupto
+    // Reparar automáticamente en el estado y almacenamiento persistente si venía corrupto
     if (hadCorruptedText && state.settings) {
       state.settings.budgetSignatures = sanitized;
       try { persistSettings(); } catch (_) {}
@@ -77,7 +77,7 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// Abrir el modal de configuraciÃ³n de firmas
+// Abrir el modal de configuración de firmas
 export function openPresupuestoSignaturesModal() {
   const modal = document.getElementById('modal-presupuesto-firmas');
   if (!modal) return;
@@ -145,22 +145,22 @@ export function renderPresupuestoSignaturesForm() {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
               <label class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                Rol / TÃ­tulo de la Firma:
+                Rol / Título de la Firma:
               </label>
               <input type="text" 
                      value="${escapeHtml(sig.rol)}" 
-                     placeholder="Ej: ELABORÃ“, REVISÃ“, AUTORIZÃ“"
+                     placeholder="Ej: ELABORÓ, REVISÓ, AUTORIZÓ"
                      oninput="updateDraftSignature(${idx}, 'rol', this.value)"
                      class="w-full text-xs font-bold uppercase text-slate-800 bg-slate-50 hover:bg-white border border-slate-300 focus:border-blue-500 focus:bg-white rounded-lg px-2.5 py-1.5 outline-none transition">
             </div>
 
             <div>
               <label class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                Nombre del Responsable que firmarÃ¡:
+                Nombre del Responsable que firmará:
               </label>
               <input type="text" 
                      value="${escapeHtml(sig.nombre)}" 
-                     placeholder="Ej: Ing. Juan PÃ©rez GÃ³mez"
+                     placeholder="Ej: Ing. Juan Pérez Gómez"
                      oninput="updateDraftSignature(${idx}, 'nombre', this.value)"
                      class="w-full text-xs font-semibold text-slate-900 bg-slate-50 hover:bg-white border border-slate-300 focus:border-blue-500 focus:bg-white rounded-lg px-2.5 py-1.5 outline-none transition">
             </div>
@@ -185,10 +185,10 @@ export function renderPresupuestoSignaturesForm() {
 // Agregar un nuevo firmante (hasta 5)
 export function addPresupuestoSignature() {
   if (draftSignatures.length >= 5) {
-    showToast('Se permite un mÃ¡ximo de 5 firmantes', 'info');
+    showToast('Se permite un máximo de 5 firmantes', 'info');
     return;
   }
-  const defaultRoles = ['SUPERVISIÃ“N', 'RESIDENTE DE OBRA', 'CONTRATISTA', 'CLIENTE'];
+  const defaultRoles = ['SUPERVISIÓN', 'RESIDENTE DE OBRA', 'CONTRATISTA', 'CLIENTE'];
   const nextRole = defaultRoles[draftSignatures.length % defaultRoles.length] || 'FIRMA';
 
   draftSignatures.push({
@@ -217,7 +217,7 @@ export function updateDraftSignature(index, field, value) {
   }
 }
 
-// Restablecer los 3 firmantes estÃ¡ndar
+// Restablecer los 3 firmantes estándar
 export function resetDefaultPresupuestoSignatures() {
   draftSignatures = DEFAULT_BUDGET_SIGNATURES.map((s) => ({ ...s }));
   renderPresupuestoSignaturesForm();

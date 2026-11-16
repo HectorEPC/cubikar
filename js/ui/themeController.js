@@ -1,5 +1,5 @@
-﻿// Controlador global de Tema Visual: Vista de DÃ­a (predeterminado) y Modo Nocturno
-import { showToast } from './notifications.js?v=20261116_cf3';
+// Controlador global de Tema Visual: Vista de Día (predeterminado) y Modo Nocturno
+import { showToast } from './notifications.js?v=20261116_cf4';
 
 export const STORAGE_KEY_THEME = 'adm_const_theme_mode';
 
@@ -35,13 +35,13 @@ export function updateThemeToggleUI(isNight) {
   if (btn) {
     if (isNight) {
       btn.className = 'w-11 h-11 rounded-xl flex items-center justify-center bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-400/50 shadow-md shadow-amber-500/10 transition active:scale-95 cursor-pointer group relative';
-      btn.title = 'Modo Actual: Modo Nocturno â€” Clic para cambiar a Vista de DÃ­a';
+      btn.title = 'Modo Actual: Modo Nocturno — Clic para cambiar a Vista de Día';
       if (typeof btn.setAttribute === 'function') {
-        btn.setAttribute('aria-label', 'Cambiar a Vista de DÃ­a');
+        btn.setAttribute('aria-label', 'Cambiar a Vista de Día');
       }
     } else {
       btn.className = 'w-11 h-11 rounded-xl flex items-center justify-center bg-slate-900/80 hover:bg-indigo-500/20 text-indigo-300 hover:text-amber-300 border border-slate-800 hover:border-indigo-400/50 transition active:scale-95 cursor-pointer group relative shadow-2xs';
-      btn.title = 'Modo Actual: Vista de DÃ­a â€” Clic para cambiar a Modo Nocturno';
+      btn.title = 'Modo Actual: Vista de Día — Clic para cambiar a Modo Nocturno';
       if (typeof btn.setAttribute === 'function') {
         btn.setAttribute('aria-label', 'Cambiar a Modo Nocturno');
       }
@@ -78,7 +78,7 @@ export function applyThemeMode(mode, options = {}) {
     try {
       localStorage.setItem(STORAGE_KEY_THEME, normalized);
     } catch (e) {
-      // Ignorar si almacenamiento estÃ¡ bloqueado
+      // Ignorar si almacenamiento está bloqueado
     }
   }
 
@@ -91,8 +91,8 @@ export function applyThemeMode(mode, options = {}) {
   if (notify) {
     showToast(
       isNight
-        ? 'ðŸŒ™ Modo Nocturno activado'
-        : 'â˜€ï¸ Vista de DÃ­a activada'
+        ? '🌙 Modo Nocturno activado'
+        : '☀️ Vista de Día activada'
     );
   }
 

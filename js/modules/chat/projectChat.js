@@ -1,10 +1,10 @@
-﻿// js/modules/chat/projectChat.js
+// js/modules/chat/projectChat.js
 // Ventana de Chat independiente por Proyecto (plegable y desplegable abajo a la derecha)
 // conectada con Partidas de Nivel 1 (icono de alta visibilidad fa-comments),
 // Usuarios Asignados (@), Estimaciones (#), Reportes (!) y Notificaciones de Menciones en la barra lateral izquierda.
 
-import { state } from '../../state/store.js?v=20261116_cf3';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf3';
+import { state } from '../../state/store.js?v=20261116_cf4';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf4';
 import {
   getProjectById,
   getProjectsList,
@@ -20,24 +20,24 @@ import {
   getStoredPlanInvitations,
   saveStoredPlanInvitations,
   getDeletedProjectsList
-} from '../portal/projectService.js?v=20261116_cf3';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf3';
-import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261116_cf3';
-import { getExpensesRecords } from '../compras/expensesModel.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
-import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261116_cf3';
-import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261116_cf3';
-import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf3';
-import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261116_cf3';
+} from '../portal/projectService.js?v=20261116_cf4';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf4';
+import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261116_cf4';
+import { getExpensesRecords } from '../compras/expensesModel.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261116_cf4';
+import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261116_cf4';
+import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf4';
+import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261116_cf4';
 
-let isChatDockExpanded = false; // Inicia como pequeÃ±o cÃ­rculo flotante abajo a la derecha
-let isChatMaximized = false; // Permite maximizar o restaurar el tamaÃ±o de la ventana del chat
-let activeChatSection = 'tecnico'; // 'tecnico' (CatÃ¡logo, Insumos, Calendario) | 'financiero' (Estimaciones, Compras y Pagos)
+let isChatDockExpanded = false; // Inicia como pequeño círculo flotante abajo a la derecha
+let isChatMaximized = false; // Permite maximizar o restaurar el tamaño de la ventana del chat
+let activeChatSection = 'tecnico'; // 'tecnico' (Catálogo, Insumos, Calendario) | 'financiero' (Estimaciones, Compras y Pagos)
 let activeChatFilter = 'all'; // 'all' | 'mentions' | 'estimaciones' | 'reportes'
-let activePartidaFilterId = null; // ID de Partida Nivel 1 cuando se filtra con el botÃ³n de comentarios
+let activePartidaFilterId = null; // ID de Partida Nivel 1 cuando se filtra con el botón de comentarios
 let activeTagPickerKind = null; // 'user' | 'partida' | 'estimacion' | 'compra' | 'reporte' | null
 let selectedAuthorHandle = null;
-let selectedNotificationsHandle = 'all'; // 'all' (todos los usuarios etiquetados) o @Usuario especÃ­fico
+let selectedNotificationsHandle = 'all'; // 'all' (todos los usuarios etiquetados) o @Usuario específico
 let isNotificationsPopoverOpen = false;
 let highlightedMessageId = null;
 
@@ -253,7 +253,7 @@ function escapeChatJsArg(value = '') {
   return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
-// Helper que devuelve el HTML del botÃ³n de comentarios de alta visibilidad para cualquier concepto o partida
+// Helper que devuelve el HTML del botón de comentarios de alta visibilidad para cualquier concepto o partida
 export function renderPartidaNivel1ChatButton(nodeId, clave = '', descripcion = '') {
   const unreadCount = getPartidaChatCount(nodeId);
   const totalCount = getPartidaTotalChatCount(nodeId);
@@ -262,7 +262,7 @@ export function renderPartidaNivel1ChatButton(nodeId, clave = '', descripcion = 
   const safeDesc = escapeChatHtml(String(descripcion || '').slice(0, 40));
   const safeNodeId = escapeChatJsArg(nodeId || '');
 
-  // DiseÃ±o de alto contraste con icono vectorial fa-comments; el nÃºmero solo muestra comentarios NO leÃ­dos
+  // Diseño de alto contraste con icono vectorial fa-comments; el número solo muestra comentarios NO leídos
   let btnClasses = '';
   let iconClasses = '';
   let badgeHtml = '';
@@ -288,7 +288,7 @@ export function renderPartidaNivel1ChatButton(nodeId, clave = '', descripcion = 
   return `
     <button type="button"
             onclick="openProjectChatForPartida('${safeNodeId}', event)"
-            title="Comentarios (${unreadCount > 0 ? `${unreadCount} no leÃ­dos` : `${totalCount} leÃ­dos`}): ${safeClave} ${safeDesc}"
+            title="Comentarios (${unreadCount > 0 ? `${unreadCount} no leídos` : `${totalCount} leídos`}): ${safeClave} ${safeDesc}"
             class="no-print inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-sans font-bold transition cursor-pointer shrink-0 ${btnClasses}">
       <i class="${iconClasses}"></i>
       ${badgeHtml}
@@ -352,7 +352,7 @@ function getActiveUserHandle(users = null) {
   return list[0] ? list[0].handle : '@Admin';
 }
 
-// Obtener todos los nodos (partidas, sub-partidas y conceptos de cualquier nivel) del catÃ¡logo activo
+// Obtener todos los nodos (partidas, sub-partidas y conceptos de cualquier nivel) del catálogo activo
 function getAllCatalogNodes() {
   const result = [];
   function walk(nodes, level = 1) {
@@ -376,7 +376,7 @@ function getAllCatalogNodes() {
   return result;
 }
 
-// Clasificar secciÃ³n del mensaje ('tecnico' vs 'financiero')
+// Clasificar sección del mensaje ('tecnico' vs 'financiero')
 export function getMessageSection(msg) {
   if (msg && msg.section) return msg.section;
   // Compatibilidad retrospectiva con mensajes guardados anteriormente
@@ -394,12 +394,12 @@ function getProjectEstimacionesTags() {
       return estData.estimaciones.map(e => ({
         id: e.id,
         numero: e.numero,
-        label: `#EstimaciÃ³n No. ${e.numero}`,
+        label: `#Estimación No. ${e.numero}`,
         locked: Boolean(e.locked)
       }));
     }
   } catch (e) {}
-  return [{ id: 'est_1', numero: 1, label: '#EstimaciÃ³n No. 1', locked: false }];
+  return [{ id: 'est_1', numero: 1, label: '#Estimación No. 1', locked: false }];
 }
 
 // Obtener compras/pagos recientes para etiquetar en el canal financiero
@@ -419,7 +419,7 @@ function getProjectComprasTags() {
   ];
 }
 
-// Reportes disponibles para etiquetar segÃºn secciÃ³n
+// Reportes disponibles para etiquetar según sección
 function getProjectReportesTags(section = 'tecnico') {
   if (section === 'financiero') {
     return [
@@ -428,8 +428,8 @@ function getProjectReportesTags(section = 'tecnico') {
     ];
   }
   return [
-    { id: 'cat', label: '!CatÃ¡logo Base / Matrices APU' },
-    { id: 'insumos', label: '!ExplosiÃ³n General de Insumos' },
+    { id: 'cat', label: '!Catálogo Base / Matrices APU' },
+    { id: 'insumos', label: '!Explosión General de Insumos' },
     { id: 'calendario', label: '!Calendario de Obra / Gantt' }
   ];
 }
@@ -506,7 +506,7 @@ function extractMentionsFromMessage(m) {
   }
 
   if (m.text && typeof m.text === 'string') {
-    const matches = m.text.match(/@[A-Za-z0-9_.\-Ã¡Ã©Ã­Ã³ÃºÃÃ‰ÃÃ“ÃšÃ±Ã‘]+/g);
+    const matches = m.text.match(/@[A-Za-z0-9_.\-áéíóúÁÉÍÓÚñÑ]+/g);
     if (matches) {
       matches.forEach(pushTag);
     }
@@ -515,7 +515,7 @@ function extractMentionsFromMessage(m) {
   return list;
 }
 
-// Obtener lista consolidada de usuarios asignados en el proyecto activo y en todos los proyectos (para el centro de notificaciones en Mis Proyectos de Obra y en el Ã¡rea de trabajo)
+// Obtener lista consolidada de usuarios asignados en el proyecto activo y en todos los proyectos (para el centro de notificaciones en Mis Proyectos de Obra y en el área de trabajo)
 function getAllNotificationsUsers(scope = 'all') {
   const seen = new Set();
   const merged = [];
@@ -543,7 +543,7 @@ function getAllNotificationsUsers(scope = 'all') {
     } catch (e) {}
   }
 
-  // TambiÃ©n incluir cualquier @Usuario que haya sido mencionado en los mensajes del alcance
+  // También incluir cualquier @Usuario que haya sido mencionado en los mensajes del alcance
   const targetProjects = scope === 'current'
     ? [{ id: getActiveProjectId() || 'proj-default-01' }]
     : getAllProjectsForNotifications();
@@ -780,7 +780,7 @@ export function getUserMentionsNotifications(targetHandle = null, scope = 'all')
     });
   });
 
-  // Ordenar de mÃ¡s reciente a mÃ¡s antiguo
+  // Ordenar de más reciente a más antiguo
   return results.reverse();
 }
 
@@ -859,7 +859,7 @@ export function markAllMentionsAsRead(scope = 'all') {
 }
 
 /**
- * Descartar / eliminar una notificaciÃ³n individual de menciÃ³n
+ * Descartar / eliminar una notificación individual de mención
  */
 export function dismissMentionNotification(projectId, msgId, event = null) {
   if (event && typeof event.stopPropagation === 'function') {
@@ -881,7 +881,7 @@ export function dismissMentionNotification(projectId, msgId, event = null) {
   }
   syncNotificationStateToCloud();
   renderSidebarNotificationsUI();
-  showToast('NotificaciÃ³n eliminada', 'info');
+  showToast('Notificación eliminada', 'info');
 }
 
 /**
@@ -894,7 +894,7 @@ export function purgeAllNotifications(scope = 'all') {
   const isCurrentOnly = scope === 'current';
   const activePid = getActiveProjectId() || 'proj-default-01';
 
-  // 1. Ocultar avisos de invitaciones Ãºnicamente en scope='all' (sin borrar ni rechazar invitaciones reales)
+  // 1. Ocultar avisos de invitaciones únicamente en scope='all' (sin borrar ni rechazar invitaciones reales)
   if (!isCurrentOnly) {
     try {
       const pendingInvs = uEmail ? getPendingInvitationsForUser(uEmail) : [];
@@ -905,7 +905,7 @@ export function purgeAllNotifications(scope = 'all') {
     } catch (_) {}
   }
 
-  // 2. Marcar como leÃ­dos y descartados los mensajes de menciones del alcance seleccionado
+  // 2. Marcar como leídos y descartados los mensajes de menciones del alcance seleccionado
   const targetProjects = isCurrentOnly
     ? [{ id: activePid }]
     : getAllProjectsForNotifications();
@@ -929,7 +929,7 @@ export function purgeAllNotifications(scope = 'all') {
     } catch (_) {}
   });
 
-  // 3. Purgar claves locales de chat huÃ©rfanas de proyectos eliminados (solo scope='all')
+  // 3. Purgar claves locales de chat huérfanas de proyectos eliminados (solo scope='all')
   if (!isCurrentOnly) {
     try {
       if (typeof localStorage !== 'undefined') {
@@ -974,7 +974,7 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
   const activePid = getActiveProjectId() || 'proj-default-01';
   const targetPid = projectId || activePid;
 
-  // Marcar este mensaje como leÃ­do para que la campana actualice su contador inmediatamente y persista en la nube
+  // Marcar este mensaje como leído para que la campana actualice su contador inmediatamente y persista en la nube
   markMentionReadKey(`${targetPid}:${msgId}`);
   markMentionReadKey(String(msgId));
   const msgs = loadProjectChatMessages(targetPid);
@@ -994,7 +994,7 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
 
   isNotificationsPopoverOpen = false;
 
-  // Verificar si el usuario estÃ¡ en la pantalla "Mis Proyectos de Obra" (#view-portal) o en otro proyecto
+  // Verificar si el usuario está en la pantalla "Mis Proyectos de Obra" (#view-portal) o en otro proyecto
   const portalEl = document.getElementById('view-portal');
   const workspaceEl = document.getElementById('workspace-container');
   const isPortalVisible = Boolean(
@@ -1005,7 +1005,7 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
   );
 
   if (targetPid !== activePid || isPortalVisible) {
-    // Guardar intenciÃ³n de abrir el chat en ese mensaje cuando el proyecto cargue en el Ã¡rea de trabajo
+    // Guardar intención de abrir el chat en ese mensaje cuando el proyecto cargue en el área de trabajo
     try {
       localStorage.setItem('adm_const_pending_chat_open', JSON.stringify({
         projectId: targetPid,
@@ -1019,7 +1019,7 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
     }
   }
 
-  // En el Ã¡rea de proyectos activa: abrir inmediatamente el chat al frente y enfocar el mensaje donde mencionaron al usuario
+  // En el área de proyectos activa: abrir inmediatamente el chat al frente y enfocar el mensaje donde mencionaron al usuario
   isChatDockExpanded = true;
   markActiveProjectChatMessagesAsRead(targetPid);
   activeChatFilter = 'all';
@@ -1047,12 +1047,12 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
 export function handleAcceptInvitationAction(invId) {
   const currentUser = getCurrentUser();
   if (!currentUser) {
-    showToast('Inicia sesiÃ³n para aceptar la invitaciÃ³n', 'warning');
+    showToast('Inicia sesión para aceptar la invitación', 'warning');
     return;
   }
   const result = acceptProjectInvitation(invId, currentUser);
   if (result.ok) {
-    showToast(`ðŸŽ‰ Â¡InvitaciÃ³n aceptada! Accediendo a "${result.projectName}"...`);
+    showToast(`🎉 ¡Invitación aceptada! Accediendo a "${result.projectName}"...`);
     renderSidebarNotificationsUI();
     if (typeof window.refreshProjectsGridUI === 'function') {
       try { window.refreshProjectsGridUI(); } catch (_) {}
@@ -1068,7 +1068,7 @@ export function handleAcceptInvitationAction(invId) {
       }
     }, 400);
   } else {
-    showToast(result.error || 'No se pudo aceptar la invitaciÃ³n', 'warning');
+    showToast(result.error || 'No se pudo aceptar la invitación', 'warning');
   }
 }
 
@@ -1076,7 +1076,7 @@ export function handleRejectInvitationAction(invId) {
   markNotificationDismissed(`inv:${invId}`);
   const ok = rejectProjectInvitation(invId);
   if (ok) {
-    showToast('NotificaciÃ³n de invitaciÃ³n eliminada', 'info');
+    showToast('Notificación de invitación eliminada', 'info');
     renderSidebarNotificationsUI();
     if (typeof window.refreshProjectsGridUI === 'function') {
       try { window.refreshProjectsGridUI(); } catch (_) {}
@@ -1086,7 +1086,7 @@ export function handleRejectInvitationAction(invId) {
     }
   } else {
     renderSidebarNotificationsUI();
-    showToast('NotificaciÃ³n eliminada', 'info');
+    showToast('Notificación eliminada', 'info');
   }
 }
 
@@ -1103,8 +1103,8 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
     ? 'Notificaciones de Todos los Proyectos'
     : 'Menciones en este Proyecto';
   const headerSubtitle = isPortalScope
-    ? `${unreadCount} nueva(s) â€¢ ${mentionsList.length} en todos los proyectos`
-    : `${unreadCount} nueva(s) â€¢ ${mentionsList.length} en esta obra`;
+    ? `${unreadCount} nueva(s) • ${mentionsList.length} en todos los proyectos`
+    : `${unreadCount} nueva(s) • ${mentionsList.length} en esta obra`;
 
   const safeFilterLabel = escapeChatHtml(filterHandle === '__self__' ? 'ti' : filterHandle);
   const emptyTitle = filterHandle === 'all'
@@ -1113,9 +1113,9 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
 
   const emptyDesc = filterHandle === 'all'
     ? (isPortalScope
-        ? 'Cuando etiqueten a un <strong>@Usuario</strong> en el Chat de cualquier proyecto, se recopilarÃ¡ aquÃ­.'
-        : 'Cuando etiqueten a un <strong>@Usuario</strong> en el Chat del proyecto, aparecerÃ¡ aquÃ­ y al darle clic te enviarÃ¡ al chat.')
-    : `Cuando alguien etiquete a <strong>${safeFilterLabel}</strong> en el Chat de Obra, aparecerÃ¡ aquÃ­ el aviso directo.`;
+        ? 'Cuando etiqueten a un <strong>@Usuario</strong> en el Chat de cualquier proyecto, se recopilará aquí.'
+        : 'Cuando etiqueten a un <strong>@Usuario</strong> en el Chat del proyecto, aparecerá aquí y al darle clic te enviará al chat.')
+    : `Cuando alguien etiquete a <strong>${safeFilterLabel}</strong> en el Chat de Obra, aparecerá aquí el aviso directo.`;
 
   return `
     <!-- Encabezado del centro de notificaciones de menciones -->
@@ -1139,8 +1139,8 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
         ${unreadCount > 0 ? `
           <button type="button" onclick="event.stopPropagation(); markAllMentionsAsRead('${escapeChatHtml(escapeChatJsArg(scope))}')"
                   class="px-2 py-1 rounded-lg bg-blue-600/25 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-[10px] font-bold cursor-pointer transition"
-                  title="Marcar todas las menciones como leÃ­das">
-            âœ“ LeÃ­das
+                  title="Marcar todas las menciones como leídas">
+            ✓ Leídas
           </button>
         ` : ''}
         <button type="button" onclick="event.stopPropagation(); closeMentionNotificationsPopover()"
@@ -1175,7 +1175,7 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
       </div>
     ` : ''}
 
-    <!-- SECCIÃ“N DE INVITACIONES PENDIENTES (Si hay invitaciones recibidas) -->
+    <!-- SECCIÓN DE INVITACIONES PENDIENTES (Si hay invitaciones recibidas) -->
     ${pendingInvitations && pendingInvitations.length > 0 ? `
       <div onclick="event.stopPropagation()" class="p-3 bg-gradient-to-r from-blue-950/90 via-indigo-950/80 to-slate-900 border-b border-blue-500/40 space-y-2">
         <div class="flex items-center justify-between">
@@ -1194,25 +1194,25 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
                   <h5 class="text-xs font-bold text-white truncate" title="${escapeChatHtml(inv.projectName || '')}">
-                    ðŸ“ ${escapeChatHtml(inv.projectName || 'Proyecto')}
+                    📁 ${escapeChatHtml(inv.projectName || 'Proyecto')}
                   </h5>
                   <span class="text-[10.5px] text-slate-300 block truncate">
-                    Invitado por: <strong class="text-amber-300">${escapeChatHtml(inv.ownerName || 'AnfitriÃ³n')}</strong>
+                    Invitado por: <strong class="text-amber-300">${escapeChatHtml(inv.ownerName || 'Anfitrión')}</strong>
                   </span>
                 </div>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${inv.role === 'editar' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-purple-500/20 text-purple-300 border border-purple-500/40'}">
-                  ${inv.role === 'editar' ? 'â­ Rol: Editor' : (inv.role === 'escribir' ? 'âœï¸ Rol: Escribir' : 'ðŸ‘ï¸ Rol: Leer')}
+                  ${inv.role === 'editar' ? '⭐ Rol: Editor' : (inv.role === 'escribir' ? '✍️ Rol: Escribir' : '👁️ Rol: Leer')}
                 </span>
               </div>
 
               <div class="flex items-center justify-between pt-1.5 border-t border-slate-800/80 gap-2 text-xs">
                 <span class="text-[10px] text-slate-400 truncate">
-                  MembresÃ­a: <b class="text-slate-200">${inv.ownerPlanId ? `Plan ${escapeChatHtml(String(inv.ownerPlanId).toUpperCase())}` : 'Plan AnfitriÃ³n'}</b>
+                  Membresía: <b class="text-slate-200">${inv.ownerPlanId ? `Plan ${escapeChatHtml(String(inv.ownerPlanId).toUpperCase())}` : 'Plan Anfitrión'}</b>
                 </span>
                 <div class="flex items-center gap-1.5 shrink-0">
                   <button type="button" onclick="event.stopPropagation(); handleRejectInvitationAction('${escapeChatHtml(escapeChatJsArg(inv.id))}')"
                           class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-[10.5px] font-semibold transition cursor-pointer flex items-center gap-1"
-                          title="Eliminar y descartar esta notificaciÃ³n de invitaciÃ³n">
+                          title="Eliminar y descartar esta notificación de invitación">
                     <i class="fa-solid fa-trash-can text-[9px]"></i> Eliminar
                   </button>
                   <button type="button" onclick="handleAcceptInvitationAction('${escapeChatHtml(escapeChatJsArg(inv.id))}')"
@@ -1227,7 +1227,7 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
       </div>
     ` : ''}
 
-    <!-- Selector de usuario para consultar todas las menciones o las de un usuario en especÃ­fico -->
+    <!-- Selector de usuario para consultar todas las menciones o las de un usuario en específico -->
     <div onclick="event.stopPropagation()" class="px-3.5 py-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-2">
       <span class="text-[10.5px] text-slate-400 font-medium">Filtrar usuario:</span>
       <select onchange="onNotificationsUserFilterChange(this.value)"
@@ -1275,7 +1275,7 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
                   </span>
                   <button type="button" onclick="event.stopPropagation(); dismissMentionNotification('${safeProjArg}', '${safeMsgArg}', event)"
                           class="px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-slate-700/80 hover:border-rose-500/40 inline-flex items-center gap-1 text-[9.5px] font-semibold transition cursor-pointer"
-                          title="Eliminar esta notificaciÃ³n">
+                          title="Eliminar esta notificación">
                     <i class="fa-solid fa-trash-can text-[8.5px]"></i> Eliminar
                   </button>
                 </div>
@@ -1283,11 +1283,11 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
 
               <div class="flex flex-wrap items-center gap-1">
                 <span class="px-1.5 py-0.2 rounded text-[9.5px] font-semibold bg-slate-800 text-slate-200 border border-slate-700 truncate max-w-[155px]">
-                  ðŸ“ ${escapeChatHtml(item.projectName)}
+                  📁 ${escapeChatHtml(item.projectName)}
                 </span>
                 ${mentionedTags.map(tag => `
                   <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-blue-500/25 text-blue-300 border border-blue-400/40">
-                    ðŸ”” ${escapeChatHtml(tag)}
+                    🔔 ${escapeChatHtml(tag)}
                   </span>
                 `).join('')}
                 ${pObj ? `
@@ -1343,7 +1343,7 @@ export function renderSidebarNotificationsUI() {
   const consumptionAlert = (currentUser && currentUser.email) ? getActiveUserConsumptionAlert(currentUser.email) : null;
   const consumptionAlertCount = consumptionAlert ? 1 : 0;
 
-  // 1) Campana en el Ãrea de Proyectos (barra lateral izquierda): notificaciones donde mencionaron usuarios en el proyecto activo
+  // 1) Campana en el Área de Proyectos (barra lateral izquierda): notificaciones donde mencionaron usuarios en el proyecto activo
   const projectMentions = getUserMentionsNotifications(filterHandle, 'current');
   const projectUnreadCount = projectMentions.filter(item => !item.isRead).length + pendingInvsCount + consumptionAlertCount;
   const projectBadgeText = projectUnreadCount > 99 ? '99+' : String(projectUnreadCount);
@@ -1469,20 +1469,20 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
     event.stopPropagation();
   }
 
-  // Si no se especificÃ³ secciÃ³n, usar la secciÃ³n activa del chat dock o 'todos'
+  // Si no se especificó sección, usar la sección activa del chat dock o 'todos'
   const targetSection = sectionFilter || activeChatSection || 'tecnico';
 
   const companyName = state.settings?.companyName || 'Constructora / Empresa';
-  const companySubtitle = state.settings?.companySubtitle || 'BitÃ¡cora y Seguimiento de Obra';
+  const companySubtitle = state.settings?.companySubtitle || 'Bitácora y Seguimiento de Obra';
   const projectName = state.settings?.projectName || 'Proyecto de Obra';
-  const projectLocation = state.settings?.projectLocation || 'UbicaciÃ³n no especificada';
+  const projectLocation = state.settings?.projectLocation || 'Ubicación no especificada';
   const logoSrc = state.settings?.companyLogo || '';
 
   const users = getAssignedProjectUsers();
   const partidas = getAllCatalogNodes();
   const allMessages = loadProjectChatMessages();
 
-  // Filtrar segÃºn la secciÃ³n seleccionada
+  // Filtrar según la sección seleccionada
   const filteredMessages = allMessages.filter(m => {
     const sec = getMessageSection(m);
     if (targetSection !== 'todos' && sec !== targetSection) return false;
@@ -1497,25 +1497,25 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
     ? partidas.find(p => String(p.id) === String(activePartidaFilterId))
     : null;
 
-  let sectionTitle = 'BITÃCORA GENERAL DE OBRA';
-  let sectionSubtitle = 'CatÃ¡logo, Insumos, Calendario, Estimaciones, Compras y Pagos';
+  let sectionTitle = 'BITÁCORA GENERAL DE OBRA';
+  let sectionSubtitle = 'Catálogo, Insumos, Calendario, Estimaciones, Compras y Pagos';
   if (targetSection === 'tecnico') {
-    sectionTitle = 'BITÃCORA TÃ‰CNICA Y PLANEACIÃ“N DE OBRA';
-    sectionSubtitle = 'CatÃ¡logo Base â€¢ ExplosiÃ³n de Insumos â€¢ Calendario y Cronograma Gantt';
+    sectionTitle = 'BITÁCORA TÉCNICA Y PLANEACIÓN DE OBRA';
+    sectionSubtitle = 'Catálogo Base • Explosión de Insumos • Calendario y Cronograma Gantt';
   } else if (targetSection === 'financiero') {
-    sectionTitle = 'BITÃCORA FINANCIERA Y ADMINISTRATIVA';
-    sectionSubtitle = 'Control de Estimaciones â€¢ Ã“rdenes de Compra â€¢ Flujo de Egresos y Pagos';
+    sectionTitle = 'BITÁCORA FINANCIERA Y ADMINISTRATIVA';
+    sectionSubtitle = 'Control de Estimaciones • Órdenes de Compra • Flujo de Egresos y Pagos';
   }
 
-  let filterLabel = targetSection === 'todos' ? 'BitÃ¡cora Integral Completa' : (targetSection === 'tecnico' ? 'SecciÃ³n TÃ©cnica de Obra' : 'SecciÃ³n Financiera y Pagos');
+  let filterLabel = targetSection === 'todos' ? 'Bitácora Integral Completa' : (targetSection === 'tecnico' ? 'Sección Técnica de Obra' : 'Sección Financiera y Pagos');
   if (activePartidaObj) {
-    filterLabel += ` â€¢ Concepto (N${activePartidaObj.level}): /${activePartidaObj.clave} ${activePartidaObj.descripcion}`;
+    filterLabel += ` • Concepto (N${activePartidaObj.level}): /${activePartidaObj.clave} ${activePartidaObj.descripcion}`;
   } else if (activeChatFilter === 'mentions') {
-    filterLabel += ` â€¢ Menciones de ${selectedAuthorHandle || 'usuario'}`;
+    filterLabel += ` • Menciones de ${selectedAuthorHandle || 'usuario'}`;
   } else if (activeChatFilter === 'estimaciones') {
-    filterLabel += ' â€¢ Comentarios etiquetados con #Estimaciones';
+    filterLabel += ' • Comentarios etiquetados con #Estimaciones';
   } else if (activeChatFilter === 'reportes') {
-    filterLabel += ' â€¢ Comentarios etiquetados con !Reportes';
+    filterLabel += ' • Comentarios etiquetados con !Reportes';
   }
 
   const fechaImpresion = new Date().toLocaleDateString('es-MX', {
@@ -1558,7 +1558,7 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
             <th style="width:160px;">Usuario / Autor</th>
             <th style="width:120px;">Rol Oficial</th>
             <th style="width:90px; text-align:center;">Notas Registradas</th>
-            <th>Rango de IntervenciÃ³n</th>
+            <th>Rango de Intervención</th>
           </tr>
         </thead>
         <tbody>
@@ -1576,15 +1576,15 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
     `;
 
   const rowsHtml = filteredMessages.length === 0
-    ? `<tr><td colspan="5" style="text-align:center; padding:18px; color:#64748b;">No hay asientos ni comentarios registrados en esta secciÃ³n para imprimir.</td></tr>`
+    ? `<tr><td colspan="5" style="text-align:center; padding:18px; color:#64748b;">No hay asientos ni comentarios registrados en esta sección para imprimir.</td></tr>`
     : filteredMessages.map((m, idx) => {
         const sec = getMessageSection(m);
         const pObj = m.partidaId ? partidas.find(p => String(p.id) === String(m.partidaId)) : null;
         const tags = [];
         if (sec === 'tecnico') {
-          tags.push(`<span class="tag tag-sec-tec">ðŸ—ï¸ TÃ©cnica</span>`);
+          tags.push(`<span class="tag tag-sec-tec">🏗️ Técnica</span>`);
         } else {
-          tags.push(`<span class="tag tag-sec-fin">ðŸ’¼ Financiera</span>`);
+          tags.push(`<span class="tag tag-sec-fin">💼 Financiera</span>`);
         }
         if (pObj) tags.push(`<span class="tag tag-partida">/${pObj.clave} ${pObj.descripcion}</span>`);
         (m.mentions || []).forEach(u => tags.push(`<span class="tag tag-user">${u}</span>`));
@@ -1679,14 +1679,14 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
   <div class="toolbar">
     <div class="toolbar-left">
       <strong>${sectionTitle}</strong>
-      <span style="font-size:8pt; color:#94a3b8;">(${filteredMessages.length} asiento(s) de bitÃ¡cora)</span>
+      <span style="font-size:8pt; color:#94a3b8;">(${filteredMessages.length} asiento(s) de bitácora)</span>
     </div>
     <div class="toolbar-buttons">
-      <button class="btn-filter ${targetSection === 'tecnico' ? 'active' : ''}" onclick="window.location.search='?section=tecnico';">ðŸ—ï¸ TÃ©cnica</button>
-      <button class="btn-filter ${targetSection === 'financiero' ? 'active' : ''}" onclick="window.location.search='?section=financiero';">ðŸ’¼ Financiera</button>
-      <button class="btn-filter ${targetSection === 'todos' ? 'active' : ''}" onclick="window.location.search='?section=todos';">ðŸ“‘ Todas</button>
-      <button class="btn-print" onclick="window.print()">ðŸ–¨ï¸ Imprimir / PDF</button>
-      <button class="btn-close" onclick="window.close()">âœ• Cerrar</button>
+      <button class="btn-filter ${targetSection === 'tecnico' ? 'active' : ''}" onclick="window.location.search='?section=tecnico';">🏗️ Técnica</button>
+      <button class="btn-filter ${targetSection === 'financiero' ? 'active' : ''}" onclick="window.location.search='?section=financiero';">💼 Financiera</button>
+      <button class="btn-filter ${targetSection === 'todos' ? 'active' : ''}" onclick="window.location.search='?section=todos';">📑 Todas</button>
+      <button class="btn-print" onclick="window.print()">🖨️ Imprimir / PDF</button>
+      <button class="btn-close" onclick="window.close()">✕ Cerrar</button>
     </div>
   </div>
 
@@ -1702,15 +1702,15 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
       <div style="text-align:right;">
         <div style="font-size:10pt; font-weight:800; color:#1e3a8a;">${sectionTitle}</div>
         <div style="font-size:7.5pt; color:#64748b;">${sectionSubtitle}</div>
-        <div style="font-size:7.5pt; color:#64748b; margin-top:2px;">Fecha de emisiÃ³n: ${fechaImpresion}</div>
+        <div style="font-size:7.5pt; color:#64748b; margin-top:2px;">Fecha de emisión: ${fechaImpresion}</div>
       </div>
     </div>
 
     <div class="meta-grid">
       <div>
         <div><strong>Proyecto:</strong> ${projectName}</div>
-        <div><strong>UbicaciÃ³n:</strong> ${projectLocation}</div>
-        <div><strong>Ãmbito Documental:</strong> <span style="font-weight:700; color:#1e3a8a;">${targetSection === 'tecnico' ? 'TÃ©cnica de Obra (CatÃ¡logo, Insumos, Cronograma)' : (targetSection === 'financiero' ? 'Financiera (Estimaciones, Compras y Pagos)' : 'Consolidada Integral')}</span></div>
+        <div><strong>Ubicación:</strong> ${projectLocation}</div>
+        <div><strong>Ámbito Documental:</strong> <span style="font-weight:700; color:#1e3a8a;">${targetSection === 'tecnico' ? 'Técnica de Obra (Catálogo, Insumos, Cronograma)' : (targetSection === 'financiero' ? 'Financiera (Estimaciones, Compras y Pagos)' : 'Consolidada Integral')}</span></div>
       </div>
       <div>
         <div><strong>Filtro aplicado:</strong> ${filterLabel}</div>
@@ -1722,14 +1722,14 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
     <div class="section-title">1. Resumen de Participantes e Intervenciones Registradas</div>
     ${participantsTableHtml}
 
-    <div class="section-title">2. Asientos CronolÃ³gicos de BitÃ¡cora y Mensajes de Seguimiento</div>
+    <div class="section-title">2. Asientos Cronológicos de Bitácora y Mensajes de Seguimiento</div>
     <table>
       <thead>
         <tr>
           <th style="width:30px; text-align:center;">#</th>
           <th style="width:100px;">Fecha / Hora</th>
           <th style="width:145px;">Autor / Emisor</th>
-          <th style="width:185px;">Ãmbito y Referencias</th>
+          <th style="width:185px;">Ámbito y Referencias</th>
           <th>Asiento Oficial / Comentario de Seguimiento</th>
         </tr>
       </thead>
@@ -1741,21 +1741,21 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
     <div class="signatures">
       <div class="sig-box">
         <strong>RESIDENCIA DE OBRA</strong><br>
-        <span>Nombre, Firma y CÃ©dula Profesional</span>
+        <span>Nombre, Firma y Cédula Profesional</span>
       </div>
       <div class="sig-box">
-        <strong>SUPERVISIÃ“N TÃ‰CNICA</strong><br>
-        <span>Nombre y Firma de AprobaciÃ³n</span>
+        <strong>SUPERVISIÓN TÉCNICA</strong><br>
+        <span>Nombre y Firma de Aprobación</span>
       </div>
       <div class="sig-box">
-        <strong>ADMINISTRACIÃ“N Y FINANZAS</strong><br>
-        <span>Nombre y Firma de ValidaciÃ³n</span>
+        <strong>ADMINISTRACIÓN Y FINANZAS</strong><br>
+        <span>Nombre y Firma de Validación</span>
       </div>
     </div>
   </div>
 
   <script>
-    // Manejar selector de secciones en la ventana de impresiÃ³n
+    // Manejar selector de secciones en la ventana de impresión
     (function() {
       const urlParams = new URLSearchParams(window.location.search);
       const secParam = urlParams.get('section');
@@ -1770,7 +1770,7 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
 
   const printWin = window.open('', '_blank', 'width=1000,height=760,scrollbars=yes');
   if (!printWin) {
-    showToast('Permite las ventanas emergentes para imprimir la bitÃ¡cora del proyecto.', 'warning');
+    showToast('Permite las ventanas emergentes para imprimir la bitácora del proyecto.', 'warning');
     return;
   }
   printWin.document.open();
@@ -1891,7 +1891,7 @@ export function sendProjectChatMessage() {
   const defaultAuthor = users.find(u => currentUser && u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase()) || users[0];
   const authorObj = users.find(u => u.handle === selectedAuthorHandle) || defaultAuthor;
 
-  // Detectar tanto las etiquetas @Usuario agregadas con el botÃ³n como cualquier @Usuario escrito en el texto
+  // Detectar tanto las etiquetas @Usuario agregadas con el botón como cualquier @Usuario escrito en el texto
   const mergedMentions = extractMentionsFromMessage({
     mentions: pendingComposerTags.mentions,
     text
@@ -1916,7 +1916,7 @@ export function sendProjectChatMessage() {
     authorInitials: authorObj.initials,
     authorEmail: currentUser?.email || '',
     authorAvatar: authorObj.avatar || '',
-    time: `${dateStr} â€¢ ${timeStr}`,
+    time: `${dateStr} • ${timeStr}`,
     createdAt: now.toISOString(),
     partidaId: pendingComposerTags.partidaId || activePartidaFilterId || null,
     mentions: mergedMentions,
@@ -1980,13 +1980,13 @@ export function jumpToProjectChatTag(kind, value) {
     if (typeof window.switchTab === 'function') {
       window.switchTab('estimaciones');
     }
-    showToast(`Abriendo ${value} en la pestaÃ±a Estimaciones`, 'info');
+    showToast(`Abriendo ${value} en la pestaña Estimaciones`, 'info');
   } else if (kind === 'compra') {
     activeChatSection = 'financiero';
     if (typeof window.switchTab === 'function') {
       window.switchTab('compras');
     }
-    showToast(`Navegando a la pestaÃ±a Compras y Pagos para ${value}`, 'info');
+    showToast(`Navegando a la pestaña Compras y Pagos para ${value}`, 'info');
   } else if (kind === 'reporte') {
     const reps = getProjectReportesTags(activeChatSection);
     const found = reps.find(r => r.label === value || r.id === value);
@@ -1997,11 +1997,11 @@ export function jumpToProjectChatTag(kind, value) {
   }
 }
 
-// Renderizar el contenedor acoplado abajo a la derecha dentro de #workspace-container y el botÃ³n en la barra vertical izquierda
+// Renderizar el contenedor acoplado abajo a la derecha dentro de #workspace-container y el botón en la barra vertical izquierda
 export function renderProjectChatDock() {
   if (isRefreshingFromChat) return;
 
-  // Consumir apertura pendiente si el usuario hizo clic en una notificaciÃ³n desde "Mis Proyectos de Obra"
+  // Consumir apertura pendiente si el usuario hizo clic en una notificación desde "Mis Proyectos de Obra"
   let pendingScrollMsgId = null;
   try {
     const rawPending = localStorage.getItem('adm_const_pending_chat_open');
@@ -2061,17 +2061,17 @@ export function renderProjectChatDock() {
   const unreadMessages = allMessages.filter(m => !isChatMessageReadForCurrentUser(m, activePidForRead, myEmail, readSet));
   const unreadCount = isChatDockExpanded ? 0 : unreadMessages.length;
 
-  // Conteo de mensajes no leÃ­dos por secciÃ³n
+  // Conteo de mensajes no leídos por sección
   const countTecnico = isChatDockExpanded ? 0 : unreadMessages.filter(m => getMessageSection(m) === 'tecnico').length;
   const countFinanciero = isChatDockExpanded ? 0 : unreadMessages.filter(m => getMessageSection(m) === 'financiero').length;
 
-  // Actualizar el botÃ³n del Chat en la barra vertical izquierda (debajo de la campana de notificaciones)
+  // Actualizar el botón del Chat en la barra vertical izquierda (debajo de la campana de notificaciones)
   const sidebarChatBtn = document.getElementById('btn-sidebar-project-chat');
   const sidebarChatIcon = document.getElementById('sidebar-chat-icon');
   const sidebarChatBadge = document.getElementById('sidebar-chat-badge');
 
   if (sidebarChatBtn) {
-    sidebarChatBtn.title = `${isChatDockExpanded ? 'Cerrar' : 'Abrir'} Chat y BitÃ¡cora de Obra: ${projectName} (${allMessages.length} notas)`;
+    sidebarChatBtn.title = `${isChatDockExpanded ? 'Cerrar' : 'Abrir'} Chat y Bitácora de Obra: ${projectName} (${allMessages.length} notas)`;
     sidebarChatBtn.className = isChatDockExpanded
       ? 'w-11 h-11 rounded-xl flex items-center justify-center bg-blue-600/25 text-blue-300 border border-blue-500/60 shadow-md transition active:scale-95 cursor-pointer relative group'
       : 'w-11 h-11 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition active:scale-95 cursor-pointer relative group';
@@ -2091,14 +2091,14 @@ export function renderProjectChatDock() {
     }
   }
 
-  // Si estÃ¡ plegado (cerrado), se abre desde el botÃ³n de la barra vertical izquierda o desde Partida Nivel 1
+  // Si está plegado (cerrado), se abre desde el botón de la barra vertical izquierda o desde Partida Nivel 1
   if (!isChatDockExpanded) {
     dockEl.className = 'hidden';
     dockEl.innerHTML = '';
     return;
   }
 
-  // Siempre al frente de toda la informaciÃ³n en todas las pestaÃ±as (z-index: 9990)
+  // Siempre al frente de toda la información en todas las pestañas (z-index: 9990)
   dockEl.style.zIndex = '9990';
   dockEl.className = isChatMaximized
     ? 'no-print fixed bottom-0 right-5 z-50 w-[780px] max-w-[calc(100vw-1.5rem)] shadow-2xl rounded-t-2xl border border-b-0 border-slate-300 bg-white overflow-hidden transition-all duration-200 font-sans'
@@ -2109,7 +2109,7 @@ export function renderProjectChatDock() {
     selectedAuthorHandle = matched ? matched.handle : '@Admin';
   }
 
-  // Filtrar mensajes segÃºn secciÃ³n activa ('tecnico' vs 'financiero'), filtros rÃ¡pidos y Partida Nivel 1
+  // Filtrar mensajes según sección activa ('tecnico' vs 'financiero'), filtros rápidos y Partida Nivel 1
   const sectionMessages = allMessages.filter(m => getMessageSection(m) === activeChatSection);
 
   const filteredMessages = sectionMessages.filter(m => {
@@ -2132,7 +2132,7 @@ export function renderProjectChatDock() {
     </span>
   `).join('');
 
-  // MenÃº flotante para insertar etiquetas contextuales segÃºn la secciÃ³n activa
+  // Menú flotante para insertar etiquetas contextuales según la sección activa
   let tagPickerHtml = '';
   if (activeTagPickerKind === 'user') {
     tagPickerHtml = `
@@ -2153,7 +2153,7 @@ export function renderProjectChatDock() {
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 cursor-pointer truncate max-w-full">
             <span class="opacity-65 mr-0.5">N${Number(p.level) || 1}</span>/${escapeChatHtml(p.clave)} ${escapeChatHtml(p.descripcion)}
           </button>
-        `).join('') : `<span class="text-[11px] text-slate-400">Sin conceptos en el catÃ¡logo</span>`}
+        `).join('') : `<span class="text-[11px] text-slate-400">Sin conceptos en el catálogo</span>`}
       </div>
     `;
   } else if (activeTagPickerKind === 'estimacion') {
@@ -2162,7 +2162,7 @@ export function renderProjectChatDock() {
         ${estimaciones.map(e => `
           <button type="button" onclick="addProjectChatPendingTag('estimacion', '${escapeChatHtml(escapeChatJsArg(e.label))}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 cursor-pointer">
-            ${escapeChatHtml(e.label)} ${e.locked ? 'ðŸ”’' : ''}
+            ${escapeChatHtml(e.label)} ${e.locked ? '🔒' : ''}
           </button>
         `).join('')}
       </div>
@@ -2199,7 +2199,7 @@ export function renderProjectChatDock() {
       activeTagChips.push(`
         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
           /${escapeChatHtml(p.clave)} ${escapeChatHtml(String(p.descripcion || '').slice(0, 22))}
-          <button type="button" onclick="removeProjectChatPendingTag('partida', '${escapeChatHtml(escapeChatJsArg(p.id))}')" class="hover:text-amber-950 cursor-pointer">âœ•</button>
+          <button type="button" onclick="removeProjectChatPendingTag('partida', '${escapeChatHtml(escapeChatJsArg(p.id))}')" class="hover:text-amber-950 cursor-pointer">✕</button>
         </span>
       `);
     }
@@ -2208,7 +2208,7 @@ export function renderProjectChatDock() {
     activeTagChips.push(`
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
         ${escapeChatHtml(m)}
-        <button type="button" onclick="removeProjectChatPendingTag('user', '${escapeChatHtml(escapeChatJsArg(m))}')" class="hover:text-blue-950 cursor-pointer">âœ•</button>
+        <button type="button" onclick="removeProjectChatPendingTag('user', '${escapeChatHtml(escapeChatJsArg(m))}')" class="hover:text-blue-950 cursor-pointer">✕</button>
       </span>
     `);
   });
@@ -2216,7 +2216,7 @@ export function renderProjectChatDock() {
     activeTagChips.push(`
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
         ${escapeChatHtml(e)}
-        <button type="button" onclick="removeProjectChatPendingTag('estimacion', '${escapeChatHtml(escapeChatJsArg(e))}')" class="hover:text-emerald-950 cursor-pointer">âœ•</button>
+        <button type="button" onclick="removeProjectChatPendingTag('estimacion', '${escapeChatHtml(escapeChatJsArg(e))}')" class="hover:text-emerald-950 cursor-pointer">✕</button>
       </span>
     `);
   });
@@ -2224,7 +2224,7 @@ export function renderProjectChatDock() {
     activeTagChips.push(`
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-teal-100 text-teal-800 border border-teal-300">
         ${escapeChatHtml(String(c || '').slice(0, 22))}
-        <button type="button" onclick="removeProjectChatPendingTag('compra', '${escapeChatHtml(escapeChatJsArg(c))}')" class="hover:text-teal-950 cursor-pointer">âœ•</button>
+        <button type="button" onclick="removeProjectChatPendingTag('compra', '${escapeChatHtml(escapeChatJsArg(c))}')" class="hover:text-teal-950 cursor-pointer">✕</button>
       </span>
     `);
   });
@@ -2232,25 +2232,25 @@ export function renderProjectChatDock() {
     activeTagChips.push(`
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
         ${escapeChatHtml(r)}
-        <button type="button" onclick="removeProjectChatPendingTag('reporte', '${escapeChatHtml(escapeChatJsArg(r))}')" class="hover:text-purple-950 cursor-pointer">âœ•</button>
+        <button type="button" onclick="removeProjectChatPendingTag('reporte', '${escapeChatHtml(escapeChatJsArg(r))}')" class="hover:text-purple-950 cursor-pointer">✕</button>
       </span>
     `);
   });
 
   dockEl.innerHTML = `
-    <!-- BARRA SUPERIOR DE LA VENTANA DESPLEGADA (CON BOTONES IMPRIMIR, MAXIMIZAR Y MINIMIZAR AL CÃRCULO FLOTANTE) -->
+    <!-- BARRA SUPERIOR DE LA VENTANA DESPLEGADA (CON BOTONES IMPRIMIR, MAXIMIZAR Y MINIMIZAR AL CÍRCULO FLOTANTE) -->
     <div onclick="toggleProjectChatDock(false)"
          class="px-3 py-2 bg-gradient-to-r from-slate-900 via-blue-900 to-blue-800 hover:from-slate-800 hover:to-blue-700 text-white flex items-center justify-between gap-2 cursor-pointer select-none transition">
       <div class="flex items-center gap-2 min-w-0">
         <span class="w-6 h-6 rounded-lg bg-amber-400 text-slate-950 inline-flex items-center justify-center shadow-xs shrink-0">
           <i class="fa-solid fa-comments text-xs"></i>
         </span>
-        <span class="text-xs font-bold truncate" title="Chat y BitÃ¡cora: ${escapeChatHtml(projectName)}">
-          BitÃ¡cora â€¢ ${escapeChatHtml(projectName)}
+        <span class="text-xs font-bold truncate" title="Chat y Bitácora: ${escapeChatHtml(projectName)}">
+          Bitácora • ${escapeChatHtml(projectName)}
         </span>
         ${unreadCount > 0 ? `
         <span class="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400 text-slate-950 leading-none shrink-0"
-              title="Mensajes no leÃ­dos">
+              title="Mensajes no leídos">
           ${unreadCount}
         </span>` : ''}
       </div>
@@ -2260,21 +2260,21 @@ export function renderProjectChatDock() {
         <button type="button"
                 id="btn-project-chat-print"
                 onclick="event.stopPropagation(); printProjectChatReport('${escapeChatHtml(escapeChatJsArg(activeChatSection))}', event);"
-                title="Imprimir reporte de bitÃ¡cora (${activeChatSection === 'tecnico' ? 'TÃ©cnica' : 'Financiera'})"
+                title="Imprimir reporte de bitácora (${activeChatSection === 'tecnico' ? 'Técnica' : 'Financiera'})"
                 class="w-6 h-6 rounded bg-white/15 hover:bg-white/25 text-white inline-flex items-center justify-center cursor-pointer transition">
           <i class="fa-solid fa-print text-[11px]"></i>
         </button>
         <button type="button"
                 id="btn-project-chat-maximize"
                 onclick="event.stopPropagation(); toggleProjectChatMaximize(event);"
-                title="${isChatMaximized ? 'Restaurar tamaÃ±o del chat' : 'Maximizar ventana del chat'}"
+                title="${isChatMaximized ? 'Restaurar tamaño del chat' : 'Maximizar ventana del chat'}"
                 class="w-6 h-6 rounded bg-white/15 hover:bg-white/25 text-white inline-flex items-center justify-center cursor-pointer transition">
           <i class="fa-solid ${isChatMaximized ? 'fa-compress' : 'fa-expand'} text-[11px]"></i>
         </button>
         <button type="button"
                 id="btn-project-chat-minimize"
                 onclick="event.stopPropagation(); toggleProjectChatDock(false);"
-                title="Minimizar al cÃ­rculo flotante"
+                title="Minimizar al círculo flotante"
                 class="px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white text-[10.5px] font-bold flex items-center gap-1 cursor-pointer transition">
           <span>Plegar</span>
           <i class="fa-solid fa-chevron-down text-[9px]"></i>
@@ -2282,18 +2282,18 @@ export function renderProjectChatDock() {
       </div>
     </div>
 
-    <!-- PESTAÃ‘AS PRINCIPALES DEL CHAT: SECCIÃ“N 1 (TÃ‰CNICA) vs SECCIÃ“N 2 (FINANCIERA) -->
+    <!-- PESTAÑAS PRINCIPALES DEL CHAT: SECCIÓN 1 (TÉCNICA) vs SECCIÓN 2 (FINANCIERA) -->
     <div class="bg-slate-900 px-2 pt-1.5 pb-1 flex items-center justify-between border-b border-slate-700/80 gap-1.5 select-none">
       <div class="flex items-center gap-1 flex-1">
         <button type="button" onclick="switchProjectChatSection('tecnico')"
-                title="CatÃ¡logo Base â€¢ Insumos Base â€¢ Calendario de Obra"
+                title="Catálogo Base • Insumos Base • Calendario de Obra"
                 class="flex-1 py-1 px-2 rounded-md text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${activeChatSection === 'tecnico' ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'}">
           <i class="fa-solid fa-helmet-safety text-[10px]"></i>
-          <span class="truncate">1. TÃ©cnica / Obra</span>
+          <span class="truncate">1. Técnica / Obra</span>
           ${countTecnico > 0 ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold ${activeChatSection === 'tecnico' ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-300'}">${countTecnico}</span>` : ''}
         </button>
         <button type="button" onclick="switchProjectChatSection('financiero')"
-                title="Estimaciones â€¢ Compras y Pagos â€¢ Flujo Financiero"
+                title="Estimaciones • Compras y Pagos • Flujo Financiero"
                 class="flex-1 py-1 px-2 rounded-md text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${activeChatSection === 'financiero' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'}">
           <i class="fa-solid fa-coins text-[10px]"></i>
           <span class="truncate">2. Financiera / Pagos</span>
@@ -2301,7 +2301,7 @@ export function renderProjectChatDock() {
         </button>
       </div>
       <button type="button" onclick="printProjectChatReport('todos', event)"
-              title="Imprimir bitÃ¡cora integral completa (Ambas secciones)"
+              title="Imprimir bitácora integral completa (Ambas secciones)"
               class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold flex items-center gap-1 shrink-0 border border-slate-700 cursor-pointer transition">
         <i class="fa-solid fa-book text-[9px] text-amber-400"></i>
         <span>Libro</span>
@@ -2311,12 +2311,12 @@ export function renderProjectChatDock() {
     <!-- CUERPO DESPLEGABLE DEL CHAT DEL PROYECTO -->
     <div id="project-chat-body" class="flex flex-col bg-white">
       
-      <!-- Sub-encabezado: Usuario Asignado + Filtros rÃ¡pidos -->
+      <!-- Sub-encabezado: Usuario Asignado + Filtros rápidos -->
       <div class="p-2.5 bg-slate-50 border-b border-slate-200 space-y-2">
         <div class="flex items-center justify-between gap-2">
           <span class="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
             <span class="inline-block w-2 h-2 rounded-full ${activeChatSection === 'tecnico' ? 'bg-blue-600' : 'bg-emerald-600'}"></span>
-            ${activeChatSection === 'tecnico' ? 'CatÃ¡logo â€¢ Insumos â€¢ Calendario' : 'Estimaciones â€¢ Compras â€¢ Pagos'}
+            ${activeChatSection === 'tecnico' ? 'Catálogo • Insumos • Calendario' : 'Estimaciones • Compras • Pagos'}
           </span>
           <div class="flex items-center gap-1 bg-white border border-slate-300 rounded px-1.5 py-0.5">
             <span class="text-[10px] text-slate-500">Asiento por:</span>
@@ -2329,7 +2329,7 @@ export function renderProjectChatDock() {
           </div>
         </div>
 
-        <!-- Barra de filtros rÃ¡pidos -->
+        <!-- Barra de filtros rápidos -->
         <div class="flex flex-wrap items-center gap-1">
           <button type="button" onclick="setProjectChatFilter('all')"
                   class="px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition ${activeChatFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'}">
@@ -2354,7 +2354,7 @@ export function renderProjectChatDock() {
             <button type="button" onclick="clearProjectChatPartidaFilter()"
                     title="Quitar filtro de concepto / partida"
                     class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-500 text-white hover:bg-amber-600 cursor-pointer transition truncate max-w-[160px]">
-              /${escapeChatHtml(activePartidaObj.clave)} ${escapeChatHtml(activePartidaObj.descripcion)} âœ•
+              /${escapeChatHtml(activePartidaObj.clave)} ${escapeChatHtml(activePartidaObj.descripcion)} ✕
             </button>
           ` : ''}
         </div>
@@ -2367,10 +2367,10 @@ export function renderProjectChatDock() {
             <span class="w-9 h-9 rounded-full ${activeChatSection === 'tecnico' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'} flex items-center justify-center mb-1.5">
               <i class="fa-solid ${activeChatSection === 'tecnico' ? 'fa-helmet-safety' : 'fa-coins'} text-sm"></i>
             </span>
-            <p class="font-semibold text-slate-600">Sin asientos en la secciÃ³n ${activeChatSection === 'tecnico' ? 'TÃ©cnica de Obra' : 'Financiera'}</p>
+            <p class="font-semibold text-slate-600">Sin asientos en la sección ${activeChatSection === 'tecnico' ? 'Técnica de Obra' : 'Financiera'}</p>
             <p class="text-[11px] text-slate-400 mt-0.5">
               ${activeChatSection === 'tecnico'
-                ? 'Registra acuerdos sobre <strong>CatÃ¡logo Base</strong>, <strong>Insumos</strong> o <strong>Calendario</strong>.'
+                ? 'Registra acuerdos sobre <strong>Catálogo Base</strong>, <strong>Insumos</strong> o <strong>Calendario</strong>.'
                 : 'Registra autorizaciones de <strong>Estimaciones</strong>, <strong>Compras</strong> o <strong>Pagos</strong>.'}
             </p>
           </div>
@@ -2416,19 +2416,19 @@ export function renderProjectChatDock() {
                   ${(m.estimaciones || []).map(est => `
                     <button type="button" onclick="jumpToProjectChatTag('estimacion', '${escapeChatHtml(escapeChatJsArg(est))}')"
                             class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 cursor-pointer">
-                      ${escapeChatHtml(est)} â†—
+                      ${escapeChatHtml(est)} ↗
                     </button>
                   `).join('')}
                   ${(m.compras || []).map(comp => `
                     <button type="button" onclick="jumpToProjectChatTag('compra', '${escapeChatHtml(escapeChatJsArg(comp))}')"
                             class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300 hover:bg-teal-200 cursor-pointer">
-                      ${escapeChatHtml(String(comp || '').slice(0, 24))} â†—
+                      ${escapeChatHtml(String(comp || '').slice(0, 24))} ↗
                     </button>
                   `).join('')}
                   ${(m.reportes || []).map(rep => `
                     <button type="button" onclick="jumpToProjectChatTag('reporte', '${escapeChatHtml(escapeChatJsArg(rep))}')"
                             class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-200 cursor-pointer">
-                      ${escapeChatHtml(rep)} â†—
+                      ${escapeChatHtml(rep)} ↗
                     </button>
                   `).join('')}
                 </div>
@@ -2440,7 +2440,7 @@ export function renderProjectChatDock() {
         }).join('')}
       </div>
 
-      <!-- Barra inferior para etiquetar y enviar comentario segÃºn la secciÃ³n -->
+      <!-- Barra inferior para etiquetar y enviar comentario según la sección -->
       <div class="p-2.5 bg-slate-50 border-t border-slate-200 space-y-1.5">
         <div class="flex flex-wrap items-center gap-1">
           <button type="button" onclick="toggleProjectChatTagPicker('user')"
@@ -2459,7 +2459,7 @@ export function renderProjectChatDock() {
           ` : `
             <button type="button" onclick="toggleProjectChatTagPicker('estimacion')"
                     class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 cursor-pointer">
-              # EstimaciÃ³n
+              # Estimación
             </button>
             <button type="button" onclick="toggleProjectChatTagPicker('compra')"
                     class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100 cursor-pointer">
@@ -2484,7 +2484,7 @@ export function renderProjectChatDock() {
           <input id="project-chat-input"
                  type="text"
                  value="${draftText.replace(/"/g, '&quot;')}"
-                 placeholder="${activeChatSection === 'tecnico' ? 'Asiento tÃ©cnico (CatÃ¡logo, Insumos, Cronograma)...' : 'Asiento financiero (Estimaciones, Compras, Pagos)...'}"
+                 placeholder="${activeChatSection === 'tecnico' ? 'Asiento técnico (Catálogo, Insumos, Cronograma)...' : 'Asiento financiero (Estimaciones, Compras, Pagos)...'}"
                  onkeydown="if(event.key==='Enter'){ event.preventDefault(); sendProjectChatMessage(); }"
                  class="flex-1 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500">
           <button type="button"

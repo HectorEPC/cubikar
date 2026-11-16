@@ -1,15 +1,15 @@
-﻿// js/modules/reference/apuAssistantModal.js
-// Asistente de Insumos para Matrices de Precios Unitarios (OpciÃ³n 2)
+// js/modules/reference/apuAssistantModal.js
+// Asistente de Insumos para Matrices de Precios Unitarios (Opción 2)
 
-import { state } from '../../state/store.js?v=20261116_cf3';
-import { saveState } from '../../state/history.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
-import { formatMoney, round2 } from '../../core/formatters.js?v=20261116_cf3';
-import { findNodeById } from '../catalog/treeService.js?v=20261116_cf3';
-import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from '../apu/apuView.js?v=20261116_cf3';
-import { searchReferenceItems, listReferenceCatalogs } from './referenceDb.js?v=20261116_cf3';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf3';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf3';
+import { state } from '../../state/store.js?v=20261116_cf4';
+import { saveState } from '../../state/history.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+import { formatMoney, round2 } from '../../core/formatters.js?v=20261116_cf4';
+import { findNodeById } from '../catalog/treeService.js?v=20261116_cf4';
+import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from '../apu/apuView.js?v=20261116_cf4';
+import { searchReferenceItems, listReferenceCatalogs } from './referenceDb.js?v=20261116_cf4';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf4';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf4';
 
 let apuSearchDebounce = null;
 let currentApuSearchResults = [];
@@ -17,7 +17,7 @@ let currentApuSearchResults = [];
 // Abrir modal de asistente de insumos para el concepto activo
 export async function openApuReferenceModal() {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo lectura: tu rol no permite agregar insumos a matrices APU.', 'warning');
+    showToast('🔒 Modo lectura: tu rol no permite agregar insumos a matrices APU.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -40,7 +40,7 @@ export async function openApuReferenceModal() {
   // Actualizar encabezado con el concepto activo
   const targetLabel = document.getElementById('apu-assistant-target-name');
   if (targetLabel) {
-    targetLabel.textContent = `${node.clave || ''} ${node.descripcion || 'Sin descripciÃ³n'}`;
+    targetLabel.textContent = `${node.clave || ''} ${node.descripcion || 'Sin descripción'}`;
   }
 
   const thQty = document.getElementById('th-apu-assistant-qty');
@@ -52,7 +52,7 @@ export async function openApuReferenceModal() {
   modal.classList.remove('hidden');
   modal.classList.add('flex');
 
-  // Ajustar filtro por defecto segÃºn la pestaÃ±a activa en la matriz
+  // Ajustar filtro por defecto según la pestaña activa en la matriz
   const filterType = (state.currentMatrizFilter && state.currentMatrizFilter !== 'Todos') 
     ? state.currentMatrizFilter 
     : 'Material';
@@ -93,7 +93,7 @@ export function setApuAssistantFilter(tipo) {
   triggerApuAssistantSearch();
 }
 
-// BÃºsqueda con debounce en el asistente
+// Búsqueda con debounce en el asistente
 export function onApuAssistantSearchInput() {
   clearTimeout(apuSearchDebounce);
   apuSearchDebounce = setTimeout(() => {
@@ -101,7 +101,7 @@ export function onApuAssistantSearchInput() {
   }, 250);
 }
 
-// Ejecutar bÃºsqueda de insumos en la base de referencia
+// Ejecutar búsqueda de insumos en la base de referencia
 export async function triggerApuAssistantSearch() {
   const query = document.getElementById('apu-assistant-search-input')?.value || '';
   const tipo = document.getElementById('apu-assistant-tipo-filter')?.value || 'all';
@@ -113,7 +113,7 @@ export async function triggerApuAssistantSearch() {
       <tr>
         <td colspan="5" class="p-6 text-center text-slate-400">
           <i class="fa-solid fa-spinner fa-spin text-lg text-blue-600 mb-1"></i>
-          <p class="text-xs">Buscando insumos en catÃ¡logos de referencia...</p>
+          <p class="text-xs">Buscando insumos en catálogos de referencia...</p>
         </td>
       </tr>
     `;
@@ -158,7 +158,7 @@ function renderApuAssistantResults(items) {
         <td colspan="5" class="p-6 text-center text-slate-400">
           <i class="fa-solid fa-box-open text-2xl text-slate-300 mb-2"></i>
           <p class="text-xs font-semibold text-slate-600">No se encontraron insumos.</p>
-          <p class="text-[11px] text-slate-400 mt-1">Intenta con otra palabra clave o importa catÃ¡logos con el botÃ³n "Importar Archivo".</p>
+          <p class="text-[11px] text-slate-400 mt-1">Intenta con otra palabra clave o importa catálogos con el botón "Importar Archivo".</p>
         </td>
       </tr>
     `;
@@ -202,7 +202,7 @@ function renderApuAssistantResults(items) {
       </td>
       <td class="p-2 align-middle">
         <div class="font-medium text-slate-800 line-clamp-2" title="${item.descripcion}">${item.descripcion}</div>
-        <div class="text-[10px] text-slate-400 mt-0.5">${item.catalogName || 'CatÃ¡logo'}</div>
+        <div class="text-[10px] text-slate-400 mt-0.5">${item.catalogName || 'Catálogo'}</div>
       </td>
       <td class="p-2 align-middle text-center font-mono w-14 text-slate-600">
         ${item.unidad || 'pza'}
@@ -232,7 +232,7 @@ function renderApuAssistantResults(items) {
 // Agregar el insumo seleccionado directamente a la matriz del concepto activo
 export function addInsumoToApuMatrix(resultIndex) {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo lectura: tu rol no permite agregar insumos a matrices APU.', 'warning');
+    showToast('🔒 Modo lectura: tu rol no permite agregar insumos a matrices APU.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -250,7 +250,7 @@ export function addInsumoToApuMatrix(resultIndex) {
 
   if (!node.insumos) node.insumos = [];
 
-  // Mapear al tipo estÃ¡ndar de la app
+  // Mapear al tipo estándar de la app
   let normalizedTipo = 'Material';
   if (item.tipo === 'Mano de Obra') normalizedTipo = 'Mano de Obra';
   else if (item.tipo === 'Herramienta') normalizedTipo = 'Herramienta';
@@ -271,7 +271,7 @@ export function addInsumoToApuMatrix(resultIndex) {
   renderAPUInsumos(node);
   renderInsumosUnitarios(node);
 
-  // Efecto visual en el botÃ³n
+  // Efecto visual en el botón
   const btn = document.getElementById(`btn-add-apu-${resultIndex}`);
   if (btn) {
     const originalText = btn.innerHTML;

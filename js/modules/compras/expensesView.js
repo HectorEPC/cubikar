@@ -1,11 +1,11 @@
-﻿let isExpensesPrintingBusy = false;
+let isExpensesPrintingBusy = false;
 // js/modules/compras/expensesView.js
-// Renderizador y controlador de eventos para la pestaÃ±a COMPRAS Y PAGOS (Control de Gastos y ERP Financiero)
+// Renderizador y controlador de eventos para la pestaña COMPRAS Y PAGOS (Control de Gastos y ERP Financiero)
 
-import { state } from '../../state/store.js?v=20261116_cf3';
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
-import { normalizeInsumoText } from '../insumosGenerales/insumosConsolidator.js?v=20261116_cf3';
+import { state } from '../../state/store.js?v=20261116_cf4';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+import { normalizeInsumoText } from '../insumosGenerales/insumosConsolidator.js?v=20261116_cf4';
 import {
   loadExpensesData,
   saveExpensesData,
@@ -23,26 +23,26 @@ import {
   getDefaultExpensesSignatures,
   getExpensesSignatures,
   saveExpensesSignatures
-} from './expensesModel.js?v=20261116_cf3';
+} from './expensesModel.js?v=20261116_cf4';
 import {
   getExpensesKpiMetrics,
   getAllBudgetInsumosExplosion,
   getInsumosBudgetVsActualComparison
-} from './expensesCalculations.js?v=20261116_cf3';
+} from './expensesCalculations.js?v=20261116_cf4';
 import {
   processExpenseEvidenceUpload,
   openExpenseEvidence,
   deleteExpenseEvidence
-} from './driveExpenseService.js?v=20261116_cf3';
-import { resolveHostStorageContext } from '../../services/storageQuotaService.js?v=20261116_cf3';
+} from './driveExpenseService.js?v=20261116_cf4';
+import { resolveHostStorageContext } from '../../services/storageQuotaService.js?v=20261116_cf4';
 import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
   printExpensesActiveReport
-} from './expensesExporter.js?v=20261116_cf3';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf3';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf3';
-import { isNightMode } from '../../ui/themeController.js?v=20261116_cf3';
+} from './expensesExporter.js?v=20261116_cf4';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf4';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf4';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf4';
 
 function isAdvancedExpensesAllowed() {
   return true;
@@ -61,7 +61,7 @@ let activeEditingExpenseId = null;
 let currentTempEvidence = null;
 
 /**
- * Obtener clases CSS enmarcadas para las sub-pestaÃ±as
+ * Obtener clases CSS enmarcadas para las sub-pestañas
  */
 function getSubTabButtonClass(targetTab) {
   const isActive = activeExpensesSubTab === targetTab;
@@ -71,7 +71,7 @@ function getSubTabButtonClass(targetTab) {
 }
 
 /**
- * FunciÃ³n principal para renderizar la vista de Compras y Pagos
+ * Función principal para renderizar la vista de Compras y Pagos
  */
 export function renderExpensesView() {
   const container = document.getElementById('view-compras');
@@ -82,17 +82,17 @@ export function renderExpensesView() {
   container.innerHTML = `
     <div class="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden rounded-xl border border-slate-200/90 shadow-xs">
       
-      <!-- Barra Superior de Sub-NavegaciÃ³n (PestaÃ±as Principales del MÃ³dulo Hasta Arriba) -->
+      <!-- Barra Superior de Sub-Navegación (Pestañas Principales del Módulo Hasta Arriba) -->
       <div class="px-4 py-2.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-        <!-- PestaÃ±as Internas Enmarcadas de Compras y Pagos -->
+        <!-- Pestañas Internas Enmarcadas de Compras y Pagos -->
         <div class="inline-flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border-2 border-slate-300/90 shadow-xs">
           <button onclick="switchExpensesSubTab('tablero')" id="subtab-btn-tablero" class="${getSubTabButtonClass('tablero')}" title="Dashboard Financiero ERP">
             <i class="fa-solid fa-chart-pie text-xs ${activeExpensesSubTab === 'tablero' ? 'text-blue-600' : 'text-slate-500'}"></i>
             <span>Tablero Resumen (Dashboard)</span>
           </button>
-          <button onclick="switchExpensesSubTab('bitacora')" id="subtab-btn-bitacora" class="${getSubTabButtonClass('bitacora')}" title="BitÃ¡cora de Ã“rdenes de Compra & Gastos">
+          <button onclick="switchExpensesSubTab('bitacora')" id="subtab-btn-bitacora" class="${getSubTabButtonClass('bitacora')}" title="Bitácora de Órdenes de Compra & Gastos">
             <i class="fa-solid fa-receipt text-xs ${activeExpensesSubTab === 'bitacora' ? 'text-blue-600' : 'text-slate-500'}"></i>
-            <span>BitÃ¡cora de Egresos & Ã“rdenes</span>
+            <span>Bitácora de Egresos & Órdenes</span>
           </button>
           <button onclick="switchExpensesSubTab('comparativa')" id="subtab-btn-comparativa" class="${getSubTabButtonClass('comparativa')}" title="Comparativa Presupuesto Base vs. Real">
             <i class="fa-solid fa-scale-balanced text-xs ${activeExpensesSubTab === 'comparativa' ? 'text-blue-600' : 'text-slate-500'}"></i>
@@ -106,7 +106,7 @@ export function renderExpensesView() {
                   id="btn-open-compras-signatures-modal" 
                   onclick="openExpensesSignaturesModal()" 
                   class="bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-300 hover:border-blue-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg shadow-2xs transition flex items-center gap-1.5 shrink-0 cursor-pointer" 
-                  title="Configurar las firmas y responsables oficiales para todos los formatos de impresiÃ³n de Compras y Pagos">
+                  title="Configurar las firmas y responsables oficiales para todos los formatos de impresión de Compras y Pagos">
             <i class="fa-solid fa-file-signature text-blue-600 text-xs"></i>
             <span>Firmas y Responsables</span>
           </button>
@@ -117,17 +117,17 @@ export function renderExpensesView() {
               <i class="fa-solid fa-users text-blue-600 text-[10px]"></i> Asignados:
             </span>
             <div id="tab-avatars-compras" class="flex -space-x-1.5 overflow-hidden items-center cursor-pointer" onclick="openTabMembersAssignModal('compras')" title="Ver colaboradores con acceso a Compras y Pagos"></div>
-            <button type="button" onclick="openTabMembersAssignModal('compras')" class="text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded px-1.5 py-0.5 transition flex items-center gap-1 cursor-pointer" title="Asignar miembros invitados a la pestaÃ±a Compras y Pagos">
+            <button type="button" onclick="openTabMembersAssignModal('compras')" class="text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded px-1.5 py-0.5 transition flex items-center gap-1 cursor-pointer" title="Asignar miembros invitados a la pestaña Compras y Pagos">
               <i class="fa-solid fa-user-gear text-[9px]"></i> Asignar
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Barra de Acciones y Herramientas (Debajo de las PestaÃ±as) -->
+      <!-- Barra de Acciones y Herramientas (Debajo de las Pestañas) -->
       <div class="px-4 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
         
-        <!-- Botones de AcciÃ³n (Izquierda) -->
+        <!-- Botones de Acción (Izquierda) -->
         <div class="flex items-center gap-2 flex-wrap">
           <button onclick="openNewExpenseModal()" class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer">
             <i class="fa-solid fa-plus text-[11px]"></i>
@@ -146,22 +146,22 @@ export function renderExpensesView() {
 
           <div class="h-4 w-[1px] bg-slate-300 mx-0.5 hidden sm:block"></div>
 
-          <!-- Botones Agrupar y Desagrupar (Al lado izquierdo del botÃ³n Imprimir) -->
-          <button onclick="agruparComprasAction()" id="btn-agrupar-compras" type="button" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-2.5 py-1.5 rounded-lg flex items-center justify-center font-medium shadow-2xs transition active:scale-95 cursor-pointer shrink-0" title="Agrupar todo (Colapsar tablas / categorÃ­as)">
+          <!-- Botones Agrupar y Desagrupar (Al lado izquierdo del botón Imprimir) -->
+          <button onclick="agruparComprasAction()" id="btn-agrupar-compras" type="button" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-2.5 py-1.5 rounded-lg flex items-center justify-center font-medium shadow-2xs transition active:scale-95 cursor-pointer shrink-0" title="Agrupar todo (Colapsar tablas / categorías)">
             <i class="fa-solid fa-layer-group text-xs text-amber-600"></i>
           </button>
-          <button onclick="desagruparComprasAction()" id="btn-desagrupar-compras" type="button" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-2.5 py-1.5 rounded-lg flex items-center justify-center font-medium shadow-2xs transition active:scale-95 cursor-pointer shrink-0" title="Desagrupar todo (Expandir todas las tablas / categorÃ­as)">
+          <button onclick="desagruparComprasAction()" id="btn-desagrupar-compras" type="button" class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-2.5 py-1.5 rounded-lg flex items-center justify-center font-medium shadow-2xs transition active:scale-95 cursor-pointer shrink-0" title="Desagrupar todo (Expandir todas las tablas / categorías)">
             <i class="fa-solid fa-arrows-split-up-and-left text-xs text-blue-600"></i>
           </button>
 
-          <!-- BotÃ³n Imprimir Reporte -->
-          <button onclick="printExpensesActiveReportAction()" id="btn-compras-imprimir" type="button" class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 hover:border-slate-400 text-slate-800 text-xs font-bold transition shadow-2xs flex items-center gap-1.5 cursor-pointer" title="Imprimir reporte de la vista activa (Tablero, BitÃ¡cora o Comparativa)">
+          <!-- Botón Imprimir Reporte -->
+          <button onclick="printExpensesActiveReportAction()" id="btn-compras-imprimir" type="button" class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 hover:border-slate-400 text-slate-800 text-xs font-bold transition shadow-2xs flex items-center gap-1.5 cursor-pointer" title="Imprimir reporte de la vista activa (Tablero, Bitácora o Comparativa)">
             <i class="fa-solid fa-print text-slate-600 text-xs"></i>
             <span>Imprimir</span>
           </button>
         </div>
 
-        <!-- SemÃ¡foro Financiero de Estado de Obra (Abajo a la Derecha) -->
+        <!-- Semáforo Financiero de Estado de Obra (Abajo a la Derecha) -->
         <div class="flex items-center gap-2 text-xs text-slate-600 font-medium bg-white border border-slate-200/90 rounded-lg px-3 py-1 shadow-2xs shrink-0">
           <span class="flex items-center gap-1.5">
             <i class="fa-solid fa-circle text-[9px] text-${kpis.semaforo.color}-500"></i>
@@ -171,7 +171,7 @@ export function renderExpensesView() {
         </div>
       </div>
 
-      <!-- Contenedor DinÃ¡mico de Sub-Vistas -->
+      <!-- Contenedor Dinámico de Sub-Vistas -->
       <div id="expenses-subview-container" class="flex-1 overflow-y-auto custom-scroll p-4">
         ${renderActiveExpensesSubView(activeExpensesSubTab, kpis)}
       </div>
@@ -184,7 +184,7 @@ export function renderExpensesView() {
     renderTabAssignedAvatars('compras');
   }
 
-  // Remover barra de cuota / mejorar plan de la pestaÃ±a Compras y Pagos
+  // Remover barra de cuota / mejorar plan de la pestaña Compras y Pagos
   const oldMeter = document.getElementById('expenses-storage-meter');
   if (oldMeter) {
     if (typeof oldMeter.remove === 'function') {
@@ -208,34 +208,34 @@ export function printExpensesActiveReportAction() {
     printExpensesActiveReport(subTab);
   } catch (err) {
     console.error('[printExpensesActiveReportAction] Error:', err);
-    showToast('Error al ejecutar impresiÃ³n de Compras', 'error');
+    showToast('Error al ejecutar impresión de Compras', 'error');
   }
 }
 
 /**
- * Agrupar todo en Compras y Pagos (Colapsar todas las categorÃ­as de comparativa)
+ * Agrupar todo en Compras y Pagos (Colapsar todas las categorías de comparativa)
  */
 export function agruparComprasAction() {
   if (activeExpensesSubTab !== 'comparativa') {
     switchExpensesSubTab('comparativa');
   }
   toggleAllComparativaCategories(true);
-  showToast('CategorÃ­as de compras agrupadas (colapsadas)');
+  showToast('Categorías de compras agrupadas (colapsadas)');
 }
 
 /**
- * Desagrupar todo en Compras y Pagos (Expandir todas las categorÃ­as de comparativa)
+ * Desagrupar todo en Compras y Pagos (Expandir todas las categorías de comparativa)
  */
 export function desagruparComprasAction() {
   if (activeExpensesSubTab !== 'comparativa') {
     switchExpensesSubTab('comparativa');
   }
   toggleAllComparativaCategories(false);
-  showToast('CategorÃ­as de compras desagrupadas (expandidas)');
+  showToast('Categorías de compras desagrupadas (expandidas)');
 }
 
 /**
- * Cambiar entre sub-pestaÃ±as internas
+ * Cambiar entre sub-pestañas internas
  */
 export function switchExpensesSubTab(subTab) {
   const validTabs = ['tablero', 'bitacora', 'comparativa'];
@@ -284,19 +284,19 @@ function renderTableroDashboardView(kpis) {
   const isWarning = sem.color === 'amber';
   const isDanger = sem.color === 'rose';
 
-  // CÃ¡lculos de porcentajes para badges y mÃ©tricas
+  // Cálculos de porcentajes para badges y métricas
   const pctCobrado = kpis.presupuestoContratado > 0 
     ? round2((kpis.totalFacturadoEstimado / kpis.presupuestoContratado) * 100) 
     : 0;
   const pctGastado = sem.pctGastado || 0;
 
-  // Comparativa y explosiÃ³n por rubros
+  // Comparativa y explosión por rubros
   const comp = getInsumosBudgetVsActualComparison();
   const categories = comp.categories || [];
   const records = getExpensesRecords() || [];
   const suppliers = getExpensesSuppliers() || [];
 
-  // ConfiguraciÃ³n de los 6 rubros con su paleta visual adaptada a DÃ­a / Noche
+  // Configuración de los 6 rubros con su paleta visual adaptada a Día / Noche
   const rubroMeta = {
     'Material': { label: 'Materiales', color: '#06b6d4', grad: 'from-cyan-500 to-blue-500', icon: 'fa-box', textColor: isNight ? 'text-cyan-400' : 'text-cyan-700' },
     'Mano de Obra': { label: 'Mano de Obra', color: '#a855f7', grad: 'from-purple-500 to-pink-500', icon: 'fa-user-group', textColor: isNight ? 'text-purple-400' : 'text-purple-700' },
@@ -307,7 +307,7 @@ function renderTableroDashboardView(kpis) {
     'Indirecto': { label: 'Indirectos', color: '#64748b', grad: 'from-slate-500 to-slate-600', icon: 'fa-file-lines', textColor: isNight ? 'text-slate-400' : 'text-slate-700' }
   };
 
-  // Clases semÃ¡nticas compartidas para armonÃ­a DÃ­a / Noche
+  // Clases semánticas compartidas para armonía Día / Noche
   const containerClass = isNight
     ? 'bg-[#0b1329] text-slate-100 border-slate-800 shadow-xl'
     : 'bg-white text-slate-800 border-slate-200/90 shadow-sm';
@@ -338,7 +338,7 @@ function renderTableroDashboardView(kpis) {
   const totalBudgetDirecto = categories.reduce((sum, c) => sum + (c.totalPresupuestado || 0), 0);
   const chartBasis = totalSpendComprometido > 0 ? totalSpendComprometido : (totalBudgetDirecto > 0 ? totalBudgetDirecto : 1);
 
-  // Generar segmentos SVG del Donut Chart (r=52, C â‰ˆ 326.72)
+  // Generar segmentos SVG del Donut Chart (r=52, C ≈ 326.72)
   const donutR = 52;
   const donutC = 2 * Math.PI * donutR;
   let accumulatedDonutLen = 0;
@@ -363,15 +363,15 @@ function renderTableroDashboardView(kpis) {
     `;
   }).join('');
 
-  // VelocÃ­metro Presupuestal (Speedometer Gauge Semicircular r=68, Centro 100,95)
+  // Velocímetro Presupuestal (Speedometer Gauge Semicircular r=68, Centro 100,95)
   const gaugeR = 68;
-  const gaugeLen = Math.PI * gaugeR; // â‰ˆ 213.63
+  const gaugeLen = Math.PI * gaugeR; // ≈ 213.63
   const clampedGaugePct = Math.min(100, Math.max(0, pctGastado));
   const gaugeDashOffset = round2(gaugeLen * (1 - clampedGaugePct / 100));
-  // Ãngulo de aguja: 0% -> -90 deg (izquierda), 50% -> 0 deg (arriba), 100% -> +90 deg (derecha)
+  // Ángulo de aguja: 0% -> -90 deg (izquierda), 50% -> 0 deg (arriba), 100% -> +90 deg (derecha)
   const needleAngle = round2(-90 + (clampedGaugePct / 100) * 180);
 
-  // SemÃ¡foro Badge y Colores NeÃ³n / DÃ­a
+  // Semáforo Badge y Colores Neón / Día
   const semBadgeClass = isHealthy 
     ? (isNight ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')
     : isWarning 
@@ -433,7 +433,7 @@ function renderTableroDashboardView(kpis) {
               <span>TABLERO RESUMEN FINANCIERO ERP</span>
               <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${isNight ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'}">En Tiempo Real</span>
             </h2>
-            <p class="text-[11px] ${mutedText} font-medium">Control ejecutivo de costos, presupuesto contratado, ingresos por estimaciÃ³n y egresos por rubro</p>
+            <p class="text-[11px] ${mutedText} font-medium">Control ejecutivo de costos, presupuesto contratado, ingresos por estimación y egresos por rubro</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -448,7 +448,7 @@ function renderTableroDashboardView(kpis) {
         </div>
       </div>
 
-      <!-- FILA 1: 5 TARJETAS KPI SUPERIORES CON BRILLO Y DEGRADADOS NEÃ“N / DÃA -->
+      <!-- FILA 1: 5 TARJETAS KPI SUPERIORES CON BRILLO Y DEGRADADOS NEÓN / DÍA -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         
         <!-- Tarjeta 1: Presupuesto Contratado Base -->
@@ -488,7 +488,7 @@ function renderTableroDashboardView(kpis) {
           <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[10px] font-bold uppercase tracking-wider">Egresos Pagados</span>
             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${isNight ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-700 border border-rose-200'}">
-              ${kpis.totalRegistros} Ã“RDENES
+              ${kpis.totalRegistros} ÓRDENES
             </span>
           </div>
           <div class="text-lg sm:text-xl font-black font-mono ${isNight ? 'text-rose-400' : 'text-rose-700'} tracking-tight">
@@ -512,12 +512,12 @@ function renderTableroDashboardView(kpis) {
             ${formatCurrency(kpis.utilidadEnCaja)}
           </div>
           <div class="text-[10px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
-            <span>Cobrado âˆ’ Egresos Pagados</span>
+            <span>Cobrado − Egresos Pagados</span>
             <i class="fa-solid fa-piggy-bank ${kpis.utilidadEnCaja >= 0 ? (isNight ? 'text-emerald-400' : 'text-emerald-600') : (isNight ? 'text-rose-400' : 'text-rose-600')} text-xs"></i>
           </div>
         </div>
 
-        <!-- Tarjeta 5: ProyecciÃ³n de Utilidad al Cierre -->
+        <!-- Tarjeta 5: Proyección de Utilidad al Cierre -->
         <div class="${cardClass} border rounded-xl p-3.5 space-y-1.5 relative overflow-hidden transition">
           <div class="flex items-center justify-between ${mutedText}">
             <span class="text-[10px] font-bold uppercase tracking-wider">Utilidad Proyectada</span>
@@ -529,21 +529,21 @@ function renderTableroDashboardView(kpis) {
             ${formatCurrency(kpis.proyeccionUtilidadCierre)}
           </div>
           <div class="text-[10px] ${mutedText} flex items-center justify-between pt-1 border-t ${isNight ? 'border-slate-800/60' : 'border-slate-200'}">
-            <span>Presupuesto âˆ’ Comprometido</span>
+            <span>Presupuesto − Comprometido</span>
             <i class="fa-solid fa-chart-line ${isNight ? 'text-amber-400' : 'text-amber-600'} text-xs"></i>
           </div>
         </div>
 
       </div>
 
-      <!-- FILA 2: VELOCÃMETRO / GAUGE RADIAL (IZQUIERDA) & DONUT CHART DE 6 RUBROS (DERECHA) -->
+      <!-- FILA 2: VELOCÍMETRO / GAUGE RADIAL (IZQUIERDA) & DONUT CHART DE 6 RUBROS (DERECHA) -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
-        <!-- Panel Izquierdo: VelocÃ­metro / Gauge Radial del SemÃ¡foro Presupuestal (cols 5/12) -->
+        <!-- Panel Izquierdo: Velocímetro / Gauge Radial del Semáforo Presupuestal (cols 5/12) -->
         <div class="lg:col-span-5 ${panelClass} border rounded-xl p-4 flex flex-col justify-between relative overflow-hidden">
           <div class="flex items-center justify-between pb-2 border-b ${borderDivider}">
             <div class="flex items-center gap-2">
-              <span class="text-xs font-black uppercase tracking-wider ${titleText}">SemÃ¡foro Presupuestal</span>
+              <span class="text-xs font-black uppercase tracking-wider ${titleText}">Semáforo Presupuestal</span>
               <span class="w-2 h-2 rounded-full ${semPulseColor} animate-pulse"></span>
             </div>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${semBadgeClass} flex items-center gap-1">
@@ -552,7 +552,7 @@ function renderTableroDashboardView(kpis) {
             </span>
           </div>
 
-          <!-- VelocÃ­metro SVG con aguja y zonas de color -->
+          <!-- Velocímetro SVG con aguja y zonas de color -->
           <div class="py-2 flex flex-col items-center justify-center">
             <svg viewBox="0 0 200 120" class="w-full max-w-[270px] mx-auto overflow-visible">
               <defs>
@@ -584,33 +584,33 @@ function renderTableroDashboardView(kpis) {
               <text x="172" y="112" font-size="8.5" font-weight="700" fill="#64748b" text-anchor="middle">100%</text>
             </svg>
 
-            <!-- MÃ©trica NumÃ©rica y ExplicaciÃ³n -->
+            <!-- Métrica Numérica y Explicación -->
             <div class="text-center space-y-0.5 mt-1">
               <div class="text-2xl sm:text-3xl font-black font-mono ${titleText} tracking-tight">${pctGastado}%</div>
               <p class="text-[10px] font-bold uppercase tracking-wider ${mutedText}">Del Presupuesto Total Ejercido</p>
             </div>
           </div>
 
-          <!-- Barra de Detalles del LÃ­mite Presupuestal -->
+          <!-- Barra de Detalles del Límite Presupuestal -->
           <div class="p-2.5 ${subBoxClass} rounded-lg border space-y-1.5 text-xs">
             <div class="flex items-center justify-between text-[11px]">
               <span class="${mutedText} font-semibold">Total Comprometido:</span>
               <span class="font-mono font-bold ${titleText}">${formatCurrency(kpis.totalEgresosComprometidos)}</span>
             </div>
             <div class="flex items-center justify-between text-[11px]">
-              <span class="${mutedText} font-semibold">LÃ­mite Contratado:</span>
+              <span class="${mutedText} font-semibold">Límite Contratado:</span>
               <span class="font-mono font-bold ${isNight ? 'text-cyan-300' : 'text-blue-700'}">${formatCurrency(kpis.presupuestoContratado)}</span>
             </div>
             <p class="text-[10px] ${mutedText} leading-tight pt-1 border-t ${borderDivider}">${sem.description}</p>
           </div>
         </div>
 
-        <!-- Panel Derecho: Donut Chart & DistribuciÃ³n de los 6 Rubros (cols 7/12) -->
+        <!-- Panel Derecho: Donut Chart & Distribución de los 6 Rubros (cols 7/12) -->
         <div class="lg:col-span-7 ${panelClass} border rounded-xl p-4 flex flex-col justify-between">
           <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b ${borderDivider}">
             <div>
-              <h3 class="text-xs font-black uppercase tracking-wider ${titleText}">DistribuciÃ³n por Rubro</h3>
-              <p class="text-[10px] ${mutedText}">ProporciÃ³n de gasto en los 6 rubros constructivos</p>
+              <h3 class="text-xs font-black uppercase tracking-wider ${titleText}">Distribución por Rubro</h3>
+              <p class="text-[10px] ${mutedText}">Proporción de gasto en los 6 rubros constructivos</p>
             </div>
             <span class="text-[11px] font-mono font-bold px-2 py-0.5 ${isNight ? 'bg-slate-800 text-cyan-300 border border-slate-700' : 'bg-blue-50 text-blue-700 border border-blue-200'} rounded-md">
               ${totalSpendComprometido > 0 ? 'Gasto: ' + formatCurrency(totalSpendComprometido) : 'Base: ' + formatCurrency(totalBudgetDirecto)}
@@ -661,9 +661,9 @@ function renderTableroDashboardView(kpis) {
 
           </div>
 
-          <!-- Pie del Donut: Desglose RÃ¡pido -->
+          <!-- Pie del Donut: Desglose Rápido -->
           <div class="pt-2 border-t ${borderDivider} flex items-center justify-between text-xs ${mutedText}">
-            <span class="text-[10px]">6 rubros calculados desde la explosiÃ³n de insumos</span>
+            <span class="text-[10px]">6 rubros calculados desde la explosión de insumos</span>
             <button onclick="switchExpensesSubTab('comparativa')" class="${isNight ? 'text-cyan-400 hover:text-cyan-300' : 'text-blue-600 hover:text-blue-700'} font-bold text-[11px] flex items-center gap-1 cursor-pointer">
               <span>Ver desglose por insumo</span>
               <i class="fa-solid fa-arrow-right text-[9px]"></i>
@@ -760,7 +760,7 @@ function renderTableroDashboardView(kpis) {
             <div class="space-y-1.5">
               ${topSuppliers.length === 0 ? `
                 <div class="p-3 text-center ${mutedText} text-xs font-medium ${subBoxClass} rounded-lg border">
-                  No hay egresos registrados aÃºn. Haz clic en "Nueva Compra" para registrar tu primer gasto.
+                  No hay egresos registrados aún. Haz clic en "Nueva Compra" para registrar tu primer gasto.
                 </div>
               ` : topSuppliers.map(sup => `
                 <div class="p-2 ${subBoxHoverClass} rounded-lg border flex items-center justify-between text-xs transition">
@@ -770,7 +770,7 @@ function renderTableroDashboardView(kpis) {
                     </div>
                     <div class="min-w-0">
                       <p class="font-bold ${isNight ? 'text-slate-200' : 'text-slate-800'} truncate text-[11px]">${sup.name}</p>
-                      <p class="text-[9px] ${mutedText} truncate">${sup.count} Ã³rdenes registradas</p>
+                      <p class="text-[9px] ${mutedText} truncate">${sup.count} órdenes registradas</p>
                     </div>
                   </div>
                   <div class="text-right shrink-0">
@@ -784,11 +784,11 @@ function renderTableroDashboardView(kpis) {
             </div>
           </div>
 
-          <!-- Acciones RÃ¡pidas del Tablero -->
+          <!-- Acciones Rápidas del Tablero -->
           <div class="pt-2 border-t ${borderDivider} flex items-center justify-between gap-2">
             <button onclick="switchExpensesSubTab('bitacora')" class="flex-1 py-1.5 px-3 rounded-lg ${isNight ? 'bg-[#0e162e] hover:bg-[#172348] border-slate-800 text-slate-300 hover:text-white' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900 font-bold'} text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer border">
               <i class="fa-solid fa-receipt text-xs ${isNight ? 'text-blue-400' : 'text-blue-600'}"></i>
-              <span>Ver BitÃ¡cora de Gastos</span>
+              <span>Ver Bitácora de Gastos</span>
             </button>
             <button onclick="exportExpensesExcelAction()" class="py-1.5 px-3 rounded-lg ${isNight ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700 font-bold'} text-xs transition flex items-center justify-center gap-1.5 cursor-pointer border">
               <i class="fa-solid fa-file-excel text-xs"></i>
@@ -805,7 +805,7 @@ function renderTableroDashboardView(kpis) {
 }
 
 /**
- * VISTA 2: BITÃCORA DE GASTOS Y Ã“RDENES DE COMPRA
+ * VISTA 2: BITÁCORA DE GASTOS Y ÓRDENES DE COMPRA
  */
 function renderBitacoraEgresosView() {
   const records = getExpensesRecords();
@@ -832,7 +832,7 @@ function renderBitacoraEgresosView() {
     if (expensesStatusFilter !== 'all' && r.paymentStatus !== expensesStatusFilter) {
       return false;
     }
-    // 3. BÃºsqueda de texto libre
+    // 3. Búsqueda de texto libre
     if (expensesSearchTerm) {
       const q = expensesSearchTerm.toLowerCase();
       const sup = r.supplierId ? getSupplierById(r.supplierId) : null;
@@ -849,7 +849,7 @@ function renderBitacoraEgresosView() {
   });
 
   const rubroTitleMap = {
-    material: 'Materiales de ConstrucciÃ³n',
+    material: 'Materiales de Construcción',
     labor: 'Mano de Obra / Raya y Destajos',
     tool: 'Herramienta Menor y Especializada',
     equipment: 'Equipo y Fletes',
@@ -862,23 +862,23 @@ function renderBitacoraEgresosView() {
   return `
     <div class="space-y-3.5 max-w-7xl mx-auto">
       
-      <!-- TÃ­tulo de SecciÃ³n y Alcance -->
+      <!-- Título de Sección y Alcance -->
       <div class="flex items-center justify-between text-xs text-slate-700 px-1">
         <div class="flex items-center gap-2">
           <span class="font-extrabold text-slate-800 uppercase tracking-wide">
-            ${expensesTypeFilter === 'labor' ? 'Control Semanal de Raya & Destajos' : (expensesStatusFilter === 'paid' ? 'Historial de Egresos & Cuentas Liquidadas' : 'BitÃ¡cora de Ã“rdenes de Compra & Historial de Egresos')}
+            ${expensesTypeFilter === 'labor' ? 'Control Semanal de Raya & Destajos' : (expensesStatusFilter === 'paid' ? 'Historial de Egresos & Cuentas Liquidadas' : 'Bitácora de Órdenes de Compra & Historial de Egresos')}
           </span>
           <span class="text-[11px] text-slate-500 font-normal hidden sm:inline">${activeRubroDesc}</span>
         </div>
       </div>
 
-      <!-- Barra de Filtros, BÃºsqueda y Barra de Rubros -->
+      <!-- Barra de Filtros, Búsqueda y Barra de Rubros -->
       <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
         
-        <!-- Fila 1: BÃºsqueda en Vivo -->
+        <!-- Fila 1: Búsqueda en Vivo -->
         <div class="relative w-full">
           <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-          <input type="text" id="expenses-search-input" value="${expensesSearchTerm}" oninput="onExpensesSearchChange(this.value)" placeholder="Buscar por descripciÃ³n, folio OC, factura, proveedor..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition">
+          <input type="text" id="expenses-search-input" value="${expensesSearchTerm}" oninput="onExpensesSearchChange(this.value)" placeholder="Buscar por descripción, folio OC, factura, proveedor..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition">
         </div>
 
         <!-- Fila 2: BARRA DE BOTONES DE FILTRO POR RUBRO Y ESTADO DE PAGO (En la misma fila) -->
@@ -949,19 +949,19 @@ function renderBitacoraEgresosView() {
             ` : ''}
           </div>
 
-          <!-- Filtro Estatus de Pago & BotÃ³n Limpiar (En la misma fila) -->
+          <!-- Filtro Estatus de Pago & Botón Limpiar (En la misma fila) -->
           <div class="flex items-center gap-1.5 shrink-0">
             <div class="flex items-center gap-1.5 text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 shrink-0">
               <span class="text-slate-600 font-bold">Estado:</span>
               <select id="expenses-filter-status" onchange="onExpensesStatusFilterChange(this.value)" class="bg-transparent border-0 text-[11px] text-slate-700 font-semibold focus:outline-none cursor-pointer">
                 <option value="all" ${expensesStatusFilter === 'all' ? 'selected' : ''}>Todos los pagos</option>
-                <option value="paid" ${expensesStatusFilter === 'paid' ? 'selected' : ''}>âœ… Pagados</option>
-                <option value="pending" ${expensesStatusFilter === 'pending' ? 'selected' : ''}>â³ Por Pagar</option>
-                <option value="cancelled" ${expensesStatusFilter === 'cancelled' ? 'selected' : ''}>âŒ Cancelados</option>
+                <option value="paid" ${expensesStatusFilter === 'paid' ? 'selected' : ''}>✅ Pagados</option>
+                <option value="pending" ${expensesStatusFilter === 'pending' ? 'selected' : ''}>⏳ Por Pagar</option>
+                <option value="cancelled" ${expensesStatusFilter === 'cancelled' ? 'selected' : ''}>❌ Cancelados</option>
               </select>
             </div>
 
-            <!-- BotÃ³n de Limpiar Filtros -->
+            <!-- Botón de Limpiar Filtros -->
             ${(expensesSearchTerm || expensesTypeFilter !== 'all' || expensesStatusFilter !== 'all') ? `
               <button onclick="clearExpensesFilters()" class="px-2 py-1 text-[11px] text-slate-500 hover:text-slate-800 underline font-semibold cursor-pointer shrink-0">
                 Limpiar
@@ -982,7 +982,7 @@ function renderBitacoraEgresosView() {
                 <th class="py-2.5 px-3 w-28">Folio OC</th>
                 <th class="py-2.5 px-3 w-24">Fecha</th>
                 <th class="py-2.5 px-3 w-28">Rubro</th>
-                <th class="py-2.5 px-3 min-w-[200px]">DescripciÃ³n / Insumo</th>
+                <th class="py-2.5 px-3 min-w-[200px]">Descripción / Insumo</th>
                 <th class="py-2.5 px-3 min-w-[150px]">Proveedor</th>
                 <th class="py-2.5 px-3 w-24">Factura</th>
                 <th class="py-2.5 px-3 w-20 text-right">Cant.</th>
@@ -1030,7 +1030,7 @@ function renderBitacoraEgresosView() {
 }
 
 /**
- * Renderizar una fila en la BitÃ¡cora de Egresos
+ * Renderizar una fila en la Bitácora de Egresos
  */
 function renderExpenseRowHtml(r) {
   const sup = r.supplierId ? getSupplierById(r.supplierId) : null;
@@ -1052,8 +1052,8 @@ function renderExpenseRowHtml(r) {
   const statusBadge = isCancelled 
     ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-600">Cancelado</span>`
     : isPaid
-    ? `<button onclick="toggleExpenseStatusAction('${r.id}')" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 transition cursor-pointer" title="Clic para cambiar a Por Pagar">âœ“ Pagado</button>`
-    : `<button onclick="toggleExpenseStatusAction('${r.id}')" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition cursor-pointer" title="Clic para marcar como Pagado">â³ Por Pagar</button>`;
+    ? `<button onclick="toggleExpenseStatusAction('${r.id}')" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 transition cursor-pointer" title="Clic para cambiar a Por Pagar">✓ Pagado</button>`
+    : `<button onclick="toggleExpenseStatusAction('${r.id}')" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition cursor-pointer" title="Clic para marcar como Pagado">⏳ Por Pagar</button>`;
 
   // Comprobante
   const hasEvidence = Boolean(
@@ -1084,10 +1084,10 @@ function renderExpenseRowHtml(r) {
         </span>
       </td>
       <td class="py-2.5 px-3">
-        <div class="font-bold text-slate-900">${escapeHtml(r.description || 'Sin descripciÃ³n')}</div>
+        <div class="font-bold text-slate-900">${escapeHtml(r.description || 'Sin descripción')}</div>
         <div class="text-[10px] text-slate-400 flex items-center gap-2">
           ${r.insumoClave ? `<span class="font-mono text-blue-600 font-semibold">${escapeHtml(r.insumoClave)}</span>` : ''}
-          ${r.category ? `<span>â€¢ ${escapeHtml(r.category)}</span>` : ''}
+          ${r.category ? `<span>• ${escapeHtml(r.category)}</span>` : ''}
         </div>
       </td>
       <td class="py-2.5 px-3 text-slate-700 font-medium">
@@ -1134,7 +1134,7 @@ function renderExpenseRowHtml(r) {
 let comparativaCollapsedCategories = new Set();
 
 /**
- * Colapsar o expandir un rubro especÃ­fico en la comparativa
+ * Colapsar o expandir un rubro específico en la comparativa
  */
 export function toggleComparativaCategoryCollapse(catKey) {
   if (comparativaCollapsedCategories.has(catKey)) {
@@ -1180,7 +1180,7 @@ function renderComparativaInsumosView() {
   const totalSuccess = comp.items.filter(i => i.alertLevel === 'success').length;
   const totalNeutral = comp.items.filter(i => i.alertLevel === 'neutral' || !i.cantidadComprada).length;
 
-  // Filtrar los insumos por texto dentro de cada categorÃ­a
+  // Filtrar los insumos por texto dentro de cada categoría
   let categoriesToDisplay = comp.categories.map(cat => {
     let filteredItems = cat.items;
 
@@ -1219,12 +1219,12 @@ function renderComparativaInsumosView() {
     };
   });
 
-  // Si hay filtro por rubro especÃ­fico
+  // Si hay filtro por rubro específico
   if (comparativaTypeFilter !== 'all') {
     categoriesToDisplay = categoriesToDisplay.filter(c => c.key === comparativaTypeFilter);
   }
 
-  // Si hay bÃºsqueda por texto o filtro de alerta activo, ocultar categorÃ­as sin coincidencias
+  // Si hay búsqueda por texto o filtro de alerta activo, ocultar categorías sin coincidencias
   if (term || comparativaAlertFilter !== 'all') {
     categoriesToDisplay = categoriesToDisplay.filter(c => c.items.length > 0);
   }
@@ -1244,17 +1244,17 @@ function renderComparativaInsumosView() {
   return `
     <div class="space-y-2.5 max-w-7xl mx-auto">
       
-      <!-- TÃ­tulo de SecciÃ³n -->
+      <!-- Título de Sección -->
       <div class="flex flex-wrap items-center justify-between text-xs text-slate-700 px-1 gap-2">
         <div class="flex items-center gap-2">
           <span class="font-extrabold text-slate-900 uppercase tracking-wide">
             Presupuesto Base Directo vs. Compras & Control de Costos
           </span>
-          <span class="text-[11px] text-slate-500 font-normal hidden sm:inline">| Cruce con ExplosiÃ³n de Insumos dividida por Rubro</span>
+          <span class="text-[11px] text-slate-500 font-normal hidden sm:inline">| Cruce con Explosión de Insumos dividida por Rubro</span>
         </div>
       </div>
 
-      <!-- Barra Resumen de Alertas Presupuestales (VersiÃ³n Compacta) -->
+      <!-- Barra Resumen de Alertas Presupuestales (Versión Compacta) -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div class="bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
           <span class="text-[9px] font-bold text-slate-500 uppercase tracking-wide block leading-tight">Insumos Controlados</span>
@@ -1277,19 +1277,19 @@ function renderComparativaInsumosView() {
         <div class="bg-white px-2.5 py-1.5 rounded-lg border ${res.conAlertaSobrepaso > 0 ? 'border-rose-300 bg-rose-50/50' : 'border-slate-200'} shadow-2xs">
           <span class="text-[9px] font-bold ${res.conAlertaSobrepaso > 0 ? 'text-rose-700' : 'text-slate-500'} uppercase tracking-wide block leading-tight">Alertas de Sobrecosto</span>
           <div class="text-xs sm:text-sm font-bold font-mono ${res.conAlertaSobrepaso > 0 ? 'text-rose-700' : 'text-emerald-700'} leading-tight">
-            ${res.conAlertaSobrepaso > 0 ? `âš ï¸ ${res.conAlertaSobrepaso} con sobrecosto` : 'âœ“ En orden'}
+            ${res.conAlertaSobrepaso > 0 ? `⚠️ ${res.conAlertaSobrepaso} con sobrecosto` : '✓ En orden'}
           </div>
           <span class="text-[9px] text-slate-400 block leading-tight">Exceso en precio o volumen</span>
         </div>
       </div>
 
-      <!-- Barra de Filtros, BÃºsqueda y Rubros -->
+      <!-- Barra de Filtros, Búsqueda y Rubros -->
       <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
         
-        <!-- Fila 1: BÃºsqueda en Vivo a todo lo ancho -->
+        <!-- Fila 1: Búsqueda en Vivo a todo lo ancho -->
         <div class="relative w-full">
           <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-          <input type="text" value="${comparativaSearchTerm}" oninput="onComparativaSearchChange(this.value)" placeholder="Buscar insumo por clave o descripciÃ³n en todos los rubros..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition">
+          <input type="text" value="${comparativaSearchTerm}" oninput="onComparativaSearchChange(this.value)" placeholder="Buscar insumo por clave o descripción en todos los rubros..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition">
         </div>
 
         <!-- Fila 2: BARRA EN UNA MISMA FILA: BOTONES DE RUBRO + ESTADO Y ALERTAS (Entran todos juntos) -->
@@ -1360,11 +1360,11 @@ function renderComparativaInsumosView() {
               </label>
               <select id="comparativa-alert-filter" onchange="onComparativaAlertFilterChange(this.value)" class="bg-transparent border-0 text-[11px] text-slate-700 font-semibold focus:outline-none cursor-pointer">
                 <option value="all" ${comparativaAlertFilter === 'all' ? 'selected' : ''}>Todos los estados (${comp.items.length})</option>
-                <option value="alerts" ${comparativaAlertFilter === 'alerts' ? 'selected' : ''}>âš ï¸ Con Alerta (${totalAlertas})</option>
-                <option value="danger" ${comparativaAlertFilter === 'danger' ? 'selected' : ''}>ðŸ”´ Sobrecosto (${totalDanger})</option>
-                <option value="warning" ${comparativaAlertFilter === 'warning' ? 'selected' : ''}>ðŸŸ¡ Al LÃ­mite (${totalWarning})</option>
-                <option value="success" ${comparativaAlertFilter === 'success' ? 'selected' : ''}>ðŸŸ¢ En Orden (${totalSuccess})</option>
-                <option value="neutral" ${comparativaAlertFilter === 'neutral' ? 'selected' : ''}>âšª Sin Compras (${totalNeutral})</option>
+                <option value="alerts" ${comparativaAlertFilter === 'alerts' ? 'selected' : ''}>⚠️ Con Alerta (${totalAlertas})</option>
+                <option value="danger" ${comparativaAlertFilter === 'danger' ? 'selected' : ''}>🔴 Sobrecosto (${totalDanger})</option>
+                <option value="warning" ${comparativaAlertFilter === 'warning' ? 'selected' : ''}>🟡 Al Límite (${totalWarning})</option>
+                <option value="success" ${comparativaAlertFilter === 'success' ? 'selected' : ''}>🟢 En Orden (${totalSuccess})</option>
+                <option value="neutral" ${comparativaAlertFilter === 'neutral' ? 'selected' : ''}>⚪ Sin Compras (${totalNeutral})</option>
               </select>
             </div>
           </div>
@@ -1375,7 +1375,7 @@ function renderComparativaInsumosView() {
       <!-- SECCIONES DIVIDIDAS POR CADA RUBRO -->
       ${categoriesToDisplay.length === 0 ? `
         <div class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 font-medium">
-          No se encontraron insumos para la bÃºsqueda o filtro seleccionado.
+          No se encontraron insumos para la búsqueda o filtro seleccionado.
         </div>
       ` : categoriesToDisplay.map(cat => {
         const isCollapsed = comparativaCollapsedCategories.has(cat.key);
@@ -1398,14 +1398,14 @@ function renderComparativaInsumosView() {
                     </span>
                     ${cat.filteredAlertas > 0 ? `
                       <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                        âš ï¸ ${cat.filteredAlertas} sobrecosto
+                        ⚠️ ${cat.filteredAlertas} sobrecosto
                       </span>
                     ` : ''}
                   </div>
                 </div>
               </div>
 
-              <!-- MÃ©tricas Resumen del Rubro -->
+              <!-- Métricas Resumen del Rubro -->
               <div class="flex items-center gap-3 text-xs">
                 <div class="hidden sm:flex items-center gap-4 font-mono text-[11px]">
                   <span>Presupuesto: <strong class="text-blue-700">${formatCurrency(cat.filteredPresup)}</strong></span>
@@ -1424,14 +1424,14 @@ function renderComparativaInsumosView() {
                 <thead>
                   <tr class="bg-slate-900 text-white font-bold border-b border-slate-800 text-[11px]">
                     <th class="py-2 px-3 w-28">Clave</th>
-                    <th class="py-2 px-3 min-w-[220px]">DescripciÃ³n del Insumo</th>
+                    <th class="py-2 px-3 min-w-[220px]">Descripción del Insumo</th>
                     <th class="py-2 px-3 w-16 text-center">Unid.</th>
                     <th class="py-2 px-3 w-24 text-right">Cant. Presup.</th>
                     <th class="py-2 px-3 w-24 text-right">Cant. Comprada</th>
                     <th class="py-2 px-3 w-28 text-right">Saldo Disp.</th>
                     <th class="py-2 px-3 w-24 text-right">P.U. Presup.</th>
                     <th class="py-2 px-3 w-24 text-right">P.U. Real</th>
-                    <th class="py-2 px-3 w-24 text-right">VariaciÃ³n P.U.</th>
+                    <th class="py-2 px-3 w-24 text-right">Variación P.U.</th>
                     <th class="py-2 px-3 w-28 text-right">Importe Real</th>
                     <th class="py-2 px-3 w-32 text-center">Estado / Alerta</th>
                   </tr>
@@ -1440,7 +1440,7 @@ function renderComparativaInsumosView() {
                   ${cat.items.length === 0 ? `
                     <tr>
                       <td colspan="11" class="py-6 text-center text-slate-400 italic">
-                        No se registran insumos en este rubro ${term ? 'que coincidan con la bÃºsqueda' : 'en el presupuesto actual'}.
+                        No se registran insumos en este rubro ${term ? 'que coincidan con la búsqueda' : 'en el presupuesto actual'}.
                       </td>
                     </tr>
                   ` : cat.items.map(item => renderComparativaRowHtml(item)).join('')}
@@ -1497,7 +1497,7 @@ function renderComparativaRowHtml(item) {
         ${escapeHtml(item.clave || '---')}
       </td>
       <td class="py-2 px-3 font-medium text-slate-900">
-        <div>${escapeHtml(item.descripcion || 'Sin descripciÃ³n')}</div>
+        <div>${escapeHtml(item.descripcion || 'Sin descripción')}</div>
         ${item.isExtraordinario ? `<span class="text-[9.5px] font-bold text-rose-600 uppercase">Gasto Extraordinario</span>` : ''}
       </td>
       <td class="py-2 px-3 text-center text-slate-500 font-mono text-[11px]">
@@ -1604,7 +1604,7 @@ export function toggleExpenseStatusAction(recordId) {
 }
 
 export function deleteExpenseAction(recordId) {
-  if (confirm(`Â¿EstÃ¡s seguro de eliminar el registro de gasto ${recordId}? Esta acciÃ³n no se puede deshacer.`)) {
+  if (confirm(`¿Estás seguro de eliminar el registro de gasto ${recordId}? Esta acción no se puede deshacer.`)) {
     const rec = getExpenseRecordById(recordId);
     if (rec?.evidence) {
       deleteExpenseEvidence(rec.evidence).catch(() => {});
@@ -1656,7 +1656,7 @@ export function openNewExpenseModal(editId = null) {
     titleEl.textContent = existing ? `Editar Compra / Gasto (${existing.id})` : 'Nueva Compra / Registro de Gasto';
   }
 
-  // Resetear campo de bÃºsqueda de insumos
+  // Resetear campo de búsqueda de insumos
   const searchInput = document.getElementById('expense-form-insumo-search');
   if (searchInput) searchInput.value = '';
   const clearBtn = document.getElementById('expense-form-insumo-search-clear');
@@ -1759,13 +1759,13 @@ export function populateInsumosDropdown(selectedKey = '', searchTerm = '') {
       badgeEl.textContent = `${filteredInsumos.length} de ${budgetInsumos.length} insumos encontrados`;
       badgeEl.className = 'text-[10px] font-bold ' + (filteredInsumos.length > 0 ? 'text-blue-700' : 'text-amber-600');
     } else {
-      badgeEl.textContent = `Cruce automÃ¡tico vs Presupuesto (${budgetInsumos.length} insumos)`;
+      badgeEl.textContent = `Cruce automático vs Presupuesto (${budgetInsumos.length} insumos)`;
       badgeEl.className = 'text-[10px] text-blue-700 font-semibold';
     }
   }
 
   let html = `<option value="">-- Seleccionar Insumo del Presupuesto (Opcional) --</option>`;
-  html += `<option value="EXTRA" ${selectedKey === 'EXTRA' ? 'selected' : ''}>âš ï¸ Gasto Extraordinario / No Presupuestado</option>`;
+  html += `<option value="EXTRA" ${selectedKey === 'EXTRA' ? 'selected' : ''}>⚠️ Gasto Extraordinario / No Presupuestado</option>`;
 
   let selectedFound = (selectedKey === '' || selectedKey === 'EXTRA');
 
@@ -1780,7 +1780,7 @@ export function populateInsumosDropdown(selectedKey = '', searchTerm = '') {
     </option>`;
   });
 
-  // Si habÃ­a un insumo seleccionado que no entrÃ³ en el filtro actual, conservarlo en el selector
+  // Si había un insumo seleccionado que no entró en el filtro actual, conservarlo en el selector
   if (!selectedFound && selectedKey) {
     const item = budgetInsumos.find(ins => ins.key === selectedKey || ins.clave === selectedKey);
     if (item) {
@@ -1829,7 +1829,7 @@ export function updateProjectQtyDisplay(opt = null) {
   if (opt.value === 'EXTRA') {
     qtyEl.textContent = 'N/A';
     unitEl.textContent = 'EXTRA';
-    saldoEl.textContent = 'âš ï¸ Gasto no presupuestado';
+    saldoEl.textContent = '⚠️ Gasto no presupuestado';
     saldoEl.className = 'text-[9.5px] text-amber-700 font-bold truncate';
     return;
   }
@@ -1843,7 +1843,7 @@ export function updateProjectQtyDisplay(opt = null) {
   unitEl.textContent = unit;
 
   if (saldoVal <= 0) {
-    saldoEl.innerHTML = `<span class="text-rose-600 font-bold">âš ï¸ Agotado (Disp: ${formatNumber(saldoVal)})</span>`;
+    saldoEl.innerHTML = `<span class="text-rose-600 font-bold">⚠️ Agotado (Disp: ${formatNumber(saldoVal)})</span>`;
   } else {
     saldoEl.innerHTML = `<span class="text-emerald-700 font-semibold">Disponible: <strong>${formatNumber(saldoVal)} ${unit}</strong></span>`;
   }
@@ -1854,7 +1854,7 @@ export function copyProjectQtyToInput() {
   if (!select) return;
   const opt = select.options[select.selectedIndex];
   if (!opt || !opt.value || opt.value === 'EXTRA') {
-    showToast('Selecciona primero un insumo del catÃ¡logo para copiar su cantidad.', 'warning');
+    showToast('Selecciona primero un insumo del catálogo para copiar su cantidad.', 'warning');
     return;
   }
 
@@ -1986,7 +1986,7 @@ export async function onEvidenceFileInputChange(inputEl) {
     uploaded.__isNewTempUpload = true;
     currentTempEvidence = uploaded;
     updateEvidenceUI();
-    const syncTag = uploaded.cloudSynced ? 'respaldado en AWS S3' : 'guardado en cachÃ© local';
+    const syncTag = uploaded.cloudSynced ? 'respaldado en AWS S3' : 'guardado en caché local';
     const optTag = uploaded.compressed ? ` (${uploaded.summaryText})` : ` (${uploaded.sizeLabel || ''})`;
     showToast(`Comprobante "${uploaded.fileName}" ${syncTag}${optTag}.`, 'success');
   } catch (err) {
@@ -2013,9 +2013,9 @@ function updateEvidenceUI() {
   if (currentTempEvidence && (currentTempEvidence.fileName || currentTempEvidence.s3Key || currentTempEvidence.mediaId || currentTempEvidence.localDataUrl)) {
     const hasCloud = Boolean(currentTempEvidence.cloudSynced || currentTempEvidence.s3Key);
     const metaLabel = [
-      hasCloud ? 'â˜ï¸ Respaldado en AWS S3' : 'ðŸ’¾ Guardado en cachÃ© local',
+      hasCloud ? '☁️ Respaldado en AWS S3' : '💾 Guardado en caché local',
       currentTempEvidence.sizeLabel || ''
-    ].filter(Boolean).join(' Â· ');
+    ].filter(Boolean).join(' · ');
 
     container.innerHTML = `
       <div class="flex items-center justify-between p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg text-xs">
@@ -2042,8 +2042,8 @@ function updateEvidenceUI() {
     container.innerHTML = `
       <div class="border-2 border-dashed border-slate-300 rounded-lg p-3 text-center hover:bg-slate-50 transition cursor-pointer" onclick="document.getElementById('expense-form-evidence-file').click()">
         <i class="fa-solid fa-cloud-arrow-up text-slate-400 text-lg mb-1"></i>
-        <p class="text-[11px] font-semibold text-slate-600">Arrastra factura / nota de remisiÃ³n o haz clic para subir</p>
-        <p class="text-[9.5px] text-slate-400">Formatos: PDF, XML, JPG, JPEG, PNG, WEBP Â· MÃ¡x. ${maxMb} MB (${hostCtx?.spec?.label || 'Plan'}) Â· CompresiÃ³n automÃ¡tica</p>
+        <p class="text-[11px] font-semibold text-slate-600">Arrastra factura / nota de remisión o haz clic para subir</p>
+        <p class="text-[9.5px] text-slate-400">Formatos: PDF, XML, JPG, JPEG, PNG, WEBP · Máx. ${maxMb} MB (${hostCtx?.spec?.label || 'Plan'}) · Compresión automática</p>
       </div>
     `;
   }
@@ -2052,7 +2052,7 @@ function updateEvidenceUI() {
 export function saveExpenseModalForm() {
   const desc = document.getElementById('expense-form-desc')?.value.trim();
   if (!desc) {
-    showToast('Ingresa una descripciÃ³n para la compra o gasto.', 'warning');
+    showToast('Ingresa una descripción para la compra o gasto.', 'warning');
     document.getElementById('expense-form-desc')?.focus();
     return;
   }
@@ -2093,13 +2093,13 @@ export function saveExpenseModalForm() {
   };
 
   const saved = saveExpenseRecord(recordData);
-  showToast(`Â¡Registro ${saved.id} guardado exitosamente!`, 'success');
+  showToast(`¡Registro ${saved.id} guardado exitosamente!`, 'success');
   closeNewExpenseModal(false);
   renderExpensesView();
 }
 
 // ==========================================
-// MODAL 2: GESTIÃ“N DE PROVEEDORES
+// MODAL 2: GESTIÓN DE PROVEEDORES
 // ==========================================
 
 export function openSuppliersListModal() {
@@ -2125,7 +2125,7 @@ function renderSuppliersListTable() {
 
   const suppliers = getExpensesSuppliers();
   if (suppliers.length === 0) {
-    container.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">No hay proveedores registrados aÃºn.</td></tr>`;
+    container.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">No hay proveedores registrados aún.</td></tr>`;
     return;
   }
 
@@ -2182,7 +2182,7 @@ export function closeSupplierModal() {
 export function saveSupplierModalForm() {
   const name = document.getElementById('supplier-form-name')?.value.trim();
   if (!name) {
-    showToast('Ingresa la razÃ³n social o nombre del proveedor.', 'warning');
+    showToast('Ingresa la razón social o nombre del proveedor.', 'warning');
     document.getElementById('supplier-form-name')?.focus();
     return;
   }
@@ -2206,7 +2206,7 @@ export function saveSupplierModalForm() {
 
 export function deleteSupplierAction(supplierId) {
   const sup = getSupplierById(supplierId);
-  if (confirm(`Â¿Deseas eliminar al proveedor "${sup?.name || supplierId}"?`)) {
+  if (confirm(`¿Deseas eliminar al proveedor "${sup?.name || supplierId}"?`)) {
     deleteSupplier(supplierId);
     showToast('Proveedor eliminado.', 'info');
     renderSuppliersListTable();
@@ -2214,7 +2214,7 @@ export function deleteSupplierAction(supplierId) {
 }
 
 // =============================================================================
-// GESTIÃ“N DE FIRMAS Y RESPONSABLES OFICIALES DE COMPRAS Y PAGOS
+// GESTIÓN DE FIRMAS Y RESPONSABLES OFICIALES DE COMPRAS Y PAGOS
 // =============================================================================
 
 function escapeHtml(str) {
@@ -2293,7 +2293,7 @@ export function renderExpensesSignaturesListForm() {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <div>
           <label class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-            Rol / TÃ­tulo de la Firma:
+            Rol / Título de la Firma:
           </label>
           <input type="text" 
                  value="${escapeHtml(sig.rol || '')}" 
@@ -2304,7 +2304,7 @@ export function renderExpensesSignaturesListForm() {
 
         <div>
           <label class="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-            Nombre del Responsable que firmarÃ¡:
+            Nombre del Responsable que firmará:
           </label>
           <input type="text" 
                  value="${escapeHtml(sig.nombre || '')}" 
@@ -2320,7 +2320,7 @@ export function renderExpensesSignaturesListForm() {
         </label>
         <input type="text" 
                value="${escapeHtml(sig.cargo || '')}" 
-               placeholder="Ej: ElaborÃ³ / Depto. de Compras"
+               placeholder="Ej: Elaboró / Depto. de Compras"
                oninput="updateDraftExpensesSignature(${idx}, 'cargo', this.value)"
                class="w-full text-xs text-slate-700 bg-slate-50 hover:bg-white border border-slate-300 focus:border-blue-500 focus:bg-white rounded-lg px-2.5 py-1.5 outline-none transition">
       </div>
@@ -2330,10 +2330,10 @@ export function renderExpensesSignaturesListForm() {
 
 export function addExpensesSignatureRow() {
   if (draftExpensesSignatures.length >= 5) {
-    showToast('Se permite un mÃ¡ximo de 5 firmantes', 'info');
+    showToast('Se permite un máximo de 5 firmantes', 'info');
     return;
   }
-  const defaultRoles = ['CONTROL DE COSTOS / COMPRAS', 'RESIDENCIA DE OBRA', 'DIRECCIÃ“N GENERAL / SUPERVISIÃ“N', 'PROVEEDOR / CONTRATISTA', 'CLIENTE'];
+  const defaultRoles = ['CONTROL DE COSTOS / COMPRAS', 'RESIDENCIA DE OBRA', 'DIRECCIÓN GENERAL / SUPERVISIÓN', 'PROVEEDOR / CONTRATISTA', 'CLIENTE'];
   const nextRole = defaultRoles[draftExpensesSignatures.length % defaultRoles.length] || 'FIRMA';
   draftExpensesSignatures.push({
     rol: nextRole,
@@ -2379,7 +2379,7 @@ export function saveExpensesSignaturesModal() {
 }
 
 // Asignar funciones globales para compatibilidad inline
-// Exponer funciones pÃºblicas de Compras y Pagos para compatibilidad inline total
+// Exponer funciones públicas de Compras y Pagos para compatibilidad inline total
 if (typeof window !== 'undefined') {
   window.renderExpensesView = renderExpensesView;
   window.switchExpensesSubTab = switchExpensesSubTab;
@@ -2427,7 +2427,7 @@ if (typeof window !== 'undefined') {
   window.resetDefaultExpensesSignatures = resetDefaultExpensesSignatures;
   window.saveExpensesSignaturesModal = saveExpensesSignaturesModal;
 
-  // Atajos de conveniencia para submÃ³dulos de compras
+  // Atajos de conveniencia para submódulos de compras
   window.switchComprasSubTab = window.switchComprasSubTab || function(sub) {
     if (sub === 'pagos' || sub === 'ordenes') {
       switchExpensesSubTab('bitacora');

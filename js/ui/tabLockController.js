@@ -1,22 +1,22 @@
-﻿// js/ui/tabLockController.js
-// Controlador de Candado de Bloqueo por PestaÃ±a (CatÃ¡logo Base, Insumos Base, Calendario de Obra)
-// y por EstimaciÃ³n Individual en la pestaÃ±a Estimaciones.
-// Cuando estÃ¡ bloqueado, solo permite consultar e imprimir la informaciÃ³n (sin cambiar, mover ni editar).
+// js/ui/tabLockController.js
+// Controlador de Candado de Bloqueo por Pestaña (Catálogo Base, Insumos Base, Calendario de Obra)
+// y por Estimación Individual en la pestaña Estimaciones.
+// Cuando está bloqueado, solo permite consultar e imprimir la información (sin cambiar, mover ni editar).
 
-import { getActiveProjectId } from '../config/constants.js?v=20261116_cf3';
-import { showToast } from './notifications.js?v=20261116_cf3';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261116_cf3';
-import { isEstimacionLocked, toggleActiveEstimacionLockState, setEstimacionLocked } from '../modules/estimaciones/estimacionesModel.js?v=20261116_cf3';
+import { getActiveProjectId } from '../config/constants.js?v=20261116_cf4';
+import { showToast } from './notifications.js?v=20261116_cf4';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261116_cf4';
+import { isEstimacionLocked, toggleActiveEstimacionLockState, setEstimacionLocked } from '../modules/estimaciones/estimacionesModel.js?v=20261116_cf4';
 
 const STORAGE_KEY_TAB_LOCKS_PREFIX = 'adm_const_tab_locks_';
 
 const TAB_LABELS = {
-  cat: 'CatÃ¡logo Base',
+  cat: 'Catálogo Base',
   insumos: 'Insumos Base',
   calendario: 'Calendario de Obra',
   estimaciones: 'Estimaciones',
   compras: 'Compras y Pagos',
-  bitacora: 'BitÃ¡cora de Obra'
+  bitacora: 'Bitácora de Obra'
 };
 
 let lockRenderCallback = null;
@@ -44,7 +44,7 @@ export function loadProjectTabLocks(projectId = null) {
       };
     }
   } catch (err) {
-    console.warn('Error al leer bloqueo de pestaÃ±as:', err);
+    console.warn('Error al leer bloqueo de pestañas:', err);
   }
   return { cat: false, insumos: false, calendario: false, compras: false, bitacora: false };
 }
@@ -61,7 +61,7 @@ export function saveProjectTabLocks(locks, projectId = null) {
     localStorage.setItem(getTabLocksStorageKey(projectId), JSON.stringify(clean));
     return clean;
   } catch (err) {
-    console.warn('Error al guardar bloqueo de pestaÃ±as:', err);
+    console.warn('Error al guardar bloqueo de pestañas:', err);
     return { cat: false, insumos: false, calendario: false, compras: false, bitacora: false };
   }
 }
@@ -77,7 +77,7 @@ export function isTabLocked(tabKey) {
 export function setTabLocked(tabKey, locked, { notify = true, rerender = true } = {}) {
   if (!canCurrentUserEditProject()) {
     if (notify) {
-      showToast('ðŸ”’ Modo solo lectura: no tienes permisos para bloquear o desbloquear pestaÃ±as.', 'warning');
+      showToast('🔒 Modo solo lectura: no tienes permisos para bloquear o desbloquear pestañas.', 'warning');
     }
     return isTabLocked(tabKey);
   }
@@ -99,9 +99,9 @@ export function setTabLocked(tabKey, locked, { notify = true, rerender = true } 
   if (notify) {
     const label = TAB_LABELS[tabKey] || tabKey;
     if (isLocked) {
-      showToast(`ðŸ”’ ${label} bloqueada: modo solo consulta e impresiÃ³n`, 'warning');
+      showToast(`🔒 ${label} bloqueada: modo solo consulta e impresión`, 'warning');
     } else {
-      showToast(`ðŸ”“ ${label} desbloqueada: ediciÃ³n habilitada`, 'info');
+      showToast(`🔓 ${label} desbloqueada: edición habilitada`, 'info');
     }
   }
 
@@ -110,7 +110,7 @@ export function setTabLocked(tabKey, locked, { notify = true, rerender = true } 
 
 export function toggleTabLock(tabKey) {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo solo lectura: no tienes permisos para bloquear o desbloquear pestaÃ±as.', 'warning');
+    showToast('🔒 Modo solo lectura: no tienes permisos para bloquear o desbloquear pestañas.', 'warning');
     return isTabLocked(tabKey);
   }
   if (tabKey === 'estimaciones') {
@@ -119,11 +119,11 @@ export function toggleTabLock(tabKey) {
       lockRenderCallback('estimaciones', locked);
     }
     applyTabLocksToDOM();
-    const estName = est?.nombre || 'EstimaciÃ³n';
+    const estName = est?.nombre || 'Estimación';
     if (locked) {
-      showToast(`ðŸ”’ ${estName} bloqueada: solo consulta e impresiÃ³n`, 'warning');
+      showToast(`🔒 ${estName} bloqueada: solo consulta e impresión`, 'warning');
     } else {
-      showToast(`ðŸ”“ ${estName} desbloqueada: ediciÃ³n habilitada`, 'info');
+      showToast(`🔓 ${estName} desbloqueada: edición habilitada`, 'info');
     }
     return locked;
   }
@@ -134,15 +134,15 @@ export function toggleTabLock(tabKey) {
 
 export function guardTabUnlocked(tabKey, customMessage = null) {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo solo lectura: tu rol no permite modificar este proyecto.', 'warning');
+    showToast('🔒 Modo solo lectura: tu rol no permite modificar este proyecto.', 'warning');
     return false;
   }
   if (!isTabLocked(tabKey)) return true;
   const label = TAB_LABELS[tabKey] || tabKey;
   const msg = customMessage || (
     tabKey === 'estimaciones'
-      ? 'ðŸ”’ Esta estimaciÃ³n estÃ¡ bloqueada (solo consulta e impresiÃ³n). Desbloquee el candado para editar.'
-      : `ðŸ”’ La pestaÃ±a "${label}" estÃ¡ bloqueada (solo consulta e impresiÃ³n). Desbloquee el candado para realizar cambios.`
+      ? '🔒 Esta estimación está bloqueada (solo consulta e impresión). Desbloquee el candado para editar.'
+      : `🔒 La pestaña "${label}" está bloqueada (solo consulta e impresión). Desbloquee el candado para realizar cambios.`
   );
   showToast(msg, 'warning');
   return false;
@@ -156,7 +156,7 @@ function updateStaticLockButtonUI(btnId, locked, tabLabel) {
   if (locked) {
     btn.className = 'bg-amber-600 hover:bg-amber-500 text-white border border-amber-700 text-[11px] px-2.5 py-1 rounded flex items-center justify-center font-bold shadow-sm transition active:scale-95 cursor-pointer shrink-0';
     btn.innerHTML = '<i class="fa-solid fa-lock text-[11px] text-white"></i>';
-    btn.title = `ðŸ”’ ${tabLabel} bloqueada (Solo consulta e impresiÃ³n) â€” Haz clic para desbloquear`;
+    btn.title = `🔒 ${tabLabel} bloqueada (Solo consulta e impresión) — Haz clic para desbloquear`;
     if (typeof btn.setAttribute === 'function') {
       btn.setAttribute('aria-pressed', 'true');
       btn.setAttribute('data-locked', 'true');
@@ -164,7 +164,7 @@ function updateStaticLockButtonUI(btnId, locked, tabLabel) {
   } else {
     btn.className = 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 text-[11px] px-2.5 py-1 rounded flex items-center justify-center font-medium shadow-sm transition active:scale-95 cursor-pointer shrink-0';
     btn.innerHTML = '<i class="fa-solid fa-lock-open text-[11px] text-slate-600"></i>';
-    btn.title = `Bloquear ${tabLabel} (Permitir solo consulta e impresiÃ³n)`;
+    btn.title = `Bloquear ${tabLabel} (Permitir solo consulta e impresión)`;
     if (typeof btn.setAttribute === 'function') {
       btn.setAttribute('aria-pressed', 'false');
       btn.setAttribute('data-locked', 'false');
@@ -178,11 +178,11 @@ export function applyTabLocksToDOM() {
   const locks = loadProjectTabLocks();
   const estLocked = isEstimacionLocked();
 
-  // 1. Actualizar botones estÃ¡ticos en index.html (CatÃ¡logo Base e Insumos Base)
-  updateStaticLockButtonUI('btn-lock-cat', locks.cat, 'CatÃ¡logo Base');
+  // 1. Actualizar botones estáticos en index.html (Catálogo Base e Insumos Base)
+  updateStaticLockButtonUI('btn-lock-cat', locks.cat, 'Catálogo Base');
   updateStaticLockButtonUI('btn-lock-insumos', locks.insumos, 'Insumos Base');
 
-  // 2. Atributos data-tab-locked en los contenedores de las 4 pestaÃ±as
+  // 2. Atributos data-tab-locked en los contenedores de las 4 pestañas
   const viewCat = document.getElementById('view-cat');
   if (viewCat && typeof viewCat.setAttribute === 'function') {
     viewCat.setAttribute('data-tab-locked', locks.cat ? 'true' : 'false');
@@ -204,8 +204,8 @@ export function applyTabLocksToDOM() {
     viewBitacora.setAttribute('data-tab-locked', locks.bitacora ? 'true' : 'false');
   }
 
-  // 3. Bloquear campos de encabezado de proyecto en CatÃ¡logo Base e Insumos Base cuando estÃ¡n bloqueados
-  // Nota: 'select-all-checkbox' permanece siempre habilitado para permitir filtrado, consulta y visualizaciÃ³n de insumos
+  // 3. Bloquear campos de encabezado de proyecto en Catálogo Base e Insumos Base cuando están bloqueados
+  // Nota: 'select-all-checkbox' permanece siempre habilitado para permitir filtrado, consulta y visualización de insumos
   const catHeaderInputs = ['header-project-name', 'header-project-location', 'btn-toolbar-google-ia', 'btn-toolbar-ai-menu', 'btn-ai-apu', 'btn-apu-ai-menu', 'btn-ai-apu-max', 'btn-apu-max-ai-menu'];
   catHeaderInputs.forEach(id => {
     const el = document.getElementById(id);

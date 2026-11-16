@@ -1,15 +1,15 @@
-﻿import { state, persistLocalData } from '../../state/store.js?v=20261116_cf3';
-import { saveState } from '../../state/history.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
-import { formatMoney, formatQty, formatMatrixQty, getCurrencySymbol, round2, round5 } from '../../core/formatters.js?v=20261116_cf3';
-import { getFactorSobrecosto, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf3';
-import { getConsolidatedDataMap, normalizeInsumoText, getInsumoConsolidationKey } from './insumosConsolidator.js?v=20261116_cf3';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf3';
-import { findNodeById } from '../catalog/treeService.js?v=20261116_cf3';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf3';
-import { updateModalIfOpen } from '../apu/matrizModal.js?v=20261116_cf3';
-import { estimarCostoInsumoConIA, queryGeminiLoteInsumos } from '../ai/insumoAiPricing.js?v=20261116_cf3';
-import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf3';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf4';
+import { saveState } from '../../state/history.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+import { formatMoney, formatQty, formatMatrixQty, getCurrencySymbol, round2, round5 } from '../../core/formatters.js?v=20261116_cf4';
+import { getFactorSobrecosto, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf4';
+import { getConsolidatedDataMap, normalizeInsumoText, getInsumoConsolidationKey } from './insumosConsolidator.js?v=20261116_cf4';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf4';
+import { findNodeById } from '../catalog/treeService.js?v=20261116_cf4';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf4';
+import { updateModalIfOpen } from '../apu/matrizModal.js?v=20261116_cf4';
+import { estimarCostoInsumoConIA, queryGeminiLoteInsumos } from '../ai/insumoAiPricing.js?v=20261116_cf4';
+import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf4';
 
 let globalConsolidatedMap = {};
 let activeCombinarContext = null;
@@ -28,7 +28,7 @@ function escapeInsumoJsArg(str = '') {
   return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
-// Seleccionar y resaltar una fila en las tablas de Insumos Base (mismo estilo que CatÃ¡logo Base)
+// Seleccionar y resaltar una fila en las tablas de Insumos Base (mismo estilo que Catálogo Base)
 export function selectInsumoBaseRow(key) {
   selectedInsumoRowKey = key;
   if (typeof document === 'undefined') return;
@@ -43,7 +43,7 @@ export function selectInsumoBaseRow(key) {
   });
 }
 
-// Renderizado global de la pestaÃ±a de Insumos Generales
+// Renderizado global de la pestaña de Insumos Generales
 export function renderInsumosGenerales() {
   applyTabLocksToDOM();
   globalConsolidatedMap = getConsolidatedDataMap();
@@ -55,7 +55,7 @@ export function renderInsumosGenerales() {
     if (selCount > 0) {
       countMsgEl.innerHTML = `Suma consolidada de <strong class="text-blue-700 font-bold">${selCount}</strong> concepto${selCount > 1 ? 's' : ''} marcado${selCount > 1 ? 's' : ''} con checkbox en TAB1-CAT-BASE.`;
     } else {
-      countMsgEl.innerHTML = `<span class="text-amber-600 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>NingÃºn concepto seleccionado con checkbox en TAB1-CAT-BASE. Marca las casillas en la tabla de presupuesto para ver sus insumos.</span>`;
+      countMsgEl.innerHTML = `<span class="text-amber-600 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Ningún concepto seleccionado con checkbox en TAB1-CAT-BASE. Marca las casillas en la tabla de presupuesto para ver sus insumos.</span>`;
     }
   }
 
@@ -76,7 +76,7 @@ export function renderInsumosGenerales() {
   if (grandTotalEl) grandTotalEl.innerText = formatMoney(grandTotalGeneral);
 }
 
-// Renderizado de tabla por categorÃ­a con bÃºsqueda y selecciÃ³n mÃºltiple
+// Renderizado de tabla por categoría con búsqueda y selección múltiple
 export function renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId) {
   const tbody = document.getElementById(bodyId);
   if (!tbody) return 0;
@@ -100,7 +100,7 @@ export function renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId) {
     const isZeroSel = (globalConsolidatedMap._selectedConceptsCount || 0) === 0;
     const msg = isZeroSel 
       ? '<span class="text-amber-600 font-medium"><i class="fa-solid fa-square-check text-amber-500 mr-1.5"></i>Sin conceptos seleccionados. Marca los checkboxes en TAB1-CAT-BASE para incluir sus insumos.</span>' 
-      : (query ? `No se encontraron insumos que coincidan con "${query}"` : 'Sin insumos de esta categorÃ­a en los conceptos seleccionados');
+      : (query ? `No se encontraron insumos que coincidan con "${query}"` : 'Sin insumos de esta categoría en los conceptos seleccionados');
     tbody.innerHTML = `<tr><td colspan="7" class="p-3 text-center text-slate-400 text-xs italic">${msg}</td></tr>`;
     const sumEl = document.getElementById(sumId);
     if (sumEl) sumEl.innerText = '$0.00';
@@ -134,7 +134,7 @@ export function renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId) {
           <span class="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200 font-mono font-semibold text-[9px]">
             <i class="fa-solid fa-calculator text-[8px] mr-0.5"></i> ${item.sources.length} ${item.sources.length === 1 ? 'matriz' : 'matrices'}
           </span>
-          <span class="truncate max-w-sm text-slate-500 cursor-help" title="${escapeInsumoHtml(item.sources.map(s => `â€¢ [${s.nodeClave}] ${s.nodeDesc}: ${formatQty(s.cantConcepto)} ${s.nodeUnidad} obra Ã— ${formatMatrixQty(s.cantUnitaria)} ${item.unidad}/ud = ${formatQty(s.cantTotal)} ${item.unidad}`).join('\n'))}">
+          <span class="truncate max-w-sm text-slate-500 cursor-help" title="${escapeInsumoHtml(item.sources.map(s => `• [${s.nodeClave}] ${s.nodeDesc}: ${formatQty(s.cantConcepto)} ${s.nodeUnidad} obra × ${formatMatrixQty(s.cantUnitaria)} ${item.unidad}/ud = ${formatQty(s.cantTotal)} ${item.unidad}`).join('\n'))}">
             Partidas: ${escapeInsumoHtml(item.sources.map(s => s.nodeClave).filter(Boolean).slice(0, 4).join(', '))}${item.sources.length > 4 ? '...' : ''}
           </span>
         </div>
@@ -145,7 +145,7 @@ export function renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId) {
                   id="btn-ai-cost-${item.key.replace(/[^a-zA-Z0-9_-]/g, '_')}"
                   onclick="actualizarCostoIndividualConIA('${safeTipoJs}', '${safeKeyJs}')" 
                   class="w-6 h-6 rounded bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs group/aibtn shrink-0 disabled:opacity-40 disabled:cursor-not-allowed" 
-                  title="${isInsLocked ? 'PestaÃ±a bloqueada (Solo consulta e impresiÃ³n)' : 'Actualizar costo de este insumo con Inteligencia Artificial'}">
+                  title="${isInsLocked ? 'Pestaña bloqueada (Solo consulta e impresión)' : 'Actualizar costo de este insumo con Inteligencia Artificial'}">
             <i class="fa-solid fa-wand-magic-sparkles text-[10px] group-hover/aibtn:scale-110 transition-transform"></i>
           </button>
           <span class="text-slate-500 mr-0.5">${getCurrencySymbol()}</span>
@@ -158,7 +158,7 @@ export function renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId) {
       <td class="p-2 text-center text-slate-500 align-middle whitespace-nowrap">${safeUnidadHtml}</td>
       <td class="p-2 text-right font-bold text-blue-900 align-middle whitespace-nowrap" title="Suma total en obra: ${formatQty(item.cantidadTotal)} ${item.unidad}&#10;Suma unitaria directa: ${formatMatrixQty(item.sumCantUnitaria || 0)} ${item.unidad}">
         <div>${formatQty(item.cantidadTotal)}</div>
-        ${item.sources.length > 1 ? `<div class="text-[9px] text-slate-400 font-normal font-sans" title="Suma directa de consumos unitarios de las ${item.sources.length} matrices">Î£ unit: ${formatMatrixQty(item.sumCantUnitaria || 0)}</div>` : ''}
+        ${item.sources.length > 1 ? `<div class="text-[9px] text-slate-400 font-normal font-sans" title="Suma directa de consumos unitarios de las ${item.sources.length} matrices">Σ unit: ${formatMatrixQty(item.sumCantUnitaria || 0)}</div>` : ''}
       </td>
       <td class="p-2 text-right font-bold text-slate-800 align-middle whitespace-nowrap">${formatMoney(item.totalImporte)}</td>
     `;
@@ -171,7 +171,7 @@ export function renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId) {
   return catSum;
 }
 
-// Filtrar tabla de categorÃ­a por campo de bÃºsqueda
+// Filtrar tabla de categoría por campo de búsqueda
 export function filterInsumosGeneralesTable(tipo) {
   const sumMap = {
     'Material': 'cat-sum-materiales',
@@ -194,7 +194,7 @@ export function filterInsumosGeneralesTable(tipo) {
   renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId);
 }
 
-// Seleccionar todas las casillas de una categorÃ­a
+// Seleccionar todas las casillas de una categoría
 export function toggleSelectAllInsumos(tipo, isChecked) {
   if (!guardTabUnlocked('insumos')) {
     renderInsumosGenerales();
@@ -253,7 +253,7 @@ function propagateInsumoCostToAllMatrices(key, parsedCosto, itemGroup = null) {
   return touchedNodes.size;
 }
 
-// Sincronizar la tabla de CatÃ¡logo Base y el panel / modal de Matriz APU activo tras actualizar costos en Insumos Base
+// Sincronizar la tabla de Catálogo Base y el panel / modal de Matriz APU activo tras actualizar costos en Insumos Base
 function syncCatalogAndActiveMatrixAfterInsumoChange() {
   const activeNode = state.activeSelectedId ? findNodeById(state.treeData, state.activeSelectedId) : null;
   if (activeNode && (!activeNode.children || activeNode.children.length === 0)) {
@@ -307,7 +307,7 @@ export function combinarInsumosSeleccionados(tipo) {
   });
 
   if (selectedItems.length < 2) {
-    showToast('No se encontraron suficientes insumos vÃ¡lidos seleccionados', 'warning');
+    showToast('No se encontraron suficientes insumos válidos seleccionados', 'warning');
     return;
   }
 
@@ -373,7 +373,7 @@ export function openCombinarModal(tipo, selectedItems) {
   modal.classList.add('flex');
 }
 
-// Cerrar ventana modal de combinaciÃ³n
+// Cerrar ventana modal de combinación
 export function closeCombinarModal() {
   const modal = document.getElementById('modal-combinar-insumos');
   if (modal) {
@@ -383,7 +383,7 @@ export function closeCombinarModal() {
   activeCombinarContext = null;
 }
 
-// SelecciÃ³n visual y de radio button del concepto definitivo
+// Selección visual y de radio button del concepto definitivo
 export function selectCombinarTarget(key) {
   const radios = document.querySelectorAll('input[name="target-insumo-key"]');
   radios.forEach(r => {
@@ -401,7 +401,7 @@ export function selectCombinarTarget(key) {
   });
 }
 
-// Ejecutar combinaciÃ³n: el concepto elegido reemplaza a los demÃ¡s en sus espacios de matriz, conservando su cantidad
+// Ejecutar combinación: el concepto elegido reemplaza a los demás en sus espacios de matriz, conservando su cantidad
 export function ejecutarCombinacionInsumos() {
   if (!activeCombinarContext) return;
   const { tipo, selectedItems } = activeCombinarContext;
@@ -437,7 +437,7 @@ export function ejecutarCombinacionInsumos() {
         src.insumo.unidad = chosenItem.unidad;
         src.insumo.costoUnitario = round2(chosenItem.costoUnitario);
         src.insumo.tipo = chosenItem.tipo || tipo;
-        // src.insumo.cantidad se conserva intacta con el valor que tenÃ­a en su respectivo espacio
+        // src.insumo.cantidad se conserva intacta con el valor que tenía en su respectivo espacio
 
         affectedNodes.add(src.node);
         totalReplacedSlots++;
@@ -445,7 +445,7 @@ export function ejecutarCombinacionInsumos() {
     });
   });
 
-  // 2. Si se activÃ³ fusionar en la misma matriz APU
+  // 2. Si se activó fusionar en la misma matriz APU
   if (mergeSameMatrix) {
     affectedNodes.forEach(node => {
       if (!Array.isArray(node.insumos) || node.insumos.length <= 1) return;
@@ -498,10 +498,10 @@ export function ejecutarCombinacionInsumos() {
     renderTAB1();
   }
 
-  showToast(`Insumos combinados con Ã©xito: se conservÃ³ "${chosenItem.descripcion.slice(0, 32)}..." reemplazando en ${totalReplacedSlots} espacios y preservando sus cantidades.`, 'success');
+  showToast(`Insumos combinados con éxito: se conservó "${chosenItem.descripcion.slice(0, 32)}..." reemplazando en ${totalReplacedSlots} espacios y preservando sus cantidades.`, 'success');
 }
 
-// Filtrar visualizaciÃ³n de tarjetas de categorÃ­as
+// Filtrar visualización de tarjetas de categorías
 export function filterInsumosCategoryView(selectedCat) {
   const cats = [
     { id: 'Material', key: 'Material' },
@@ -542,7 +542,7 @@ export function filterInsumosCategoryView(selectedCat) {
   });
 }
 
-// Plegar / desplegar tarjeta individual de categorÃ­a
+// Plegar / desplegar tarjeta individual de categoría
 export function toggleInsumoCard(catId) {
   const body = document.getElementById(`card-body-${catId}`);
   const icon = document.getElementById(`card-chevron-${catId}`);
@@ -556,7 +556,7 @@ export function toggleInsumoCard(catId) {
   }
 }
 
-// Agrupar todas las categorÃ­as de insumos (Colapsar tablas)
+// Agrupar todas las categorías de insumos (Colapsar tablas)
 export function agruparInsumosBase() {
   const cats = ['Material', 'Mano-de-Obra', 'Herramienta', 'Equipo', 'Maquinaria', 'Subcontrato'];
   cats.forEach(catId => {
@@ -565,10 +565,10 @@ export function agruparInsumosBase() {
     if (body) body.classList.add('hidden');
     if (icon) icon.className = "fa-solid fa-chevron-down text-xs";
   });
-  showToast('CategorÃ­as de insumos agrupadas (colapsadas)');
+  showToast('Categorías de insumos agrupadas (colapsadas)');
 }
 
-// Desagrupar todas las categorÃ­as de insumos (Expandir tablas)
+// Desagrupar todas las categorías de insumos (Expandir tablas)
 export function desagruparInsumosBase() {
   const cats = ['Material', 'Mano-de-Obra', 'Herramienta', 'Equipo', 'Maquinaria', 'Subcontrato'];
   cats.forEach(catId => {
@@ -577,23 +577,23 @@ export function desagruparInsumosBase() {
     if (body) body.classList.remove('hidden');
     if (icon) icon.className = "fa-solid fa-chevron-up text-xs";
   });
-  showToast('CategorÃ­as de insumos desagrupadas (expandidas)');
+  showToast('Categorías de insumos desagrupadas (expandidas)');
 }
 
 export const collapseAllInsumosCategories = agruparInsumosBase;
 export const expandAllInsumosCategories = desagruparInsumosBase;
 
 // =========================================================================
-// ACTUALIZACIÃ“N DE COSTOS DE INSUMOS CON INTELIGENCIA ARTIFICIAL (IA)
+// ACTUALIZACIÓN DE COSTOS DE INSUMOS CON INTELIGENCIA ARTIFICIAL (IA)
 // =========================================================================
 
-// 1. ActualizaciÃ³n independiente para un solo insumo
+// 1. Actualización independiente para un solo insumo
 export async function actualizarCostoIndividualConIA(tipo, key, options = {}) {
   if (!guardTabUnlocked('insumos')) return;
   const useWebSearch = Boolean(options?.useWebSearch === true);
   const itemGroup = globalConsolidatedMap[tipo] && globalConsolidatedMap[tipo][key];
   if (!itemGroup) {
-    showToast('No se encontrÃ³ el insumo seleccionado', 'warning');
+    showToast('No se encontró el insumo seleccionado', 'warning');
     return;
   }
 
@@ -607,23 +607,23 @@ export async function actualizarCostoIndividualConIA(tipo, key, options = {}) {
   const shortDesc = itemGroup.descripcion.length > 30 ? itemGroup.descripcion.slice(0, 30) + '...' : itemGroup.descripcion;
   showToast(
     useWebSearch
-      ? `ðŸŒ Cotizando en Web en Vivo (Google Search): "${shortDesc}"`
-      : `ðŸ¤– Cotizando con CachÃ© / IA EstÃ¡ndar: "${shortDesc}"`,
+      ? `🌐 Cotizando en Web en Vivo (Google Search): "${shortDesc}"`
+      : `🤖 Cotizando con Caché / IA Estándar: "${shortDesc}"`,
     'info'
   );
 
   try {
     const res = await estimarCostoInsumoConIA(itemGroup, { useWebSearch });
     if (res && res.blockedByQuota) {
-      showToast(`ðŸ”’ ${res.error}`, 'warning');
+      showToast(`🔒 ${res.error}`, 'warning');
       if (typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') window.openSubscriptionModal();
       return;
     }
     if (res && typeof res.precio === 'number' && res.precio > 0) {
       updateCostoUnitarioGeneral(tipo, key, res.precio);
-      showToast(`âœ… [${itemGroup.clave}] actualizado a $${res.precio.toFixed(2)} (${res.fuente})`, 'success');
+      showToast(`✅ [${itemGroup.clave}] actualizado a $${res.precio.toFixed(2)} (${res.fuente})`, 'success');
     } else {
-      showToast(res?.error || 'No se pudo determinar un costo vÃ¡lido para este insumo', 'warning');
+      showToast(res?.error || 'No se pudo determinar un costo válido para este insumo', 'warning');
     }
   } catch (err) {
     console.error('Error actualizando costo con IA:', err);
@@ -637,7 +637,7 @@ export async function actualizarCostoIndividualConIA(tipo, key, options = {}) {
 }
 
 /**
- * Helper compartido para actualizar un lote de insumos con CachÃ© -> IA EstÃ¡ndar o Google Search explÃ­cito.
+ * Helper compartido para actualizar un lote de insumos con Caché -> IA Estándar o Google Search explícito.
  */
 async function processBatchInsumosConIA(selectedItems, { label = 'seleccionados', useWebSearch = false } = {}) {
   if (!Array.isArray(selectedItems) || selectedItems.length === 0) return;
@@ -653,8 +653,8 @@ async function processBatchInsumosConIA(selectedItems, { label = 'seleccionados'
 
   showToast(
     useWebSearch
-      ? `ðŸŒ Cotizando ${selectedItems.length} insumos ${label} en Web en Vivo (Google Search)...`
-      : `ðŸ¤– Actualizando ${selectedItems.length} insumos ${label} con CachÃ© e IA EstÃ¡ndar...`,
+      ? `🌐 Cotizando ${selectedItems.length} insumos ${label} en Web en Vivo (Google Search)...`
+      : `🤖 Actualizando ${selectedItems.length} insumos ${label} con Caché e IA Estándar...`,
     'info'
   );
 
@@ -664,7 +664,7 @@ async function processBatchInsumosConIA(selectedItems, { label = 'seleccionados'
     if (selectedItems.length > 1) {
       batchResults = await queryGeminiLoteInsumos(selectedItems, apiKey, { useWebSearch });
       if (batchResults && batchResults.__quotaError) {
-        showToast(`ðŸ”’ ${batchResults.__quotaError}`, 'warning');
+        showToast(`🔒 ${batchResults.__quotaError}`, 'warning');
         if (typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') window.openSubscriptionModal();
         return;
       }
@@ -680,7 +680,7 @@ async function processBatchInsumosConIA(selectedItems, { label = 'seleccionados'
       } else {
         const res = await estimarCostoInsumoConIA(item, { useWebSearch });
         if (res && res.blockedByQuota) {
-          showToast(`ðŸ”’ ${res.error}`, 'warning');
+          showToast(`🔒 ${res.error}`, 'warning');
           if (typeof window !== 'undefined' && typeof window.openSubscriptionModal === 'function') window.openSubscriptionModal();
           break;
         }
@@ -699,7 +699,7 @@ async function processBatchInsumosConIA(selectedItems, { label = 'seleccionados'
     syncCatalogAndActiveMatrixAfterInsumoChange();
     if (count > 0) {
       showToast(
-        `âœ… ${count} insumo${count > 1 ? 's' : ''} ${label} actualizado${count > 1 ? 's' : ''} (${useWebSearch ? 'Precios Web en Vivo' : 'CachÃ© / IA EstÃ¡ndar'}).`,
+        `✅ ${count} insumo${count > 1 ? 's' : ''} ${label} actualizado${count > 1 ? 's' : ''} (${useWebSearch ? 'Precios Web en Vivo' : 'Caché / IA Estándar'}).`,
         'success'
       );
     }
@@ -712,7 +712,7 @@ async function processBatchInsumosConIA(selectedItems, { label = 'seleccionados'
   }
 }
 
-// 2. ActualizaciÃ³n de insumos seleccionados con casilla dentro de una categorÃ­a especÃ­fica
+// 2. Actualización de insumos seleccionados con casilla dentro de una categoría específica
 export async function actualizarCostosConIASeleccionados(tipo, options = {}) {
   if (!guardTabUnlocked('insumos')) return;
   const useWebSearch = Boolean(options?.useWebSearch === true);
@@ -734,7 +734,7 @@ export async function actualizarCostosConIASeleccionados(tipo, options = {}) {
   await processBatchInsumosConIA(selectedItems, { label: `de ${tipo}`, useWebSearch });
 }
 
-// 3. ActualizaciÃ³n de todos los insumos seleccionados con casilla en cualquier categorÃ­a
+// 3. Actualización de todos los insumos seleccionados con casilla en cualquier categoría
 export async function actualizarTodosLosInsumosSeleccionadosConIA(options = {}) {
   const useWebSearch = Boolean(options?.useWebSearch === true);
   if (!guardTabUnlocked('insumos')) return;
@@ -757,12 +757,12 @@ export async function actualizarTodosLosInsumosSeleccionadosConIA(options = {}) 
   await processBatchInsumosConIA(selectedItems, { label: 'seleccionados', useWebSearch });
 }
 
-// 4. AcciÃ³n explÃ­cita de Precios Web en Vivo (Google Search Grounding) para Insumos Seleccionados
+// 4. Acción explícita de Precios Web en Vivo (Google Search Grounding) para Insumos Seleccionados
 export async function actualizarInsumosConBusquedaWeb() {
   return actualizarTodosLosInsumosSeleccionadosConIA({ useWebSearch: true });
 }
 
-// Cerrar modal de combinaciÃ³n con tecla Escape
+// Cerrar modal de combinación con tecla Escape
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     const modal = document.getElementById('modal-combinar-insumos');

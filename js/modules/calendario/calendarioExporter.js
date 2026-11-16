@@ -1,14 +1,14 @@
-﻿// js/modules/calendario/calendarioExporter.js
-// ExportaciÃ³n profesional del Programa de Obra FÃ­sico y Financiero a Microsoft Excel (.xlsx)
+// js/modules/calendario/calendarioExporter.js
+// Exportación profesional del Programa de Obra Físico y Financiero a Microsoft Excel (.xlsx)
 
-import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf3';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf3';
+import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf4';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf4';
 
 export function exportScheduleToExcel(scheduleData, settings = {}) {
   if (typeof window.XLSX === 'undefined') {
-    showToast('La biblioteca de Excel (SheetJS) no estÃ¡ cargada.', false);
+    showToast('La biblioteca de Excel (SheetJS) no está cargada.', false);
     return;
   }
 
@@ -21,13 +21,13 @@ export function exportScheduleToExcel(scheduleData, settings = {}) {
 
   // 1. Encabezado del Reporte Oficial
   rows.push([companyName.toUpperCase()]);
-  rows.push([`PROGRAMA GENERAL DE EJECUCIÃ“N FÃSICO Y FINANCIERO DE LOS TRABAJOS`]);
-  rows.push([`PROYECTO: ${projectName}`, '', '', '', `UBICACIÃ“N: ${settings.projectLocation || 'MÃ©xico'}`]);
-  rows.push([`MONEDA: ${settings.currency || 'MXN'} (${currencySymbol})`, '', '', '', `FECHA DE EMISIÃ“N: ${new Date().toLocaleDateString('es-MX')}`]);
+  rows.push([`PROGRAMA GENERAL DE EJECUCIÓN FÍSICO Y FINANCIERO DE LOS TRABAJOS`]);
+  rows.push([`PROYECTO: ${projectName}`, '', '', '', `UBICACIÓN: ${settings.projectLocation || 'México'}`]);
+  rows.push([`MONEDA: ${settings.currency || 'MXN'} (${currencySymbol})`, '', '', '', `FECHA DE EMISIÓN: ${new Date().toLocaleDateString('es-MX')}`]);
   rows.push([]); // Espacio en blanco
 
   // 2. Encabezados de Columnas
-  const headerRow1 = ['NIVEL', 'CLAVE', 'DESCRIPCIÃ“N DEL CONCEPTO', 'UNIDAD', 'CANTIDAD TOTAL', 'P.U. ($)', 'IMPORTE TOTAL ($)'];
+  const headerRow1 = ['NIVEL', 'CLAVE', 'DESCRIPCIÓN DEL CONCEPTO', 'UNIDAD', 'CANTIDAD TOTAL', 'P.U. ($)', 'IMPORTE TOTAL ($)'];
   const headerRow2 = ['', '', '', '', '', '', ''];
 
   periods.forEach(p => {
@@ -103,10 +103,10 @@ export function exportScheduleToExcel(scheduleData, settings = {}) {
     }
   });
 
-  // 4. Filas Totalizadoras (ErogaciÃ³n mensual y acumulada)
+  // 4. Filas Totalizadoras (Erogación mensual y acumulada)
   rows.push([]); // Separador
 
-  const totalPeriodoRow = ['TOTALES', '', 'TOTAL DEL PERÃODO ($)', '', '', '', grandTotalObra];
+  const totalPeriodoRow = ['TOTALES', '', 'TOTAL DEL PERÍODO ($)', '', '', '', grandTotalObra];
   periods.forEach(p => {
     const tot = periodTotals[p.key];
     totalPeriodoRow.push('', tot ? tot.importe : 0);
@@ -114,7 +114,7 @@ export function exportScheduleToExcel(scheduleData, settings = {}) {
   totalPeriodoRow.push(grandTotalObra, '100.00%');
   rows.push(totalPeriodoRow);
 
-  const pctPeriodoRow = ['PORCENTAJES', '', '% DE AVANCE DEL PERÃODO', '', '', '', '100.00%'];
+  const pctPeriodoRow = ['PORCENTAJES', '', '% DE AVANCE DEL PERÍODO', '', '', '', '100.00%'];
   periods.forEach(p => {
     const tot = periodTotals[p.key];
     pctPeriodoRow.push('', tot ? tot.pctPeriodo.toFixed(2) + '%' : '0.00%');
@@ -145,7 +145,7 @@ export function exportScheduleToExcel(scheduleData, settings = {}) {
   const colWidths = [
     { wch: 12 }, // Nivel
     { wch: 16 }, // Clave
-    { wch: 45 }, // DescripciÃ³n
+    { wch: 45 }, // Descripción
     { wch: 8 },  // Unidad
     { wch: 14 }, // Cantidad Total
     { wch: 14 }, // P.U.

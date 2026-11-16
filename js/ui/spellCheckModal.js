@@ -1,21 +1,21 @@
-﻿/**
+/**
  * spellCheckModal.js
- * Modal de RevisiÃ³n OrtogrÃ¡fica y Gramatical estilo Microsoft Word (F7) para Cubikar.
+ * Modal de Revisión Ortográfica y Gramatical estilo Microsoft Word (F7) para Cubikar.
  * 
- * Permite recorrer todos los errores ortogrÃ¡ficos del catÃ¡logo base e insumos,
+ * Permite recorrer todos los errores ortográficos del catálogo base e insumos,
  * mostrando el texto en contexto, subrayado ondulado rojo, sugerencias inteligentes,
- * y los botones clÃ¡sicos: [Cambiar], [Cambiar todas], [Omitir], [Omitir todas],
+ * y los botones clásicos: [Cambiar], [Cambiar todas], [Omitir], [Omitir todas],
  * [Agregar al diccionario] y [Mejorar con IA].
  */
 
-import { state, persistLocalData } from '../state/store.js?v=20261116_cf3';
-import { wordAutocorrectService } from '../core/wordAutocorrectService.js?v=20261116_cf3';
-import { renderTAB1 } from '../modules/catalog/catalogView.js?v=20261116_cf3';
-import { findNodeById } from '../modules/catalog/treeService.js?v=20261116_cf3';
-import { renderAPUInsumos } from '../modules/apu/apuView.js?v=20261116_cf3';
-import { showToast } from './notifications.js?v=20261116_cf3';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261116_cf3';
-import { guardTabUnlocked } from './tabLockController.js?v=20261116_cf3';
+import { state, persistLocalData } from '../state/store.js?v=20261116_cf4';
+import { wordAutocorrectService } from '../core/wordAutocorrectService.js?v=20261116_cf4';
+import { renderTAB1 } from '../modules/catalog/catalogView.js?v=20261116_cf4';
+import { findNodeById } from '../modules/catalog/treeService.js?v=20261116_cf4';
+import { renderAPUInsumos } from '../modules/apu/apuView.js?v=20261116_cf4';
+import { showToast } from './notifications.js?v=20261116_cf4';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261116_cf4';
+import { guardTabUnlocked } from './tabLockController.js?v=20261116_cf4';
 
 let activeErrors = [];
 let currentErrorIndex = 0;
@@ -23,7 +23,7 @@ let totalInitialErrors = 0;
 let selectedSuggestion = '';
 
 /**
- * Escanea recursivamente el Ã¡rbol de catÃ¡logo (conceptos, partidas e insumos)
+ * Escanea recursivamente el árbol de catálogo (conceptos, partidas e insumos)
  */
 function scanCatalogForErrors() {
   const errors = [];
@@ -31,7 +31,7 @@ function scanCatalogForErrors() {
   function walk(nodes) {
     if (!Array.isArray(nodes)) return;
     for (const node of nodes) {
-      // 1. Revisar descripciÃ³n del nodo
+      // 1. Revisar descripción del nodo
       if (node.descripcion && typeof node.descripcion === 'string') {
         const found = wordAutocorrectService.findSpellingErrorsInText(node.descripcion);
         for (const item of found) {
@@ -60,7 +60,7 @@ function scanCatalogForErrors() {
             for (const item of foundInsumo) {
               errors.push({
                 nodeId: node.id,
-                clave: `${node.clave || 'S/C'} Â» ${ins.clave || 'INS'}`,
+                clave: `${node.clave || 'S/C'} » ${ins.clave || 'INS'}`,
                 locationType: `Insumo (${ins.tipo || 'Material'})`,
                 targetType: 'insumo',
                 field: 'descripcion',
@@ -89,7 +89,7 @@ function scanCatalogForErrors() {
 }
 
 /**
- * Abre el modal e inicia la revisiÃ³n
+ * Abre el modal e inicia la revisión
  */
 export function openSpellCheckModal() {
   const modal = document.getElementById('modal-word-spellcheck');
@@ -147,7 +147,7 @@ function renderSpellCheckUI() {
     counterBadge.innerText = `Error ${currentErrorIndex + 1} de ${activeErrors.length} (${progressPercent}% completado)`;
   }
 
-  // UbicaciÃ³n del concepto/insumo
+  // Ubicación del concepto/insumo
   const locationBadge = document.getElementById('spellcheck-location-badge');
   if (locationBadge) {
     locationBadge.innerHTML = `<i class="fa-solid fa-tag text-blue-600 mr-1"></i> <strong class="text-slate-800">${current.locationType}:</strong> ${current.clave}`;
@@ -229,7 +229,7 @@ function applyReplacementToTarget(item, replacement) {
     for (const node of nodes) {
       if (node.id === item.nodeId) {
         if (item.targetType === 'node') {
-          // Reemplazo en descripciÃ³n del concepto
+          // Reemplazo en descripción del concepto
           const text = node[item.field] || '';
           node[item.field] = replaceWordAt(text, item.word, replacement, item.start);
           return true;
@@ -257,7 +257,7 @@ function applyReplacementToTarget(item, replacement) {
  */
 function replaceWordAt(text, oldWord, newWord, expectedStart) {
   if (!text) return text;
-  // Si coincide en la posiciÃ³n esperada
+  // Si coincide en la posición esperada
   if (text.substr(expectedStart, oldWord.length).toLowerCase() === oldWord.toLowerCase()) {
     return text.substring(0, expectedStart) + newWord + text.substring(expectedStart + oldWord.length);
   }
@@ -267,11 +267,11 @@ function replaceWordAt(text, oldWord, newWord, expectedStart) {
 }
 
 /**
- * AcciÃ³n: [Cambiar] una palabra (como en Word)
+ * Acción: [Cambiar] una palabra (como en Word)
  */
 export function changeSpellCheckCurrentWord() {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo lectura: tu rol no permite modificar el catÃ¡logo.', 'warning');
+    showToast('🔒 Modo lectura: tu rol no permite modificar el catálogo.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -303,11 +303,11 @@ export function changeSpellCheckCurrentWord() {
 }
 
 /**
- * AcciÃ³n: [Cambiar todas] las ocurrencias de esta palabra en el catÃ¡logo
+ * Acción: [Cambiar todas] las ocurrencias de esta palabra en el catálogo
  */
 export function changeAllSpellCheckWord() {
   if (!canCurrentUserEditProject()) {
-    showToast('ðŸ”’ Modo lectura: tu rol no permite modificar el catÃ¡logo.', 'warning');
+    showToast('🔒 Modo lectura: tu rol no permite modificar el catálogo.', 'warning');
     return;
   }
   if (!guardTabUnlocked('cat')) return;
@@ -371,7 +371,7 @@ export function changeAllSpellCheckWord() {
 }
 
 /**
- * AcciÃ³n: [Omitir] este error una sola vez
+ * Acción: [Omitir] este error una sola vez
  */
 export function ignoreSpellCheckOnce() {
   if (activeErrors.length === 0) return;
@@ -380,7 +380,7 @@ export function ignoreSpellCheckOnce() {
 }
 
 /**
- * AcciÃ³n: [Omitir todas] las ocurrencias de esta palabra en la sesiÃ³n
+ * Acción: [Omitir todas] las ocurrencias de esta palabra en la sesión
  */
 export function ignoreAllSpellCheckWord() {
   if (activeErrors.length === 0 || currentErrorIndex >= activeErrors.length) return;
@@ -391,12 +391,12 @@ export function ignoreAllSpellCheckWord() {
   const lower = current.word.toLowerCase();
   activeErrors = activeErrors.filter(e => e.word.toLowerCase() !== lower);
 
-  showToast(`Se omitirÃ¡ "${current.word}" en esta sesiÃ³n`, 'info');
+  showToast(`Se omitirá "${current.word}" en esta sesión`, 'info');
   renderSpellCheckUI();
 }
 
 /**
- * AcciÃ³n: [Agregar al Diccionario] (se guarda en localStorage)
+ * Acción: [Agregar al Diccionario] (se guarda en localStorage)
  */
 export function addCurrentToDictionary() {
   if (activeErrors.length === 0 || currentErrorIndex >= activeErrors.length) return;
@@ -411,13 +411,13 @@ export function addCurrentToDictionary() {
 }
 
 /**
- * Re-escanear todo el catÃ¡logo
+ * Re-escanear todo el catálogo
  */
 export function rescanSpellCheck() {
   activeErrors = scanCatalogForErrors();
   currentErrorIndex = 0;
   totalInitialErrors = activeErrors.length;
-  showToast('Reescaneo del catÃ¡logo completado', 'info');
+  showToast('Reescaneo del catálogo completado', 'info');
   renderSpellCheckUI();
 }
 

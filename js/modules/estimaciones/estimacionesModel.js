@@ -1,12 +1,12 @@
-﻿// js/modules/estimaciones/estimacionesModel.js
-// Modelo de datos y lÃ³gica de cÃ¡lculo para ESTIMACIONES DE OBRA
-// Sincronizado reactivamente con state.treeData (CatÃ¡logo Base)
+// js/modules/estimaciones/estimacionesModel.js
+// Modelo de datos y lógica de cálculo para ESTIMACIONES DE OBRA
+// Sincronizado reactivamente con state.treeData (Catálogo Base)
 
-import { state } from '../../state/store.js?v=20261116_cf3';
-import { getActiveProjectId, getStorageKey } from '../../config/constants.js?v=20261116_cf3';
-import { formatDate, parseDate, addDays, diffDays } from '../calendario/calendarioModel.js?v=20261116_cf3';
-import { scheduleEstimacionesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261116_cf3';
-import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261116_cf3';
+import { state } from '../../state/store.js?v=20261116_cf4';
+import { getActiveProjectId, getStorageKey } from '../../config/constants.js?v=20261116_cf4';
+import { formatDate, parseDate, addDays, diffDays } from '../calendario/calendarioModel.js?v=20261116_cf4';
+import { scheduleEstimacionesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261116_cf4';
+import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261116_cf4';
 
 const STORAGE_KEY_PREFIX = 'estimaciones_data_';
 
@@ -19,7 +19,7 @@ function getEstimacionesStorageKey() {
   return getEstimacionesStorageKeyForProject();
 }
 
-// Estructura limpia para el comprobante fiscal de una estimaciÃ³n
+// Estructura limpia para el comprobante fiscal de una estimación
 export function createDefaultFacturaData() {
   return {
     folio: '',
@@ -35,7 +35,7 @@ export function createDefaultFacturaData() {
   };
 }
 
-// Estructura predeterminada de la EstimaciÃ³n 0 (Anticipo)
+// Estructura predeterminada de la Estimación 0 (Anticipo)
 export function createDefaultEstimacionZero(anticipoPct = 30) {
   const todayStr = formatDate(new Date());
   return {
@@ -71,11 +71,11 @@ function getDefaultEstimacionesState() {
         id: 'est_1',
         numero: 1,
         tipo: 'avance',
-        nombre: 'EstimaciÃ³n No. 1',
+        nombre: 'Estimación No. 1',
         fechaInicio: todayStr,
         fechaFin: endStr,
         fechaCorte: endStr,
-        notas: 'EstimaciÃ³n inicial de avance de obra',
+        notas: 'Estimación inicial de avance de obra',
         conceptos: {}, // { [conceptId]: cantidadEjecutada }
         locked: false,
         factura: createDefaultFacturaData()
@@ -84,13 +84,13 @@ function getDefaultEstimacionesState() {
   };
 }
 
-// Normalizar y garantizar retrocompatibilidad: Est. 0 fija al inicio y campos de factura en cada estimaciÃ³n
+// Normalizar y garantizar retrocompatibilidad: Est. 0 fija al inicio y campos de factura en cada estimación
 function sanitizeEstimacionesState(data) {
   if (!data || !Array.isArray(data.estimaciones)) {
     return getDefaultEstimacionesState();
   }
 
-  // 1. Verificar si existe la EstimaciÃ³n 0 (Anticipo)
+  // 1. Verificar si existe la Estimación 0 (Anticipo)
   let estZeroIndex = data.estimaciones.findIndex(e => e.numero === 0 || e.id === 'est_0' || e.tipo === 'anticipo');
   let estZero = null;
 
@@ -105,13 +105,13 @@ function sanitizeEstimacionesState(data) {
     if (!estZero.factura || typeof estZero.factura !== 'object') {
       estZero.factura = createDefaultFacturaData();
     }
-    // Remover de su posiciÃ³n actual para situarla al frente
+    // Remover de su posición actual para situarla al frente
     data.estimaciones.splice(estZeroIndex, 1);
   } else {
     estZero = createDefaultEstimacionZero(data.anticipoPct || 30);
   }
 
-  // 2. Normalizar las estimaciones de avance (nÃºmero >= 1)
+  // 2. Normalizar las estimaciones de avance (número >= 1)
   const estimacionesAvance = data.estimaciones.filter(e => e.numero !== 0 && e.id !== 'est_0');
   if (estimacionesAvance.length === 0) {
     const todayStr = formatDate(new Date());
@@ -120,11 +120,11 @@ function sanitizeEstimacionesState(data) {
       id: 'est_1',
       numero: 1,
       tipo: 'avance',
-      nombre: 'EstimaciÃ³n No. 1',
+      nombre: 'Estimación No. 1',
       fechaInicio: todayStr,
       fechaFin: endStr,
       fechaCorte: endStr,
-      notas: 'EstimaciÃ³n inicial de avance de obra',
+      notas: 'Estimación inicial de avance de obra',
       conceptos: {},
       locked: false,
       factura: createDefaultFacturaData()
@@ -140,7 +140,7 @@ function sanitizeEstimacionesState(data) {
     }
   });
 
-  // Reensamblar con est_0 siempre en la posiciÃ³n 0
+  // Reensamblar con est_0 siempre en la posición 0
   data.estimaciones = [estZero, ...estimacionesAvance];
 
   if (!data.activeEstimacionId || !data.estimaciones.some(e => e.id === data.activeEstimacionId)) {
@@ -233,7 +233,7 @@ export function setEstimacionesIvaPct(pct) {
   return data.ivaPct;
 }
 
-// Actualizar campos especÃ­ficos de la EstimaciÃ³n 0 (Ficha de cobro de anticipo)
+// Actualizar campos específicos de la Estimación 0 (Ficha de cobro de anticipo)
 export function updateEstimacionAnticipoZero(updates = {}) {
   const data = loadEstimacionesData();
   const estZero = data.estimaciones.find(e => e.numero === 0 || e.id === 'est_0');
@@ -254,9 +254,9 @@ export function updateEstimacionAnticipoZero(updates = {}) {
   return true;
 }
 
-// Actualizar datos de facturaciÃ³n / comprobante fiscal de cualquier estimaciÃ³n (0..N)
-// Nota: permitimos registrar factura y cobro incluso si la estimaciÃ³n tiene candado de conceptos,
-// a menos que forceLock estÃ© explÃ­citamente indicado.
+// Actualizar datos de facturación / comprobante fiscal de cualquier estimación (0..N)
+// Nota: permitimos registrar factura y cobro incluso si la estimación tiene candado de conceptos,
+// a menos que forceLock esté explícitamente indicado.
 export function updateEstimacionFactura(estId, facturaUpdates = {}) {
   const data = loadEstimacionesData();
   const target = data.estimaciones.find(e => e.id === estId);
@@ -271,7 +271,7 @@ export function updateEstimacionFactura(estId, facturaUpdates = {}) {
   return true;
 }
 
-// Verificar si una estimaciÃ³n (o la estimaciÃ³n activa) se encuentra bloqueada con candado
+// Verificar si una estimación (o la estimación activa) se encuentra bloqueada con candado
 export function isEstimacionLocked(estId = null) {
   const data = loadEstimacionesData();
   const targetId = estId || data.activeEstimacionId;
@@ -279,7 +279,7 @@ export function isEstimacionLocked(estId = null) {
   return Boolean(est && est.locked);
 }
 
-// Establecer estado de bloqueo en una estimaciÃ³n especÃ­fica (o la activa)
+// Establecer estado de bloqueo en una estimación específica (o la activa)
 export function setEstimacionLocked(estId = null, locked = true) {
   const data = loadEstimacionesData();
   const targetId = estId || data.activeEstimacionId;
@@ -290,7 +290,7 @@ export function setEstimacionLocked(estId = null, locked = true) {
   return est.locked;
 }
 
-// Alternar candado de bloqueo de la estimaciÃ³n activa
+// Alternar candado de bloqueo de la estimación activa
 export function toggleActiveEstimacionLockState() {
   const data = loadEstimacionesData();
   const active = data.estimaciones.find(e => e.id === data.activeEstimacionId) || data.estimaciones[0];
@@ -300,13 +300,13 @@ export function toggleActiveEstimacionLockState() {
   return active.locked;
 }
 
-// Obtener estimaciÃ³n activa
+// Obtener estimación activa
 export function getActiveEstimacion() {
   const data = loadEstimacionesData();
   return data.estimaciones.find(e => e.id === data.activeEstimacionId) || data.estimaciones[0];
 }
 
-// Cambiar la estimaciÃ³n activa
+// Cambiar la estimación activa
 export function setActiveEstimacionId(estimacionId) {
   const data = loadEstimacionesData();
   if (data.estimaciones.some(e => e.id === estimacionId)) {
@@ -317,7 +317,7 @@ export function setActiveEstimacionId(estimacionId) {
   return false;
 }
 
-// Crear una nueva estimaciÃ³n de avance consecutivo (Est. 1, Est. 2, ...)
+// Crear una nueva estimación de avance consecutivo (Est. 1, Est. 2, ...)
 export function createNewEstimacion(customName = null, fechaInicio = null, fechaFin = null) {
   const data = loadEstimacionesData();
   const estimacionesAvance = data.estimaciones.filter(e => e.numero > 0);
@@ -346,7 +346,7 @@ export function createNewEstimacion(customName = null, fechaInicio = null, fecha
     id: newId,
     numero: nextNum,
     tipo: 'avance',
-    nombre: customName || `EstimaciÃ³n No. ${nextNum}`,
+    nombre: customName || `Estimación No. ${nextNum}`,
     fechaInicio: sDate,
     fechaFin: eDate,
     fechaCorte: eDate,
@@ -362,7 +362,7 @@ export function createNewEstimacion(customName = null, fechaInicio = null, fecha
   return newEst;
 }
 
-// Actualizar datos generales de una estimaciÃ³n (fechas, nombre, notas)
+// Actualizar datos generales de una estimación (fechas, nombre, notas)
 export function updateEstimacionMeta(estId, updates) {
   const data = loadEstimacionesData();
   const est = data.estimaciones.find(e => e.id === estId);
@@ -372,30 +372,30 @@ export function updateEstimacionMeta(estId, updates) {
   return true;
 }
 
-// Eliminar una estimaciÃ³n (la Est. 0 no se puede eliminar)
+// Eliminar una estimación (la Est. 0 no se puede eliminar)
 export function deleteEstimacion(estId) {
   const data = loadEstimacionesData();
   const target = data.estimaciones.find(e => e.id === estId);
   if (!target) return false;
 
-  // La EstimaciÃ³n 0 (Anticipo) es fija e indestructible
+  // La Estimación 0 (Anticipo) es fija e indestructible
   if (target.numero === 0 || target.id === 'est_0' || target.tipo === 'anticipo') {
     return false;
   }
 
   const estimacionesAvance = data.estimaciones.filter(e => e.numero > 0);
   if (estimacionesAvance.length <= 1) {
-    return false; // Al menos debe quedar una estimaciÃ³n de avance
+    return false; // Al menos debe quedar una estimación de avance
   }
 
   if (target.locked) {
-    return false; // No permitir eliminar una estimaciÃ³n bloqueada
+    return false; // No permitir eliminar una estimación bloqueada
   }
 
   if (target?.fotos && typeof target.fotos === 'object') {
     Object.values(target.fotos).flat().forEach((foto) => {
       if (foto && (foto.mediaId || foto.s3Key || foto.archivoId)) {
-        deleteManagedFile(foto).catch((err) => console.warn('Cleanup estimaciÃ³n foto S3:', err));
+        deleteManagedFile(foto).catch((err) => console.warn('Cleanup estimación foto S3:', err));
       }
     });
   }
@@ -423,7 +423,7 @@ export function deleteEstimacion(estId) {
   return true;
 }
 
-// Actualizar la cantidad ejecutada de un concepto en la estimaciÃ³n activa
+// Actualizar la cantidad ejecutada de un concepto en la estimación activa
 export function setConceptoCantidadEjecutada(conceptId, cantEje) {
   const data = loadEstimacionesData();
   const active = data.estimaciones.find(e => e.id === data.activeEstimacionId) || data.estimaciones[0];
@@ -492,7 +492,7 @@ function normalizeEstimacionFotoItem(item) {
   };
 }
 
-// Obtener los enlaces de fotos (1 o 2) asociados a un concepto en una estimaciÃ³n
+// Obtener los enlaces de fotos (1 o 2) asociados a un concepto en una estimación
 export function getConceptoFotosEstimacion(conceptId, estId = null) {
   const data = loadEstimacionesData();
   const targetId = estId || data.activeEstimacionId;
@@ -504,7 +504,7 @@ export function getConceptoFotosEstimacion(conceptId, estId = null) {
     .slice(0, 2);
 }
 
-// Guardar los enlaces de fotos (mÃ¡ximo 2) de un concepto en la estimaciÃ³n activa
+// Guardar los enlaces de fotos (máximo 2) de un concepto en la estimación activa
 export function setConceptoFotosEstimacion(conceptId, fotosList = []) {
   const data = loadEstimacionesData();
   const current = data.estimaciones.find(e => e.id === data.activeEstimacionId);
@@ -525,13 +525,13 @@ export function setConceptoFotosEstimacion(conceptId, fotosList = []) {
   return true;
 }
 
-// Obtener todos los datos calculados de la estimaciÃ³n activa y consolidados
+// Obtener todos los datos calculados de la estimación activa y consolidados
 export function getEstimacionesCalculatedData() {
   const estData = loadEstimacionesData();
   const activeEst = estData.estimaciones.find(e => e.id === estData.activeEstimacionId) || estData.estimaciones[0];
   const allEstimaciones = estData.estimaciones;
 
-  // Filtrar estimaciones de avance (nÃºmero > 0)
+  // Filtrar estimaciones de avance (número > 0)
   const estimacionesAvance = allEstimaciones.filter(e => e.numero > 0);
   const priorEstimaciones = estimacionesAvance.filter(e => e.numero < activeEst.numero);
 
@@ -564,7 +564,7 @@ export function getEstimacionesCalculatedData() {
       cantAnt = Math.round((cantAnt + Number.EPSILON) * 100) / 100;
       const importeAnt = Math.round((cantAnt * pu) * 100) / 100;
 
-      // Cantidad ejecutada en esta estimaciÃ³n (si es la Est. 0, cantEje es siempre 0)
+      // Cantidad ejecutada en esta estimación (si es la Est. 0, cantEje es siempre 0)
       const cantEje = (activeEst.numero > 0 && activeEst.conceptos && activeEst.conceptos[node.id]) 
         ? Number(activeEst.conceptos[node.id]) || 0 
         : 0;
@@ -661,7 +661,7 @@ export function getEstimacionesCalculatedData() {
     const parentRow = {
       id: node.id,
       clave: node.clave || '',
-      descripcion: node.descripcion || 'Sin descripciÃ³n',
+      descripcion: node.descripcion || 'Sin descripción',
       unidad: '',
       partidaNombre: parentPartidaLabel,
       fotos: [],
@@ -698,7 +698,7 @@ export function getEstimacionesCalculatedData() {
   const pctAvanceEstaEstimacion = grandTotalBase > 0 ? (grandTotalEjecutado / grandTotalBase) * 100 : 0;
 
   // ============================================================
-  // CÃLCULO DE ANTICIPO Y AMORTIZACIÃ“N PROGRESIVA HASTA EL 100%
+  // CÁLCULO DE ANTICIPO Y AMORTIZACIÓN PROGRESIVA HASTA EL 100%
   // ============================================================
   const estZero = allEstimaciones.find(e => e.numero === 0) || allEstimaciones[0];
   const anticipoPct = typeof estData.anticipoPct === 'number' 
@@ -707,12 +707,12 @@ export function getEstimacionesCalculatedData() {
   
   const totalAnticipoContratado = Math.round(((grandTotalBase * (anticipoPct / 100)) + Number.EPSILON) * 100) / 100;
 
-  // Actualizar en estZero el monto de anticipo calculado si no estÃ¡ fijado
+  // Actualizar en estZero el monto de anticipo calculado si no está fijado
   if (estZero) {
     estZero.montoAnticipo = totalAnticipoContratado;
   }
 
-  // Ordenar cronolÃ³gicamente estimaciones de avance (nÃºmero >= 1)
+  // Ordenar cronológicamente estimaciones de avance (número >= 1)
   const sortedAvanceEsts = [...estimacionesAvance].sort((a, b) => a.numero - b.numero);
 
   let saldoAnticipoDisponible = totalAnticipoContratado;
@@ -731,9 +731,9 @@ export function getEstimacionesCalculatedData() {
     }
     estTotal = Math.round((estTotal + Number.EPSILON) * 100) / 100;
 
-    // AmortizaciÃ³n teÃ³rica proporcional al % de anticipo
+    // Amortización teórica proporcional al % de anticipo
     const amortTeorica = Math.round(((estTotal * (anticipoPct / 100)) + Number.EPSILON) * 100) / 100;
-    // La amortizaciÃ³n real se limita a no sobrepasar el saldo disponible de anticipo
+    // La amortización real se limita a no sobrepasar el saldo disponible de anticipo
     const amortReal = Math.min(amortTeorica, saldoAnticipoDisponible);
     saldoAnticipoDisponible = Math.max(0, Math.round(((saldoAnticipoDisponible - amortReal) + Number.EPSILON) * 100) / 100);
     amortizadoTotalHistorico += amortReal;
@@ -766,7 +766,7 @@ export function getEstimacionesCalculatedData() {
     : Math.max(0, Math.round(((grandTotalEjecutado - amortizacionEsta) + Number.EPSILON) * 100) / 100);
 
   // ============================================================
-  // CÃLCULO DE IVA Y TOTAL FACTURABLE (OPCIÃ“N 16% / PERSONALIZADO)
+  // CÁLCULO DE IVA Y TOTAL FACTURABLE (OPCIÓN 16% / PERSONALIZADO)
   // ============================================================
   const ivaPct = typeof estData.ivaPct === 'number' ? estData.ivaPct : 16;
   const ivaTotalContratado = Math.round(((grandTotalBase * (ivaPct / 100)) + Number.EPSILON) * 100) / 100;
@@ -775,7 +775,7 @@ export function getEstimacionesCalculatedData() {
 
   // ============================================================
   // SUMA DE INGRESOS TOTALES COBRADOS DE LA OBRA
-  // Ingresos Totales = Anticipo (si cobrado) + LÃ­quidos netos cobrados (Est. 1..N)
+  // Ingresos Totales = Anticipo (si cobrado) + Líquidos netos cobrados (Est. 1..N)
   // ============================================================
   let ingresosTotalesCobrados = 0;
   let ingresosTotalesFacturados = 0;
@@ -894,7 +894,7 @@ export function calculateProjectTotalEstimacionesSummary(projectId, fallbackTota
 
         let cantTotalEst = 0;
         estimaciones.forEach(est => {
-          // Solo sumar avance fÃ­sico de estimaciones de obra (numero > 0)
+          // Solo sumar avance físico de estimaciones de obra (numero > 0)
           if (est && est.numero > 0 && est.conceptos && est.conceptos[node.id] !== undefined) {
             cantTotalEst += Number(est.conceptos[node.id]) || 0;
           }

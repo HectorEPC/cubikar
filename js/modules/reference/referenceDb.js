@@ -1,12 +1,12 @@
-﻿// js/modules/reference/referenceDb.js
-// Gestor de base de datos local IndexedDB para CatÃ¡logos Maestros de Referencia
+// js/modules/reference/referenceDb.js
+// Gestor de base de datos local IndexedDB para Catálogos Maestros de Referencia
 
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf3';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf4';
 import {
   STORAGE_KEY_USER,
   STORAGE_KEY_ACTIVE_WORKSPACE,
   STORAGE_KEY_SUBSCRIPTION
-} from '../../config/constants.js?v=20261116_cf3';
+} from '../../config/constants.js?v=20261116_cf4';
 
 const DB_NAME = 'APU_REFERENCE_DB';
 const DB_VERSION = 1;
@@ -14,7 +14,7 @@ const DB_VERSION = 1;
 let dbInstance = null;
 
 // ========================================================
-// RESTRICCIONES DE ALMACENAMIENTO RESERVADO PARA CATÃLOGO MAESTRO (EN MB)
+// RESTRICCIONES DE ALMACENAMIENTO RESERVADO PARA CATÁLOGO MAESTRO (EN MB)
 // Dentro de la cuota unificada global del plan: 200 MB / 2 GB / 5 GB.
 // ========================================================
 export const PLAN_STORAGE_MB = {
@@ -23,7 +23,7 @@ export const PLAN_STORAGE_MB = {
   pro: { planId: 'pro', name: 'Pro', storageMb: 200, totalQuotaMb: 5120 }
 };
 
-// IDs de catÃ¡logos oficiales del sistema pre-cargados
+// IDs de catálogos oficiales del sistema pre-cargados
 export const SYSTEM_PRESET_IDS = new Set([
   'catalogo_muestra_residencial',
   'cubikar_igi_2026',
@@ -31,7 +31,7 @@ export const SYSTEM_PRESET_IDS = new Set([
   'gobierno_2022'
 ]);
 
-// Obtener plan de suscripciÃ³n para un propietario especÃ­fico
+// Obtener plan de suscripción para un propietario específico
 export function getWorkspacePlanInfo(ownerEmail) {
   const normEmail = (ownerEmail || '').toLowerCase().trim();
   try {
@@ -155,12 +155,12 @@ export function getActiveWorkspaceContext() {
   };
 }
 
-// Helper rÃ¡pido para obtener el email del titular del espacio activo
+// Helper rápido para obtener el email del titular del espacio activo
 export function getActiveWorkspaceOwnerEmail() {
   return getActiveWorkspaceContext().ownerEmail;
 }
 
-// Verificar si la importaciÃ³n cabe en el almacenamiento del plan del espacio de trabajo
+// Verificar si la importación cabe en el almacenamiento del plan del espacio de trabajo
 export async function canImportReferenceCatalog(estimatedBytes = 0, targetOwnerEmail = null, isAppPreset = false) {
   if (isAppPreset) {
     return { allowed: true, currentMb: 0, neededMb: 0, afterMb: 0, maxStorageMb: 9999, usagePct: 0, absorbedByApp: true };
@@ -198,7 +198,7 @@ export function openReferenceDb() {
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
 
-      // Store para metadatos de los catÃ¡logos importados
+      // Store para metadatos de los catálogos importados
       if (!db.objectStoreNames.contains('catalogs')) {
         const catStore = db.createObjectStore('catalogs', { keyPath: 'id' });
         catStore.createIndex('name', 'name', { unique: false });
@@ -228,13 +228,13 @@ export function openReferenceDb() {
   });
 }
 
-// Guardar un catÃ¡logo nuevo con todos sus elementos (conceptos o insumos)
+// Guardar un catálogo nuevo con todos sus elementos (conceptos o insumos)
 export async function saveReferenceCatalog(catalogMeta, itemsList, targetOwnerEmail = null) {
   const db = await openReferenceDb();
   const context = getActiveWorkspaceContext();
   const ownerEmail = (targetOwnerEmail || context.ownerEmail).toLowerCase().trim();
 
-  // Calcular tamaÃ±o real en bytes del catÃ¡logo importado de forma segura sin desbordar memoria
+  // Calcular tamaño real en bytes del catálogo importado de forma segura sin desbordar memoria
   let sizeBytes = 0;
   if (catalogMeta.sizeBytes) {
     sizeBytes = catalogMeta.sizeBytes;
@@ -254,8 +254,8 @@ export async function saveReferenceCatalog(catalogMeta, itemsList, targetOwnerEm
   const isSystemOrPreset = Boolean(catalogMeta.isPreset || catalogMeta.isSystem || catalogMeta.absorbedByApp);
   const catalogRecord = {
     id: catalogId,
-    name: catalogMeta.name || 'CatÃ¡logo de Referencia',
-    category: catalogMeta.category || 'General', // EdificaciÃ³n, Instalaciones, Gobierno, etc.
+    name: catalogMeta.name || 'Catálogo de Referencia',
+    category: catalogMeta.category || 'General', // Edificación, Instalaciones, Gobierno, etc.
     type: catalogMeta.type || 'mixto', // conceptos, materiales, mano_obra, maquinaria, mixto
     sourceFileName: catalogMeta.sourceFileName || '',
     zipFile: catalogMeta.zipFile || '',
@@ -270,7 +270,7 @@ export async function saveReferenceCatalog(catalogMeta, itemsList, targetOwnerEm
     createdAt: catalogMeta.createdAt || new Date().toISOString()
   };
 
-  // 1. Guardar metadatos en 'catalogs' de inmediato para visibilidad instantÃ¡nea
+  // 1. Guardar metadatos en 'catalogs' de inmediato para visibilidad instantánea
   await new Promise((resolve, reject) => {
     const tx = db.transaction('catalogs', 'readwrite');
     tx.objectStore('catalogs').put(catalogRecord);
@@ -317,14 +317,14 @@ export async function saveReferenceCatalog(catalogMeta, itemsList, targetOwnerEm
   if (!isSystemOrPreset) {
     backupMasterCatalogToCloud(catalogRecord, itemsList).catch(() => {});
   }
-  import('../../services/storageQuotaService.js?v=20261116_cf3')
+  import('../../services/storageQuotaService.js?v=20261116_cf4')
     .then((m) => m.notifyStorageUsageChanged({ modulo: 'catalogos_maestros' }))
     .catch(() => {});
 
   return catalogRecord;
 }
 
-// Purgar de IndexedDB cualquier catÃ¡logo o registro obsoleto no deseado
+// Purgar de IndexedDB cualquier catálogo o registro obsoleto no deseado
 export async function purgeLegacyDeprecatedCatalogs(dbParam = null) {
   try {
     const db = dbParam || await openReferenceDb();
@@ -362,7 +362,7 @@ export async function purgeLegacyDeprecatedCatalogs(dbParam = null) {
   }
 }
 
-// Obtener la lista de todos los catÃ¡logos guardados para el titular del espacio de trabajo
+// Obtener la lista de todos los catálogos guardados para el titular del espacio de trabajo
 export async function listReferenceCatalogs(ownerEmail = null) {
   const db = await openReferenceDb();
   const targetOwner = (ownerEmail || getActiveWorkspaceOwnerEmail()).toLowerCase().trim();
@@ -383,7 +383,7 @@ export async function listReferenceCatalogs(ownerEmail = null) {
           return false;
         }
 
-        // CatÃ¡logos oficiales o absorbidos por la aplicaciÃ³n estÃ¡n disponibles para todos los usuarios
+        // Catálogos oficiales o absorbidos por la aplicación están disponibles para todos los usuarios
         if (c.isPreset || c.isSystem || c.absorbedByApp || c.ownerEmail === 'system') {
           return true;
         }
@@ -396,7 +396,7 @@ export async function listReferenceCatalogs(ownerEmail = null) {
   });
 }
 
-// Contar cuÃ¡ntos items reales tiene un catÃ¡logo especÃ­fico en IndexedDB
+// Contar cuántos items reales tiene un catálogo específico en IndexedDB
 export async function countCatalogItems(catalogId) {
   if (!catalogId) return 0;
   try {
@@ -414,7 +414,7 @@ export async function countCatalogItems(catalogId) {
   }
 }
 
-// Eliminar un catÃ¡logo y todos sus items asociados (local IndexedDB + AWS S3 + Supabase)
+// Eliminar un catálogo y todos sus items asociados (local IndexedDB + AWS S3 + Supabase)
 export async function deleteReferenceCatalog(catalogId) {
   const db = await openReferenceDb();
 
@@ -449,7 +449,7 @@ export async function deleteReferenceCatalog(catalogId) {
 
     tx.oncomplete = () => {
       deleteMasterCatalogFromCloud(catalogId, existingRecord).catch(() => {});
-      import('../../services/storageQuotaService.js?v=20261116_cf3')
+      import('../../services/storageQuotaService.js?v=20261116_cf4')
         .then((m) => m.notifyStorageUsageChanged({ modulo: 'catalogos_maestros', deleted: true }))
         .catch(() => {});
       resolve(true);
@@ -470,16 +470,16 @@ async function updateCatalogCloudMetadata(catalogId, patch) {
       }
     };
   } catch {
-    // No bloquear por actualizaciÃ³n de metadata
+    // No bloquear por actualización de metadata
   }
 }
 
 async function backupMasterCatalogToCloud(catalogRecord, itemsList) {
   try {
     const [{ isSupabaseConfigured, getSupabaseClient }, { resolveUserEmpresaId }, { uploadManagedFile }] = await Promise.all([
-      import('../../core/supabaseClient.js?v=20261116_cf3'),
-      import('../../core/cloudProjectService.js?v=20261116_cf3'),
-      import('../../services/s3StorageService.js?v=20261116_cf3')
+      import('../../core/supabaseClient.js?v=20261116_cf4'),
+      import('../../core/cloudProjectService.js?v=20261116_cf4'),
+      import('../../services/s3StorageService.js?v=20261116_cf4')
     ]);
 
     const payloadJson = JSON.stringify({ meta: catalogRecord, items: itemsList });
@@ -533,15 +533,15 @@ async function backupMasterCatalogToCloud(catalogRecord, itemsList) {
       }
     }, { onConflict: 'id' });
   } catch (err) {
-    console.warn('[referenceDb] Respaldo en nube de catÃ¡logo maestro omitido/pendiente:', err?.message || err);
+    console.warn('[referenceDb] Respaldo en nube de catálogo maestro omitido/pendiente:', err?.message || err);
   }
 }
 
 async function deleteMasterCatalogFromCloud(catalogId, existingRecord) {
   try {
     const [{ isSupabaseConfigured, getSupabaseClient }, { deleteManagedFile }] = await Promise.all([
-      import('../../core/supabaseClient.js?v=20261116_cf3'),
-      import('../../services/s3StorageService.js?v=20261116_cf3')
+      import('../../core/supabaseClient.js?v=20261116_cf4'),
+      import('../../services/s3StorageService.js?v=20261116_cf4')
     ]);
 
     if (existingRecord?.mediaId || existingRecord?.s3Key) {
@@ -559,19 +559,19 @@ async function deleteMasterCatalogFromCloud(catalogId, existingRecord) {
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', catalogId);
   } catch (err) {
-    console.warn('[referenceDb] Error limpiando catÃ¡logo en nube:', err?.message || err);
+    console.warn('[referenceDb] Error limpiando catálogo en nube:', err?.message || err);
   }
 }
 
 /**
- * Descarga desde AWS S3 / Supabase los catÃ¡logos maestros guardados por el anfitriÃ³n
- * que todavÃ­a no existan en este navegador (IndexedDB).
+ * Descarga desde AWS S3 / Supabase los catálogos maestros guardados por el anfitrión
+ * que todavía no existan en este navegador (IndexedDB).
  */
 export async function syncMasterCatalogsFromCloud(ownerEmail = null) {
   try {
     const [{ isSupabaseConfigured, getSupabaseClient }, { resolveManagedFileUrl }] = await Promise.all([
-      import('../../core/supabaseClient.js?v=20261116_cf3'),
-      import('../../services/s3StorageService.js?v=20261116_cf3')
+      import('../../core/supabaseClient.js?v=20261116_cf4'),
+      import('../../services/s3StorageService.js?v=20261116_cf4')
     ]);
 
     if (!isSupabaseConfigured()) return { restored: 0 };
@@ -638,12 +638,12 @@ export async function searchReferenceItems({ catalogId = 'all', tipo = 'all', qu
   const allowedCatIds = new Set(allowedCatalogs.map(c => c.id));
   SYSTEM_PRESET_IDS.forEach(id => allowedCatIds.add(id));
 
-  // Si el titular no tiene catÃ¡logos cargados para este espacio de trabajo y no hay catÃ¡logos del sistema, retornar vacÃ­o
+  // Si el titular no tiene catálogos cargados para este espacio de trabajo y no hay catálogos del sistema, retornar vacío
   if (allowedCatIds.size === 0) {
     return [];
   }
 
-  // Si especificÃ³ un catÃ¡logo que no pertenece al espacio activo ni al sistema, no mostrar resultados ajenos
+  // Si especificó un catálogo que no pertenece al espacio activo ni al sistema, no mostrar resultados ajenos
   if (catalogId !== 'all' && !allowedCatIds.has(catalogId)) {
     return [];
   }
@@ -675,13 +675,13 @@ export async function searchReferenceItems({ catalogId = 'all', tipo = 'all', qu
       if (cursor) {
         const item = cursor.value;
 
-        // Validar pertenencia estricta a un catÃ¡logo del titular activo o del sistema oficial
+        // Validar pertenencia estricta a un catálogo del titular activo o del sistema oficial
         if (!allowedCatIds.has(item.catalogId) && !item.isPreset && !item.isSystem && item.ownerEmail !== 'system' && !SYSTEM_PRESET_IDS.has(item.catalogId)) {
           cursor.continue();
           return;
         }
 
-        // ComprobaciÃ³n de tÃ©rminos de bÃºsqueda en clave y descripciÃ³n
+        // Comprobación de términos de búsqueda en clave y descripción
         let matches = true;
         if (searchTerms.length > 0) {
           const itemText = `${item.clave} ${item.descripcion} ${item.familia || ''}`.toLowerCase();
@@ -713,7 +713,7 @@ export async function searchReferenceItems({ catalogId = 'all', tipo = 'all', qu
   });
 }
 
-// Conteo total de items, catÃ¡logos y MB ocupados del titular activo
+// Conteo total de items, catálogos y MB ocupados del titular activo
 export async function getReferenceDatabaseStats(ownerEmail = null) {
   const context = getActiveWorkspaceContext();
   const targetOwner = (ownerEmail || context.ownerEmail).toLowerCase().trim();
@@ -724,7 +724,7 @@ export async function getReferenceDatabaseStats(ownerEmail = null) {
 
   catalogs.forEach(c => {
     totalItems += (c.itemsCount || 0);
-    // EL ESPACIO LO ABSORBE LA APLICACIÃ“N: CatÃ¡logos predeterminados/oficiales NO consumen cuota del usuario
+    // EL ESPACIO LO ABSORBE LA APLICACIÓN: Catálogos predeterminados/oficiales NO consumen cuota del usuario
     if (c.isPreset || c.isSystem || c.absorbedByApp || c.ownerEmail === 'system') {
       return;
     }
@@ -753,7 +753,7 @@ export async function getReferenceDatabaseStats(ownerEmail = null) {
   };
 }
 
-// Obtener todos los items para los catÃ¡logos seleccionados del titular
+// Obtener todos los items para los catálogos seleccionados del titular
 export async function getItemsByCatalogIds(catalogIds = 'all', ownerEmail = null) {
   const allowedCatalogs = await listReferenceCatalogs(ownerEmail);
   const userCatIds = new Set(allowedCatalogs.map(c => c.id));
@@ -803,7 +803,7 @@ export async function getItemsByCatalogIds(catalogIds = 'all', ownerEmail = null
   });
 }
 
-// Buscar insumos y componentes reales en todos los catÃ¡logos cargados en CatÃ¡logo Maestro para el titular
+// Buscar insumos y componentes reales en todos los catálogos cargados en Catálogo Maestro para el titular
 export async function searchSuppliesInLoadedCatalogs({ query = '', keywords = [], tipos = [], catalogId = 'all', catalogIds = 'all', limit = 15, ownerEmail = null }) {
   const allowedCatalogs = await listReferenceCatalogs(ownerEmail);
   const userCatIds = new Set(allowedCatalogs.map(c => c.id));
@@ -813,14 +813,14 @@ export async function searchSuppliesInLoadedCatalogs({ query = '', keywords = []
 
   const cleanQuery = (query || '').toLowerCase().trim();
   const rawTerms = [
-    ...cleanQuery.replace(/[^a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±0-9/.-]/g, ' ').split(/\s+/).filter(t => t.length > 1),
-    ...(keywords || []).map(k => (k || '').toLowerCase().replace(/[^a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±0-9/.-]/g, ' ').trim()).filter(k => k.length > 1)
+    ...cleanQuery.replace(/[^a-záéíóúüñ0-9/.-]/g, ' ').split(/\s+/).filter(t => t.length > 1),
+    ...(keywords || []).map(k => (k || '').toLowerCase().replace(/[^a-záéíóúüñ0-9/.-]/g, ' ').trim()).filter(k => k.length > 1)
   ];
   const uniqueTerms = Array.from(new Set(rawTerms));
 
   const tiposSet = tipos && tipos.length > 0 ? new Set(tipos.map(t => t.toLowerCase())) : null;
 
-  // Filtrado de catÃ¡logos considerados respetando titular
+  // Filtrado de catálogos considerados respetando titular
   let allowedCatalogIds = null;
   const rawCats = catalogIds !== 'all' ? catalogIds : catalogId;
   if (Array.isArray(rawCats)) {
@@ -852,7 +852,7 @@ export async function searchSuppliesInLoadedCatalogs({ query = '', keywords = []
       if (cursor) {
         const item = cursor.value;
 
-        // Comprobar catÃ¡logo permitido
+        // Comprobar catálogo permitido
         if (!allowedCatalogIds.has(item.catalogId)) {
           cursor.continue();
           return;
@@ -860,12 +860,12 @@ export async function searchSuppliesInLoadedCatalogs({ query = '', keywords = []
 
         const itemTipo = (item.tipo || '').toLowerCase();
 
-        // Filtrar por tipos si se especificÃ³
+        // Filtrar por tipos si se especificó
         let tipoMatches = true;
         if (tiposSet) {
           tipoMatches = tiposSet.has(itemTipo);
           if (!tipoMatches) {
-            if (tiposSet.has('material') && (itemTipo.includes('mat') || itemTipo.includes('insumo') || itemTipo.includes('bÃ¡sico') || itemTipo.includes('basico'))) tipoMatches = true;
+            if (tiposSet.has('material') && (itemTipo.includes('mat') || itemTipo.includes('insumo') || itemTipo.includes('básico') || itemTipo.includes('basico'))) tipoMatches = true;
             if (tiposSet.has('mano de obra') && (itemTipo.includes('obra') || itemTipo.includes('cuadrilla') || itemTipo.includes('mo'))) tipoMatches = true;
             if (tiposSet.has('equipo') && (itemTipo.includes('equipo') || itemTipo.includes('maq') || itemTipo.includes('herr'))) tipoMatches = true;
           }
@@ -883,7 +883,7 @@ export async function searchSuppliesInLoadedCatalogs({ query = '', keywords = []
             score += 25;
           }
 
-          // Coincidencia por tÃ©rminos individuales
+          // Coincidencia por términos individuales
           let matchedTermsCount = 0;
           for (const term of uniqueTerms) {
             if (itemText.includes(term)) {
@@ -892,7 +892,7 @@ export async function searchSuppliesInLoadedCatalogs({ query = '', keywords = []
             }
           }
 
-          // Si coincide con al menos 1 tÃ©rmino importante o la consulta estaba vacÃ­a
+          // Si coincide con al menos 1 término importante o la consulta estaba vacía
           if (uniqueTerms.length === 0 || matchedTermsCount > 0) {
             const pu = parseFloat(item.precioUnitario || item.costoUnitario || 0);
             if (pu > 0) {
@@ -918,7 +918,7 @@ export async function searchSuppliesInLoadedCatalogs({ query = '', keywords = []
   });
 }
 
-// Buscar si un concepto con matriz completa ya existe en los catÃ¡logos cargados del titular
+// Buscar si un concepto con matriz completa ya existe en los catálogos cargados del titular
 export async function findDirectConceptWithInsumos(conceptDesc, conceptUnit, catalogIds = 'all', ownerEmail = null) {
   const allowedCatalogs = await listReferenceCatalogs(ownerEmail);
   const userCatIds = new Set(allowedCatalogs.map(c => c.id));
@@ -927,7 +927,7 @@ export async function findDirectConceptWithInsumos(conceptDesc, conceptUnit, cat
   const db = await openReferenceDb();
   const cDesc = (conceptDesc || '').toLowerCase().trim();
   const cUnit = (conceptUnit || '').toLowerCase().trim();
-  const words = cDesc.replace(/[^a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±0-9/.-]/g, ' ').split(/\s+/).filter(w => w.length > 3);
+  const words = cDesc.replace(/[^a-záéíóúüñ0-9/.-]/g, ' ').split(/\s+/).filter(w => w.length > 3);
 
   let allowedCatalogIds = null;
   if (Array.isArray(catalogIds)) {

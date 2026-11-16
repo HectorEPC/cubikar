@@ -1,11 +1,11 @@
-﻿// js/core/cloudProjectService.js
-// Servicio de persistencia y sincronizaciÃ³n de Proyectos y Presupuestos con Supabase PostgreSQL
-// DiseÃ±ado para operar en segundo plano con alta resiliencia y sincronizaciÃ³n multiusuario en la nube.
+// js/core/cloudProjectService.js
+// Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
+// Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf3';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf3';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261116_cf3';
-import { showToast } from '../ui/notifications.js?v=20261116_cf3';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf4';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf4';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261116_cf4';
+import { showToast } from '../ui/notifications.js?v=20261116_cf4';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -72,7 +72,7 @@ export async function resolveUserEmpresaId(sb, user) {
       return perfil.empresa_id;
     }
 
-    // Si aÃºn no tiene empresa asignada, crear una por defecto
+    // Si aún no tiene empresa asignada, crear una por defecto
     const { data: newEmpresa, error: empErr } = await sb
       .from('empresas')
       .insert({
@@ -102,17 +102,17 @@ export async function resolveUserEmpresaId(sb, user) {
 }
 
 /**
- * Sincronizar un proyecto completo (datos generales, colaboradores y catÃ¡logo de conceptos) hacia Supabase PostgreSQL
+ * Sincronizar un proyecto completo (datos generales, colaboradores y catálogo de conceptos) hacia Supabase PostgreSQL
  */
 export async function syncProjectToCloud(project, settings = {}, treeData = null) {
   const sb = getSupabaseClient();
   let user = getCurrentUser();
 
   if (!isSupabaseConfigured() || !sb) {
-    return { success: false, reason: 'Supabase no estÃ¡ configurado' };
+    return { success: false, reason: 'Supabase no está configurado' };
   }
 
-  // Si el usuario local no tiene un UUID vÃ¡lido, intentar obtener el usuario autenticado real de Supabase
+  // Si el usuario local no tiene un UUID válido, intentar obtener el usuario autenticado real de Supabase
   if (!user || !isValidUUID(user.id)) {
     try {
       const { data: { session } } = await sb.auth.getSession();
@@ -139,13 +139,13 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
   }
 
   if (!user?.id || !isValidUUID(user.id)) {
-    return { success: false, reason: 'Sin sesiÃ³n activa en Supabase. Inicia sesiÃ³n con tu correo y contraseÃ±a.' };
+    return { success: false, reason: 'Sin sesión activa en Supabase. Inicia sesión con tu correo y contraseña.' };
   }
 
   try {
     const empresaId = await resolveUserEmpresaId(sb, user);
 
-    // Asegurar UUID vÃ¡lido para PostgreSQL y bloquear si estÃ¡ marcado como eliminado
+    // Asegurar UUID válido para PostgreSQL y bloquear si está marcado como eliminado
     const projectId = isValidUUID(project.id) ? project.id : (project.cloudId && isValidUUID(project.cloudId) ? project.cloudId : generateUUID());
     try {
       const rawDel = typeof localStorage !== 'undefined' ? localStorage.getItem('cubikar_deleted_projects_v1') : null;
@@ -165,10 +165,10 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
       owner_email: ownerEmail,
       creado_por: user.id,
       clave: (project.clave || project.id || '').slice(0, 50),
-      nombre: project.projectName || 'Proyecto sin tÃ­tulo',
+      nombre: project.projectName || 'Proyecto sin título',
       cliente: project.client || '',
       ubicacion: project.projectLocation || '',
-      tipo_obra: project.tipoObra || 'EdificaciÃ³n',
+      tipo_obra: project.tipoObra || 'Edificación',
       moneda: project.currency || settings?.currency || 'MXN',
       simbolo_moneda: project.currencySymbol || settings?.currencySymbol || '$',
       aplica_sobrecosto: Boolean(settings?.applySobrecosto ?? project.applySobrecosto),
@@ -254,20 +254,20 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
       }
     }
 
-    // 4. Si se proporcionÃ³ el Ã¡rbol del catÃ¡logo, sincronizar partidas, conceptos e insumos (incluso si fue vaciado)
+    // 4. Si se proporcionó el árbol del catálogo, sincronizar partidas, conceptos e insumos (incluso si fue vaciado)
     if (Array.isArray(treeData)) {
       await syncCatalogTreeToCloud(sb, projectId, treeData, { skipConfigFlags: true });
     }
 
     return { success: true, projectId };
   } catch (err) {
-    console.error('[CloudProjectService] ExcepciÃ³n al sincronizar proyecto con la nube:', err);
+    console.error('[CloudProjectService] Excepción al sincronizar proyecto con la nube:', err);
     return { success: false, error: err };
   }
 }
 
 /**
- * Aplanar y sincronizar el Ã¡rbol jerÃ¡rquico a 'public.catalogo_conceptos' y 'public.insumos_apu'
+ * Aplanar y sincronizar el árbol jerárquico a 'public.catalogo_conceptos' y 'public.insumos_apu'
  */
 export async function syncCatalogTreeToCloud(sb, projectId, treeData, options = {}) {
   if (!sb || !projectId || !Array.isArray(treeData)) return;
@@ -346,7 +346,7 @@ export async function syncCatalogTreeToCloud(sb, projectId, treeData, options = 
   const keepInsumoIds = new Set(flatInsumos.map(i => i.id));
   const BATCH_SIZE = 500;
 
-  // 1. Eliminar nodos e insumos huÃ©rfanos eliminados localmente
+  // 1. Eliminar nodos e insumos huérfanos eliminados localmente
   try {
     const { data: existingConcepts } = await sb
       .from('catalogo_conceptos')
@@ -409,7 +409,7 @@ export async function syncCatalogTreeToCloud(sb, projectId, treeData, options = 
     console.warn('[CloudProjectService] Aviso al depurar insumos eliminados:', delInsErr?.message || delInsErr);
   }
 
-  // 4. Persistir banderas de matrices limpiadas/personalizadas si se invocÃ³ fuera de syncProjectToCloud
+  // 4. Persistir banderas de matrices limpiadas/personalizadas si se invocó fuera de syncProjectToCloud
   if (!options?.skipConfigFlags && isValidUUID(projectId)) {
     try {
       const clearedMatrixIds = collectNodeFlagUuids(treeData, (n) => Boolean(n?.userClearedMatrix));
@@ -444,7 +444,7 @@ export async function fetchCloudProjects() {
   try {
     const myEmail = (user.email || '').toLowerCase().trim();
 
-    // Consulta con join a proyecto_colaboradores (sin filtro por empresa_id para permitir colaboraciÃ³n inter-cuentas)
+    // Consulta con join a proyecto_colaboradores (sin filtro por empresa_id para permitir colaboración inter-cuentas)
     const { data: cloudList, error } = await sb
       .from('proyectos')
       .select('*, proyecto_colaboradores(*)')
@@ -545,7 +545,7 @@ export async function fetchCloudProjects() {
           ownerName: ownerName,
           ownerPlanId: cfg.ownerPlanId || (isMyOwn ? getUserPlanId(user) : 'pro'),
           projectLocation: cp.ubicacion || '',
-          tipoObra: cp.tipo_obra || 'EdificaciÃ³n',
+          tipoObra: cp.tipo_obra || 'Edificación',
           currency: cp.moneda || 'MXN',
           currencySymbol: cp.simbolo_moneda || '$',
           applySobrecosto: cp.aplica_sobrecosto,
@@ -566,13 +566,13 @@ export async function fetchCloudProjects() {
       })
       .filter(Boolean);
   } catch (err) {
-    console.error('[CloudProjectService] ExcepciÃ³n al consultar proyectos en la nube:', err);
+    console.error('[CloudProjectService] Excepción al consultar proyectos en la nube:', err);
     return [];
   }
 }
 
 /**
- * Descargar y reconstruir el Ã¡rbol de catÃ¡logo desde Supabase PostgreSQL
+ * Descargar y reconstruir el árbol de catálogo desde Supabase PostgreSQL
  */
 export async function loadProjectTreeFromCloud(projectId) {
   const sb = getSupabaseClient();
@@ -580,7 +580,7 @@ export async function loadProjectTreeFromCloud(projectId) {
   if (!isSupabaseConfigured() || !sb || !isValidUUID(targetUuid)) return null;
 
   try {
-    // 1. Obtener conceptos y metadatos de configuraciÃ³n (matrices vaciadas intencionalmente)
+    // 1. Obtener conceptos y metadatos de configuración (matrices vaciadas intencionalmente)
     const [{ data: concepts, error: cErr }, { data: projRow }] = await Promise.all([
       sb.from('catalogo_conceptos').select('*').eq('proyecto_id', targetUuid).order('orden', { ascending: true }),
       sb.from('proyectos').select('configuracion').eq('id', targetUuid).maybeSingle()
@@ -597,7 +597,7 @@ export async function loadProjectTreeFromCloud(projectId) {
     const clearedMatrixIds = new Set(Array.isArray(projCfg.clearedMatrixIds) ? projCfg.clearedMatrixIds : []);
     const customizedMatrixIds = new Set(Array.isArray(projCfg.customizedMatrixIds) ? projCfg.customizedMatrixIds : []);
 
-    // 2. Si los conceptos no traen su insumos JSONB poblado (y no fueron vaciados explÃ­citamente), consultar insumos_apu relacional
+    // 2. Si los conceptos no traen su insumos JSONB poblado (y no fueron vaciados explícitamente), consultar insumos_apu relacional
     let insumosMap = new Map();
     const candidateConceptIds = concepts
       .filter(c => !clearedMatrixIds.has(c.id) && (!Array.isArray(c.insumos) || c.insumos.length === 0))
@@ -657,7 +657,7 @@ export async function loadProjectTreeFromCloud(projectId) {
       map.set(c.id, node);
     });
 
-    // 4. Reconstruir la jerarquÃ­a de Ã¡rbol
+    // 4. Reconstruir la jerarquía de árbol
     concepts.forEach(c => {
       const node = map.get(c.id);
       if (c.parent_id && map.has(c.parent_id)) {
@@ -669,7 +669,7 @@ export async function loadProjectTreeFromCloud(projectId) {
 
     return roots;
   } catch (err) {
-    console.error('[CloudProjectService] ExcepciÃ³n al descargar Ã¡rbol de conceptos:', err);
+    console.error('[CloudProjectService] Excepción al descargar árbol de conceptos:', err);
     return null;
   }
 }
@@ -706,7 +706,7 @@ export async function addCollaboratorToCloud(projectId, email, role = 'editar', 
 
     return { success: true, data };
   } catch (err) {
-    console.error('[CloudProjectService] ExcepciÃ³n agregando colaborador:', err);
+    console.error('[CloudProjectService] Excepción agregando colaborador:', err);
     return { success: false, error: err };
   }
 }
@@ -771,7 +771,7 @@ export async function syncProjectMemberTabsToCloud(projectId, memberEmailOrMap, 
       .eq('id', targetUuid);
 
     if (error) {
-      console.warn('[CloudProjectService] Error actualizando pestaÃ±as de colaborador:', error.message);
+      console.warn('[CloudProjectService] Error actualizando pestañas de colaborador:', error.message);
       return { success: false, error };
     }
     return { success: true, memberTabs: nextTabs };
@@ -800,7 +800,7 @@ export async function removeCollaboratorFromCloud(projectId, email) {
 }
 
 /**
- * Actualizar una celda o concepto especÃ­fico en Supabase (Persistencia de ediciÃ³n granular en vivo)
+ * Actualizar una celda o concepto específico en Supabase (Persistencia de edición granular en vivo)
  */
 export async function updateCloudConcept(projectId, patchOrConcept) {
   const sb = getSupabaseClient();

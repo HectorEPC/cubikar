@@ -1,14 +1,14 @@
-﻿import { printEstimacionesFormat } from '../io/printService.js?v=20261116_cf3';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf3';
+import { printEstimacionesFormat } from '../io/printService.js?v=20261116_cf4';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf4';
 // js/modules/estimaciones/estimacionesView.js
-// Renderizador y controlador de eventos para la pestaÃ±a ESTIMACIONES DE OBRA
-// Sincronizado reactivamente con CatÃ¡logo Base, con soporte multiestimaciones,
-// amortizaciÃ³n progresiva de anticipo al 100%, reflejo de cantidades acumuladas,
-// justificaciÃ³n de conceptos, encabezados en una sola lÃ­nea y resizer vertical de columna de concepto.
+// Renderizador y controlador de eventos para la pestaña ESTIMACIONES DE OBRA
+// Sincronizado reactivamente con Catálogo Base, con soporte multiestimaciones,
+// amortización progresiva de anticipo al 100%, reflejo de cantidades acumuladas,
+// justificación de conceptos, encabezados en una sola línea y resizer vertical de columna de concepto.
 
-import { state } from '../../state/store.js?v=20261116_cf3';
-import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
+import { state } from '../../state/store.js?v=20261116_cf4';
+import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
 import {
   getEstimacionesCalculatedData,
   getActiveEstimacion,
@@ -28,18 +28,18 @@ import {
   loadEstimacionesData,
   saveEstimacionesData,
   createDefaultFacturaData
-} from './estimacionesModel.js?v=20261116_cf3';
-import { guardTabUnlocked, applyTabLocksToDOM, toggleTabLock } from '../../ui/tabLockController.js?v=20261116_cf3';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf3';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf3';
-import { uploadManagedFile, resolveManagedFileUrl, deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261116_cf3';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf3';
+} from './estimacionesModel.js?v=20261116_cf4';
+import { guardTabUnlocked, applyTabLocksToDOM, toggleTabLock } from '../../ui/tabLockController.js?v=20261116_cf4';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf4';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf4';
+import { uploadManagedFile, resolveManagedFileUrl, deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261116_cf4';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf4';
 
 let estimacionesSearchTerm = '';
 let estimacionesCollapsedMap = {}; // { [nodeId]: boolean }
 let selectedEstimacionRowId = null;
 
-// Seleccionar y pintar fila en la tabla de Estimaciones (mismo color y estilo que CatÃ¡logo Base)
+// Seleccionar y pintar fila en la tabla de Estimaciones (mismo color y estilo que Catálogo Base)
 export function selectEstimacionRow(rowId, event = null) {
   selectedEstimacionRowId = String(rowId);
   if (typeof document === 'undefined') return;
@@ -52,10 +52,10 @@ export function selectEstimacionRow(rowId, event = null) {
   });
 }
 
-// Ancho persistente de la columna de conceptos (mÃ­nimo 140px, mÃ¡ximo 850px, estÃ¡ndar compacto 310px)
+// Ancho persistente de la columna de conceptos (mínimo 140px, máximo 850px, estándar compacto 310px)
 let estimacionesConceptoColWidth = parseInt(localStorage.getItem('adm_estimaciones_concepto_width'), 10) || 310;
 
-// Aplicar dinÃ¡micamente el ancho de la columna de concepto mediante CSS reactivo sin redibujar el DOM
+// Aplicar dinámicamente el ancho de la columna de concepto mediante CSS reactivo sin redibujar el DOM
 export function applyConceptoColumnWidth(widthPx) {
   estimacionesConceptoColWidth = Math.max(140, Math.min(850, Math.round(widthPx)));
   let styleEl = document.getElementById('estimaciones-dynamic-col-style');
@@ -114,21 +114,21 @@ export function applyConceptoColumnWidth(widthPx) {
   }
 }
 
-// Ajuste rÃ¡pido con botones de incremento / decremento
+// Ajuste rápido con botones de incremento / decremento
 export function adjustConceptoColumnWidth(deltaPx) {
   const newW = estimacionesConceptoColWidth + deltaPx;
   applyConceptoColumnWidth(newW);
   localStorage.setItem('adm_estimaciones_concepto_width', estimacionesConceptoColWidth);
 }
 
-// Restablecer al ancho estÃ¡ndar recomendado
+// Restablecer al ancho estándar recomendado
 export function resetConceptoColumnWidth() {
   applyConceptoColumnWidth(310);
   localStorage.setItem('adm_estimaciones_concepto_width', 310);
   showToast('Ancho de columna de concepto restablecido a 310px');
 }
 
-// Inicializar el resizer vertical arrastrable (Splitter en el borde de CatÃ¡logo y Concepto de Obra)
+// Inicializar el resizer vertical arrastrable (Splitter en el borde de Catálogo y Concepto de Obra)
 export function initEstimacionesColumnResizer() {
   applyConceptoColumnWidth(estimacionesConceptoColWidth);
 
@@ -226,10 +226,10 @@ export function initEstimacionesColumnResizer() {
   bindDragHandle(handleN2);
 }
 
-// Contenido interno del pie de tabla (tfoot) para actualizaciÃ³n reactiva sin perder el foco en CANT EJE
+// Contenido interno del pie de tabla (tfoot) para actualización reactiva sin perder el foco en CANT EJE
 function renderEstimacionesTfootContentHTML(kpis, currencySymbol) {
   return `
-            <!-- RenglÃ³n 1: Totales de la Obra (Fondo Blanco Puro con NÃºmeros de Alto Contraste) -->
+            <!-- Renglón 1: Totales de la Obra (Fondo Blanco Puro con Números de Alto Contraste) -->
             <tr class="font-bold bg-white text-slate-800 border-b border-slate-200">
               <td colspan="3" class="py-2.5 px-2.5 font-extrabold text-right uppercase text-[11px] text-slate-700 font-sans bg-white border-r-2 border-slate-400 whitespace-nowrap sticky left-0 z-25 col-estimaciones-header-cat shadow-[4px_0_8px_-2px_rgba(0,0,0,0.08)]">
                 TOTALES DE LA OBRA:
@@ -243,9 +243,9 @@ function renderEstimacionesTfootContentHTML(kpis, currencySymbol) {
               <td class="py-2.5 px-1 text-center text-[9px] text-slate-300 bg-white">---</td>
               <td class="py-2.5 px-1.5 text-right font-bold text-purple-900 bg-white border-r-2 border-purple-200 whitespace-nowrap text-[11px]">${formatCurrency(kpis.grandTotalAnterior, currencySymbol)}</td>
 
-              <!-- Esta EstimaciÃ³n -->
+              <!-- Esta Estimación -->
               <td class="py-2.5 px-1 text-center text-[9px] text-emerald-400 bg-white">---</td>
-              <td class="py-2.5 px-1.5 text-right font-black text-emerald-700 bg-white border-r-2 border-emerald-300 whitespace-nowrap text-[11px]" title="Esta EstimaciÃ³n">${formatCurrency(kpis.grandTotalEjecutado, currencySymbol)}</td>
+              <td class="py-2.5 px-1.5 text-right font-black text-emerald-700 bg-white border-r-2 border-emerald-300 whitespace-nowrap text-[11px]" title="Esta Estimación">${formatCurrency(kpis.grandTotalEjecutado, currencySymbol)}</td>
 
               <!-- Acumulado Actual -->
               <td class="py-2.5 px-1 text-center text-[9px] text-slate-300 bg-white">---</td>
@@ -257,10 +257,10 @@ function renderEstimacionesTfootContentHTML(kpis, currencySymbol) {
               <td class="py-2.5 px-1.5 text-right font-black text-amber-800 bg-white whitespace-nowrap text-[11px]" title="Saldo x Ejecutar">${formatCurrency(kpis.grandTotalSaldo, currencySymbol)}</td>
             </tr>
 
-            <!-- RenglÃ³n 2: Desglose de AmortizaciÃ³n de Anticipo y LÃ­quido a Cobrar (RectÃ¡ngulo Blanco Puro Unificado) -->
+            <!-- Renglón 2: Desglose de Amortización de Anticipo y Líquido a Cobrar (Rectángulo Blanco Puro Unificado) -->
             <tr class="bg-white text-[11px] font-sans">
               <td colspan="8" class="py-2.5 px-2.5 text-slate-700 font-mono bg-white">
-                <span class="text-amber-800 font-bold uppercase mr-1 text-[10.5px]" title="AmortizaciÃ³n de Anticipo:">ANTICIPO (${kpis.anticipo.pct}%):</span>
+                <span class="text-amber-800 font-bold uppercase mr-1 text-[10.5px]" title="Amortización de Anticipo:">ANTICIPO (${kpis.anticipo.pct}%):</span>
                 <span>Contratado: <strong class="text-slate-900">${formatCurrency(kpis.anticipo.totalContratado, currencySymbol)}</strong></span>
                 <span class="mx-1 text-slate-300">|</span>
                 <span>Amortizado Anterior: <strong class="text-slate-700">${formatCurrency(kpis.anticipo.amortizadoAnterior, currencySymbol)}</strong></span>
@@ -268,15 +268,15 @@ function renderEstimacionesTfootContentHTML(kpis, currencySymbol) {
                 <span>Saldo x Amortizar: <strong class="text-amber-800">${formatCurrency(kpis.anticipo.saldoPendiente, currencySymbol)}</strong></span>
               </td>
               
-              <!-- Celda AmortizaciÃ³n en Esta EstimaciÃ³n (Fondo Blanco Puro con TipografÃ­a Roja de Alto Contraste) -->
+              <!-- Celda Amortización en Esta Estimación (Fondo Blanco Puro con Tipografía Roja de Alto Contraste) -->
               <td colspan="3" class="py-2.5 px-2 text-right font-mono bg-white border-l-2 border-slate-200 text-rose-700 whitespace-nowrap">
                 <div class="leading-tight">
-                  <span class="text-[9.5px] font-bold uppercase block text-rose-600" title="AmortizaciÃ³n de Anticipo:">AmortizaciÃ³n en Esta EstimaciÃ³n:</span>
+                  <span class="text-[9.5px] font-bold uppercase block text-rose-600" title="Amortización de Anticipo:">Amortización en Esta Estimación:</span>
                   <span class="text-[11px] font-black">${kpis.anticipo.amortizacionEsta > 0 ? '-' : ''}${formatCurrency(kpis.anticipo.amortizacionEsta, currencySymbol)}</span>
                 </div>
               </td>
               
-              <!-- Celda NETO A COBRAR (Fondo Blanco Puro con TipografÃ­a Verde de Alto Contraste) -->
+              <!-- Celda NETO A COBRAR (Fondo Blanco Puro con Tipografía Verde de Alto Contraste) -->
               <td colspan="4" class="py-2.5 px-2.5 text-right font-mono bg-white border-l-2 border-slate-200 whitespace-nowrap">
                 <div class="flex items-center justify-end gap-2.5">
                   <div>
@@ -284,7 +284,7 @@ function renderEstimacionesTfootContentHTML(kpis, currencySymbol) {
                     <span class="text-emerald-700 text-sm font-black">${formatCurrency(kpis.anticipo.netoEstaEstimacion, currencySymbol)}</span>
                   </div>
                   ${kpis.iva.pct > 0 ? `
-                    <div class="pl-2 border-l border-slate-300 text-left font-sans" title="IVA de la estimaciÃ³n: ${formatCurrency(kpis.iva.estaEstimacion, currencySymbol)}">
+                    <div class="pl-2 border-l border-slate-300 text-left font-sans" title="IVA de la estimación: ${formatCurrency(kpis.iva.estaEstimacion, currencySymbol)}">
                       <span class="text-[7.5px] text-emerald-700 uppercase block font-bold">+IVA (${kpis.iva.pct}%):</span>
                       <span class="text-[11px] font-black text-emerald-800 font-mono">${formatCurrency(kpis.iva.totalConIva, currencySymbol)}</span>
                     </div>
@@ -296,7 +296,7 @@ function renderEstimacionesTfootContentHTML(kpis, currencySymbol) {
 }
 
 // =========================================================================
-// VENTANA MODAL FLOTANTE DE GESTIÃ“N Y VISTA DE FACTURA
+// VENTANA MODAL FLOTANTE DE GESTIÓN Y VISTA DE FACTURA
 // =========================================================================
 export function openFacturaModal(estId = null) {
   const data = getEstimacionesCalculatedData();
@@ -326,7 +326,7 @@ export function openFacturaModal(estId = null) {
   const isCobrada = factura.status === 'cobrada';
 
   if (titleEl) {
-    titleEl.textContent = `Comprobante Fiscal â€” ${est.numero === 0 ? 'Est. 0 (Anticipo)' : est.nombre}`;
+    titleEl.textContent = `Comprobante Fiscal — ${est.numero === 0 ? 'Est. 0 (Anticipo)' : est.nombre}`;
   }
   if (subtitleEl) {
     subtitleEl.textContent = hasPdf ? `Factura adjunta: ${factura.pdfFileName || 'Factura.pdf'}` : 'Sin factura cargada actualmente';
@@ -344,7 +344,7 @@ export function openFacturaModal(estId = null) {
             Estado: ${isCobrada ? 'COBRADA / PAGADA' : 'PENDIENTE DE PAGO'}
           </span>
           <span class="text-[11px] text-slate-500">
-            ${isCobrada ? 'Esta estimaciÃ³n ya fue liquidada' : 'Pendiente de cobro'}
+            ${isCobrada ? 'Esta estimación ya fue liquidada' : 'Pendiente de cobro'}
           </span>
         </div>
       </div>
@@ -367,7 +367,7 @@ export function openFacturaModal(estId = null) {
       </div>
       <div>
         <label class="block font-bold text-slate-700 text-[11px] mb-1">
-          <i class="fa-regular fa-calendar text-indigo-600 mr-1"></i> Fecha de EmisiÃ³n:
+          <i class="fa-regular fa-calendar text-indigo-600 mr-1"></i> Fecha de Emisión:
         </label>
         <input type="date" value="${factura.fechaEmision || ''}"
                onchange="onFacturaFieldChange('${est.id}', 'fechaEmision', this.value)"
@@ -383,7 +383,7 @@ export function openFacturaModal(estId = null) {
       </div>
     </div>
 
-    <!-- GestiÃ³n de Archivos (Factura PDF y XML SAT) -->
+    <!-- Gestión de Archivos (Factura PDF y XML SAT) -->
     <div class="space-y-3">
       <h4 class="font-extrabold text-slate-800 text-xs uppercase tracking-wide flex items-center gap-1.5">
         <i class="fa-solid fa-folder-open text-indigo-600"></i> Archivos Adjuntos del Comprobante
@@ -434,10 +434,10 @@ export function openFacturaModal(estId = null) {
           <!-- Visor / Enlace directo embebido -->
           <div class="bg-white rounded-lg border border-rose-200 p-2.5 flex items-center justify-between gap-2 text-[11px]">
             <span class="text-slate-600 truncate flex items-center gap-1.5">
-              <i class="fa-solid fa-link text-rose-500"></i> Enlace listo para consulta o auditorÃ­a fiscal
+              <i class="fa-solid fa-link text-rose-500"></i> Enlace listo para consulta o auditoría fiscal
             </span>
             <button type="button" onclick="viewFacturaFile('${est.id}', 'pdf')" class="text-rose-600 hover:text-rose-800 font-bold underline cursor-pointer shrink-0">
-              Abrir visor externo â†—
+              Abrir visor externo ↗
             </button>
           </div>
         ` : ''}
@@ -500,9 +500,9 @@ export function closeFacturaModal() {
   }
 }
 
-// Renderizado principal de la pestaÃ±a ESTIMACIONES
+// Renderizado principal de la pestaña ESTIMACIONES
 // =========================================================================
-// RENDERIZADO: COMPONENTE DE FACTURACIÃ“N Y COMPROBANTE FISCAL POR ESTIMACIÃ“N
+// RENDERIZADO: COMPONENTE DE FACTURACIÓN Y COMPROBANTE FISCAL POR ESTIMACIÓN
 // =========================================================================
 let estimacionesFacturaExpandedMap = {}; // { [estId]: boolean }
 
@@ -525,7 +525,7 @@ export function toggleEstimacionCobroStatus(estId) {
 
     saveEstimacionesData(data);
     renderEstimacionesView();
-    showToast(newStatus === 'cobrada' ? 'âœ… EstimaciÃ³n marcada como COBRADA / PAGADA' : 'â³ EstimaciÃ³n marcada como PENDIENTE DE PAGO', newStatus === 'cobrada' ? 'success' : 'info');
+    showToast(newStatus === 'cobrada' ? '✅ Estimación marcada como COBRADA / PAGADA' : '⏳ Estimación marcada como PENDIENTE DE PAGO', newStatus === 'cobrada' ? 'success' : 'info');
   } catch (err) {
     console.error('Error al alternar estado de cobro:', err);
     showToast('Error al cambiar estado de cobro', 'error');
@@ -558,7 +558,7 @@ function renderFacturaCardHTML(est, isLocked) {
   const hasXml = Boolean(factura.xmlUrl || factura.xmlFileRef || factura.xmlFileName);
 
   if (!isExpanded) {
-    return ''; // Completamente oculto si no estÃ¡ desplegado, no genera tarjeta duplicada
+    return ''; // Completamente oculto si no está desplegado, no genera tarjeta duplicada
   }
 
   return `
@@ -580,7 +580,7 @@ function renderFacturaCardHTML(est, isLocked) {
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-          <!-- BotÃ³n cerrar colapsar -->
+          <!-- Botón cerrar colapsar -->
           <button type="button" onclick="event.stopPropagation(); toggleEstimacionFacturaCard('${est.id}')" class="text-slate-400 hover:text-slate-700 text-xs p-1" title="Cerrar detalles fiscales">
             <i class="fa-solid fa-chevron-up"></i>
           </button>
@@ -604,10 +604,10 @@ function renderFacturaCardHTML(est, isLocked) {
                    class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-800 focus:outline-none focus:border-blue-500 disabled:bg-slate-100">
           </div>
 
-          <!-- Fecha de EmisiÃ³n -->
+          <!-- Fecha de Emisión -->
           <div>
             <label class="block font-semibold text-slate-700 text-[11px] mb-1">
-              <i class="fa-regular fa-calendar text-blue-600 mr-1"></i> Fecha de EmisiÃ³n:
+              <i class="fa-regular fa-calendar text-blue-600 mr-1"></i> Fecha de Emisión:
             </label>
             <input type="date"
                    ${isLocked ? 'disabled readonly' : ''}
@@ -636,13 +636,13 @@ function renderFacturaCardHTML(est, isLocked) {
             <select ${isLocked ? 'disabled' : ''}
                     onchange="onFacturaFieldChange('${est.id}', 'status', this.value)"
                     class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500 disabled:bg-slate-100">
-              <option value="pendiente" ${!isCobrada ? 'selected' : ''}>â³ Pendiente de Pago</option>
-              <option value="cobrada" ${isCobrada ? 'selected' : ''}>âœ… Cobrada / Pagada</option>
+              <option value="pendiente" ${!isCobrada ? 'selected' : ''}>⏳ Pendiente de Pago</option>
+              <option value="cobrada" ${isCobrada ? 'selected' : ''}>✅ Cobrada / Pagada</option>
             </select>
           </div>
         </div>
 
-        <!-- Ãrea de Archivos Adjuntos: Factura PDF y Archivo XML SAT -->
+        <!-- Área de Archivos Adjuntos: Factura PDF y Archivo XML SAT -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200">
           
           <!-- TARJETA FACTURA PDF -->
@@ -739,7 +739,7 @@ function renderFacturaCardHTML(est, isLocked) {
 }
 
 // =========================================================================
-// RENDERIZADO: FICHA EJECUTIVA DE COBRO DE ANTICIPO (ESTIMACIÃ“N 0)
+// RENDERIZADO: FICHA EJECUTIVA DE COBRO DE ANTICIPO (ESTIMACIÓN 0)
 // =========================================================================
 function renderEstimacionZeroViewHTML(data, currencySymbol) {
   const { activeEst, kpis } = data;
@@ -747,13 +747,13 @@ function renderEstimacionZeroViewHTML(data, currencySymbol) {
   const anticipoKpi = kpis.anticipo;
   const ivaKpi = kpis.iva;
 
-  // CÃ¡lculos monetarios del anticipo pactado
+  // Cálculos monetarios del anticipo pactado
   const montoBase = kpis.grandTotalBase;
   const subtotalAnticipo = anticipoKpi.totalContratado;
   const ivaAnticipo = Math.round((subtotalAnticipo * (ivaKpi.pct / 100) + Number.EPSILON) * 100) / 100;
   const totalCobradoAnticipo = Math.round((subtotalAnticipo + ivaAnticipo + Number.EPSILON) * 100) / 100;
 
-  // MÃ©tricas de amortizaciÃ³n
+  // Métricas de amortización
   const totalRecibido = subtotalAnticipo;
   const amortizadoEnAvance = anticipoKpi.amortizadoTotalHistorico || 0;
   const saldoPendiente = anticipoKpi.saldoPendiente || 0;
@@ -762,7 +762,7 @@ function renderEstimacionZeroViewHTML(data, currencySymbol) {
   return `
     <div class="flex-1 overflow-y-auto p-3 sm:p-4 bg-slate-100 custom-scroll space-y-3">
       
-      <!-- Componente de FacturaciÃ³n Fiscal de la Est. 0 -->
+      <!-- Componente de Facturación Fiscal de la Est. 0 -->
       ${renderFacturaCardHTML(activeEst, isLocked)}
 
       <!-- Tarjeta Principal de la Ficha Ejecutiva -->
@@ -771,7 +771,7 @@ function renderEstimacionZeroViewHTML(data, currencySymbol) {
         <!-- Cuerpo de Datos y Campos Ejecutivos -->
         <div class="p-4 space-y-4">
           
-          <!-- Grid de MÃ©tricas Principales -->
+          <!-- Grid de Métricas Principales -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             
             <!-- Monto Contratado Base -->
@@ -783,7 +783,7 @@ function renderEstimacionZeroViewHTML(data, currencySymbol) {
                 ${formatCurrency(montoBase, currencySymbol)}
               </div>
               <span class="text-[10px] text-slate-400 block">
-                Total a Costo Directo / Venta del CatÃ¡logo Base
+                Total a Costo Directo / Venta del Catálogo Base
               </span>
             </div>
 
@@ -825,10 +825,10 @@ function renderEstimacionZeroViewHTML(data, currencySymbol) {
 
           </div>
 
-          <!-- Formulario de ConfiguraciÃ³n del Cobro de Anticipo -->
+          <!-- Formulario de Configuración del Cobro de Anticipo -->
           <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
             <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <i class="fa-solid fa-sliders text-amber-600"></i> ParÃ¡metros y Fianza del Anticipo
+              <i class="fa-solid fa-sliders text-amber-600"></i> Parámetros y Fianza del Anticipo
             </h3>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
@@ -860,10 +860,10 @@ function renderEstimacionZeroViewHTML(data, currencySymbol) {
                        class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:border-amber-500 disabled:bg-slate-100">
               </div>
 
-              <!-- PÃ³liza de Fianza -->
+              <!-- Póliza de Fianza -->
               <div>
                 <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                  PÃ³liza de Fianza de Anticipo (Opcional):
+                  Póliza de Fianza de Anticipo (Opcional):
                 </label>
                 <input type="text"
                        ${isLocked ? 'disabled readonly' : ''}
@@ -876,7 +876,7 @@ function renderEstimacionZeroViewHTML(data, currencySymbol) {
               <!-- Afianzadora -->
               <div>
                 <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                  CompaÃ±Ã­a Afianzadora:
+                  Compañía Afianzadora:
                 </label>
                 <input type="text"
                        ${isLocked ? 'disabled readonly' : ''}
@@ -888,7 +888,7 @@ function renderEstimacionZeroViewHTML(data, currencySymbol) {
 
             </div>
 
-            <!-- Notas de la EstimaciÃ³n 0 -->
+            <!-- Notas de la Estimación 0 -->
             <div>
               <label class="block text-[11px] font-bold text-slate-700 mb-1">
                 Notas / Observaciones del Anticipo:
@@ -901,7 +901,7 @@ function renderEstimacionZeroViewHTML(data, currencySymbol) {
             </div>
           </div>
 
-          <!-- MONITOREO EN TIEMPO REAL: BARRA VISUAL DE AMORTIZACIÃ“N PROGRESIVA -->
+          <!-- MONITOREO EN TIEMPO REAL: BARRA VISUAL DE AMORTIZACIÓN PROGRESIVA -->
           <div class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white space-y-3.5 shadow-md">
             <div class="flex items-center justify-between flex-wrap gap-2">
               <div class="flex items-center gap-2">
@@ -909,8 +909,8 @@ function renderEstimacionZeroViewHTML(data, currencySymbol) {
                   <i class="fa-solid fa-chart-pie"></i>
                 </span>
                 <div>
-                  <h4 class="text-sm font-black text-white">Monitoreo de AmortizaciÃ³n del Anticipo</h4>
-                  <span class="text-[11px] text-slate-300">Progreso acumulado a lo largo de las estimaciones de avance fÃ­sico (Est. 1 a N)</span>
+                  <h4 class="text-sm font-black text-white">Monitoreo de Amortización del Anticipo</h4>
+                  <span class="text-[11px] text-slate-300">Progreso acumulado a lo largo de las estimaciones de avance físico (Est. 1 a N)</span>
                 </div>
               </div>
 
@@ -941,7 +941,7 @@ function renderEstimacionZeroViewHTML(data, currencySymbol) {
               <div class="space-y-0.5">
                 <span class="text-[10.5px] text-emerald-300 block font-bold">3. SALDO PENDIENTE POR AMORTIZAR:</span>
                 <span class="text-sm font-black font-mono ${saldoPendiente <= 0 ? 'text-emerald-400' : 'text-rose-400'}">
-                  ${formatCurrency(saldoPendiente, currencySymbol)} ${saldoPendiente <= 0 ? 'ðŸŽ‰ (100% Cubierto)' : ''}
+                  ${formatCurrency(saldoPendiente, currencySymbol)} ${saldoPendiente <= 0 ? '🎉 (100% Cubierto)' : ''}
                 </span>
               </div>
             </div>
@@ -964,13 +964,13 @@ export function renderEstimacionesView() {
   const data = getEstimacionesCalculatedData();
   const { activeEst, estimacionesList, rows, kpis } = data;
 
-  // Asegurar que el estilo CSS dinÃ¡mico estÃ© activo
+  // Asegurar que el estilo CSS dinámico esté activo
   applyConceptoColumnWidth(estimacionesConceptoColWidth);
 
-  // Filtrado de filas si hay tÃ©rmino de bÃºsqueda
+  // Filtrado de filas si hay término de búsqueda
   const term = estimacionesSearchTerm.trim().toLowerCase();
 
-  // Filtrar visibilidad segÃºn estado colapsado de partidas y bÃºsqueda
+  // Filtrar visibilidad según estado colapsado de partidas y búsqueda
   const visibleRows = [];
   const parentStack = [];
 
@@ -995,21 +995,21 @@ export function renderEstimacionesView() {
   const isEstLocked = Boolean(activeEst.locked);
   applyTabLocksToDOM();
 
-  // Renderizado condicional si la estimaciÃ³n activa es la Est. 0 (Anticipo)
+  // Renderizado condicional si la estimación activa es la Est. 0 (Anticipo)
   const isEstZero = activeEst.numero === 0 || activeEst.tipo === 'anticipo';
 
   container.innerHTML = `
     <div id="estimaciones-container" class="flex-1 bg-white rounded-lg shadow border border-slate-200 flex flex-col overflow-hidden transition-all duration-300">
       
-      <!-- ENCABEZADO SUPERIOR: ALINEACIÃ“N PERFECTA SEGÃšN INDICACIONES DEL USUARIO -->
+      <!-- ENCABEZADO SUPERIOR: ALINEACIÓN PERFECTA SEGÚN INDICACIONES DEL USUARIO -->
       <div class="px-3.5 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-col gap-2 shrink-0">
         
-        <!-- Fila 1: 3 Bloques (Izquierda: Proyecto/Herramientas, Centro: Fechas Del/Al, Derecha: Grid 2x2 EstimaciÃ³n/Anticipo/IVA) -->
+        <!-- Fila 1: 3 Bloques (Izquierda: Proyecto/Herramientas, Centro: Fechas Del/Al, Derecha: Grid 2x2 Estimación/Anticipo/IVA) -->
         <div class="flex flex-wrap items-start justify-between gap-3">
           
-          <!-- Bloque 1 (Izquierda): Proyecto, UbicaciÃ³n y Barra de Herramientas -->
+          <!-- Bloque 1 (Izquierda): Proyecto, Ubicación y Barra de Herramientas -->
           <div class="flex flex-col gap-1.5 flex-1 min-w-[320px]">
-            <!-- RenglÃ³n 1: Proyecto -->
+            <!-- Renglón 1: Proyecto -->
             <div class="flex items-center gap-1.5 text-xs text-slate-800">
               <span class="font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1 text-[11px] shrink-0">
                 <i class="fa-solid fa-folder-tree text-blue-600"></i> PROYECTO:
@@ -1017,20 +1017,20 @@ export function renderEstimacionesView() {
               <span class="font-bold text-xs sm:text-sm text-slate-800 truncate" title="${state.settings?.projectName || 'Proyecto de Obra Base'}">
                 ${state.settings?.projectName || 'Proyecto de Obra Base'}
               </span>
-              <span class="text-slate-300">â€¢</span>
+              <span class="text-slate-300">•</span>
             </div>
 
-            <!-- RenglÃ³n 2: UbicaciÃ³n -->
+            <!-- Renglón 2: Ubicación -->
             <div class="flex items-center gap-1.5 text-xs text-slate-600">
               <span class="font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1 text-[11px] shrink-0">
-                <i class="fa-solid fa-location-dot text-rose-500"></i> UBICACIÃ“N:
+                <i class="fa-solid fa-location-dot text-rose-500"></i> UBICACIÓN:
               </span>
-              <span class="font-medium text-xs text-slate-700 truncate" title="${state.settings?.projectLocation || 'Ciudad de MÃ©xico, CDMX'}">
-                ${state.settings?.projectLocation || 'Ciudad de MÃ©xico, CDMX'}
+              <span class="font-medium text-xs text-slate-700 truncate" title="${state.settings?.projectLocation || 'Ciudad de México, CDMX'}">
+                ${state.settings?.projectLocation || 'Ciudad de México, CDMX'}
               </span>
             </div>
 
-            <!-- RenglÃ³n 3: Herramientas (Buscador al lado izquierdo, Candado al lado izquierdo de Agrupar, Desagrupar, Imprimir, Sync) -->
+            <!-- Renglón 3: Herramientas (Buscador al lado izquierdo, Candado al lado izquierdo de Agrupar, Desagrupar, Imprimir, Sync) -->
             <div class="flex items-center gap-1.5 flex-wrap pt-0.5">
               <!-- Buscador (En el lado izquierdo) -->
               <div class="relative">
@@ -1041,10 +1041,10 @@ export function renderEstimacionesView() {
                 ` : ''}
               </div>
 
-              <!-- BotÃ³n Candado de Bloqueo por EstimaciÃ³n (Al lado izquierdo de Agrupar) -->
+              <!-- Botón Candado de Bloqueo por Estimación (Al lado izquierdo de Agrupar) -->
               <button type="button" onclick="toggleActiveEstimacionLock()" id="btn-lock-estimaciones"
                       class="${isEstLocked ? 'bg-amber-600 hover:bg-amber-500 text-white border border-amber-700 font-bold' : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 font-medium'} text-[11px] p-1.5 rounded flex items-center justify-center shadow-2xs transition active:scale-95 cursor-pointer shrink-0"
-                      title="${isEstLocked ? `ðŸ”’ ${activeEst.nombre} bloqueada (Solo consulta e impresiÃ³n) â€” Haz clic para desbloquear esta estimaciÃ³n` : `Bloquear ${activeEst.nombre} (Permitir solo consulta e impresiÃ³n en esta estimaciÃ³n)`}">
+                      title="${isEstLocked ? `🔒 ${activeEst.nombre} bloqueada (Solo consulta e impresión) — Haz clic para desbloquear esta estimación` : `Bloquear ${activeEst.nombre} (Permitir solo consulta e impresión en esta estimación)`}">
                 <i class="fa-solid ${isEstLocked ? 'fa-lock text-white' : 'fa-lock-open text-slate-600'} text-xs"></i>
               </button>
 
@@ -1058,19 +1058,19 @@ export function renderEstimacionesView() {
                 <i class="fa-solid fa-arrows-split-up-and-left text-xs text-blue-600"></i>
               </button>
 
-              <!-- Imprimir EstimaciÃ³n -->
-              <button type="button" onclick="printEstimacionActual()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold shadow-sm transition active:scale-95 cursor-pointer" title="Imprimir Formato de EstimaciÃ³n con CarÃ¡tula">
-                <i class="fa-solid fa-print text-[10px]"></i> <span>Imprimir EstimaciÃ³n</span>
+              <!-- Imprimir Estimación -->
+              <button type="button" onclick="printEstimacionActual()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold shadow-sm transition active:scale-95 cursor-pointer" title="Imprimir Formato de Estimación con Carátula">
+                <i class="fa-solid fa-print text-[10px]"></i> <span>Imprimir Estimación</span>
               </button>
 
               <!-- Indicador Sync -->
               <span class="text-[10px] text-slate-400 hidden xl:flex items-center gap-1 font-sans">
-                <i class="fa-solid fa-floppy-disk text-emerald-500"></i> Sincronizado con CatÃ¡logo Base
+                <i class="fa-solid fa-floppy-disk text-emerald-500"></i> Sincronizado con Catálogo Base
               </span>
             </div>
           </div>
 
-          <!-- Bloque 2 (Centro): Fechas del PerÃ­odo con Logos de Calendario Visibles -->
+          <!-- Bloque 2 (Centro): Fechas del Período con Logos de Calendario Visibles -->
           <div class="flex flex-col gap-1.5 shrink-0 bg-white p-2 rounded-lg border border-slate-300 shadow-2xs">
             <div class="flex items-center gap-1.5 bg-slate-50 hover:bg-white border border-slate-200 hover:border-slate-300 focus-within:border-blue-500 rounded px-2 py-0.5 transition shadow-2xs">
               <span class="text-slate-500 text-[11px] font-sans font-bold w-6">Del</span>
@@ -1103,40 +1103,40 @@ export function renderEstimacionesView() {
           <!-- Bloque 3 (Derecha): 2 Filas de Botones Limpios y Perfectamente Alineados -->
           <div class="flex flex-col gap-2 w-auto shrink-0">
             
-            <!-- Fila 1: EstimaciÃ³n + + Nueva EstimaciÃ³n + Asignar -->
+            <!-- Fila 1: Estimación + + Nueva Estimación + Asignar -->
             <div class="flex items-center gap-2 justify-end">
-              <!-- Selector Desplegable de EstimaciÃ³n -->
+              <!-- Selector Desplegable de Estimación -->
               <div class="bg-white px-2.5 py-1 rounded-lg border border-slate-300 shadow-2xs flex items-center justify-between gap-1.5 min-w-[210px]">
                 <div class="flex items-center gap-1.5 min-w-0 flex-1">
                   <i class="fa-solid fa-file-invoice-dollar text-blue-600 text-xs shrink-0"></i>
-                  <span class="text-[11px] font-bold text-slate-700 shrink-0">EstimaciÃ³n:</span>
+                  <span class="text-[11px] font-bold text-slate-700 shrink-0">Estimación:</span>
                   <select onchange="onSwitchActiveEstimacion(this.value)" class="w-full bg-transparent text-slate-800 font-bold text-xs outline-none cursor-pointer font-mono truncate">
                     ${estimacionesList.map(est => `
                       <option value="${est.id}" ${est.id === activeEst.id ? 'selected' : ''}>
-                        ${est.locked ? 'ðŸ”’ ' : ''}${est.numero === 0 ? 'ðŸ’° ' : ''}${est.nombre}
+                        ${est.locked ? '🔒 ' : ''}${est.numero === 0 ? '💰 ' : ''}${est.nombre}
                       </option>
                     `).join('')}
                   </select>
                 </div>
               </div>
 
-              <!-- BotÃ³n Nueva EstimaciÃ³n y Eliminar -->
+              <!-- Botón Nueva Estimación y Eliminar -->
               <div class="flex items-center gap-1.5 shrink-0">
-                <button type="button" onclick="promptCreateNewEstimacion()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center justify-center gap-1 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap" title="Crear nueva estimaciÃ³n consecutiva">
-                  <i class="fa-solid fa-plus text-[10px]"></i> <span>+ Nueva EstimaciÃ³n</span>
+                <button type="button" onclick="promptCreateNewEstimacion()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center justify-center gap-1 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap" title="Crear nueva estimación consecutiva">
+                  <i class="fa-solid fa-plus text-[10px]"></i> <span>+ Nueva Estimación</span>
                 </button>
 
                 ${(activeEst.numero > 0 && estimacionesList.filter(e => e.numero > 0).length > 1) ? `
-                  <button type="button" ${isEstLocked ? 'disabled' : ''} onclick="confirmDeleteCurrentEstimacion('${activeEst.id}', '${activeEst.nombre}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs p-1.5 rounded-lg transition active:scale-95 cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed" title="${isEstLocked ? 'EstimaciÃ³n bloqueada: desbloquee el candado para poder eliminarla' : `Eliminar ${activeEst.nombre}`}">
+                  <button type="button" ${isEstLocked ? 'disabled' : ''} onclick="confirmDeleteCurrentEstimacion('${activeEst.id}', '${activeEst.nombre}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs p-1.5 rounded-lg transition active:scale-95 cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed" title="${isEstLocked ? 'Estimación bloqueada: desbloquee el candado para poder eliminarla' : `Eliminar ${activeEst.nombre}`}">
                     <i class="fa-solid fa-trash text-xs"></i>
                   </button>
                 ` : ''}
               </div>
 
-              <!-- BotÃ³n Asignar (Al lado de + Nueva EstimaciÃ³n) -->
+              <!-- Botón Asignar (Al lado de + Nueva Estimación) -->
               <div id="tab-members-estimaciones" class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs shrink-0">
                 <div id="tab-avatars-estimaciones" class="flex -space-x-1.5 overflow-hidden items-center cursor-pointer" onclick="openTabMembersAssignModal('estimaciones')" title="Ver colaboradores con acceso a Estimaciones"></div>
-                <button type="button" onclick="openTabMembersAssignModal('estimaciones')" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded px-2 py-1 transition flex items-center gap-1.5 cursor-pointer" title="Asignar miembros invitados a la pestaÃ±a Estimaciones">
+                <button type="button" onclick="openTabMembersAssignModal('estimaciones')" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded px-2 py-1 transition flex items-center gap-1.5 cursor-pointer" title="Asignar miembros invitados a la pestaña Estimaciones">
                   <i class="fa-solid fa-user-gear text-[10px]"></i> Asignar
                 </button>
               </div>
@@ -1192,12 +1192,12 @@ export function renderEstimacionesView() {
 
         </div>
 
-        <!-- Fila 2: Sub-encabezado limpio con TÃ­tulo a la izquierda y Botones de Factura / Estado a la derecha -->
+        <!-- Fila 2: Sub-encabezado limpio con Título a la izquierda y Botones de Factura / Estado a la derecha -->
         <div class="flex items-center justify-between gap-3 pt-1 border-t border-slate-200/60 flex-wrap">
-          <!-- Izquierda: TÃ­tulo de EstimaciÃ³n Activa -->
+          <!-- Izquierda: Título de Estimación Activa -->
           <div class="flex items-center gap-2 flex-wrap">
             <span class="font-extrabold text-slate-800 text-xs uppercase tracking-wide">
-              ${activeEst.numero === 0 ? 'FICHA DE COBRO: ANTICIPO INICIAL' : `ESTIMACIÃ“N DE OBRA: ${activeEst.nombre.toUpperCase()}`}
+              ${activeEst.numero === 0 ? 'FICHA DE COBRO: ANTICIPO INICIAL' : `ESTIMACIÓN DE OBRA: ${activeEst.nombre.toUpperCase()}`}
             </span>
             ${activeEst.numero > 0 ? `
               <span class="bg-slate-200 text-slate-700 text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold">
@@ -1209,16 +1209,16 @@ export function renderEstimacionesView() {
               </span>
             `}
             ${isEstLocked ? `
-              <span class="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1" title="Esta estimaciÃ³n tiene activado el candado: solo se puede consultar e imprimir">
-                <i class="fa-solid fa-lock text-[9px]"></i> Bloqueada (Solo consulta e impresiÃ³n)
+              <span class="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1" title="Esta estimación tiene activado el candado: solo se puede consultar e imprimir">
+                <i class="fa-solid fa-lock text-[9px]"></i> Bloqueada (Solo consulta e impresión)
               </span>
             ` : ''}
           </div>
 
-          <!-- Derecha: BotÃ³n Factura / Subir Factura + PENDIENTE DE PAGO (Exactamente como en el diseÃ±o) -->
+          <!-- Derecha: Botón Factura / Subir Factura + PENDIENTE DE PAGO (Exactamente como en el diseño) -->
           <div class="ml-auto flex items-center gap-2 flex-wrap justify-end">
             ${(activeEst.factura?.pdfUrl || activeEst.factura?.pdfFileRef || activeEst.factura?.xmlUrl || activeEst.factura?.xmlFileRef) ? `
-              <!-- Si ya se subiÃ³ la factura: BotÃ³n que abre el modal flotante para verla, sustituirla o eliminarla -->
+              <!-- Si ya se subió la factura: Botón que abre el modal flotante para verla, sustituirla o eliminarla -->
               <button type="button" onclick="openFacturaModal('${activeEst.id}')"
                       class="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white shadow-2xs transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                       title="Ver factura, cambiarla o eliminarla">
@@ -1226,9 +1226,9 @@ export function renderEstimacionesView() {
                 <span>Ver / Gestionar Factura</span>
               </button>
             ` : `
-              <!-- Si NO se ha subido factura: BotÃ³n directo para subirla -->
+              <!-- Si NO se ha subido factura: Botón directo para subirla -->
               <label class="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white shadow-2xs transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                     title="Subir Factura PDF o XML de esta ${activeEst.numero === 0 ? 'apertura de anticipo' : 'estimaciÃ³n'}">
+                     title="Subir Factura PDF o XML de esta ${activeEst.numero === 0 ? 'apertura de anticipo' : 'estimación'}">
                 <i class="fa-solid fa-cloud-arrow-up text-xs"></i>
                 <span>Subir Factura</span>
                 <input type="file" accept="application/pdf,.xml,text/xml" class="hidden"
@@ -1240,7 +1240,7 @@ export function renderEstimacionesView() {
               </label>
             `}
 
-            <!-- BotÃ³n Estado de Cobro (Alterna entre Pendiente y Cobrada con un solo clic) -->
+            <!-- Botón Estado de Cobro (Alterna entre Pendiente y Cobrada con un solo clic) -->
             <button type="button" onclick="toggleEstimacionCobroStatus('${activeEst.id}')"
                     class="px-3 py-1 rounded-lg text-xs font-bold tracking-wide flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer whitespace-nowrap ${activeEst.factura?.status === 'cobrada' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200'}"
                     title="Haz clic para alternar entre Pendiente de Pago y Cobrada / Pagada">
@@ -1256,82 +1256,82 @@ export function renderEstimacionesView() {
         <!-- VISTA EXCLUSIVA: FICHA EJECUTIVA DE COBRO DE ANTICIPO (EST. 0) -->
         ${renderEstimacionZeroViewHTML(data, currencySymbol)}
       ` : `
-        <!-- VISTA DE ESTIMACIÃ“N DE AVANCE FÃSICO (EST. 1 A N) -->
+        <!-- VISTA DE ESTIMACIÓN DE AVANCE FÍSICO (EST. 1 A N) -->
         <div class="flex-1 flex flex-col overflow-hidden bg-slate-50">
           
-          <!-- Bloque de Comprobantes Fiscales por EstimaciÃ³n -->
+          <!-- Bloque de Comprobantes Fiscales por Estimación -->
           <div class="p-2 sm:px-3.5 sm:pt-2.5 sm:pb-1">
             ${renderFacturaCardHTML(activeEst, isEstLocked)}
           </div>
 
           <!-- TABLA DE GENERADORES Y ESTIMACIONES CON ENCABEZADOS EN COLORES FUERTES Y LETRAS BLANCAS -->
           <div class="flex-1 overflow-auto bg-white custom-scroll calendario-premiere-scroll relative" id="estimaciones-table-container">
-        <!-- LÃ­nea guÃ­a vertical interactiva a todo lo largo de la columna al redimensionar -->
+        <!-- Línea guía vertical interactiva a todo lo largo de la columna al redimensionar -->
         <div id="estimaciones-resizer-guide-line" class="hidden absolute top-0 bottom-0 w-0.5 bg-blue-500 shadow-md z-40 pointer-events-none transition-opacity"></div>
 
         <table id="estimaciones-main-table" class="w-full text-left text-[11px] border-collapse min-w-[940px]">
           
-          <!-- Encabezado de Dos Niveles en Colores Fuertes con Letras Blancas en UNA SOLA LÃNEA (TEXTOS COMPACTOS) -->
+          <!-- Encabezado de Dos Niveles en Colores Fuertes con Letras Blancas en UNA SOLA LÍNEA (TEXTOS COMPACTOS) -->
           <thead class="sticky top-0 z-20 shadow-md select-none text-white whitespace-nowrap">
             
-            <!-- Nivel 1: Agrupadores Principales en Colores SÃ³lidos Fuertes (TODO EN UNA SOLA LÃNEA) -->
+            <!-- Nivel 1: Agrupadores Principales en Colores Sólidos Fuertes (TODO EN UNA SOLA LÍNEA) -->
             <tr class="text-[9px] uppercase tracking-wider font-extrabold text-white whitespace-nowrap">
-              <!-- 1. CatÃ¡logo y Concepto: Gris Oscuro / Slate-800 (Fijo con botones de ajuste rÃ¡pido) -->
-              <th colspan="3" class="py-1.5 px-2 text-center border-r-2 border-slate-700 bg-slate-800 text-white whitespace-nowrap select-none sticky left-0 z-35 col-estimaciones-header-cat" title="CatÃ¡logo y Concepto de Obra (Fijo)">
+              <!-- 1. Catálogo y Concepto: Gris Oscuro / Slate-800 (Fijo con botones de ajuste rápido) -->
+              <th colspan="3" class="py-1.5 px-2 text-center border-r-2 border-slate-700 bg-slate-800 text-white whitespace-nowrap select-none sticky left-0 z-35 col-estimaciones-header-cat" title="Catálogo y Concepto de Obra (Fijo)">
                 <div class="flex items-center justify-center gap-1.5 px-1">
-                  <span>CATÃLOGO Y CONCEPTO DE OBRA</span>
+                  <span>CATÁLOGO Y CONCEPTO DE OBRA</span>
                   <div class="inline-flex items-center gap-0.5 bg-slate-700/80 rounded px-1 py-0.5 text-[8.5px] opacity-80 hover:opacity-100 transition">
-                    <button type="button" onclick="adjustConceptoColumnWidth(-30)" class="hover:text-blue-300 px-1 cursor-pointer font-mono font-bold" title="Reducir ancho de CatÃ¡logo y Concepto">-</button>
-                    <button type="button" onclick="resetConceptoColumnWidth()" class="hover:text-blue-300 px-1 cursor-normal text-[8px]" title="Restablecer ancho a 310px">â†”</button>
-                    <button type="button" onclick="adjustConceptoColumnWidth(30)" class="hover:text-blue-300 px-1 cursor-pointer font-mono font-bold" title="Aumentar ancho de CatÃ¡logo y Concepto">+</button>
+                    <button type="button" onclick="adjustConceptoColumnWidth(-30)" class="hover:text-blue-300 px-1 cursor-pointer font-mono font-bold" title="Reducir ancho de Catálogo y Concepto">-</button>
+                    <button type="button" onclick="resetConceptoColumnWidth()" class="hover:text-blue-300 px-1 cursor-normal text-[8px]" title="Restablecer ancho a 310px">↔</button>
+                    <button type="button" onclick="adjustConceptoColumnWidth(30)" class="hover:text-blue-300 px-1 cursor-pointer font-mono font-bold" title="Aumentar ancho de Catálogo y Concepto">+</button>
                   </div>
                 </div>
               </th>
 
-              <!-- 2. Presupuesto Base: Azul Fuerte Corporativo / Blue-700 (Una sola lÃ­nea) -->
+              <!-- 2. Presupuesto Base: Azul Fuerte Corporativo / Blue-700 (Una sola línea) -->
               <th colspan="3" class="py-1.5 px-1.5 text-center border-r-2 border-blue-900 bg-blue-700 text-white whitespace-nowrap" title="Presupuesto Base Contratado">
                 <i class="fa-solid fa-file-contract mr-1 text-blue-200"></i>PRESUPUESTO BASE CONTRATADO
               </th>
 
-              <!-- 3. Acumulado Anterior: Morado / PÃºrpura Fuerte / Purple-800 (Una sola lÃ­nea) -->
+              <!-- 3. Acumulado Anterior: Morado / Púrpura Fuerte / Purple-800 (Una sola línea) -->
               <th colspan="2" class="py-1.5 px-1.5 text-center border-r-2 border-purple-950 bg-purple-800 text-white whitespace-nowrap" title="Acumulado Anterior (Reflejado)">
                 <i class="fa-solid fa-clock-rotate-left mr-1 text-purple-200"></i>ACUMULADO ANTERIOR (REFLEJADO)
               </th>
 
-              <!-- 4. Esta EstimaciÃ³n: Verde Esmeralda Fuerte / Emerald-700 (Una sola lÃ­nea) -->
-              <th colspan="2" class="py-1.5 px-1.5 text-center border-r-2 border-emerald-900 bg-emerald-700 text-white font-black whitespace-nowrap" title="Esta EstimaciÃ³n (Actual)">
-                <i class="fa-solid fa-pencil mr-1 text-emerald-200"></i>ESTA ESTIMACIÃ“N (ACTUAL)
+              <!-- 4. Esta Estimación: Verde Esmeralda Fuerte / Emerald-700 (Una sola línea) -->
+              <th colspan="2" class="py-1.5 px-1.5 text-center border-r-2 border-emerald-900 bg-emerald-700 text-white font-black whitespace-nowrap" title="Esta Estimación (Actual)">
+                <i class="fa-solid fa-pencil mr-1 text-emerald-200"></i>ESTA ESTIMACIÓN (ACTUAL)
               </th>
 
-              <!-- 5. Acumulado al Corte: Cyan / Azul Marino Profundo / Cyan-800 (Una sola lÃ­nea) -->
+              <!-- 5. Acumulado al Corte: Cyan / Azul Marino Profundo / Cyan-800 (Una sola línea) -->
               <th colspan="3" class="py-1.5 px-1.5 text-center border-r-2 border-cyan-950 bg-cyan-800 text-white font-extrabold whitespace-nowrap" title="Acumulado al Corte">
                 <i class="fa-solid fa-chart-line mr-1 text-cyan-200"></i>ACUMULADO AL CORTE
               </th>
 
-              <!-- 6. Saldo por Ejecutar: Ãmbar / Bronce Fuerte / Amber-700 (Una sola lÃ­nea) -->
+              <!-- 6. Saldo por Ejecutar: Ámbar / Bronce Fuerte / Amber-700 (Una sola línea) -->
               <th colspan="2" class="py-1.5 px-1.5 text-center bg-amber-700 text-white font-extrabold whitespace-nowrap" title="Saldo por Ejecutar">
                 <i class="fa-solid fa-coins mr-1 text-amber-200"></i>SALDO POR EJECUTAR
               </th>
             </tr>
 
-            <!-- Nivel 2: Columnas EspecÃ­ficas Coordinadas en Tonos SÃ³lidos con Letras Blancas (TEXTOS MÃS CHICOS) -->
+            <!-- Nivel 2: Columnas Específicas Coordinadas en Tonos Sólidos con Letras Blancas (TEXTOS MÁS CHICOS) -->
             <tr class="text-[8.5px] font-bold text-white uppercase border-b-2 border-slate-400 whitespace-nowrap select-none">
-              <!-- CatÃ¡logo: CLAVE (Fija en la columna izquierda) -->
+              <!-- Catálogo: CLAVE (Fija en la columna izquierda) -->
               <th class="py-1.5 px-1 text-center border-r border-slate-700 bg-slate-750 bg-[#27354a] text-white whitespace-nowrap sticky top-[28px] z-35 col-estimaciones-clave">CLAVE</th>
               
-              <!-- CatÃ¡logo: DESCRIPCIÃ“N DEL CONCEPTO -->
-              <th class="py-1.5 px-2 border-r border-slate-700 bg-slate-750 bg-[#27354a] text-white whitespace-nowrap col-estimaciones-concepto select-none sticky top-[28px] z-35" title="DescripciÃ³n del Concepto de Obra">
+              <!-- Catálogo: DESCRIPCIÓN DEL CONCEPTO -->
+              <th class="py-1.5 px-2 border-r border-slate-700 bg-slate-750 bg-[#27354a] text-white whitespace-nowrap col-estimaciones-concepto select-none sticky top-[28px] z-35" title="Descripción del Concepto de Obra">
                 <div class="flex items-center justify-between">
-                  <span>DESCRIPCIÃ“N DEL CONCEPTO</span>
-                  <span class="text-[7.5px] text-slate-300 font-normal opacity-70">â†• Justificado</span>
+                  <span>DESCRIPCIÓN DEL CONCEPTO</span>
+                  <span class="text-[7.5px] text-slate-300 font-normal opacity-70">↕ Justificado</span>
                 </div>
               </th>
 
-              <!-- CatÃ¡logo: UNID (con botÃ³n/manija en su lado derecho para arrastrar hacia los lados) -->
+              <!-- Catálogo: UNID (con botón/manija en su lado derecho para arrastrar hacia los lados) -->
               <th id="estimaciones-th-unid" class="py-1.5 pl-1.5 pr-3.5 text-center border-r-2 border-slate-400 bg-slate-750 bg-[#27354a] text-white whitespace-nowrap relative select-none sticky top-[28px] z-35 col-estimaciones-unid shadow-[4px_0_8px_-2px_rgba(0,0,0,0.18)]" title="Unidad de Medida">
                 <span>UNID</span>
                 <!-- Manija Vertical de Ajuste de Columna al lado derecho de UNID -->
-                <div id="estimaciones-resizer-handle-n2" class="absolute right-0 top-0 bottom-0 w-2.5 hover:w-3 bg-slate-600/70 hover:bg-blue-500 active:bg-blue-400 cursor-col-resize flex items-center justify-center transition-all z-30 group" title="Arrastra hacia los lados para agrandar o achicar CatÃ¡logo y Concepto de Obra">
+                <div id="estimaciones-resizer-handle-n2" class="absolute right-0 top-0 bottom-0 w-2.5 hover:w-3 bg-slate-600/70 hover:bg-blue-500 active:bg-blue-400 cursor-col-resize flex items-center justify-center transition-all z-30 group" title="Arrastra hacia los lados para agrandar o achicar Catálogo y Concepto de Obra">
                   <div class="w-0.5 h-3 bg-white/70 group-hover:bg-white rounded-full"></div>
                 </div>
               </th>
@@ -1345,7 +1345,7 @@ export function renderEstimacionesView() {
               <th class="py-1.5 px-1 min-w-[50px] text-right border-r border-purple-850 bg-purple-850 bg-[#581c87] text-white whitespace-nowrap" title="Cant Ant">CANT ANT</th>
               <th class="py-1.5 px-1.5 min-w-[70px] text-right border-r-2 border-purple-950 bg-purple-900 text-white font-extrabold whitespace-nowrap" title="Total Ant ($)">TOTAL ANT ($)</th>
 
-              <!-- Esta EstimaciÃ³n (Zona de Captura) -->
+              <!-- Esta Estimación (Zona de Captura) -->
               <th class="py-1.5 px-1.5 min-w-[58px] text-center border-r border-emerald-800 bg-emerald-800 text-white font-black whitespace-nowrap" title="CANT EJE">
                 <span class="whitespace-nowrap"><i class="fa-solid fa-pencil text-[8px] text-emerald-200 mr-1"></i>CANT EJE</span>
               </th>
@@ -1399,7 +1399,7 @@ export function renderEstimacionesView() {
                     <td class="py-1 px-1 text-center text-[9px] text-slate-300 bg-purple-50/15">---</td>
                     <td class="py-1 px-1.5 text-right font-bold text-purple-900 bg-purple-50/25 border-r-2 border-purple-100 whitespace-nowrap text-[11px]">${formatCurrency(row.importeAnt, currencySymbol)}</td>
 
-                    <!-- Esta EstimaciÃ³n de partida (Diferenciado con fondo verde esmeralda) -->
+                    <!-- Esta Estimación de partida (Diferenciado con fondo verde esmeralda) -->
                     <td class="py-1 px-1 text-center text-[9px] text-emerald-400 bg-emerald-50/30">---</td>
                     <td id="est-part-tot-eje-${row.id}" class="py-1 px-1.5 text-right font-black text-emerald-700 bg-emerald-50/40 border-r-2 border-emerald-200 whitespace-nowrap text-[11px]">${formatCurrency(row.totalEje, currencySymbol)}</td>
 
@@ -1408,7 +1408,7 @@ export function renderEstimacionesView() {
                     <td id="est-part-tot-acum-${row.id}" class="py-1 px-1.5 text-right font-bold text-slate-900 bg-cyan-50/20 whitespace-nowrap text-[11px]">${formatCurrency(row.totalAcum, currencySymbol)}</td>
                     <td id="est-part-pct-acum-${row.id}" class="py-1 px-1 text-center text-[10.5px] font-bold text-blue-700 bg-cyan-50/25 border-r-2 border-cyan-100 whitespace-nowrap">${row.pctAvanceAcum.toFixed(1)}%</td>
 
-                    <!-- Saldo de partida (Diferenciado con fondo Ã¡mbar muy sutil) -->
+                    <!-- Saldo de partida (Diferenciado con fondo ámbar muy sutil) -->
                     <td class="py-1 px-1 text-center text-[9px] text-slate-300 bg-amber-50/15">---</td>
                     <td id="est-part-tot-saldo-${row.id}" class="py-1 px-1.5 text-right font-bold text-amber-800 bg-amber-50/25 whitespace-nowrap text-[11px]">${formatCurrency(row.totalSaldo, currencySymbol)}</td>
                   </tr>
@@ -1444,7 +1444,7 @@ export function renderEstimacionesView() {
                       ${formatCurrency(row.importeAnt, currencySymbol)}
                     </td>
 
-                    <!-- Esta EstimaciÃ³n (Zona de Captura con Verde Esmeralda + Enlaces de Fotos Nube) -->
+                    <!-- Esta Estimación (Zona de Captura con Verde Esmeralda + Enlaces de Fotos Nube) -->
                     <td class="py-0.5 px-1 text-center bg-emerald-50/40 border-r border-emerald-200">
                       <div class="flex items-center justify-center gap-1">
                         <input type="text" 
@@ -1482,7 +1482,7 @@ export function renderEstimacionesView() {
                       ${row.pctAvanceAcum.toFixed(1)}%
                     </td>
 
-                    <!-- Saldo Restante (Fondo Ã¡mbar muy suave) -->
+                    <!-- Saldo Restante (Fondo ámbar muy suave) -->
                     <td id="est-cell-cant-saldo-${row.id}" class="py-1 px-1 text-right font-mono bg-amber-50/15 whitespace-nowrap text-[11px] ${row.cantSaldo <= 0 ? 'text-slate-400' : 'text-slate-600'}">
                       ${formatNumber(row.cantSaldo, 2)}
                     </td>
@@ -1495,7 +1495,7 @@ export function renderEstimacionesView() {
             }).join('')}
           </tbody>
 
-          <!-- TOTALES INFERIORES: RECTÃNGULO BLANCO CON LÃNEA GRIS GRUESA ENCABEZANDO SEGÃšN INDICACIÃ“N DEL USUARIO -->
+          <!-- TOTALES INFERIORES: RECTÁNGULO BLANCO CON LÍNEA GRIS GRUESA ENCABEZANDO SEGÚN INDICACIÓN DEL USUARIO -->
           <tfoot id="estimaciones-tfoot" class="bg-white text-slate-800 font-mono sticky bottom-0 z-20 shadow-2xl divide-y divide-slate-200 text-[11px] border-t-[6px] border-slate-500" style="box-shadow: 0 -6px 0 0 #64748b, 0 -12px 24px -4px rgba(0, 0, 0, 0.12);">
             ${renderEstimacionesTfootContentHTML(kpis, currencySymbol)}
           </tfoot>
@@ -1503,29 +1503,29 @@ export function renderEstimacionesView() {
         </table>
       </div>
 
-      <!-- SECCIÃ“N DE DESPLAZAMIENTO HORIZONTAL EXCLUSIVA AL LADO DERECHO DE "CATÃLOGO Y CONCEPTO DE OBRA" -->
+      <!-- SECCIÓN DE DESPLAZAMIENTO HORIZONTAL EXCLUSIVA AL LADO DERECHO DE "CATÁLOGO Y CONCEPTO DE OBRA" -->
       <div id="estimaciones-displacement-bar" class="h-7 bg-slate-100 border-t border-slate-300 flex items-center select-none shrink-0 z-25">
-        <!-- Espacio izquierdo sincronizado exactamente con el ancho de CatÃ¡logo y Concepto de Obra (Clave + Concepto + Unid) -->
+        <!-- Espacio izquierdo sincronizado exactamente con el ancho de Catálogo y Concepto de Obra (Clave + Concepto + Unid) -->
         <div id="estimaciones-displacement-left-spacer" class="h-full bg-slate-200/80 border-r-2 border-slate-400 px-2.5 flex items-center justify-between text-[10px] text-slate-600 font-mono shrink-0 estimaciones-fixed-left-width">
-          <span class="truncate font-semibold flex items-center gap-1.5" title="Columna fija: CatÃ¡logo y Concepto de Obra">
-            <i class="fa-solid fa-thumbtack text-blue-600 text-[9px]"></i> CatÃ¡logo y Concepto Fijo
+          <span class="truncate font-semibold flex items-center gap-1.5" title="Columna fija: Catálogo y Concepto de Obra">
+            <i class="fa-solid fa-thumbtack text-blue-600 text-[9px]"></i> Catálogo y Concepto Fijo
           </span>
-          <span class="text-slate-400 text-[9px]">â†’</span>
+          <span class="text-slate-400 text-[9px]">→</span>
         </div>
 
-        <!-- SecciÃ³n Derecha: Barra de Desplazamiento al lado derecho de CatÃ¡logo y Concepto de Obra -->
+        <!-- Sección Derecha: Barra de Desplazamiento al lado derecho de Catálogo y Concepto de Obra -->
         <div id="estimaciones-displacement-right-zone" class="flex-1 h-full px-2 flex items-center gap-2 min-w-0 bg-slate-50">
           <button type="button"
                   id="estimaciones-scroll-btn-left"
                   onclick="scrollEstimacionesTableStep(-1)"
                   class="w-6 h-5 rounded bg-white hover:bg-slate-200 active:bg-blue-600 text-slate-600 hover:text-slate-900 active:text-white flex items-center justify-center text-[10px] transition cursor-pointer border border-slate-300 shadow-2xs shrink-0"
-                  title="Desplazar columnas numÃ©ricas hacia la izquierda (â—€)">
+                  title="Desplazar columnas numéricas hacia la izquierda (◀)">
             <i class="fa-solid fa-chevron-left"></i>
           </button>
 
           <div id="estimaciones-scroll-track"
                class="flex-1 h-4 bg-slate-200/90 hover:bg-slate-300/80 rounded-full border border-slate-300 relative cursor-pointer overflow-hidden shadow-inner flex items-center"
-               title="Haz clic o arrastra para desplazar las secciones a la derecha de CatÃ¡logo y Concepto de Obra">
+               title="Haz clic o arrastra para desplazar las secciones a la derecha de Catálogo y Concepto de Obra">
             <div id="estimaciones-scroll-thumb"
                  class="absolute h-3 rounded-full bg-slate-500 hover:bg-blue-600 active:bg-blue-700 transition-colors shadow-2xs flex items-center justify-center gap-0.5 cursor-grab"
                  style="left: 0px; width: 35%;">
@@ -1539,7 +1539,7 @@ export function renderEstimacionesView() {
                   id="estimaciones-scroll-btn-right"
                   onclick="scrollEstimacionesTableStep(1)"
                   class="w-6 h-5 rounded bg-white hover:bg-slate-200 active:bg-blue-600 text-slate-600 hover:text-slate-900 active:text-white flex items-center justify-center text-[10px] transition cursor-pointer border border-slate-300 shadow-2xs shrink-0"
-                  title="Desplazar columnas numÃ©ricas hacia la derecha (â–¶)">
+                  title="Desplazar columnas numéricas hacia la derecha (▶)">
             <i class="fa-solid fa-chevron-right"></i>
           </button>
         </div>
@@ -1549,14 +1549,14 @@ export function renderEstimacionesView() {
 
     </div>`;
 
-  // Inicializar manija vertical de redimensionamiento de CatÃ¡logo y Conceptos y barra de desplazamiento derecha
+  // Inicializar manija vertical de redimensionamiento de Catálogo y Conceptos y barra de desplazamiento derecha
   initEstimacionesColumnResizer();
   initEstimacionesDisplacementBar();
   renderTabAssignedAvatars('estimaciones');
 }
 
 // ==========================================
-// BARRA DE DESPLAZAMIENTO AL LADO DERECHO DE "CATÃLOGO Y CONCEPTO DE OBRA"
+// BARRA DE DESPLAZAMIENTO AL LADO DERECHO DE "CATÁLOGO Y CONCEPTO DE OBRA"
 // ==========================================
 export function updateEstimacionesThumbUI() {
   const container = document.getElementById('estimaciones-table-container');
@@ -1654,7 +1654,7 @@ export function initEstimacionesDisplacementBar() {
 export function onSwitchActiveEstimacion(estimacionId) {
   setActiveEstimacionId(estimacionId);
   renderEstimacionesView();
-  showToast('EstimaciÃ³n cambiada');
+  showToast('Estimación cambiada');
 }
 
 export function promptCreateNewEstimacion() {
@@ -1663,7 +1663,7 @@ export function promptCreateNewEstimacion() {
     ? data.estimacionesAvance.length
     : (data.estimacionesList || []).filter(e => e.id !== 'est_0' && e.numero !== 0).length;
   const nextNum = avanceCount + 1;
-  const nombre = prompt(`Nombre de la nueva estimaciÃ³n:`, `EstimaciÃ³n No. ${nextNum}`);
+  const nombre = prompt(`Nombre de la nueva estimación:`, `Estimación No. ${nextNum}`);
   if (!nombre) return;
 
   const newEst = createNewEstimacion(nombre.trim());
@@ -1679,7 +1679,7 @@ export function toggleActiveEstimacionLock() {
 
 export function confirmDeleteCurrentEstimacion(estId, estNombre) {
   if (!guardTabUnlocked('estimaciones')) return;
-  if (!confirm(`Â¿EstÃ¡s seguro de eliminar "${estNombre}"? Esta acciÃ³n no se puede deshacer.`)) {
+  if (!confirm(`¿Estás seguro de eliminar "${estNombre}"? Esta acción no se puede deshacer.`)) {
     return;
   }
   const ok = deleteEstimacion(estId);
@@ -1687,7 +1687,7 @@ export function confirmDeleteCurrentEstimacion(estId, estNombre) {
     renderEstimacionesView();
     showToast(`Se ha eliminado ${estNombre}`);
   } else {
-    showToast('No se puede eliminar la Ãºnica estimaciÃ³n del proyecto', 'warning');
+    showToast('No se puede eliminar la única estimación del proyecto', 'warning');
   }
 }
 
@@ -1699,7 +1699,7 @@ export function onChangeEstimacionDate(estId, field, val) {
   if (!val) return;
   updateEstimacionMeta(estId, { [field]: val });
   renderEstimacionesView();
-  showToast('PerÃ­odo de estimaciÃ³n actualizado');
+  showToast('Período de estimación actualizado');
 }
 
 // Formatea cualquier cantidad positiva de CANT EJE a 2 decimales exactos (ej. "5" -> "5.00", "5.3" -> "5.30")
@@ -1712,7 +1712,7 @@ export function formatCantEjeTwoDecimals(rawVal) {
   return rounded.toFixed(2);
 }
 
-// Sanitiza mientras el usuario escribe sin interrumpir la captura, limitando a mÃ¡ximo 2 decimales despuÃ©s del punto
+// Sanitiza mientras el usuario escribe sin interrumpir la captura, limitando a máximo 2 decimales después del punto
 function sanitizeCantEjeWhileTyping(rawVal) {
   let cleaned = String(rawVal ?? '').replace(/,/g, '.').replace(/[^0-9.]/g, '');
   const dotIdx = cleaned.indexOf('.');
@@ -1741,7 +1741,7 @@ export function onEstimacionCantEjeInput(conceptId, val, inputEl = null) {
   const currencySymbol = state.settings?.currencySymbol || '$';
   const { rows, kpis } = getEstimacionesCalculatedData();
 
-  // ActualizaciÃ³n reactiva quirÃºrgica de celdas y totales sin recrear el <input> activo (mantiene el foco en la casilla)
+  // Actualización reactiva quirúrgica de celdas y totales sin recrear el <input> activo (mantiene el foco en la casilla)
   rows.forEach(r => {
     if (r.isParent) {
       const partEjeEl = document.getElementById(`est-part-tot-eje-${r.id}`);
@@ -1799,7 +1799,7 @@ export function onEstimacionCantEjeInput(conceptId, val, inputEl = null) {
   }
 }
 
-// Al terminar de capturar en CANT EJE (blur / change / Enter), completa automÃ¡ticamente .00 o el segundo decimal (.X0)
+// Al terminar de capturar en CANT EJE (blur / change / Enter), completa automáticamente .00 o el segundo decimal (.X0)
 export function onEstimacionCantEjeBlur(conceptId, inputEl) {
   if (isEstimacionLocked()) return '';
   const rawVal = inputEl && typeof inputEl === 'object' ? inputEl.value : inputEl;
@@ -1858,7 +1858,7 @@ export function expandAllEstimacionesPartidas() {
   showToast('Todas las partidas desagrupadas en estimaciones');
 }
 
-// Imprimir formato de EstimaciÃ³n (CarÃ¡tula ejecutiva y tabla de generadores)
+// Imprimir formato de Estimación (Carátula ejecutiva y tabla de generadores)
 export function printEstimacionActual() {
   printEstimacionesFormat();
 }
@@ -1874,7 +1874,7 @@ export function onEstimacionesIvaInput(val) {
 }
 
 // =========================================================================
-// MODAL DE REPORTE FOTOGRÃFICO DE ESTIMACIONES (AWS S3 + ENLACE OPCIONAL)
+// MODAL DE REPORTE FOTOGRÁFICO DE ESTIMACIONES (AWS S3 + ENLACE OPCIONAL)
 // =========================================================================
 let activePhotoModalConceptId = null;
 let activePhotoModalSlots = [null, null];
@@ -1887,7 +1887,7 @@ function renderEstimacionPhotoSlotCard(slotIdx, fotoObj, isLocked, placeholderNo
   const f = fotoObj || emptyFotoSlot();
   const hasManaged = Boolean(f.mediaId || f.s3Key);
   const badgeText = hasManaged
-    ? (f.s3Key ? `AWS S3 â€¢ ${f.fileName || 'imagen.jpg'}${f.sizeLabel ? ` (${f.sizeLabel})` : ''}` : `CachÃ© local â€¢ ${f.fileName || 'imagen.jpg'}${f.sizeLabel ? ` (${f.sizeLabel})` : ''}`)
+    ? (f.s3Key ? `AWS S3 • ${f.fileName || 'imagen.jpg'}${f.sizeLabel ? ` (${f.sizeLabel})` : ''}` : `Caché local • ${f.fileName || 'imagen.jpg'}${f.sizeLabel ? ` (${f.sizeLabel})` : ''}`)
     : (f.url ? 'Enlace URL externo vinculado' : '');
 
   return `
@@ -1895,7 +1895,7 @@ function renderEstimacionPhotoSlotCard(slotIdx, fotoObj, isLocked, placeholderNo
       <div class="flex items-center justify-between">
         <span class="font-bold text-slate-800 flex items-center gap-1.5">
           <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold inline-flex items-center justify-center">${slotIdx}</span>
-          <span>FotografÃ­a ${slotIdx}${slotIdx === 2 ? ' (Opcional)' : ''}</span>
+          <span>Fotografía ${slotIdx}${slotIdx === 2 ? ' (Opcional)' : ''}</span>
         </span>
         ${!isLocked ? `
           <button type="button" onclick="clearEstimacionConceptPhotoSlot(${slotIdx})" class="text-[10.5px] text-rose-600 hover:underline cursor-pointer">
@@ -1908,14 +1908,14 @@ function renderEstimacionPhotoSlotCard(slotIdx, fotoObj, isLocked, placeholderNo
         <div class="space-y-1">
           <label class="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-[11px] cursor-pointer transition">
             <i class="fa-solid fa-cloud-arrow-up"></i>
-            <span>Subir Foto a AWS S3 (auto-compresiÃ³n â‰¤1280px)</span>
+            <span>Subir Foto a AWS S3 (auto-compresión ≤1280px)</span>
             <input type="file" id="est-foto-file-${slotIdx}"
                    accept=".jpg,.jpeg,.png,.webp,image/*"
                    onchange="onEstimacionPhotoFileSelected(${slotIdx}, this.files && this.files[0] ? this.files[0] : null)"
                    class="hidden">
           </label>
           <div id="est-foto-status-${slotIdx}" class="text-[10px] font-medium ${badgeText ? 'text-emerald-700' : 'text-slate-400'} truncate">
-            ${badgeText || 'Sin archivo en AWS S3 todavÃ­a'}
+            ${badgeText || 'Sin archivo en AWS S3 todavía'}
           </div>
         </div>
       ` : `
@@ -1933,7 +1933,7 @@ function renderEstimacionPhotoSlotCard(slotIdx, fotoObj, isLocked, placeholderNo
       </div>
 
       <div class="space-y-1">
-        <label class="text-[10.5px] font-semibold text-slate-600 block">Pie de foto / DescripciÃ³n:</label>
+        <label class="text-[10.5px] font-semibold text-slate-600 block">Pie de foto / Descripción:</label>
         <input type="text" id="est-foto-nota-${slotIdx}"
                ${isLocked ? 'disabled readonly' : ''}
                value="${String(f.nota || '').replace(/"/g, '&quot;')}"
@@ -1990,9 +1990,9 @@ export function openEstimacionConceptPhotosModal(conceptId) {
             <i class="fa-solid fa-camera-retro text-base"></i>
           </span>
           <div class="min-w-0">
-            <h3 class="text-sm font-bold text-white truncate">Reporte FotogrÃ¡fico â€” ${activeEst.nombre}</h3>
+            <h3 class="text-sm font-bold text-white truncate">Reporte Fotográfico — ${activeEst.nombre}</h3>
             <p class="text-[11px] text-indigo-200 truncate">
-              Clave <strong>${row.clave}</strong> â€¢ Cant. Eje: <strong>${Number(row.cantEje || 0).toFixed(2)} ${row.unidad}</strong> (Almacenamiento seguro AWS S3)
+              Clave <strong>${row.clave}</strong> • Cant. Eje: <strong>${Number(row.cantEje || 0).toFixed(2)} ${row.unidad}</strong> (Almacenamiento seguro AWS S3)
             </p>
           </div>
         </div>
@@ -2016,15 +2016,15 @@ export function openEstimacionConceptPhotosModal(conceptId) {
         <!-- Medidor de Cuota Unificada -->
         <div id="estimaciones-photos-storage-meter"></div>
 
-        <!-- GuÃ­a rÃ¡pida -->
+        <!-- Guía rápida -->
         <div class="p-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-[11px] text-blue-900 flex items-start gap-2">
           <i class="fa-solid fa-cloud-arrow-up text-blue-600 mt-0.5 shrink-0"></i>
           <div>
-            <strong>CompresiÃ³n automÃ¡tica y almacenamiento AWS S3:</strong> Sube fotos directo desde tu cÃ¡mara o galerÃ­a (JPEG/PNG/WebP se optimizan a â‰¤1280px y 150â€“350 KB) o pega una URL externa. Se incluirÃ¡n automÃ¡ticamente en la hoja fotogrÃ¡fica al imprimir la estimaciÃ³n.
+            <strong>Compresión automática y almacenamiento AWS S3:</strong> Sube fotos directo desde tu cámara o galería (JPEG/PNG/WebP se optimizan a ≤1280px y 150–350 KB) o pega una URL externa. Se incluirán automáticamente en la hoja fotográfica al imprimir la estimación.
           </div>
         </div>
 
-        <!-- Grid de las 2 FotografÃ­as -->
+        <!-- Grid de las 2 Fotografías -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           ${renderEstimacionPhotoSlotCard(1, activePhotoModalSlots[0], isLocked, 'Ej. Vista de armado y cimbrado en eje A-C...')}
           ${renderEstimacionPhotoSlotCard(2, activePhotoModalSlots[1], isLocked, 'Ej. Colado terminado y nivelado...')}
@@ -2034,7 +2034,7 @@ export function openEstimacionConceptPhotosModal(conceptId) {
       <!-- Pie del Modal -->
       <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
         <span class="text-[11px] text-slate-500">
-          ${isLocked ? 'ðŸ”’ EstimaciÃ³n bloqueada (Modo solo consulta)' : 'Al imprimir la estimaciÃ³n, este concepto tendrÃ¡ su hoja fotogrÃ¡fica en el Resumen.'}
+          ${isLocked ? '🔒 Estimación bloqueada (Modo solo consulta)' : 'Al imprimir la estimación, este concepto tendrá su hoja fotográfica en el Resumen.'}
         </span>
         <div class="flex items-center gap-2">
           <button type="button" onclick="closeEstimacionConceptPhotosModal()"
@@ -2078,7 +2078,7 @@ export function closeEstimacionConceptPhotosModal(discardTemp = true) {
   if (discardTemp && Array.isArray(activePhotoModalSlots)) {
     activePhotoModalSlots.forEach((slot) => {
       if (slot?.__isNewTempUpload && (slot.mediaId || slot.s3Key || slot.archivoId)) {
-        deleteManagedFile(slot).catch((err) => console.warn('Cleanup cancel estimaciÃ³n foto:', err));
+        deleteManagedFile(slot).catch((err) => console.warn('Cleanup cancel estimación foto:', err));
       }
     });
   }
@@ -2120,7 +2120,7 @@ export async function onEstimacionPhotoFileSelected(slotIdx, file) {
 
   const prev = activePhotoModalSlots[idx];
   if (prev?.__isNewTempUpload && (prev.mediaId || prev.s3Key || prev.archivoId)) {
-    deleteManagedFile(prev).catch((err) => console.warn('Cleanup replaced estimaciÃ³n temp foto:', err));
+    deleteManagedFile(prev).catch((err) => console.warn('Cleanup replaced estimación temp foto:', err));
   }
 
   const displayUrl = res.dataUrl || await resolveManagedFileUrl(res, { cacheRemote: true });
@@ -2148,7 +2148,7 @@ export async function onEstimacionPhotoFileSelected(slotIdx, file) {
   }
 
   if (statusEl) {
-    statusEl.textContent = `${res.cloudSynced ? 'AWS S3' : 'Cola local'} â€¢ ${res.fileName} (${res.sizeLabel})`;
+    statusEl.textContent = `${res.cloudSynced ? 'AWS S3' : 'Cola local'} • ${res.fileName} (${res.sizeLabel})`;
     statusEl.className = 'text-[10px] font-semibold text-emerald-700 truncate';
   }
   mountStorageMeter('estimaciones-photos-storage-meter', { compact: true, showUpgradeButton: true });
@@ -2185,7 +2185,7 @@ export function clearEstimacionConceptPhotoSlot(slotIdx) {
   const idx = slotIdx - 1;
   const prev = activePhotoModalSlots[idx];
   if (prev?.__isNewTempUpload && (prev.mediaId || prev.s3Key || prev.archivoId)) {
-    deleteManagedFile(prev).catch((err) => console.warn('Cleanup cleared estimaciÃ³n temp foto:', err));
+    deleteManagedFile(prev).catch((err) => console.warn('Cleanup cleared estimación temp foto:', err));
   }
   activePhotoModalSlots[idx] = emptyFotoSlot();
 
@@ -2197,7 +2197,7 @@ export function clearEstimacionConceptPhotoSlot(slotIdx) {
   if (notaEl) notaEl.value = '';
   if (fileEl) fileEl.value = '';
   if (statusEl) {
-    statusEl.textContent = 'Sin archivo en AWS S3 todavÃ­a';
+    statusEl.textContent = 'Sin archivo en AWS S3 todavía';
     statusEl.className = 'text-[10px] font-medium text-slate-400 truncate';
   }
   onEstimacionPhotoUrlPreviewInput(slotIdx);
@@ -2280,7 +2280,7 @@ export async function onFacturaFileUpload(estId, fileType, file) {
 
     updateEstimacionFactura(estId, updates);
     renderEstimacionesView();
-    showToast('Â¡' + fileType.toUpperCase() + ' guardado exitosamente!', 'success');
+    showToast('¡' + fileType.toUpperCase() + ' guardado exitosamente!', 'success');
   } catch (err) {
     console.error('Error al subir comprobante fiscal:', err);
     showToast('Error: ' + err.message, 'error');
@@ -2292,7 +2292,7 @@ export async function viewFacturaFile(estId, fileType) {
   const est = data.estimacionesList.find(e => e.id === estId);
   const factura = est?.factura;
   if (!factura) {
-    showToast('No hay factura registrada en esta estimaciÃ³n', 'warning');
+    showToast('No hay factura registrada en esta estimación', 'warning');
     return;
   }
 
@@ -2325,7 +2325,7 @@ export async function viewFacturaFile(estId, fileType) {
 }
 
 export async function removeFacturaFile(estId, fileType) {
-  if (!confirm('Â¿Deseas eliminar el archivo ' + fileType.toUpperCase() + ' de esta estimaciÃ³n?')) return;
+  if (!confirm('¿Deseas eliminar el archivo ' + fileType.toUpperCase() + ' de esta estimación?')) return;
 
   const data = getEstimacionesCalculatedData();
   const est = data.estimacionesList.find(e => e.id === estId);

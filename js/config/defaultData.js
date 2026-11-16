@@ -1,4 +1,4 @@
-﻿export const defaultTreeData = [
+export const defaultTreeData = [
     {
         "id":  "1",
         "clave":  "1",

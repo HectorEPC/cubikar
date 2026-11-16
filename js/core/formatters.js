@@ -1,9 +1,9 @@
-﻿import { state } from '../state/store.js?v=20261116_cf3';
+import { state } from '../state/store.js?v=20261116_cf4';
 
 export const numFormatter = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const numFormatter5 = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 5, maximumFractionDigits: 5 });
 
-// Redondeo exacto a 2 decimales para cantidades de catÃ¡logo general, costos y totales
+// Redondeo exacto a 2 decimales para cantidades de catálogo general, costos y totales
 export const round2 = (val) => {
   const n = Number(val) || 0;
   return Math.round((n + (n >= 0 ? 1e-12 : -1e-12)) * 100) / 100;
@@ -58,12 +58,12 @@ export const formatMatrixQtyInput = (val) => {
   return num.toFixed(5);
 };
 
-// ConversiÃ³n inteligente de nÃºmeros (soporta nÃºmeros nativos, strings con coma decimal europea/latina y separadores de miles)
+// Conversión inteligente de números (soporta números nativos, strings con coma decimal europea/latina y separadores de miles)
 export const parseFlexibleNumber = (val, defaultVal = 0) => {
   if (val === null || val === undefined || val === '') return defaultVal;
   if (typeof val === 'number') return isNaN(val) ? defaultVal : val;
 
-  let s = String(val).trim().replace(/[$â‚¬Â£\s]/g, '');
+  let s = String(val).trim().replace(/[$€£\s]/g, '');
   if (!s) return defaultVal;
 
   const hasComma = s.includes(',');
@@ -84,7 +84,7 @@ export const parseFlexibleNumber = (val, defaultVal = 0) => {
   return isNaN(num) ? defaultVal : num;
 };
 
-// Clases CSS de color para filas de insumos en matrices APU segÃºn su rubro/tipo
+// Clases CSS de color para filas de insumos en matrices APU según su rubro/tipo
 export const getInsumoRowColorClass = (tipo) => {
   switch (tipo) {
     case 'Material':

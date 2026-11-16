@@ -1,12 +1,12 @@
-﻿// js/modules/calendario/calendarioModel.js
-// Modelo y cÃ¡lculos del Calendario de Obra (Gantt, Flujo Financiero y Curva S)
-// Sincronizado 100% con state.treeData del CatÃ¡logo Base
+// js/modules/calendario/calendarioModel.js
+// Modelo y cálculos del Calendario de Obra (Gantt, Flujo Financiero y Curva S)
+// Sincronizado 100% con state.treeData del Catálogo Base
 
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf3';
-import { getActiveProjectId, getStorageKey, STORAGE_KEY_PROJECTS } from '../../config/constants.js?v=20261116_cf3';
-import { getHierarchyColor } from '../../core/colors.js?v=20261116_cf3';
-import { scheduleCronogramaCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf3';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf3';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf4';
+import { getActiveProjectId, getStorageKey, STORAGE_KEY_PROJECTS } from '../../config/constants.js?v=20261116_cf4';
+import { getHierarchyColor } from '../../core/colors.js?v=20261116_cf4';
+import { scheduleCronogramaCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf4';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf4';
 
 // Colores modernos por partida para las barras del cronograma Gantt
 export const PARTIDA_COLORS = [
@@ -67,7 +67,7 @@ export function diffDays(d1, d2) {
   return Math.round((ms2 - ms1) / (1000 * 60 * 60 * 24));
 }
 
-// Obtener la fecha de creaciÃ³n del proyecto actual (o fallback a hoy)
+// Obtener la fecha de creación del proyecto actual (o fallback a hoy)
 export function getProjectCreationDate() {
   try {
     const activeId = getActiveProjectId();
@@ -86,12 +86,12 @@ export function getProjectCreationDate() {
   return formatDate(new Date());
 }
 
-// ConfiguraciÃ³n persistente del calendario por proyecto
+// Configuración persistente del calendario por proyecto
 export function getScheduleSettings() {
   const projectCreation = getProjectCreationDate();
   const defaults = {
     startDate: projectCreation,
-    currentDate: 'auto', // 'auto' (hoy real diario) o fecha especÃ­fica 'YYYY-MM-DD'
+    currentDate: 'auto', // 'auto' (hoy real diario) o fecha específica 'YYYY-MM-DD'
     scale: 'dias',       // 'dias' | 'semanas' | 'meses'
     viewMode: 'gantt',    // 'gantt' | 'financiero' | 'curva_s'
     selectedPartida: 'all',
@@ -108,7 +108,7 @@ export function getScheduleSettings() {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
         const merged = Object.assign({}, defaults, parsed);
-        // Si el valor guardado es el antiguo fallback por defecto ('2026-05-01'), actualizar a la fecha de creaciÃ³n del proyecto
+        // Si el valor guardado es el antiguo fallback por defecto ('2026-05-01'), actualizar a la fecha de creación del proyecto
         if (merged.startDate === '2026-05-01' && projectCreation !== '2026-05-01') {
           merged.startDate = projectCreation;
         }
@@ -120,7 +120,7 @@ export function getScheduleSettings() {
   return defaults;
 }
 
-// Obtener la fecha del dÃ­a actual / corte (actualizada diariamente o desplazada por el usuario)
+// Obtener la fecha del día actual / corte (actualizada diariamente o desplazada por el usuario)
 export function getGanttTodayDate() {
   const cfg = getScheduleSettings();
   if (cfg.currentDate && cfg.currentDate !== 'auto') {
@@ -129,13 +129,13 @@ export function getGanttTodayDate() {
   return formatDate(new Date());
 }
 
-// Establecer fecha de corte desplazada (dÃ­as anteriores o futuros)
+// Establecer fecha de corte desplazada (días anteriores o futuros)
 export function setGanttTodayDate(newDateStr) {
   saveScheduleSettings({ currentDate: newDateStr });
   return newDateStr;
 }
 
-// Restablecer al dÃ­a de hoy actual en tiempo real
+// Restablecer al día de hoy actual en tiempo real
 export function resetGanttTodayDate() {
   saveScheduleSettings({ currentDate: 'auto' });
   return formatDate(new Date());
@@ -155,10 +155,10 @@ export function saveScheduleSettings(cfg) {
 }
 
 // ==========================================
-// CONFIGURACIÃ“N DE JORNADA LABORAL Y DÃAS INHÃBILES
+// CONFIGURACIÓN DE JORNADA LABORAL Y DÍAS INHÁBILES
 // ==========================================
 
-// FunciÃ³n auxiliar para obtener el n-Ã©simo dÃ­a de la semana en un mes
+// Función auxiliar para obtener el n-ésimo día de la semana en un mes
 function getNthDayOfWeekInMonth(year, month, dayOfWeek, n) {
   let count = 0;
   const d = new Date(year, month, 1);
@@ -172,21 +172,21 @@ function getNthDayOfWeekInMonth(year, month, dayOfWeek, n) {
   return new Date(year, month, 1);
 }
 
-// Festivos Oficiales de Ley en MÃ©xico (LFT) calculados dinÃ¡micamente por aÃ±o
+// Festivos Oficiales de Ley en México (LFT) calculados dinámicamente por año
 export function getMexicanHolidaysForYear(year = 2026) {
   const y = parseInt(year, 10) || 2026;
   return [
-    { date: `${y}-01-01`, name: 'AÃ±o Nuevo' },
-    { date: formatDate(getNthDayOfWeekInMonth(y, 1, 1, 1)), name: 'DÃ­a de la ConstituciÃ³n Mexicana (5 Feb)' },
-    { date: formatDate(getNthDayOfWeekInMonth(y, 2, 1, 3)), name: 'Natalicio de Benito JuÃ¡rez (21 Mar)' },
-    { date: `${y}-05-01`, name: 'DÃ­a del Trabajo' },
-    { date: `${y}-09-16`, name: 'DÃ­a de la Independencia de MÃ©xico' },
-    { date: formatDate(getNthDayOfWeekInMonth(y, 10, 1, 3)), name: 'RevoluciÃ³n Mexicana (20 Nov)' },
+    { date: `${y}-01-01`, name: 'Año Nuevo' },
+    { date: formatDate(getNthDayOfWeekInMonth(y, 1, 1, 1)), name: 'Día de la Constitución Mexicana (5 Feb)' },
+    { date: formatDate(getNthDayOfWeekInMonth(y, 2, 1, 3)), name: 'Natalicio de Benito Juárez (21 Mar)' },
+    { date: `${y}-05-01`, name: 'Día del Trabajo' },
+    { date: `${y}-09-16`, name: 'Día de la Independencia de México' },
+    { date: formatDate(getNthDayOfWeekInMonth(y, 10, 1, 3)), name: 'Revolución Mexicana (20 Nov)' },
     { date: `${y}-12-25`, name: 'Navidad' }
   ];
 }
 
-// ConfiguraciÃ³n de jornada laboral, dÃ­as festivos y lluvias persistente por proyecto
+// Configuración de jornada laboral, días festivos y lluvias persistente por proyecto
 export function getWorkdaysSettings() {
   const key = 'calendario_workdays_' + (getActiveProjectId() || 'default');
   try {
@@ -204,7 +204,7 @@ export function getWorkdaysSettings() {
   } catch (e) {}
 
   return {
-    nonWorkingDaysOfWeek: [0], // 0: Domingo dÃ­a de descanso semanal predeterminado
+    nonWorkingDaysOfWeek: [0], // 0: Domingo día de descanso semanal predeterminado
     festivos: getMexicanHolidaysForYear(2026),
     lluvias: []
   };
@@ -226,11 +226,11 @@ export function saveWorkdaysSettings(cfg) {
   }
 }
 
-// Obtener estado laboral de una fecha especÃ­fica
+// Obtener estado laboral de una fecha específica
 export function getDateWorkdayInfo(dateInput, workdaysCfg = null) {
   const dt = parseDate(dateInput);
   const dateStr = formatDate(dt);
-  const dayOfWeek = dt.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = SÃ¡bado
+  const dayOfWeek = dt.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
   const cfg = workdaysCfg || getWorkdaysSettings();
 
   const isNonWorkingDayOfWeek = (cfg.nonWorkingDaysOfWeek || []).includes(dayOfWeek);
@@ -267,7 +267,7 @@ export function getDateWorkdayInfo(dateInput, workdaysCfg = null) {
   };
 }
 
-// Calcular resumen estadÃ­stico de dÃ­as en un rango de fechas
+// Calcular resumen estadístico de días en un rango de fechas
 export function calculateWorkdaysSummary(startDate, endDate, workdaysCfg = null) {
   const dtStart = parseDate(startDate);
   const dtEnd = parseDate(endDate);
@@ -321,7 +321,7 @@ export function calculateWorkdaysSummary(startDate, endDate, workdaysCfg = null)
 }
 
 // ==========================================
-// EXTRACCIÃ“N Y SINCRONIZACIÃ“N DE CONCEPTOS
+// EXTRACCIÓN Y SINCRONIZACIÓN DE CONCEPTOS
 // ==========================================
 export function extractScheduleItems(tree = state.treeData) {
   const items = [];
@@ -331,7 +331,7 @@ export function extractScheduleItems(tree = state.treeData) {
     if (!Array.isArray(nodes)) return;
 
     nodes.forEach(node => {
-      // Garantizar que el nodo tenga id Ãºnico
+      // Garantizar que el nodo tenga id único
       if (!node.id) {
         node.id = '_' + Math.random().toString(36).substr(2, 9);
       }
@@ -348,7 +348,7 @@ export function extractScheduleItems(tree = state.treeData) {
         color = getPartidaColor(0);
       }
 
-      // CÃ¡lculo de color jerÃ¡rquico idÃ©ntico a CatÃ¡logo Base (catalogView.js)
+      // Cálculo de color jerárquico idéntico a Catálogo Base (catalogView.js)
       let currentHexColor = activeHexColor;
       let currentOffset = depthOffset;
       if (node.color) {
@@ -359,13 +359,13 @@ export function extractScheduleItems(tree = state.treeData) {
       }
       const rowBgColor = currentHexColor ? getHierarchyColor(currentHexColor, currentOffset) : '';
 
-      // Determinar tipo: Si tiene hijos es partida o subpartida segÃºn nivel. Si no, es concepto.
+      // Determinar tipo: Si tiene hijos es partida o subpartida según nivel. Si no, es concepto.
       const tipo = hasChildren ? (level === 1 ? 'partida' : 'subpartida') : 'concepto';
 
-      // expanded por defecto es true si no estÃ¡ explÃ­citamente en false
+      // expanded por defecto es true si no está explícitamente en false
       const expanded = node.expanded !== false;
 
-      // Lista de ancestros para cÃ¡lculo de visibilidad jerÃ¡rquica
+      // Lista de ancestros para cálculo de visibilidad jerárquica
       const ancestorIds = parentItem ? [...parentItem.ancestorIds, parentItem.id] : [];
       const parentPartidaName = level === 1 ? node.descripcion : (parentItem ? parentItem.parentPartidaName : '');
 
@@ -430,10 +430,10 @@ export function extractScheduleItems(tree = state.treeData) {
 }
 
 // ==========================================
-// MOTOR DE DEPENDENCIAS FIN-A-INICIO Y RUTA CRÃTICA (CPM)
+// MOTOR DE DEPENDENCIAS FIN-A-INICIO Y RUTA CRÍTICA (CPM)
 // ==========================================
 
-// Avanza al siguiente dÃ­a laborable si respectWorkdays estÃ¡ activo (con guarda de seguridad contra bucles)
+// Avanza al siguiente día laborable si respectWorkdays está activo (con guarda de seguridad contra bucles)
 export function getNextWorkingDate(dateInput, workdaysCfg = null, respectWorkdays = true) {
   let cur = parseDate(dateInput);
   cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate());
@@ -450,7 +450,7 @@ export function getNextWorkingDate(dateInput, workdaysCfg = null, respectWorkday
   return cur;
 }
 
-// Cuenta dÃ­as hÃ¡biles efectivos entre dos fechas inclusive
+// Cuenta días hábiles efectivos entre dos fechas inclusive
 export function countWorkingDaysInclusive(startDt, endDt, workdaysCfg = null, respectWorkdays = true) {
   const s = parseDate(startDt);
   const e = parseDate(endDt);
@@ -468,7 +468,7 @@ export function countWorkingDaysInclusive(startDt, endDt, workdaysCfg = null, re
   return count;
 }
 
-// Detecta si vincular candidatePredId como predecesora de targetId formarÃ­a un ciclo
+// Detecta si vincular candidatePredId como predecesora de targetId formaría un ciclo
 export function wouldCreateScheduleCycle(targetId, candidatePredId, items = null) {
   const tId = String(targetId || '');
   const pId = String(candidatePredId || '');
@@ -497,7 +497,7 @@ export function wouldCreateScheduleCycle(targetId, candidatePredId, items = null
   return false;
 }
 
-// Recalcula cascada Fin-a-Inicio (Forward Pass) y Ruta CrÃ­tica / Holguras (Backward Pass)
+// Recalcula cascada Fin-a-Inicio (Forward Pass) y Ruta Crítica / Holguras (Backward Pass)
 export function recalculateScheduleCPM(items, options = {}) {
   const cfg = getScheduleSettings();
   const respectWorkdays = options.respectWorkdays !== undefined
@@ -518,7 +518,7 @@ export function recalculateScheduleCPM(items, options = {}) {
     if (c.clave) byClave.set(String(c.clave), c);
   });
 
-  // Normalizar predecesoras vÃ¡lidas y sin auto-referencias ni ciclos
+  // Normalizar predecesoras válidas y sin auto-referencias ni ciclos
   const sanitizedMap = new Map();
   concepts.forEach(c => {
     const rawPreds = Array.isArray(c.node?.schedule?.predecessors)
@@ -534,7 +534,7 @@ export function recalculateScheduleCPM(items, options = {}) {
     sanitizedMap.set(String(c.id), clean);
   });
 
-  // Eliminar cualquier ciclo accidental preservando enlaces previos vÃ¡lidos
+  // Eliminar cualquier ciclo accidental preservando enlaces previos válidos
   const activeGraph = new Map();
   concepts.forEach(c => activeGraph.set(String(c.id), []));
 
@@ -567,7 +567,7 @@ export function recalculateScheduleCPM(items, options = {}) {
     c.node.schedule.predecessors = [...safeList];
   });
 
-  // 1. FORWARD PASS: Empuje automÃ¡tico Fin-a-Inicio en cascada
+  // 1. FORWARD PASS: Empuje automático Fin-a-Inicio en cascada
   const resolvedEarly = new Set();
   const visitingEarly = new Set();
   let cascadedChanges = 0;
@@ -643,7 +643,7 @@ export function recalculateScheduleCPM(items, options = {}) {
 
   concepts.forEach(c => resolveEarly(c));
 
-  // 2. BACKWARD PASS: CÃ¡lculo de Holguras (Slack) y Ruta CrÃ­tica
+  // 2. BACKWARD PASS: Cálculo de Holguras (Slack) y Ruta Crítica
   let projectMaxEndDt = null;
   concepts.forEach(c => {
     const eDt = parseDate(c.endDate);
@@ -707,7 +707,7 @@ export function recalculateScheduleCPM(items, options = {}) {
 
   concepts.forEach(c => resolveLate(c));
 
-  // Marcar enlaces crÃ­ticos exactos (flechas rojas de Ruta CrÃ­tica)
+  // Marcar enlaces críticos exactos (flechas rojas de Ruta Crítica)
   concepts.forEach(c => {
     const succs = succMap.get(String(c.id)) || [];
     c.criticalSuccIds = succs
@@ -715,7 +715,7 @@ export function recalculateScheduleCPM(items, options = {}) {
       .map(s => String(s.id));
   });
 
-  // Actualizar fechas agregadas y bandera crÃ­tica en partidas padre
+  // Actualizar fechas agregadas y bandera crítica en partidas padre
   computeAggregatedDates(items);
 
   const criticalCount = concepts.filter(c => c.isCritical).length;
@@ -730,7 +730,7 @@ export function recalculateScheduleCPM(items, options = {}) {
   };
 }
 
-// Asegurar fechas iniciales lÃ³gicas en los conceptos si aÃºn no tienen y recalcular CPM
+// Asegurar fechas iniciales lógicas en los conceptos si aún no tienen y recalcular CPM
 export function ensureInitialDates(items, projectStartDateStr = null) {
   const effectiveStart = projectStartDateStr || getScheduleSettings()?.startDate || getProjectCreationDate();
   let currDate = parseDate(effectiveStart);
@@ -777,11 +777,11 @@ export function ensureInitialDates(items, projectStartDateStr = null) {
     }
   });
 
-  // Recalcular dependencias Fin-a-Inicio, Ruta CrÃ­tica y fechas agregadas de partidas
+  // Recalcular dependencias Fin-a-Inicio, Ruta Crítica y fechas agregadas de partidas
   recalculateScheduleCPM(items);
 }
 
-// Calcula las fechas mÃ­nimas y mÃ¡ximas para partidas / subpartidas
+// Calcula las fechas mínimas y máximas para partidas / subpartidas
 export function computeAggregatedDates(items) {
   items.forEach(parentItem => {
     if (parentItem.isParent) {
@@ -817,7 +817,7 @@ export function computeAggregatedDates(items) {
   });
 }
 
-// Determinar si un elemento es visible segÃºn el estado colapsado/expandido de sus ancestros
+// Determinar si un elemento es visible según el estado colapsado/expandido de sus ancestros
 export function isItemVisible(item, allItems) {
   if (!item.ancestorIds || item.ancestorIds.length === 0) return true;
   for (const aId of item.ancestorIds) {
@@ -829,7 +829,7 @@ export function isItemVisible(item, allItems) {
   return true;
 }
 
-// Alternar agrupar/desagrupar de un nodo especÃ­fico
+// Alternar agrupar/desagrupar de un nodo específico
 export function toggleCalendarioNodeExpand(nodeId) {
   function findAndToggle(nodes) {
     if (!Array.isArray(nodes)) return false;
@@ -852,7 +852,7 @@ export function toggleCalendarioNodeExpand(nodeId) {
   return res;
 }
 
-// Desagrupar (expandir) todos los grupos del catÃ¡logo
+// Desagrupar (expandir) todos los grupos del catálogo
 export function expandAllCalendarioNodes() {
   function walk(nodes) {
     if (!Array.isArray(nodes)) return;
@@ -867,7 +867,7 @@ export function expandAllCalendarioNodes() {
   persistLocalData(true);
 }
 
-// Agrupar (colapsar) todos los grupos del catÃ¡logo
+// Agrupar (colapsar) todos los grupos del catálogo
 export function collapseAllCalendarioNodes() {
   function walk(nodes) {
     if (!Array.isArray(nodes)) return;
@@ -883,7 +883,7 @@ export function collapseAllCalendarioNodes() {
 }
 
 // ==========================================
-// GENERACIÃ“N DE PERÃODOS TEMPORALES
+// GENERACIÓN DE PERÍODOS TEMPORALES
 // ==========================================
 export function generateTimePeriods(items, scale = 'meses', customStart = null) {
   // Encontrar rango general de fechas de la obra
@@ -917,7 +917,7 @@ export function generateTimePeriods(items, scale = 'meses', customStart = null) 
       const y = curr.getFullYear();
       const m = curr.getMonth();
       const pStart = new Date(y, m, 1);
-      const pEnd = new Date(y, m + 1, 0); // Ãºltimo dÃ­a del mes
+      const pEnd = new Date(y, m + 1, 0); // último día del mes
       const key = `${y}-${String(m + 1).padStart(2, '0')}`;
 
       const short3 = MONTH_NAMES[m].slice(0, 3).toUpperCase();
@@ -938,7 +938,7 @@ export function generateTimePeriods(items, scale = 'meses', customStart = null) 
       periodIndex++;
     }
   } else if (scale === 'semanas') {
-    // Generar semana a semana (7 dÃ­as)
+    // Generar semana a semana (7 días)
     let curr = new Date(minDate);
     let weekIndex = 1;
 
@@ -963,10 +963,10 @@ export function generateTimePeriods(items, scale = 'meses', customStart = null) 
 
       curr = addDays(curr, 7);
       weekIndex++;
-      if (weekIndex > 520) break; // LÃ­mite de seguridad amplio (10 aÃ±os)
+      if (weekIndex > 520) break; // Límite de seguridad amplio (10 años)
     }
   } else {
-    // Escala por DÃ­as (soporta horizontes largos de obra)
+    // Escala por Días (soporta horizontes largos de obra)
     let curr = new Date(minDate);
     let dayIndex = 1;
     const totalDays = Math.min(1825, Math.max(15, diffDays(minDate, maxDate) + 1));
@@ -981,7 +981,7 @@ export function generateTimePeriods(items, scale = 'meses', customStart = null) 
         key,
         index: dayIndex,
         label: dateLabel,
-        fullLabel: `DÃ­a ${dayIndex}: ${formatDate(pStart)}`,
+        fullLabel: `Día ${dayIndex}: ${formatDate(pStart)}`,
         shortLabel: `${pStart.getDate()}`,
         startDate: pStart,
         endDate: pEnd,
@@ -997,24 +997,24 @@ export function generateTimePeriods(items, scale = 'meses', customStart = null) 
 }
 
 // ==========================================
-// GENERACIÃ“N DE ESCALAS TEMPORALES PARA EL GANTT (DÃAS, SEMANAS, MESES)
+// GENERACIÓN DE ESCALAS TEMPORALES PARA EL GANTT (DÍAS, SEMANAS, MESES)
 // ==========================================
 export function generateGanttTimeScale(minDate, maxDate, scale = 'dias', baseDayWidth = 34) {
   const dStart = parseDate(minDate);
   const dEnd = parseDate(maxDate);
 
-  // Normalizar rango: inicio en el primer dÃ­a del mes inicial, fin en el Ãºltimo dÃ­a del mes final
+  // Normalizar rango: inicio en el primer día del mes inicial, fin en el último día del mes final
   const timelineStart = new Date(dStart.getFullYear(), dStart.getMonth(), 1);
   const timelineEnd = new Date(dEnd.getFullYear(), dEnd.getMonth() + 1, 0);
 
   const totalDays = Math.max(1, diffDays(timelineStart, timelineEnd) + 1);
 
-  // ProporciÃ³n de pÃ­xeles por dÃ­a segÃºn escala seleccionada
+  // Proporción de píxeles por día según escala seleccionada
   let pxPerDay;
   if (scale === 'dias') {
     pxPerDay = Math.max(16, baseDayWidth || 34);
   } else if (scale === 'semanas') {
-    // Escala semanas: cada semana de 7 dÃ­as mide ~90-120px para ser legible con "Semana 1, 2, 3, 4"
+    // Escala semanas: cada semana de 7 días mide ~90-120px para ser legible con "Semana 1, 2, 3, 4"
     pxPerDay = Math.max(10, Math.round((baseDayWidth || 34) * 0.45));
   } else {
     // Escala meses: cada mes mide ~120-180px para ver el horizonte completo con nombre de mes
@@ -1090,7 +1090,7 @@ export function generateGanttTimeScale(minDate, maxDate, scale = 'dias', baseDay
     currMonth.setMonth(currMonth.getMonth() + 1);
   }
 
-  // Generar lista de dÃ­as (utilizada principalmente en la escala 'dias')
+  // Generar lista de días (utilizada principalmente en la escala 'dias')
   const workdaysCfg = getWorkdaysSettings();
   const days = [];
   let currDay = new Date(timelineStart.getFullYear(), timelineStart.getMonth(), timelineStart.getDate());
@@ -1134,7 +1134,7 @@ export function generateGanttTimeScale(minDate, maxDate, scale = 'dias', baseDay
   };
 }
 
-// Compatibilidad hacia atrÃ¡s para 3 niveles en escala dÃ­as
+// Compatibilidad hacia atrás para 3 niveles en escala días
 export function generateGanttDays(minDate, maxDate) {
   const s = generateGanttTimeScale(minDate, maxDate, 'dias', 34);
   return {
@@ -1146,10 +1146,10 @@ export function generateGanttDays(minDate, maxDate) {
 }
 
 // ==========================================
-// CÃLCULO DE DISTRIBUCIÃ“N POR PERÃODO
+// CÁLCULO DE DISTRIBUCIÓN POR PERÍODO
 // ==========================================
 export function calculateScheduleDistribution(items, periods) {
-  // Inicializar totales de perÃ­odos
+  // Inicializar totales de períodos
   const periodTotals = {};
   periods.forEach(p => {
     periodTotals[p.key] = {
@@ -1162,7 +1162,7 @@ export function calculateScheduleDistribution(items, periods) {
 
   let grandTotalObra = 0;
 
-  // Calcular distribuciÃ³n para cada concepto
+  // Calcular distribución para cada concepto
   items.forEach(item => {
     if (item.tipo !== 'concepto') return;
 
@@ -1175,7 +1175,7 @@ export function calculateScheduleDistribution(items, periods) {
     item.periodData = {};
 
     periods.forEach(p => {
-      // Si el concepto tiene valores manuales guardados para este perÃ­odo
+      // Si el concepto tiene valores manuales guardados para este período
       if (item.schedule && item.schedule.isManual && item.schedule.periods && item.schedule.periods[p.key] !== undefined) {
         const man = item.schedule.periods[p.key];
         const cant = Number(man.cantidad) || 0;
@@ -1191,7 +1191,7 @@ export function calculateScheduleDistribution(items, periods) {
         };
         periodTotals[p.key].importe += imp;
       } else {
-        // DistribuciÃ³n automÃ¡tica proporcional a los dÃ­as de solapamiento
+        // Distribución automática proporcional a los días de solapamiento
         const overlapStart = s > p.startDate ? s : p.startDate;
         const overlapEnd = e < p.endDate ? e : p.endDate;
         const overlapDays = Math.max(0, diffDays(overlapStart, overlapEnd) + 1);
@@ -1241,7 +1241,7 @@ export function calculateScheduleDistribution(items, periods) {
     }
   });
 
-  // Calcular agregados de perÃ­odos para partidas y subpartidas a partir de sus conceptos descendientes
+  // Calcular agregados de períodos para partidas y subpartidas a partir de sus conceptos descendientes
   items.forEach(parentItem => {
     if (parentItem.isParent) {
       parentItem.periodData = {};
@@ -1279,7 +1279,7 @@ export function calculateScheduleDistribution(items, periods) {
 }
 
 // ==========================================
-// HISTORIAL DE DESHACER (UNDO) Y REHACER (REDO) DE PROGRAMACIÃ“N DE OBRA
+// HISTORIAL DE DESHACER (UNDO) Y REHACER (REDO) DE PROGRAMACIÓN DE OBRA
 // ==========================================
 const MAX_SCHEDULE_HISTORY = 40;
 const scheduleUndoStacksByProject = new Map();
@@ -1347,7 +1347,7 @@ export function saveScheduleUndoSnapshot(label = 'Cambio en cronograma') {
   if (undoStack.length > MAX_SCHEDULE_HISTORY) {
     undoStack.shift();
   }
-  // Al realizar una nueva acciÃ³n, limpiar la pila de Rehacer
+  // Al realizar una nueva acción, limpiar la pila de Rehacer
   scheduleRedoStacksByProject.set(projKey, []);
   return snapshot;
 }
@@ -1403,10 +1403,10 @@ export function redoLastScheduleChange() {
 }
 
 // ==========================================
-// EDICIÃ“N BIDIRECCIONAL Y ENLACES FIN-A-INICIO (OPCIÃ“N C + CPM)
+// EDICIÓN BIDIRECCIONAL Y ENLACES FIN-A-INICIO (OPCIÓN C + CPM)
 // ==========================================
 
-// 1. EdiciÃ³n desde el Gantt: Actualizar Fecha de Inicio o DuraciÃ³n con bloqueo por predecesoras y cascada
+// 1. Edición desde el Gantt: Actualizar Fecha de Inicio o Duración con bloqueo por predecesoras y cascada
 export function updateConceptDatesInModel(conceptId, startDateStr, durationDays) {
   if (!canCurrentUserEditProject(getActiveProjectId())) return false;
   let targetNode = null;
@@ -1425,7 +1425,7 @@ export function updateConceptDatesInModel(conceptId, startDateStr, durationDays)
   findNode(state.treeData);
   if (!targetNode) return false;
 
-  saveScheduleUndoSnapshot('EdiciÃ³n de fechas/dÃ­as');
+  saveScheduleUndoSnapshot('Edición de fechas/días');
 
   const cfg = getScheduleSettings();
   const preItems = extractScheduleItems(state.treeData);
@@ -1459,13 +1459,13 @@ export function updateConceptDatesInModel(conceptId, startDateStr, durationDays)
     const minStartDt = parseDate(minAllowedDate);
 
     if (diffDays(minStartDt, requestedStartDt) < 0) {
-      // Bloquear inicio anterior al tÃ©rmino de las predecesoras
+      // Bloquear inicio anterior al término de las predecesoras
       clampedByPredecessor = true;
       effectiveStartDt = minStartDt;
       targetNode.schedule.lagDays = 0;
     } else {
       if (requestedStartStr === targetItem.startDate) {
-        // Solo cambiÃ³ la duraciÃ³n: preservar desfase previo (0 por defecto)
+        // Solo cambió la duración: preservar desfase previo (0 por defecto)
         targetNode.schedule.lagDays = Math.max(0, parseInt(targetNode.schedule.lagDays, 10) || 0);
       } else {
         targetNode.schedule.lagDays = Math.max(0, diffDays(minStartDt, requestedStartDt));
@@ -1480,7 +1480,7 @@ export function updateConceptDatesInModel(conceptId, startDateStr, durationDays)
   targetNode.schedule.startDate = formatDate(effectiveStartDt);
   targetNode.schedule.endDate = formatDate(effectiveEndDt);
   targetNode.schedule.durationDays = dur;
-  targetNode.schedule.isManual = false; // Vuelve a distribuciÃ³n proporcional al mover fechas
+  targetNode.schedule.isManual = false; // Vuelve a distribución proporcional al mover fechas
   targetNode.schedule.periods = {};
 
   // Recalcular cascada de todos los conceptos dependientes
@@ -1527,13 +1527,13 @@ export function setConceptPredecessorsInModel(conceptId, predecessorIds = []) {
     const predItem = items.find(it => it.tipo === 'concepto' && (String(it.id) === String(rawId) || String(it.clave) === String(rawId)));
     if (!predItem) continue;
     if (String(predItem.id) === String(targetItem.id)) {
-      return { ok: false, cycleError: true, error: 'Un concepto no puede depender de sÃ­ mismo.' };
+      return { ok: false, cycleError: true, error: 'Un concepto no puede depender de sí mismo.' };
     }
     if (wouldCreateScheduleCycle(targetItem.id, predItem.id, items)) {
       return {
         ok: false,
         cycleError: true,
-        error: `Enlace invÃ¡lido: "${predItem.clave}" ya depende directa o indirectamente de "${targetItem.clave}" (evita ciclos infinitos).`
+        error: `Enlace inválido: "${predItem.clave}" ya depende directa o indirectamente de "${targetItem.clave}" (evita ciclos infinitos).`
       };
     }
     if (!cleanIds.includes(String(predItem.id))) {
@@ -1565,7 +1565,7 @@ export function setConceptPredecessorsInModel(conceptId, predecessorIds = []) {
   };
 }
 
-// Alternar (agregar o quitar) una predecesora especÃ­fica (Ãºtil al vincular con clic en barras)
+// Alternar (agregar o quitar) una predecesora específica (útil al vincular con clic en barras)
 export function toggleConceptPredecessorInModel(targetConceptId, predConceptId) {
   const items = extractScheduleItems(state.treeData);
   const targetItem = items.find(it => it.tipo === 'concepto' && String(it.id) === String(targetConceptId));
@@ -1700,7 +1700,7 @@ export function shiftProjectScheduleStart(newStartDateStr) {
   return true;
 }
 
-// 2. EdiciÃ³n desde la Tabla Financiera: Modificar cantidad o importe de un perÃ­odo
+// 2. Edición desde la Tabla Financiera: Modificar cantidad o importe de un período
 export function updateConceptPeriodInModel(conceptId, periodKey, field, value, periods) {
   if (!canCurrentUserEditProject(getActiveProjectId())) return false;
   let targetNode = null;
@@ -1719,7 +1719,7 @@ export function updateConceptPeriodInModel(conceptId, periodKey, field, value, p
   findNode(state.treeData);
   if (!targetNode) return false;
 
-  saveScheduleUndoSnapshot('EdiciÃ³n financiera por perÃ­odo');
+  saveScheduleUndoSnapshot('Edición financiera por período');
 
   const numVal = Math.max(0, parseFloat(value) || 0);
   const pu = Number(targetNode.precioUnitario) || 0;
@@ -1741,7 +1741,7 @@ export function updateConceptPeriodInModel(conceptId, periodKey, field, value, p
     targetNode.schedule.periods[periodKey].cantidad = pu > 0 ? numVal / pu : 0;
   }
 
-  // Auto-ajustar fechas de inicio y fin en el Gantt segÃºn los perÃ­odos activos con monto > 0
+  // Auto-ajustar fechas de inicio y fin en el Gantt según los períodos activos con monto > 0
   let earliestPeriod = null;
   let latestPeriod = null;
 
@@ -1765,11 +1765,11 @@ export function updateConceptPeriodInModel(conceptId, periodKey, field, value, p
   return true;
 }
 
-// Re-distribuciÃ³n automÃ¡tica de todo el calendario
+// Re-distribución automática de todo el calendario
 export function autoDistributeAllSchedule(projectStartDateStr = null, options = {}) {
   const effectiveStart = projectStartDateStr || getScheduleSettings()?.startDate || getProjectCreationDate();
   if (!options.skipUndo) {
-    saveScheduleUndoSnapshot('Auto-programaciÃ³n secuencial');
+    saveScheduleUndoSnapshot('Auto-programación secuencial');
   }
   const items = extractScheduleItems(state.treeData);
   let curr = parseDate(effectiveStart);

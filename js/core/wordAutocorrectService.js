@@ -1,32 +1,32 @@
-﻿/**
+/**
  * wordAutocorrectService.js
- * Motor de OrtografÃ­a, AutocorrecciÃ³n y Diccionario en tiempo real estilo Microsoft Word para Cubikar.
+ * Motor de Ortografía, Autocorrección y Diccionario en tiempo real estilo Microsoft Word para Cubikar.
  * 
- * CaracterÃ­sticas:
+ * Características:
  * 1. Subrayado rojo ondulado en tiempo real en descripciones de conceptos e insumos APU.
- * 2. MenÃº contextual flotante al hacer clic derecho sobre cualquier palabra con error:
- *    - Sugerencias inmediatas ordenadas por similitud fonÃ©tica y distancia de ediciÃ³n.
- *    - Reemplazo instantÃ¡neo al hacer clic en una sugerencia.
- *    - OpciÃ³n de correcciÃ³n manual directa en el menÃº si no hay sugerencia automÃ¡tica.
- *    - "Omitir palabra" para ignorar en la sesiÃ³n.
+ * 2. Menú contextual flotante al hacer clic derecho sobre cualquier palabra con error:
+ *    - Sugerencias inmediatas ordenadas por similitud fonética y distancia de edición.
+ *    - Reemplazo instantáneo al hacer clic en una sugerencia.
+ *    - Opción de corrección manual directa en el menú si no hay sugerencia automática.
+ *    - "Omitir palabra" para ignorar en la sesión.
  *    - "Agregar al diccionario" con persistencia en localStorage.
- * 3. MenÃº contextual estÃ¡ndar preservado si se hace clic derecho en palabras correctas.
- * 4. AutocorrecciÃ³n rÃ¡pida al teclear espacio/puntuaciÃ³n (COncreto -> Concreto, m2 -> mÂ², tildes tÃ©cnicas).
+ * 3. Menú contextual estándar preservado si se hace clic derecho en palabras correctas.
+ * 4. Autocorrección rápida al teclear espacio/puntuación (COncreto -> Concreto, m2 -> m², tildes técnicas).
  * 5. Deshacer con Backspace inmediato.
- * 6. Diccionario ultra-amplio de espaÃ±ol general, construcciÃ³n civil, arquitectura, instalaciones y marcas.
- * 7. Regla de excepciÃ³n inteligente: cotas, cÃ³digos, dimensiones y especificaciones con nÃºmeros nunca se marcan como error.
+ * 6. Diccionario ultra-amplio de español general, construcción civil, arquitectura, instalaciones y marcas.
+ * 7. Regla de excepción inteligente: cotas, códigos, dimensiones y especificaciones con números nunca se marcan como error.
  */
 
-import { showToast } from '../ui/notifications.js?v=20261116_cf3';
+import { showToast } from '../ui/notifications.js?v=20261116_cf4';
 
 const STORAGE_KEY_CUSTOM_DICT = 'cubikar_custom_dictionary';
 const STORAGE_KEY_AUTOCORRECT_ENABLED = 'cubikar_autocorrect_enabled';
 
-// Marcas y siglas pre-aprobadas en construcciÃ³n, arquitectura e instalaciones en MÃ©xico / Latam
+// Marcas y siglas pre-aprobadas en construcción, arquitectura e instalaciones en México / Latam
 const DEFAULT_WHITELIST = [
   // Software y sistemas
   'apu', 'apus', 'neodata', 'opus', 'autocad', 'revit', 'cubikar', 'excel', 'word',
-  // Marcas de materiales y tuberÃ­as
+  // Marcas de materiales y tuberías
   'cemex', 'holcim', 'cruz', 'azul', 'moctezuma', 'apaxco', 'tolteca', 'calidra', 'calhidra',
   'comex', 'fester', 'festerbond', 'sika', 'imperquimia', 'tuboplus', 'rotoplas', 'cytsa',
   'bticino', 'square', 'dexter', 'cresco', 'moen', 'interceramic', 'porcelanite', 'vinimex',
@@ -35,67 +35,67 @@ const DEFAULT_WHITELIST = [
   'makita', 'dewalt', 'milwaukee', 'hilti', 'stanley', 'irwin', 'klein', 'copperweld',
   // Normas y dependencias
   'cfe', 'nom', 'nmx', 'imss', 'infonavit', 'sat', 'sedatu', 'invea', 'semarnat', 'stps',
-  // Abreviaturas tÃ©cnicas de planos e instalaciones
+  // Abreviaturas técnicas de planos e instalaciones
   'p.b', 'p.a', 'p.d', 'p.g', 'l.p', 'r.n', 'bap', 'bae', 'pvc', 'cpvc', 'cxc', 'hdpe', 'pead',
   'pp-r', 'pe-al-pe', 'pvc-ha', 'pvc-sa', 'pvc-sc', 'thw', 'thhn', 'ptr', 'ipr', 'ips', 'hss',
-  'fc', 'f\'c', 'kg/cm2', 'kg/cmÂ²', 'ton/m3', 'ton/mÂ²', 'l/seg', 'gal/min', 'btu', 'kva', 'kw',
+  'fc', 'f\'c', 'kg/cm2', 'kg/cm²', 'ton/m3', 'ton/m²', 'l/seg', 'gal/min', 'btu', 'kva', 'kw',
   'hp', 'psi', 'bar', 'rpm', 'hz', 'volts', 'amp', 'amperes', 'watts',
-  // Unidades de catÃ¡logo
-  'ml', 'm2', 'mÂ²', 'm3', 'mÂ³', 'cm', 'cm2', 'cmÂ²', 'cm3', 'cmÂ³', 'mm', 'mts', 'lt', 'lts',
+  // Unidades de catálogo
+  'ml', 'm2', 'm²', 'm3', 'm³', 'cm', 'cm2', 'cm²', 'cm3', 'cm³', 'mm', 'mts', 'lt', 'lts',
   'litros', 'kg', 'kgs', 'ton', 'tons', 'pza', 'pzas', 'pzo', 'lote', 'lotes', 'tramo', 'tramos',
   'jgo', 'juegos', 'viaje', 'viajes', 'sal', 'salidas', 'jor', 'jornadas', 'hr', 'hrs', 'horas',
-  'mes', 'meses', 'aÃ±o', 'aÃ±os', 'dia', 'dias', 'dÃ­a', 'dÃ­as', 'no.', 'nÃºm.', 'num.', 'c/u',
-  's/n', 'cal', 'calibre', 'cd', 'ced', 'cedula', 'cÃ©dula', 'mod', 'cat', 'kit', 'rd', 'acc',
+  'mes', 'meses', 'año', 'años', 'dia', 'dias', 'día', 'días', 'no.', 'núm.', 'num.', 'c/u',
+  's/n', 'cal', 'calibre', 'cd', 'ced', 'cedula', 'cédula', 'mod', 'cat', 'kit', 'rd', 'acc',
   'diam', 'ag.max', 'r/int', 'fo', 'go', 'ye', 'uv', 'temp',
   // Notaciones romanas comunes en planos
   'ii', 'iii', 'iv', 'vi', 'vii', 'viii', 'ix'
 ];
 
-// Tabla de reemplazos inmediatos de autocorrecciÃ³n (estilo Word AutoCorrect)
+// Tabla de reemplazos inmediatos de autocorrección (estilo Word AutoCorrect)
 const AUTOCORRECT_MAP = {
   // Verbos y acciones de obra frecuentes
-  'colocacion': 'colocaciÃ³n',
-  'instalacion': 'instalaciÃ³n',
-  'demolicion': 'demoliciÃ³n',
-  'excavacion': 'excavaciÃ³n',
-  'fabricacion': 'fabricaciÃ³n',
-  'reparacion': 'reparaciÃ³n',
-  'nivelacion': 'nivelaciÃ³n',
-  'compactacion': 'compactaciÃ³n',
-  'cimentacion': 'cimentaciÃ³n',
-  'impermeabilizacion': 'impermeabilizaciÃ³n',
-  'habilitacion': 'habilitaciÃ³n',
-  'aplicacion': 'aplicaciÃ³n',
-  'elaboracion': 'elaboraciÃ³n',
-  'construccion': 'construcciÃ³n',
-  'proteccion': 'protecciÃ³n',
-  'ventilacion': 'ventilaciÃ³n',
-  'alimentacion': 'alimentaciÃ³n',
-  'sustitucion': 'sustituciÃ³n',
-  'perforacion': 'perforaciÃ³n',
-  'modificacion': 'modificaciÃ³n',
-  'verificacion': 'verificaciÃ³n',
-  'adjudicacion': 'adjudicaciÃ³n',
-  'estimacion': 'estimaciÃ³n',
-  'inspeccion': 'inspecciÃ³n',
-  'reubicacion': 'reubicaciÃ³n',
-  'dosificacion': 'dosificaciÃ³n',
-  'composicion': 'composiciÃ³n',
-  'proyeccion': 'proyecciÃ³n',
-  'fijacion': 'fijaciÃ³n',
-  'preparacion': 'preparaciÃ³n',
-  'incorporacion': 'incorporaciÃ³n',
-  'extraccion': 'extracciÃ³n',
-  'elevacion': 'elevaciÃ³n',
-  'conduccion': 'conducciÃ³n',
-  'contaminacion': 'contaminaciÃ³n',
-  'certificacion': 'certificaciÃ³n',
-  'senalizacion': 'seÃ±alizaciÃ³n',
-  'senalamiento': 'seÃ±alamiento',
-  'alineacion': 'alineaciÃ³n',
-  'termofusion': 'termofusiÃ³n',
-  'dilatacion': 'dilataciÃ³n',
-  'expansion': 'expansiÃ³n',
+  'colocacion': 'colocación',
+  'instalacion': 'instalación',
+  'demolicion': 'demolición',
+  'excavacion': 'excavación',
+  'fabricacion': 'fabricación',
+  'reparacion': 'reparación',
+  'nivelacion': 'nivelación',
+  'compactacion': 'compactación',
+  'cimentacion': 'cimentación',
+  'impermeabilizacion': 'impermeabilización',
+  'habilitacion': 'habilitación',
+  'aplicacion': 'aplicación',
+  'elaboracion': 'elaboración',
+  'construccion': 'construcción',
+  'proteccion': 'protección',
+  'ventilacion': 'ventilación',
+  'alimentacion': 'alimentación',
+  'sustitucion': 'sustitución',
+  'perforacion': 'perforación',
+  'modificacion': 'modificación',
+  'verificacion': 'verificación',
+  'adjudicacion': 'adjudicación',
+  'estimacion': 'estimación',
+  'inspeccion': 'inspección',
+  'reubicacion': 'reubicación',
+  'dosificacion': 'dosificación',
+  'composicion': 'composición',
+  'proyeccion': 'proyección',
+  'fijacion': 'fijación',
+  'preparacion': 'preparación',
+  'incorporacion': 'incorporación',
+  'extraccion': 'extracción',
+  'elevacion': 'elevación',
+  'conduccion': 'conducción',
+  'contaminacion': 'contaminación',
+  'certificacion': 'certificación',
+  'senalizacion': 'señalización',
+  'senalamiento': 'señalamiento',
+  'alineacion': 'alineación',
+  'termofusion': 'termofusión',
+  'dilatacion': 'dilatación',
+  'expansion': 'expansión',
   'retape': 'retape',
   'sellado': 'sellado',
   'resanado': 'resanado',
@@ -119,188 +119,188 @@ const AUTOCORRECT_MAP = {
   'adoquines': 'adoquines',
 
   // Oficios y especialidades
-  'albanil': 'albaÃ±il',
-  'albaniles': 'albaÃ±iles',
-  'albanileria': 'albaÃ±ilerÃ­a',
-  'albaÃ±ileria': 'albaÃ±ilerÃ­a',
-  'herreria': 'herrerÃ­a',
-  'carpinteria': 'carpinterÃ­a',
-  'canceleria': 'cancelerÃ­a',
-  'plomeria': 'plomerÃ­a',
-  'cerrajeria': 'cerrajerÃ­a',
-  'vidrieria': 'vidrierÃ­a',
-  'ferreteria': 'ferreterÃ­a',
-  'mamposteria': 'mamposterÃ­a',
+  'albanil': 'albañil',
+  'albaniles': 'albañiles',
+  'albanileria': 'albañilería',
+  'albañileria': 'albañilería',
+  'herreria': 'herrería',
+  'carpinteria': 'carpintería',
+  'canceleria': 'cancelería',
+  'plomeria': 'plomería',
+  'cerrajeria': 'cerrajería',
+  'vidrieria': 'vidriería',
+  'ferreteria': 'ferretería',
+  'mamposteria': 'mampostería',
 
   // Elementos e instalaciones
-  'tuberia': 'tuberÃ­a',
-  'tuberias': 'tuberÃ­as',
-  'valvula': 'vÃ¡lvula',
-  'valvulas': 'vÃ¡lvulas',
-  'lampara': 'lÃ¡mpara',
-  'lamparas': 'lÃ¡mparas',
-  'angulo': 'Ã¡ngulo',
-  'angulos': 'Ã¡ngulos',
-  'lamina': 'lÃ¡mina',
-  'laminas': 'lÃ¡minas',
-  'modulo': 'mÃ³dulo',
-  'modulos': 'mÃ³dulos',
-  'diametro': 'diÃ¡metro',
-  'diametros': 'diÃ¡metros',
-  'area': 'Ã¡rea',
-  'areas': 'Ã¡reas',
-  'seccion': 'secciÃ³n',
-  'presion': 'presiÃ³n',
-  'tension': 'tensiÃ³n',
-  'guarnicion': 'guarniciÃ³n',
-  'adoquin': 'adoquÃ­n',
-  'chaflan': 'chaflÃ¡n',
-  'hormigon': 'hormigÃ³n',
-  'alambron': 'alambrÃ³n',
-  'polin': 'polÃ­n',
-  'plafon': 'plafÃ³n',
-  'pison': 'pisÃ³n',
-  'tapon': 'tapÃ³n',
+  'tuberia': 'tubería',
+  'tuberias': 'tuberías',
+  'valvula': 'válvula',
+  'valvulas': 'válvulas',
+  'lampara': 'lámpara',
+  'lamparas': 'lámparas',
+  'angulo': 'ángulo',
+  'angulos': 'ángulos',
+  'lamina': 'lámina',
+  'laminas': 'láminas',
+  'modulo': 'módulo',
+  'modulos': 'módulos',
+  'diametro': 'diámetro',
+  'diametros': 'diámetros',
+  'area': 'área',
+  'areas': 'áreas',
+  'seccion': 'sección',
+  'presion': 'presión',
+  'tension': 'tensión',
+  'guarnicion': 'guarnición',
+  'adoquin': 'adoquín',
+  'chaflan': 'chaflán',
+  'hormigon': 'hormigón',
+  'alambron': 'alambrón',
+  'polin': 'polín',
+  'plafon': 'plafón',
+  'pison': 'pisón',
+  'tapon': 'tapón',
   'tapones': 'tapones',
-  'desague': 'desagÃ¼e',
-  'estacion': 'estaciÃ³n',
-  'reventon': 'reventÃ³n',
-  'liquido': 'lÃ­quido',
-  'liquidos': 'lÃ­quidos',
-  'camion': 'camiÃ³n',
+  'desague': 'desagüe',
+  'estacion': 'estación',
+  'reventon': 'reventón',
+  'liquido': 'líquido',
+  'liquidos': 'líquidos',
+  'camion': 'camión',
   'camiones': 'camiones',
 
-  // Adjetivos tÃ©cnicos y matemÃ¡ticos
-  'electrico': 'elÃ©ctrico',
-  'electrica': 'elÃ©ctrica',
-  'electricos': 'elÃ©ctricos',
-  'electricas': 'elÃ©ctricas',
-  'mecanico': 'mecÃ¡nico',
-  'mecanica': 'mecÃ¡nica',
-  'mecanicos': 'mecÃ¡nicos',
-  'mecanicas': 'mecÃ¡nicas',
-  'hidraulico': 'hidrÃ¡ulico',
-  'hidraulica': 'hidrÃ¡ulica',
-  'hidraulicos': 'hidrÃ¡ulicos',
-  'hidraulicas': 'hidrÃ¡ulicas',
-  'acrilico': 'acrÃ­lico',
-  'acrilica': 'acrÃ­lica',
-  'epoxico': 'epÃ³xico',
-  'epoxica': 'epÃ³xica',
-  'vinilico': 'vinÃ­lico',
-  'vinilica': 'vinÃ­lica',
-  'termico': 'tÃ©rmico',
-  'termica': 'tÃ©rmica',
-  'acustico': 'acÃºstico',
-  'acustica': 'acÃºstica',
-  'metalico': 'metÃ¡lico',
-  'metalica': 'metÃ¡lica',
-  'plastico': 'plÃ¡stico',
-  'plastica': 'plÃ¡stica',
-  'ceramico': 'cerÃ¡mico',
-  'ceramica': 'cerÃ¡mica',
-  'porcelanico': 'porcelÃ¡nico',
-  'optimo': 'Ã³ptimo',
-  'optima': 'Ã³ptima',
-  'maximo': 'mÃ¡ximo',
-  'maxima': 'mÃ¡xima',
-  'minimo': 'mÃ­nimo',
-  'minima': 'mÃ­nima',
-  'ultimo': 'Ãºltimo',
-  'ultima': 'Ãºltima',
-  'tecnico': 'tÃ©cnico',
-  'tecnica': 'tÃ©cnica',
-  'tecnicos': 'tÃ©cnicos',
-  'tecnicas': 'tÃ©cnicas',
-  'basico': 'bÃ¡sico',
-  'basica': 'bÃ¡sica',
-  'automatico': 'automÃ¡tico',
-  'automatica': 'automÃ¡tica',
-  'estandar': 'estÃ¡ndar',
-  'asfaltico': 'asfÃ¡ltico',
-  'asfaltica': 'asfÃ¡ltica',
-  'topografico': 'topogrÃ¡fico',
-  'topografica': 'topogrÃ¡fica',
-  'ecologico': 'ecolÃ³gico',
-  'ecologica': 'ecolÃ³gica',
-  'domestico': 'domÃ©stico',
-  'domestica': 'domÃ©stica',
-  'anticalcareo': 'anticalcÃ¡reo',
-  'centrifuga': 'centrÃ­fuga',
-  'comun': 'comÃºn',
-  'desertico': 'desÃ©rtico',
-  'electrolitico': 'electrolÃ­tico',
-  'monofasica': 'monofÃ¡sica',
-  'excentrica': 'excÃ©ntrica',
-  'retractil': 'retrÃ¡ctil',
+  // Adjetivos técnicos y matemáticos
+  'electrico': 'eléctrico',
+  'electrica': 'eléctrica',
+  'electricos': 'eléctricos',
+  'electricas': 'eléctricas',
+  'mecanico': 'mecánico',
+  'mecanica': 'mecánica',
+  'mecanicos': 'mecánicos',
+  'mecanicas': 'mecánicas',
+  'hidraulico': 'hidráulico',
+  'hidraulica': 'hidráulica',
+  'hidraulicos': 'hidráulicos',
+  'hidraulicas': 'hidráulicas',
+  'acrilico': 'acrílico',
+  'acrilica': 'acrílica',
+  'epoxico': 'epóxico',
+  'epoxica': 'epóxica',
+  'vinilico': 'vinílico',
+  'vinilica': 'vinílica',
+  'termico': 'térmico',
+  'termica': 'térmica',
+  'acustico': 'acústico',
+  'acustica': 'acústica',
+  'metalico': 'metálico',
+  'metalica': 'metálica',
+  'plastico': 'plástico',
+  'plastica': 'plástica',
+  'ceramico': 'cerámico',
+  'ceramica': 'cerámica',
+  'porcelanico': 'porcelánico',
+  'optimo': 'óptimo',
+  'optima': 'óptima',
+  'maximo': 'máximo',
+  'maxima': 'máxima',
+  'minimo': 'mínimo',
+  'minima': 'mínima',
+  'ultimo': 'último',
+  'ultima': 'última',
+  'tecnico': 'técnico',
+  'tecnica': 'técnica',
+  'tecnicos': 'técnicos',
+  'tecnicas': 'técnicas',
+  'basico': 'básico',
+  'basica': 'básica',
+  'automatico': 'automático',
+  'automatica': 'automática',
+  'estandar': 'estándar',
+  'asfaltico': 'asfáltico',
+  'asfaltica': 'asfáltica',
+  'topografico': 'topográfico',
+  'topografica': 'topográfica',
+  'ecologico': 'ecológico',
+  'ecologica': 'ecológica',
+  'domestico': 'doméstico',
+  'domestica': 'doméstica',
+  'anticalcareo': 'anticalcáreo',
+  'centrifuga': 'centrífuga',
+  'comun': 'común',
+  'desertico': 'desértico',
+  'electrolitico': 'electrolítico',
+  'monofasica': 'monofásica',
+  'excentrica': 'excéntrica',
+  'retractil': 'retráctil',
 
-  // GestiÃ³n de obra, metrados y presupuestos
-  'codigo': 'cÃ³digo',
-  'codigos': 'cÃ³digos',
-  'especificacion': 'especificaciÃ³n',
+  // Gestión de obra, metrados y presupuestos
+  'codigo': 'código',
+  'codigos': 'códigos',
+  'especificacion': 'especificación',
   'especificaciones': 'especificaciones',
-  'catalogo': 'catÃ¡logo',
-  'catalogos': 'catÃ¡logos',
-  'analisis': 'anÃ¡lisis',
-  'calculo': 'cÃ¡lculo',
-  'calculos': 'cÃ¡lculos',
-  'numero': 'nÃºmero',
-  'numeros': 'nÃºmeros',
-  'linea': 'lÃ­nea',
-  'lineas': 'lÃ­neas',
-  'limite': 'lÃ­mite',
-  'limites': 'lÃ­mites',
-  'periodo': 'perÃ­odo',
-  'politica': 'polÃ­tica',
-  'garantia': 'garantÃ­a',
-  'descripcion': 'descripciÃ³n',
+  'catalogo': 'catálogo',
+  'catalogos': 'catálogos',
+  'analisis': 'análisis',
+  'calculo': 'cálculo',
+  'calculos': 'cálculos',
+  'numero': 'número',
+  'numeros': 'números',
+  'linea': 'línea',
+  'lineas': 'líneas',
+  'limite': 'límite',
+  'limites': 'límites',
+  'periodo': 'período',
+  'politica': 'política',
+  'garantia': 'garantía',
+  'descripcion': 'descripción',
   'descripciones': 'descripciones',
-  'observacion': 'observaciÃ³n',
+  'observacion': 'observación',
   'observaciones': 'observaciones',
-  'bitacora': 'bitÃ¡cora',
+  'bitacora': 'bitácora',
 
-  // Palabras comunes del espaÃ±ol
-  'tambien': 'tambiÃ©n',
-  'ademas': 'ademÃ¡s',
-  'despues': 'despuÃ©s',
-  'pagina': 'pÃ¡gina',
-  'paginas': 'pÃ¡ginas',
-  'parrafo': 'pÃ¡rrafo',
-  'segun': 'segÃºn',
-  'quiza': 'quizÃ¡',
-  'quizas': 'quizÃ¡s',
-  'dia': 'dÃ­a',
-  'dias': 'dÃ­as',
-  'guia': 'guÃ­a',
-  'guias': 'guÃ­as',
-  'facil': 'fÃ¡cil',
-  'dificil': 'difÃ­cil',
-  'util': 'Ãºtil',
-  'rapido': 'rÃ¡pido',
-  'mas': 'mÃ¡s',
-  'razon': 'razÃ³n',
+  // Palabras comunes del español
+  'tambien': 'también',
+  'ademas': 'además',
+  'despues': 'después',
+  'pagina': 'página',
+  'paginas': 'páginas',
+  'parrafo': 'párrafo',
+  'segun': 'según',
+  'quiza': 'quizá',
+  'quizas': 'quizás',
+  'dia': 'día',
+  'dias': 'días',
+  'guia': 'guía',
+  'guias': 'guías',
+  'facil': 'fácil',
+  'dificil': 'difícil',
+  'util': 'útil',
+  'rapido': 'rápido',
+  'mas': 'más',
+  'razon': 'razón',
 
-  // Unidades de construcciÃ³n y sÃ­mbolos automÃ¡ticos
-  'm2': 'mÂ²',
-  'm3': 'mÂ³',
-  'cm2': 'cmÂ²',
-  'cm3': 'cmÂ³',
-  'pie2': 'pieÂ²',
-  'pie3': 'pieÂ³',
-  'km2': 'kmÂ²'
+  // Unidades de construcción y símbolos automáticos
+  'm2': 'm²',
+  'm3': 'm³',
+  'cm2': 'cm²',
+  'cm3': 'cm³',
+  'pie2': 'pie²',
+  'pie3': 'pie³',
+  'km2': 'km²'
 };
 
-// Diccionario base exhaustivo de espaÃ±ol general y construcciÃ³n civil
+// Diccionario base exhaustivo de español general y construcción civil
 const SPANISH_BASE_DICT = new Set([
   ...DEFAULT_WHITELIST,
   ...Object.values(AUTOCORRECT_MAP).map(w => w.toLowerCase()),
 
-  // GramÃ¡tica, conectores, preposiciones y artÃ­culos
+  // Gramática, conectores, preposiciones y artículos
   'a', 'ante', 'bajo', 'cabe', 'con', 'contra', 'de', 'desde', 'durante', 'en', 'entre',
-  'hacia', 'hasta', 'mediante', 'para', 'por', 'segÃºn', 'segun', 'sin', 'so', 'sobre', 'tras',
-  'versus', 'vÃ­a', 'via', 'y', 'e', 'ni', 'o', 'u', 'pero', 'mas', 'mÃ¡s', 'sino', 'siquiera',
-  'aunque', 'porque', 'pues', 'ya', 'si', 'sÃ­', 'como', 'cÃ³mo', 'que', 'quÃ©', 'conforme',
-  'mientras', 'cuando', 'cuÃ¡ndo', 'donde', 'dÃ³nde', 'quien', 'quiÃ©n', 'cual', 'cuÃ¡l',
+  'hacia', 'hasta', 'mediante', 'para', 'por', 'según', 'segun', 'sin', 'so', 'sobre', 'tras',
+  'versus', 'vía', 'via', 'y', 'e', 'ni', 'o', 'u', 'pero', 'mas', 'más', 'sino', 'siquiera',
+  'aunque', 'porque', 'pues', 'ya', 'si', 'sí', 'como', 'cómo', 'que', 'qué', 'conforme',
+  'mientras', 'cuando', 'cuándo', 'donde', 'dónde', 'quien', 'quién', 'cual', 'cuál',
   'el', 'la', 'los', 'las', 'lo', 'un', 'una', 'uno', 'unos', 'unas', 'del', 'al',
   'este', 'esta', 'estos', 'estas', 'esto', 'ese', 'esa', 'esos', 'esas', 'eso',
   'aquel', 'aquella', 'aquellos', 'aquellas', 'aquello', 'mi', 'mis', 'tu', 'tus', 'su', 'sus',
@@ -309,63 +309,63 @@ const SPANISH_BASE_DICT = new Set([
   'todo', 'toda', 'todos', 'todas', 'cada', 'cierto', 'cierta', 'ciertos', 'ciertas',
   'tal', 'tales', 'tanto', 'tanta', 'tantos', 'tantas', 'mucho', 'mucha', 'muchos', 'muchas',
   'poco', 'poca', 'pocos', 'pocas', 'bastante', 'bastantes', 'demasiado', 'demasiada',
-  'alguno', 'alguna', 'algunos', 'algunas', 'algÃºn', 'ninguno', 'ninguna', 'ningÃºn',
+  'alguno', 'alguna', 'algunos', 'algunas', 'algún', 'ninguno', 'ninguna', 'ningún',
   'ambos', 'ambas', 'propio', 'propia', 'propios', 'propias',
-  'yo', 'tÃº', 'Ã©l', 'ella', 'ello', 'nosotros', 'nosotras', 'ellos', 'ellas', 'usted', 'ustedes',
+  'yo', 'tú', 'él', 'ella', 'ello', 'nosotros', 'nosotras', 'ellos', 'ellas', 'usted', 'ustedes',
   'me', 'te', 'se', 'nos', 'le', 'les',
 
   // Adverbios comunes
-  'no', 'ya', 'menos', 'bien', 'mal', 'muy', 'tan', 'asÃ­', 'asi',
-  'acÃ¡', 'aca', 'aquÃ­', 'aqui', 'allÃ­', 'alli', 'allÃ¡', 'alla', 'ahÃ­', 'ahi',
-  'cerca', 'lejos', 'arriba', 'abajo', 'delante', 'detrÃ¡s', 'detras', 'dentro', 'fuera',
-  'antes', 'despuÃ©s', 'despues', 'luego', 'pronto', 'tarde', 'temprano', 'siempre', 'nunca',
-  'jamÃ¡s', 'jamas', 'apenas', 'casi', 'solo', 'sÃ³lo', 'solamente', 'tambiÃ©n', 'tambien',
-  'ademÃ¡s', 'ademas', 'tampoco', 'entonces', 'inclusive', 'incluso',
+  'no', 'ya', 'menos', 'bien', 'mal', 'muy', 'tan', 'así', 'asi',
+  'acá', 'aca', 'aquí', 'aqui', 'allí', 'alli', 'allá', 'alla', 'ahí', 'ahi',
+  'cerca', 'lejos', 'arriba', 'abajo', 'delante', 'detrás', 'detras', 'dentro', 'fuera',
+  'antes', 'después', 'despues', 'luego', 'pronto', 'tarde', 'temprano', 'siempre', 'nunca',
+  'jamás', 'jamas', 'apenas', 'casi', 'solo', 'sólo', 'solamente', 'también', 'tambien',
+  'además', 'ademas', 'tampoco', 'entonces', 'inclusive', 'incluso',
 
-  // Verbos de acciÃ³n tÃ©cnica y espaÃ±ol comÃºn (infinitivo, participio, gerundio y conjugaciones)
+  // Verbos de acción técnica y español común (infinitivo, participio, gerundio y conjugaciones)
   'hacer', 'hace', 'hacen', 'hizo', 'hecho', 'hecha', 'hechos', 'hechas', 'haciendo',
   'tener', 'tiene', 'tienen', 'tuvo', 'tenido', 'teniendo',
-  'ser', 'es', 'son', 'era', 'eran', 'fue', 'fueron', 'serÃ¡', 'sera', 'serÃ¡n', 'sido', 'siendo',
-  'estar', 'estÃ¡', 'estÃ¡n', 'estaba', 'estaban', 'estuvo', 'estado', 'estados', 'estando',
-  'haber', 'hay', 'habÃ­a', 'habia', 'hubo', 'habrÃ¡', 'habra',
+  'ser', 'es', 'son', 'era', 'eran', 'fue', 'fueron', 'será', 'sera', 'serán', 'sido', 'siendo',
+  'estar', 'está', 'están', 'estaba', 'estaban', 'estuvo', 'estado', 'estados', 'estando',
+  'haber', 'hay', 'había', 'habia', 'hubo', 'habrá', 'habra',
   'dar', 'da', 'dan', 'dio', 'dado', 'dada', 'dados', 'dadas', 'dando',
   'ir', 'va', 'van', 'iba', 'ido',
   'ver', 've', 'ven', 'vio', 'visto', 'vista', 'vistos', 'vistas',
-  'poder', 'puede', 'pueden', 'pudo', 'podrÃ¡', 'podra', 'podido',
-  'deber', 'debe', 'deben', 'debiÃ³', 'debido', 'debida', 'debidos', 'debidas',
+  'poder', 'puede', 'pueden', 'pudo', 'podrá', 'podra', 'podido',
+  'deber', 'debe', 'deben', 'debió', 'debido', 'debida', 'debidos', 'debidas',
   'poner', 'pone', 'ponen', 'puso', 'puesto', 'puesta', 'puestos', 'puestas',
-  'llevar', 'lleva', 'llevan', 'llevÃ³', 'llevado', 'llevada', 'llevados', 'llevadas', 'llevando',
-  'quedar', 'queda', 'quedan', 'quedÃ³', 'quedado', 'quedada',
-  'pasar', 'pasa', 'pasan', 'pasÃ³', 'pasado', 'pasada', 'pasados', 'pasadas',
-  'usar', 'usa', 'usan', 'usÃ³', 'usado', 'usada', 'usados', 'usadas', 'usando',
-  'utilizar', 'utiliza', 'utilizan', 'utilizÃ³', 'utilizado', 'utilizada', 'utilizados', 'utilizadas', 'utilizando',
+  'llevar', 'lleva', 'llevan', 'llevó', 'llevado', 'llevada', 'llevados', 'llevadas', 'llevando',
+  'quedar', 'queda', 'quedan', 'quedó', 'quedado', 'quedada',
+  'pasar', 'pasa', 'pasan', 'pasó', 'pasado', 'pasada', 'pasados', 'pasadas',
+  'usar', 'usa', 'usan', 'usó', 'usado', 'usada', 'usados', 'usadas', 'usando',
+  'utilizar', 'utiliza', 'utilizan', 'utilizó', 'utilizado', 'utilizada', 'utilizados', 'utilizadas', 'utilizando',
   'seguir', 'sigue', 'siguen', 'seguido',
   'dejar', 'deja', 'dejan', 'dejado',
-  'terminar', 'termina', 'terminan', 'terminÃ³', 'terminado', 'terminada', 'terminados', 'terminadas',
+  'terminar', 'termina', 'terminan', 'terminó', 'terminado', 'terminada', 'terminados', 'terminadas',
   'presentar', 'presenta', 'presentan', 'presentado', 'presentada', 'presentados', 'presentadas',
   'considerar', 'considera', 'consideran', 'considerado', 'considerada', 'considerados', 'consideradas',
   'requerir', 'requiere', 'requieren', 'requerido', 'requerida', 'requeridos', 'requeridas',
   'cumplir', 'cumple', 'cumplen', 'cumplido', 'cumplida',
   'abrir', 'abre', 'abren', 'abierto', 'abierta', 'abiertos', 'abiertas',
   'cerrar', 'cierra', 'cierran', 'cerrado', 'cerrada', 'cerrados', 'cerradas',
-  'incluir', 'incluye', 'incluyen', 'incluyÃ³', 'incluido', 'incluida', 'incluidos', 'incluidas', 'incluyendo',
-  'suministrar', 'suministro', 'suministros', 'suministra', 'suministran', 'suministrÃ³', 'suministrado', 'suministrada', 'suministrados', 'suministradas', 'suministrando',
-  'colocar', 'colocaciÃ³n', 'coloca', 'colocan', 'colocÃ³', 'colocado', 'colocada', 'colocados', 'colocadas', 'colocando',
-  'instalar', 'instalaciÃ³n', 'instalaciones', 'instala', 'instalan', 'instalÃ³', 'instalado', 'instalada', 'instalados', 'instaladas', 'instalando',
-  'aplicar', 'aplicaciÃ³n', 'aplicaciones', 'aplica', 'aplican', 'aplicÃ³', 'aplicado', 'aplicada', 'aplicados', 'aplicadas', 'aplicando',
-  'elaborar', 'elaboraciÃ³n', 'elabora', 'elaboran', 'elaborÃ³', 'elaborado', 'elaborada', 'elaborados', 'elaboradas',
-  'fabricar', 'fabricaciÃ³n', 'fabrica', 'fabrican', 'fabricÃ³', 'fabricado', 'fabricada', 'fabricados', 'fabricadas',
-  'construir', 'construcciÃ³n', 'construcciones', 'construye', 'construyen', 'construyÃ³', 'construido', 'construida', 'construidos', 'construidas',
-  'ejecutar', 'ejecuciÃ³n', 'ejecuta', 'ejecutan', 'ejecutÃ³', 'ejecutado', 'ejecutada', 'ejecutados', 'ejecutadas',
-  'reparar', 'reparaciÃ³n', 'reparaciones', 'repara', 'reparan', 'reparado', 'reparada',
-  'nivelar', 'nivelaciÃ³n', 'nivela', 'nivelan', 'nivelÃ³', 'nivelado', 'nivelada', 'nivelados', 'niveladas',
-  'compactar', 'compactaciÃ³n', 'compacta', 'compactan', 'compactÃ³', 'compactado', 'compactada',
-  'excavar', 'excavaciÃ³n', 'excavaciones', 'excava', 'excavan', 'excavÃ³', 'excavado', 'excavada',
-  'demoler', 'demoliciÃ³n', 'demoliciones', 'demuele', 'demuelen', 'demoliÃ³', 'demolido', 'demolida', 'demolidos', 'demolidas',
+  'incluir', 'incluye', 'incluyen', 'incluyó', 'incluido', 'incluida', 'incluidos', 'incluidas', 'incluyendo',
+  'suministrar', 'suministro', 'suministros', 'suministra', 'suministran', 'suministró', 'suministrado', 'suministrada', 'suministrados', 'suministradas', 'suministrando',
+  'colocar', 'colocación', 'coloca', 'colocan', 'colocó', 'colocado', 'colocada', 'colocados', 'colocadas', 'colocando',
+  'instalar', 'instalación', 'instalaciones', 'instala', 'instalan', 'instaló', 'instalado', 'instalada', 'instalados', 'instaladas', 'instalando',
+  'aplicar', 'aplicación', 'aplicaciones', 'aplica', 'aplican', 'aplicó', 'aplicado', 'aplicada', 'aplicados', 'aplicadas', 'aplicando',
+  'elaborar', 'elaboración', 'elabora', 'elaboran', 'elaboró', 'elaborado', 'elaborada', 'elaborados', 'elaboradas',
+  'fabricar', 'fabricación', 'fabrica', 'fabrican', 'fabricó', 'fabricado', 'fabricada', 'fabricados', 'fabricadas',
+  'construir', 'construcción', 'construcciones', 'construye', 'construyen', 'construyó', 'construido', 'construida', 'construidos', 'construidas',
+  'ejecutar', 'ejecución', 'ejecuta', 'ejecutan', 'ejecutó', 'ejecutado', 'ejecutada', 'ejecutados', 'ejecutadas',
+  'reparar', 'reparación', 'reparaciones', 'repara', 'reparan', 'reparado', 'reparada',
+  'nivelar', 'nivelación', 'nivela', 'nivelan', 'niveló', 'nivelado', 'nivelada', 'nivelados', 'niveladas',
+  'compactar', 'compactación', 'compacta', 'compactan', 'compactó', 'compactado', 'compactada',
+  'excavar', 'excavación', 'excavaciones', 'excava', 'excavan', 'excavó', 'excavado', 'excavada',
+  'demoler', 'demolición', 'demoliciones', 'demuele', 'demuelen', 'demolió', 'demolido', 'demolida', 'demolidos', 'demolidas',
   'acarrear', 'acarreo', 'acarreos', 'acarrea', 'acarrean', 'acarreado',
   'desalojar', 'desaloja', 'desalojo',
-  'retirar', 'retiro', 'retiros', 'retira', 'retiran', 'retirÃ³', 'retirado', 'retirada',
-  'limpiar', 'limpieza', 'limpia', 'limpian', 'limpiÃ³', 'limpiado', 'limpiada',
+  'retirar', 'retiro', 'retiros', 'retira', 'retiran', 'retiró', 'retirado', 'retirada',
+  'limpiar', 'limpieza', 'limpia', 'limpian', 'limpió', 'limpiado', 'limpiada',
   'habilitar', 'habilitado', 'habilitada', 'habilitados', 'habilitadas', 'habilita', 'habilitan',
   'armar', 'armado', 'armada', 'armados', 'armadas', 'arma', 'arman',
   'cimbrar', 'cimbrado', 'cimbrada', 'cimbra', 'cimbras',
@@ -378,19 +378,19 @@ const SPANISH_BASE_DICT = new Set([
   'resanar', 'resanado', 'resanada', 'resana',
   'sellar', 'sellado', 'sellada', 'sellados', 'selladas', 'sella', 'sellador', 'selladores',
   'pintar', 'pintado', 'pintada', 'pintados', 'pintadas', 'pinta', 'pintura', 'pinturas',
-  'verificar', 'verificaciÃ³n', 'verifica', 'verifican', 'verificado', 'verificada',
+  'verificar', 'verificación', 'verifica', 'verifican', 'verificado', 'verificada',
   'revisar', 'revisa', 'revisan', 'revisado', 'revisada',
-  'conectar', 'conexiÃ³n', 'conexiones', 'conecta', 'conectan', 'conectado', 'conectada', 'conectados', 'conectadas',
-  'proteger', 'protecciÃ³n', 'protege', 'protegen', 'protegido', 'protegida', 'protegidos', 'protegidas',
+  'conectar', 'conexión', 'conexiones', 'conecta', 'conectan', 'conectado', 'conectada', 'conectados', 'conectadas',
+  'proteger', 'protección', 'protege', 'protegen', 'protegido', 'protegida', 'protegidos', 'protegidas',
   'cubrir', 'cubre', 'cubren', 'cubierto', 'cubierta', 'cubiertos', 'cubiertas',
   'apisonar', 'apisonado', 'apisonada', 'apisona',
   'adherir', 'adherencia', 'adhiere', 'adherido', 'adherida',
-  'alinear', 'alineaciÃ³n', 'alinea', 'alineado', 'alineada',
+  'alinear', 'alineación', 'alinea', 'alineado', 'alineada',
   'afinar', 'afine', 'afinado', 'afina',
   'asentar', 'asentado', 'asentada', 'asentados', 'asentadas', 'asienta',
   'empotrar', 'empotrado', 'empotrada', 'empotra',
   'alojar', 'alojado', 'alojada', 'aloja',
-  'fijar', 'fijaciÃ³n', 'fijado', 'fijada', 'fijados', 'fijadas', 'fija', 'fijo', 'fijas', 'fijos',
+  'fijar', 'fijación', 'fijado', 'fijada', 'fijados', 'fijadas', 'fija', 'fijo', 'fijas', 'fijos',
   'ensamblar', 'ensamblado', 'ensamblada',
   'soldar', 'soldadura', 'soldaduras', 'soldado', 'soldada', 'soldados', 'soldadas', 'suelda',
   'atornillar', 'atornillado', 'atornillada',
@@ -403,7 +403,7 @@ const SPANISH_BASE_DICT = new Set([
   'doblar', 'doblez', 'doblado', 'doblada',
   'amarrar', 'amarre', 'amarres', 'amarrado', 'amarrada',
   'traslapar', 'traslape', 'traslapes', 'traslapado',
-  'dosificar', 'dosificaciÃ³n', 'dosificado', 'dosificada',
+  'dosificar', 'dosificación', 'dosificado', 'dosificada',
 
   // Vocabulario completo de materiales, elementos y conceptos de obra
   'necesario', 'necesaria', 'necesarios', 'necesarias',
@@ -412,121 +412,121 @@ const SPANISH_BASE_DICT = new Set([
   'directo', 'directa', 'directos', 'directas',
   'indirecto', 'indirecta', 'indirectos', 'indirectas',
   'general', 'generales', 'particular', 'particulares',
-  'especÃ­fico', 'especifica', 'especÃ­fica', 'especÃ­ficos', 'especÃ­ficas',
+  'específico', 'especifica', 'específica', 'específicos', 'específicas',
   'indicado', 'indicada', 'indicados', 'indicadas',
-  'aparente', 'aparentes', 'rÃºstico', 'rustico', 'liso', 'lisa', 'lisos', 'lisas',
+  'aparente', 'aparentes', 'rústico', 'rustico', 'liso', 'lisa', 'lisos', 'lisas',
   'pulido', 'pulida', 'pulidos', 'pulidas', 'acabado', 'acabados',
   'fino', 'fina', 'finos', 'finas', 'grueso', 'gruesa', 'gruesos', 'gruesas',
   'firme', 'firmes', 'pesado', 'pesada', 'ligero', 'ligera',
   'alto', 'alta', 'altos', 'altas', 'altura', 'alturas',
   'bajo', 'baja', 'bajos', 'bajas', 'ancho', 'ancha', 'anchos', 'anchas', 'anchura',
   'largo', 'larga', 'largos', 'largas', 'longitud', 'longitudes',
-  'espesor', 'espesores', 'diÃ¡metro', 'diÃ¡metros',
-  'secciÃ³n', 'secciones', 'calibre', 'calibres', 'cÃ©dula',
+  'espesor', 'espesores', 'diámetro', 'diámetros',
+  'sección', 'secciones', 'calibre', 'calibres', 'cédula',
   'norma', 'normas', 'normal', 'normales', 'proyecto', 'proyectos', 'obra', 'obras',
   'sitio', 'sitios', 'plano', 'planos', 'croquis', 'detalle', 'detalles',
-  'planta', 'plantas', 'fachada', 'fachadas', 'especificaciÃ³n', 'especificaciones',
-  'concepto', 'conceptos', 'partida', 'partidas', 'catÃ¡logo', 'catÃ¡logos',
+  'planta', 'plantas', 'fachada', 'fachadas', 'especificación', 'especificaciones',
+  'concepto', 'conceptos', 'partida', 'partidas', 'catálogo', 'catálogos',
   'matriz', 'matrices', 'precio', 'precios', 'unitario', 'unitarios',
   'presupuesto', 'presupuestos', 'importe', 'importes', 'cantidad', 'cantidades',
   'unidad', 'unidades', 'costo', 'costos', 'total', 'totales', 'subtotal', 'subtotales',
   'iva', 'sobrecosto', 'sobrecostos', 'financiamiento', 'utilidad',
-  'fianza', 'fianzas', 'anticipo', 'anticipos', 'estimaciÃ³n', 'estimaciones',
-  'generador', 'generadores', 'nÃºmero', 'nÃºmeros', 'clave', 'claves', 'cÃ³digo', 'cÃ³digos',
-  'descripciÃ³n', 'descripciones', 'tipo', 'tipos', 'marca', 'marcas', 'modelo', 'modelos',
-  'serie', 'series', 'lÃ­nea', 'lÃ­neas', 'color', 'colores',
-  'peso', 'pesos', 'volumen', 'Ã¡rea', 'Ã¡reas', 'superficie', 'superficies',
+  'fianza', 'fianzas', 'anticipo', 'anticipos', 'estimación', 'estimaciones',
+  'generador', 'generadores', 'número', 'números', 'clave', 'claves', 'código', 'códigos',
+  'descripción', 'descripciones', 'tipo', 'tipos', 'marca', 'marcas', 'modelo', 'modelos',
+  'serie', 'series', 'línea', 'líneas', 'color', 'colores',
+  'peso', 'pesos', 'volumen', 'área', 'áreas', 'superficie', 'superficies',
   'capacidad', 'capacidades', 'resistencia', 'resistencias',
-  'presiÃ³n', 'tensiÃ³n', 'temperatura', 'temperaturas', 'tiempo', 'tiempos', 'plazo', 'plazos',
+  'presión', 'tensión', 'temperatura', 'temperaturas', 'tiempo', 'tiempos', 'plazo', 'plazos',
   'fecha', 'fechas', 'semana', 'semanas', 'banco', 'tiro',
   'material', 'materiales', 'insumo', 'insumos', 'mano', 'manos',
   'equipo', 'equipos', 'herramienta', 'herramientas', 'menor', 'menores',
-  'seguridad', 'protecciÃ³n', 'maquinaria', 'andamio', 'andamios', 'puntal', 'puntales',
-  'cimbra', 'cimbras', 'madera', 'maderas', 'polÃ­n', 'polines', 'barrote', 'barrotes',
-  'tabla', 'tablas', 'tablÃ³n', 'tablones', 'triplay', 'duela', 'duelas', 'tarima', 'tarimas',
+  'seguridad', 'protección', 'maquinaria', 'andamio', 'andamios', 'puntal', 'puntales',
+  'cimbra', 'cimbras', 'madera', 'maderas', 'polín', 'polines', 'barrote', 'barrotes',
+  'tabla', 'tablas', 'tablón', 'tablones', 'triplay', 'duela', 'duelas', 'tarima', 'tarimas',
   'concreto', 'concretos', 'premezclado', 'cemento', 'cementos', 'arena', 'grava', 'agua',
   'cal', 'yeso', 'estuco', 'aditivo', 'aditivos', 'acelerante', 'retardante',
   'impermeabilizante', 'impermeabilizantes',
   'acero', 'aceros', 'refuerzo', 'estructural', 'estructurales',
   'varilla', 'varillas', 'corrugada', 'corrugadas',
-  'alambrÃ³n', 'alambre', 'recocido', 'malla', 'electrosoldada', 'electrodo', 'electrodos',
-  'placa', 'placas', 'solera', 'soleras', 'Ã¡ngulo', 'Ã¡ngulos', 'canal', 'canales',
+  'alambrón', 'alambre', 'recocido', 'malla', 'electrosoldada', 'electrodo', 'electrodos',
+  'placa', 'placas', 'solera', 'soleras', 'ángulo', 'ángulos', 'canal', 'canales',
   'viga', 'vigas', 'perfil', 'perfiles', 'trabe', 'trabes', 'liga',
   'cerramiento', 'cerramientos', 'columna', 'columnas', 'castillo', 'castillos', 'armex',
   'dala', 'dalas', 'cadena', 'cadenas', 'zapata', 'zapatas', 'losa', 'losas',
-  'firme', 'firmes', 'plantilla', 'plantillas', 'muro', 'muros', 'carga', 'divisorio', 'divisorios', 'contenciÃ³n',
-  'tabique', 'tabiques', 'tabicÃ³n', 'block', 'blocks', 'bloque', 'bloques', 'ladrillo', 'ladrillos', 'hueco', 'huecos', 'macizo', 'macizos',
-  'piso', 'pisos', 'pavimento', 'pavimentos', 'asfalto', 'adoquÃ­n', 'adoquines',
-  'banqueta', 'banquetas', 'guarniciÃ³n', 'guarniciones', 'machuelo', 'machuelos',
+  'firme', 'firmes', 'plantilla', 'plantillas', 'muro', 'muros', 'carga', 'divisorio', 'divisorios', 'contención',
+  'tabique', 'tabiques', 'tabicón', 'block', 'blocks', 'bloque', 'bloques', 'ladrillo', 'ladrillos', 'hueco', 'huecos', 'macizo', 'macizos',
+  'piso', 'pisos', 'pavimento', 'pavimentos', 'asfalto', 'adoquín', 'adoquines',
+  'banqueta', 'banquetas', 'guarnición', 'guarniciones', 'machuelo', 'machuelos',
   'techo', 'techos', 'cubierta', 'cubiertas', 'azotea', 'azoteas',
-  'plafÃ³n', 'plafones', 'tablaroca', 'durock', 'panel', 'paneles',
-  'zoclo', 'zoclos', 'rodapiÃ©', 'gotero', 'goteros', 'chaflÃ¡n', 'chaflanes',
+  'plafón', 'plafones', 'tablaroca', 'durock', 'panel', 'paneles',
+  'zoclo', 'zoclos', 'rodapié', 'gotero', 'goteros', 'chaflán', 'chaflanes',
   'pretil', 'pretiles', 'murete', 'muretes', 'dintel', 'dinteles', 'enrase', 'enrases',
   'entortado', 'enladrillado', 'aplanado', 'aplanados', 'tirol',
-  'tubo', 'tubos', 'tuberÃ­a', 'tuberÃ­as', 'cobre', 'codo', 'codos', 'cople', 'coples',
-  'reducciÃ³n', 'reducciones', 'tee', 'niple', 'niples', 'tuerca', 'tuercas',
+  'tubo', 'tubos', 'tubería', 'tuberías', 'cobre', 'codo', 'codos', 'cople', 'coples',
+  'reducción', 'reducciones', 'tee', 'niple', 'niples', 'tuerca', 'tuercas',
   'tornillo', 'tornillos', 'taquete', 'taquetes', 'perno', 'pernos',
-  'vÃ¡lvula', 'vÃ¡lvulas', 'llave', 'llaves', 'grifo', 'grifos',
+  'válvula', 'válvulas', 'llave', 'llaves', 'grifo', 'grifos',
   'bomba', 'bombas', 'cisterna', 'cisternas', 'tinaco', 'tinacos', 'tanque', 'tanques',
-  'flotador', 'flotadores', 'presurizador', 'hidroneumÃ¡tico', 'biodigestor',
+  'flotador', 'flotadores', 'presurizador', 'hidroneumático', 'biodigestor',
   'tarja', 'tarjas', 'lavabo', 'lavabos', 'lavadero', 'lavaderos',
   'inodoro', 'inodoros', 'mingitorio', 'mingitorios',
   'regadera', 'regaderas', 'coladera', 'coladeras', 'cespol',
   'cable', 'cables', 'conductor', 'conductores',
-  'interruptor', 'interruptores', 'termomagnÃ©tico', 'termomagnÃ©ticos', 'pastilla', 'pastillas',
+  'interruptor', 'interruptores', 'termomagnético', 'termomagnéticos', 'pastilla', 'pastillas',
   'tablero', 'tableros', 'contacto', 'contactos', 'duplex', 'apagador', 'apagadores',
-  'luminaria', 'luminarias', 'foco', 'focos', 'lÃ¡mpara', 'lÃ¡mparas', 'led',
-  'registro', 'registros', 'caja', 'cajas', 'chalupa', 'chalupas', 'tapa', 'tapas', 'tapÃ³n', 'tapones',
-  'cancelerÃ­a', 'aluminio', 'vidrio', 'vidrios', 'cristal', 'cristales', 'espejo', 'espejos',
+  'luminaria', 'luminarias', 'foco', 'focos', 'lámpara', 'lámparas', 'led',
+  'registro', 'registros', 'caja', 'cajas', 'chalupa', 'chalupas', 'tapa', 'tapas', 'tapón', 'tapones',
+  'cancelería', 'aluminio', 'vidrio', 'vidrios', 'cristal', 'cristales', 'espejo', 'espejos',
   'puerta', 'puertas', 'ventana', 'ventanas', 'marco', 'marcos', 'chapa', 'chapas', 'cerradura', 'cerraduras',
   'bisagra', 'bisagras', 'jaladera', 'jaladeras',
-  'herrerÃ­a', 'reja', 'rejas', 'barandal', 'barandales', 'pasamanos',
-  'carpinterÃ­a', 'closet', 'closets', 'mueble', 'muebles',
-  'esmalte', 'esmaltes', 'azulejo', 'azulejos', 'loseta', 'losetas', 'cerÃ¡mica', 'porcelanato',
-  'mÃ¡rmol', 'granito', 'cantera', 'pegazulejo', 'boquilla', 'boquillas', 'junteador',
+  'herrería', 'reja', 'rejas', 'barandal', 'barandales', 'pasamanos',
+  'carpintería', 'closet', 'closets', 'mueble', 'muebles',
+  'esmalte', 'esmaltes', 'azulejo', 'azulejos', 'loseta', 'losetas', 'cerámica', 'porcelanato',
+  'mármol', 'granito', 'cantera', 'pegazulejo', 'boquilla', 'boquillas', 'junteador',
   'membrana', 'geotextil', 'retroexcavadora', 'revolvedora', 'bailarina', 'vibrador', 'compactador',
-  'oficial', 'ayudante', 'ayudantes', 'peÃ³n', 'peones', 'cuadrilla', 'cuadrillas', 'cabo',
-  'residente', 'supervisor', 'supervisiÃ³n', 'ingeniero', 'arquitecto', 'contratista',
+  'oficial', 'ayudante', 'ayudantes', 'peón', 'peones', 'cuadrilla', 'cuadrillas', 'cabo',
+  'residente', 'supervisor', 'supervisión', 'ingeniero', 'arquitecto', 'contratista',
   'abrazadera', 'abrazaderas', 'acometida', 'acometidas', 'acomodo', 'acopio', 'acoplador',
   'adaptador', 'adaptadores', 'afine', 'agarradera', 'agregado', 'agregados', 'ajustable', 'alargado',
-  'alimenticio', 'alineaciÃ³n', 'anticalcÃ¡reo', 'anticorrosivo', 'bajada', 'bajadas',
+  'alimenticio', 'alineación', 'anticalcáreo', 'anticorrosivo', 'bajada', 'bajadas',
   'balanceada', 'barreras', 'bastidor', 'bastidores', 'bicapa', 'blanco', 'blanca', 'blancos', 'blancas',
   'bloquera', 'bronce', 'calentador', 'calentadores', 'caoba', 'capa', 'capas', 'cara', 'caras',
-  'carretilla', 'carretillas', 'cebolleta', 'cedro', 'cementada', 'cementar', 'centrÃ­fuga',
-  'cepa', 'cepas', 'certificaciÃ³n', 'certificada', 'certificadas', 'cimientos', 'claro', 'claros',
-  'conducciÃ³n', 'conduit', 'condulet', 'conector', 'conectores', 'contaminaciÃ³n', 'contramarco', 'contramarcos',
+  'carretilla', 'carretillas', 'cebolleta', 'cedro', 'cementada', 'cementar', 'centrífuga',
+  'cepa', 'cepas', 'certificación', 'certificada', 'certificadas', 'cimientos', 'claro', 'claros',
+  'conducción', 'conduit', 'condulet', 'conector', 'conectores', 'contaminación', 'contramarco', 'contramarcos',
   'corrediza', 'corredizas', 'costeras', 'cromo', 'cuadro', 'cuadros', 'cuerpo', 'cuerpos',
-  'desagÃ¼e', 'descarga', 'descargas', 'descargo', 'desenraice', 'desÃ©rtico', 'desnudo', 'desnuda', 'desplante',
-  'dimensionamiento', 'distancia', 'distancias', 'doble', 'dobles', 'domÃ©stico', 'domiciliaria',
-  'ecolÃ³gica', 'eje', 'ejes', 'electrolÃ­tico', 'escalerilla', 'especializada', 'especializadas',
-  'estaciÃ³n', 'estacionario', 'estribo', 'estribos', 'estructura', 'estructuras', 'excÃ©ntrica',
+  'desagüe', 'descarga', 'descargas', 'descargo', 'desenraice', 'desértico', 'desnudo', 'desnuda', 'desplante',
+  'dimensionamiento', 'distancia', 'distancias', 'doble', 'dobles', 'doméstico', 'domiciliaria',
+  'ecológica', 'eje', 'ejes', 'electrolítico', 'escalerilla', 'especializada', 'especializadas',
+  'estación', 'estacionario', 'estribo', 'estribos', 'estructura', 'estructuras', 'excéntrica',
   'exteriores', 'filtro', 'filtros', 'flexible', 'flexibles', 'flotador', 'flujo',
   'forrada', 'frecuencia', 'fregadero', 'fregaderos', 'fusible', 'fusibles',
   'galvanizado', 'galvanizada', 'galvanizados', 'galvanizadas', 'gas', 'grado', 'grados',
   'gris', 'grises', 'hembra', 'hembras', 'hierro', 'hilada', 'hiladas', 'horizontal', 'horizontales',
   'impulsor', 'indicador', 'indicadores', 'industrial', 'industriales', 'inoxidable', 'inoxidables',
-  'integrado', 'integrada', 'interior', 'interiores', 'lÃ­quido', 'lÃ­quidos',
-  'lubricaciÃ³n', 'macho', 'machos', 'maestra', 'maestras', 'mamposterÃ­a', 'maneral', 'manerales',
-  'manguera', 'mangueras', 'mediciÃ³n', 'medida', 'medidas', 'medidor', 'medidores', 'mejorar',
+  'integrado', 'integrada', 'interior', 'interiores', 'líquido', 'líquidos',
+  'lubricación', 'macho', 'machos', 'maestra', 'maestras', 'mampostería', 'maneral', 'manerales',
+  'manguera', 'mangueras', 'medición', 'medida', 'medidas', 'medidor', 'medidores', 'mejorar',
   'mezcla', 'mezclas', 'mezcladora', 'mezcladoras', 'minuto', 'minutos', 'mirilla',
-  'monofÃ¡sica', 'monomando', 'mordazas', 'mufa', 'mufas', 'multicapa', 'nariz',
+  'monofásica', 'monomando', 'mordazas', 'mufa', 'mufas', 'multicapa', 'nariz',
   'natural', 'naturales', 'negro', 'negra', 'negros', 'negras', 'nicho', 'nichos',
-  'omega', 'omegas', 'oriÃ³n', 'ostiÃ³n', 'pala', 'palas', 'paÃ±o', 'paÃ±os', 'paso', 'pasos',
-  'piedra', 'piedras', 'pino', 'pisÃ³n', 'polarizado', 'polietileno', 'polipropileno', 'polos',
-  'potencia', 'preliminar', 'preliminares', 'profundidad', 'proporciÃ³n',
-  'razÃ³n', 'recta', 'recto', 'rectos', 'rectas', 'red', 'redes', 'redondo', 'redonda', 'redondos', 'redondas',
+  'omega', 'omegas', 'orión', 'ostión', 'pala', 'palas', 'paño', 'paños', 'paso', 'pasos',
+  'piedra', 'piedras', 'pino', 'pisón', 'polarizado', 'polietileno', 'polipropileno', 'polos',
+  'potencia', 'preliminar', 'preliminares', 'profundidad', 'proporción',
+  'razón', 'recta', 'recto', 'rectos', 'rectas', 'red', 'redes', 'redondo', 'redonda', 'redondos', 'redondas',
   'referencia', 'referencias', 'reforzado', 'reforzada', 'reforzados', 'reforzadas',
   'regulador', 'reguladores', 'rejilla', 'rejillas', 'relleno', 'rellenos', 'rendimiento',
-  'resina', 'resinas', 'retrÃ¡ctil', 'revenimiento', 'reventÃ³n', 'roca', 'rocas', 'rojo', 'roja', 'rojos', 'rojas',
+  'resina', 'resinas', 'retráctil', 'revenimiento', 'reventón', 'roca', 'rocas', 'rojo', 'roja', 'rojos', 'rojas',
   'rugoso', 'rugosa', 'sanitaria', 'sanitario', 'sanitarias', 'sanitarios', 'seca', 'seco', 'secas', 'secos', 'secado',
   'semi', 'sencilla', 'sencillo', 'sencillas', 'sencillos', 'sentido', 'sentidos',
-  'seÃ±alizaciÃ³n', 'seÃ±alamiento', 'servicio', 'servicios', 'sistema', 'sistemas',
-  'tala', 'talud', 'taludes', 'taza', 'tazas', 'tepetate', 'termofusiÃ³n', 'termofusionable', 'termoplÃ¡stica',
+  'señalización', 'señalamiento', 'servicio', 'servicios', 'sistema', 'sistemas',
+  'tala', 'talud', 'taludes', 'taza', 'tazas', 'tepetate', 'termofusión', 'termofusionable', 'termoplástica',
   'terreno', 'terrenos', 'tierra', 'tierras', 'urbana', 'urbano', 'uso', 'usos',
   'velocidad', 'verde', 'verdes',
-  // TÃ©rminos esenciales de construcciÃ³n y nÃºmeros
+  // Términos esenciales de construcción y números
   'accesorios', 'agreg', 'apile', 'artic', 'base', 'bases', 'bastidor', 'bastidores', 'brasa',
-  'centro', 'centros', 'comercial', 'comerciales', 'cualquier', 'cualquiera', 'dimension', 'dimensiÃ³n',
+  'centro', 'centros', 'comercial', 'comerciales', 'cualquier', 'cualquiera', 'dimension', 'dimensión',
   'dimensiones', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez',
   'once', 'doce', 'trece', 'catorce', 'quince', 'veinte', 'treinta', 'cien', 'mil',
   'emboquillado', 'emboquillados', 'estableciendo', 'explora', 'fondo', 'fondos', 'lieresa',
@@ -568,7 +568,7 @@ class WordAutocorrectService {
     try {
       localStorage.setItem(STORAGE_KEY_AUTOCORRECT_ENABLED, String(this.enabled));
     } catch (e) {}
-    showToast(this.enabled ? 'Corrector ortogrÃ¡fico activado' : 'Corrector ortogrÃ¡fico desactivado', 'info');
+    showToast(this.enabled ? 'Corrector ortográfico activado' : 'Corrector ortográfico desactivado', 'info');
     this.refreshHighlighters();
     return this.enabled;
   }
@@ -632,49 +632,49 @@ class WordAutocorrectService {
   }
 
   /**
-   * Verifica si una palabra se considera ortogrÃ¡ficamente vÃ¡lida.
+   * Verifica si una palabra se considera ortográficamente válida.
    */
   isValidWord(rawWord) {
     if (!rawWord) return true;
     const word = rawWord.trim();
     if (!word || word.length <= 1) return true;
 
-    // 1. Cualquier token que contenga dÃ­gitos es una cota, especificaciÃ³n o cÃ³digo tÃ©cnico
+    // 1. Cualquier token que contenga dígitos es una cota, especificación o código técnico
     // ej: 0.90x2.10, 1.50m, 12x20x40, 100amp.max, no.2, no.3, 250kg, 1/2", 120v, APU-01
     if (/\d/.test(word)) return true;
 
-    // 2. Tokens con sÃ­mbolos tÃ©cnicos de obra (pulgadas, diagonales, fÃ³rmulas, grados, potencias)
-    if (/[\/'"=Â°%Â²Â³\+]/.test(word)) return true;
+    // 2. Tokens con símbolos técnicos de obra (pulgadas, diagonales, fórmulas, grados, potencias)
+    if (/[\/'"=°%²³\+]/.test(word)) return true;
 
-    // 3. Siglas y cÃ³digos en mayÃºsculas de longitud corta (ej: CFE, NOM, NMX, PVC, CPVC, HDPE, IPR, APU, FO, GO, II)
+    // 3. Siglas y códigos en mayúsculas de longitud corta (ej: CFE, NOM, NMX, PVC, CPVC, HDPE, IPR, APU, FO, GO, II)
     if (/^[A-Z0-9_\-\.]+$/.test(word) && word.length <= 6) return true;
 
     const lower = word.toLowerCase();
 
-    // 4. Abreviaturas y notaciones tÃ©cnicas admitidas
-    if (['no.', 'nÃºm.', 'num.', 'c/u', 'kg/cm2', 'kg/cmÂ²', 'ton/m3', 'ton/mÂ²', 'f\'c', 's/n', 'p.b', 'p.a', 'p.d', 'p.g', 'l.p', 'r.n'].includes(lower)) {
+    // 4. Abreviaturas y notaciones técnicas admitidas
+    if (['no.', 'núm.', 'num.', 'c/u', 'kg/cm2', 'kg/cm²', 'ton/m3', 'ton/m²', 'f\'c', 's/n', 'p.b', 'p.a', 'p.d', 'p.g', 'l.p', 'r.n'].includes(lower)) {
       return true;
     }
 
-    // 5. En lista de ignorados para esta sesiÃ³n
+    // 5. En lista de ignorados para esta sesión
     if (this.ignoredWords.has(lower)) return true;
 
     // 6. En diccionario de usuario
     if (this.customDictionary.has(lower)) return true;
 
-    // 7. Si la palabra estÃ¡ en AUTOCORRECT_MAP y requiere acentuaciÃ³n (ej: colocacion -> colocaciÃ³n)
+    // 7. Si la palabra está en AUTOCORRECT_MAP y requiere acentuación (ej: colocacion -> colocación)
     if (AUTOCORRECT_MAP[lower] && AUTOCORRECT_MAP[lower].toLowerCase() !== lower) {
       return false;
     }
 
-    // 8. En diccionario pre-aprobado (base espaÃ±ola y construcciÃ³n)
+    // 8. En diccionario pre-aprobado (base española y construcción)
     if (SPANISH_BASE_DICT.has(lower)) return true;
 
     return false;
   }
 
   /**
-   * Corrige el case respetando mayÃºsculas/minÃºsculas originales:
+   * Corrige el case respetando mayúsculas/minúsculas originales:
    */
   matchCasing(original, replacement) {
     if (!original || !replacement) return replacement;
@@ -695,13 +695,13 @@ class WordAutocorrectService {
   }
 
   /**
-   * EvalÃºa si una palabra califica para autocorrecciÃ³n inmediata al teclear espacio:
+   * Evalúa si una palabra califica para autocorrección inmediata al teclear espacio:
    */
   getAutocorrectReplacement(rawWord, isSentenceStart = false) {
     if (!this.enabled || !rawWord || rawWord.length < 2) return null;
 
-    // 1. Regla de Word: "Corregir DOS MAyÃºsculas Iniciales" (ej: COncreto -> Concreto)
-    if (rawWord.length >= 3 && /^[A-ZÃÃ‰ÃÃ“ÃšÃ‘]{2}[a-zÃ¡Ã©Ã­Ã³ÃºÃ±]+$/.test(rawWord)) {
+    // 1. Regla de Word: "Corregir DOS MAyúsculas Iniciales" (ej: COncreto -> Concreto)
+    if (rawWord.length >= 3 && /^[A-ZÁÉÍÓÚÑ]{2}[a-záéíóúñ]+$/.test(rawWord)) {
       const fixed = rawWord.charAt(0) + rawWord.slice(1).toLowerCase();
       const mapped = AUTOCORRECT_MAP[fixed.toLowerCase()];
       if (mapped) {
@@ -712,7 +712,7 @@ class WordAutocorrectService {
 
     const lower = rawWord.toLowerCase();
 
-    // 2. Mapeo directo en tabla de autocorrecciÃ³n
+    // 2. Mapeo directo en tabla de autocorrección
     if (AUTOCORRECT_MAP[lower]) {
       let rep = AUTOCORRECT_MAP[lower];
       if (isSentenceStart && rep.length > 0) {
@@ -723,24 +723,24 @@ class WordAutocorrectService {
       return rep;
     }
 
-    // 3. Regla morfolÃ³gica: Palabras que terminan en "cion" sin tilde
+    // 3. Regla morfológica: Palabras que terminan en "cion" sin tilde
     if (lower.length >= 6 && lower.endsWith('cion')) {
-      const corrected = lower.slice(0, -4) + 'ciÃ³n';
+      const corrected = lower.slice(0, -4) + 'ción';
       let rep = this.matchCasing(rawWord, corrected);
       if (isSentenceStart) rep = rep.charAt(0).toUpperCase() + rep.slice(1);
       return rep;
     }
 
-    // 4. Regla morfolÃ³gica: Palabras que terminan en "eria" sin tilde
+    // 4. Regla morfológica: Palabras que terminan en "eria" sin tilde
     if (lower.length >= 6 && lower.endsWith('eria')) {
-      const corrected = lower.slice(0, -4) + 'erÃ­a';
+      const corrected = lower.slice(0, -4) + 'ería';
       let rep = this.matchCasing(rawWord, corrected);
       if (isSentenceStart) rep = rep.charAt(0).toUpperCase() + rep.slice(1);
       return rep;
     }
 
-    // 5. MayÃºscula inicial si es inicio de frase y comenzÃ³ en minÃºscula
-    if (isSentenceStart && /^[a-zÃ¡Ã©Ã­Ã³ÃºÃ±]/.test(rawWord)) {
+    // 5. Mayúscula inicial si es inicio de frase y comenzó en minúscula
+    if (isSentenceStart && /^[a-záéíóúñ]/.test(rawWord)) {
       return rawWord.charAt(0).toUpperCase() + rawWord.slice(1);
     }
 
@@ -761,17 +761,17 @@ class WordAutocorrectService {
       suggestions.add(this.matchCasing(rawWord, AUTOCORRECT_MAP[lower]));
     }
 
-    // 2. Variaciones morfolÃ³gicas (-ciÃ³n, -erÃ­a)
+    // 2. Variaciones morfológicas (-ción, -ería)
     if (lower.endsWith('cion')) {
-      suggestions.add(this.matchCasing(rawWord, lower.slice(0, -4) + 'ciÃ³n'));
+      suggestions.add(this.matchCasing(rawWord, lower.slice(0, -4) + 'ción'));
     }
     if (lower.endsWith('eria')) {
-      suggestions.add(this.matchCasing(rawWord, lower.slice(0, -4) + 'erÃ­a'));
+      suggestions.add(this.matchCasing(rawWord, lower.slice(0, -4) + 'ería'));
     }
 
     // 3. Probar reemplazo directo de vocales no acentuadas por acentuadas
-    // ej: valvula -> vÃ¡lvula, linea -> lÃ­nea, hidraulico -> hidrÃ¡ulico, maximo -> mÃ¡ximo, numero -> nÃºmero
-    const vowels = { a: 'Ã¡', e: 'Ã©', i: 'Ã­', o: 'Ã³', u: 'Ãº' };
+    // ej: valvula -> válvula, linea -> línea, hidraulico -> hidráulico, maximo -> máximo, numero -> número
+    const vowels = { a: 'á', e: 'é', i: 'í', o: 'ó', u: 'ú' };
     for (let i = 0; i < lower.length; i++) {
       const ch = lower[i];
       if (vowels[ch]) {
@@ -809,7 +809,7 @@ class WordAutocorrectService {
     return Array.from(suggestions);
   }
 
-  // CÃ¡lculo de distancia de ediciÃ³n (Levenshtein)
+  // Cálculo de distancia de edición (Levenshtein)
   levenshtein(a, b) {
     const matrix = [];
     for (let i = 0; i <= b.length; i++) matrix[i] = [i];
@@ -821,10 +821,10 @@ class WordAutocorrectService {
           matrix[i][j] = matrix[i - 1][j - 1];
         } else {
           matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1, // sustituciÃ³n
+            matrix[i - 1][j - 1] + 1, // sustitución
             Math.min(
-              matrix[i][j - 1] + 1,   // inserciÃ³n
-              matrix[i - 1][j] + 1    // eliminaciÃ³n
+              matrix[i][j - 1] + 1,   // inserción
+              matrix[i - 1][j] + 1    // eliminación
             )
           );
         }
@@ -834,14 +834,14 @@ class WordAutocorrectService {
   }
 
   /**
-   * Obtiene la palabra y sus coordenadas [start, end] en una posiciÃ³n especÃ­fica de texto.
+   * Obtiene la palabra y sus coordenadas [start, end] en una posición específica de texto.
    */
   getWordAtPosition(text, pos) {
     if (!text || typeof text !== 'string') return null;
     const len = text.length;
     if (pos < 0 || pos > len) return null;
 
-    const isWordChar = (c) => /[a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±A-ZÃÃ‰ÃÃ“ÃšÃœÃ‘0-9\/\'\.\-]/.test(c);
+    const isWordChar = (c) => /[a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9\/\'\.\-]/.test(c);
 
     let checkPos = pos;
     if (checkPos > 0 && (checkPos >= len || !isWordChar(text[checkPos])) && isWordChar(text[checkPos - 1])) {
@@ -865,7 +865,7 @@ class WordAutocorrectService {
     let cleanWord = rawWord;
 
     const matchPunct = cleanWord.match(/([\.,;:!?\)\"\'\]]+)$/);
-    if (matchPunct && !['no.', 'nÃºm.', 'num.', 'c/u', 'kg/cm2', 'ton/m3', 'f\'c', 's/n', 'p.b', 'p.a', 'p.d', 'l.p'].includes(cleanWord.toLowerCase())) {
+    if (matchPunct && !['no.', 'núm.', 'num.', 'c/u', 'kg/cm2', 'ton/m3', 'f\'c', 's/n', 'p.b', 'p.a', 'p.d', 'l.p'].includes(cleanWord.toLowerCase())) {
       const punctLen = matchPunct[1].length;
       cleanWord = cleanWord.slice(0, -punctLen);
       end -= punctLen;
@@ -880,7 +880,7 @@ class WordAutocorrectService {
   }
 
   /**
-   * Identifica con alta precisiÃ³n la palabra y si es error bajo las coordenadas del mouse.
+   * Identifica con alta precisión la palabra y si es error bajo las coordenadas del mouse.
    */
   getWordUnderPointer(target, event) {
     if (!target) return null;
@@ -913,7 +913,7 @@ class WordAutocorrectService {
       pos = target.selectionStart;
     }
 
-    // 3. Buscar si coincide directamente con algÃºn error previamente detectado en este campo
+    // 3. Buscar si coincide directamente con algún error previamente detectado en este campo
     const errors = this.findSpellingErrorsInText(text);
 
     if (pos >= 0) {
@@ -930,7 +930,7 @@ class WordAutocorrectService {
       }
     }
 
-    // 4. Si no cayÃ³ en un error conocido, extraer la palabra en la posiciÃ³n pos
+    // 4. Si no cayó en un error conocido, extraer la palabra en la posición pos
     const wordInfo = this.getWordAtPosition(text, pos >= 0 ? pos : 0);
     if (wordInfo) {
       const isValid = this.isValidWord(wordInfo.word);
@@ -945,12 +945,12 @@ class WordAutocorrectService {
   }
 
   /**
-   * Escanea un texto completo y devuelve los errores encontrados con posiciÃ³n y sugerencias.
+   * Escanea un texto completo y devuelve los errores encontrados con posición y sugerencias.
    */
   findSpellingErrorsInText(text) {
     if (!text || typeof text !== 'string') return [];
 
-    const regex = /([a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±A-ZÃÃ‰ÃÃ“ÃšÃœÃ‘0-9\/\'\.\-]+)/g;
+    const regex = /([a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9\/\'\.\-]+)/g;
     const errors = [];
     let match;
 
@@ -960,9 +960,9 @@ class WordAutocorrectService {
       let start = match.index;
       let end = start + rawWord.length;
 
-      // Descartar puntuaciÃ³n final comÃºn a menos que sea abreviatura tÃ©cnica
+      // Descartar puntuación final común a menos que sea abreviatura técnica
       const matchPunct = cleanWord.match(/([\.,;:!?\)\"\'\]]+)$/);
-      if (matchPunct && !['no.', 'nÃºm.', 'num.', 'c/u', 'kg/cm2', 'ton/m3', 'f\'c', 's/n', 'p.b', 'p.a', 'p.d', 'l.p'].includes(cleanWord.toLowerCase())) {
+      if (matchPunct && !['no.', 'núm.', 'num.', 'c/u', 'kg/cm2', 'ton/m3', 'f\'c', 's/n', 'p.b', 'p.a', 'p.d', 'l.p'].includes(cleanWord.toLowerCase())) {
         const punctLen = matchPunct[1].length;
         cleanWord = cleanWord.slice(0, -punctLen);
         end -= punctLen;
@@ -970,7 +970,7 @@ class WordAutocorrectService {
 
       if (!cleanWord || cleanWord.length <= 1) continue;
 
-      // Si la palabra no es vÃ¡lida
+      // Si la palabra no es válida
       if (!this.isValidWord(cleanWord)) {
         const suggestions = this.getSuggestions(cleanWord);
         errors.push({
@@ -1001,7 +1001,7 @@ class WordAutocorrectService {
   }
 
   /**
-   * Intercepta la pulsaciÃ³n de teclas para realizar autocorrecciÃ³n al pulsar espacio o puntuaciÃ³n.
+   * Intercepta la pulsación de teclas para realizar autocorrección al pulsar espacio o puntuación.
    */
   handleKeydown(e) {
     if (!this.enabled) return;
@@ -1016,7 +1016,7 @@ class WordAutocorrectService {
     if (!isInput && !isTextarea && !isContentEditable) return;
     if (target.readOnly || target.disabled) return;
 
-    // Deshacer autocorrecciÃ³n con Backspace inmediato
+    // Deshacer autocorrección con Backspace inmediato
     if (e.key === 'Backspace' && this.lastAutocorrectEvent) {
       const { element, originalText, cursorPosition } = this.lastAutocorrectEvent;
       if (element === target && (target.value !== undefined || isContentEditable)) {
@@ -1052,7 +1052,7 @@ class WordAutocorrectService {
     if (cursorPos !== target.selectionEnd) return;
 
     const textBefore = value.slice(0, cursorPos);
-    const match = textBefore.match(/([a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±A-ZÃÃ‰ÃÃ“ÃšÃœÃ‘0-9\/\'\.\-]+)$/);
+    const match = textBefore.match(/([a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9\/\'\.\-]+)$/);
     if (!match) return;
 
     const lastWord = match[1];
@@ -1087,7 +1087,7 @@ class WordAutocorrectService {
   }
 
   /**
-   * Reemplaza la palabra errÃ³nea por la seleccionada en el target editable.
+   * Reemplaza la palabra errónea por la seleccionada en el target editable.
    */
   replaceWord(target, wordInfo, newWord) {
     if (!target || !wordInfo || !newWord) return;
@@ -1113,7 +1113,7 @@ class WordAutocorrectService {
   }
 
   /**
-   * Oculta el menÃº contextual flotante.
+   * Oculta el menú contextual flotante.
    */
   hideContextMenu() {
     const menu = document.getElementById('word-spell-context-menu');
@@ -1125,7 +1125,7 @@ class WordAutocorrectService {
   }
 
   /**
-   * Renderiza el contenido del menÃº flotante de correcciÃ³n con opciones completas.
+   * Renderiza el contenido del menú flotante de corrección con opciones completas.
    */
   renderContextMenu(menu, word, suggestions, x, y, onSelect, onIgnore, onAddDict, onManualFix) {
     const escape = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1135,7 +1135,7 @@ class WordAutocorrectService {
     // Encabezado
     const header = document.createElement('div');
     header.className = 'px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between border-b border-slate-100 mb-1';
-    header.innerHTML = `<span>CorrecciÃ³n: <span class="text-rose-600 font-semibold normal-case">${escape(word)}</span></span><i class="fa-solid fa-spell-check text-blue-600 text-xs"></i>`;
+    header.innerHTML = `<span>Corrección: <span class="text-rose-600 font-semibold normal-case">${escape(word)}</span></span><i class="fa-solid fa-spell-check text-blue-600 text-xs"></i>`;
     menu.appendChild(header);
 
     // Lista de sugerencias
@@ -1156,17 +1156,17 @@ class WordAutocorrectService {
         suggContainer.appendChild(btn);
       });
     } else {
-      // Si no hay sugerencias automÃ¡ticas, ofrecer entrada manual para no dejar al usuario sin opciÃ³n
+      // Si no hay sugerencias automáticas, ofrecer entrada manual para no dejar al usuario sin opción
       const noSug = document.createElement('div');
       noSug.className = 'px-2.5 py-1 text-slate-500 italic text-[11px] flex items-center gap-1.5';
-      noSug.innerHTML = `<i class="fa-solid fa-circle-question text-slate-400 text-[10px]"></i><span>Sin sugerencias automÃ¡ticas</span>`;
+      noSug.innerHTML = `<i class="fa-solid fa-circle-question text-slate-400 text-[10px]"></i><span>Sin sugerencias automáticas</span>`;
       suggContainer.appendChild(noSug);
 
       const manualWrap = document.createElement('div');
       manualWrap.className = 'px-2 py-1 flex items-center gap-1';
       manualWrap.innerHTML = `
-        <input type="text" id="spell-manual-fix-input" class="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:bg-white" placeholder="Escribir correcciÃ³n...">
-        <button type="button" id="spell-manual-fix-btn" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition cursor-pointer" title="Aplicar correcciÃ³n">
+        <input type="text" id="spell-manual-fix-input" class="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-slate-800 font-semibold focus:outline-none focus:border-blue-500 focus:bg-white" placeholder="Escribir corrección...">
+        <button type="button" id="spell-manual-fix-btn" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition cursor-pointer" title="Aplicar corrección">
           <i class="fa-solid fa-check text-[10px]"></i>
         </button>
       `;
@@ -1243,7 +1243,7 @@ class WordAutocorrectService {
   }
 
   /**
-   * Inicializa el escucha del menÃº contextual (clic derecho) estilo Word.
+   * Inicializa el escucha del menú contextual (clic derecho) estilo Word.
    */
   initSpellContextMenu() {
     let menu = document.getElementById('word-spell-context-menu');
@@ -1282,13 +1282,13 @@ class WordAutocorrectService {
         return;
       }
 
-      // Si la palabra es correcta, dejamos que el navegador muestre su menÃº normal (copiar, pegar, etc.)
+      // Si la palabra es correcta, dejamos que el navegador muestre su menú normal (copiar, pegar, etc.)
       if (!wordInfo.isError) {
         this.hideContextMenu();
         return;
       }
 
-      // Â¡Palabra con error! Desplegar menÃº de Word
+      // ¡Palabra con error! Desplegar menú de Word
       e.preventDefault();
       e.stopPropagation();
 
@@ -1389,7 +1389,7 @@ class WordAutocorrectService {
       return;
     }
 
-    // Copiar estilos geomÃ©tricos para alineaciÃ³n 1:1 exacta
+    // Copiar estilos geométricos para alineación 1:1 exacta
     const cs = window.getComputedStyle(element);
     backdrop.style.fontFamily = cs.fontFamily;
     backdrop.style.fontSize = cs.fontSize;
@@ -1439,7 +1439,7 @@ class WordAutocorrectService {
   }
 
   /**
-   * Configura atributos de ortografÃ­a en un elemento (desactivando el subrayado nativo del navegador para evitar falsos positivos).
+   * Configura atributos de ortografía en un elemento (desactivando el subrayado nativo del navegador para evitar falsos positivos).
    */
   enforceElementSpellcheck(el) {
     if (!el || el.dataset?.spellcheckConfigured === 'true') return;
@@ -1464,13 +1464,13 @@ class WordAutocorrectService {
   }
 
   /**
-   * InicializaciÃ³n global del observador y escuchas de eventos.
+   * Inicialización global del observador y escuchas de eventos.
    */
   initGlobalObserver() {
-    // 1. Escuchar pulsaciones de teclas para autocorrecciÃ³n estilo Word
+    // 1. Escuchar pulsaciones de teclas para autocorrección estilo Word
     document.addEventListener('keydown', (e) => this.handleKeydown(e), true);
 
-    // 2. Inicializar menÃº contextual de clic derecho estilo Word
+    // 2. Inicializar menú contextual de clic derecho estilo Word
     this.initSpellContextMenu();
 
     // 3. Interceptar foco para asegurar atributos y adjuntar resaltadores
@@ -1483,7 +1483,7 @@ class WordAutocorrectService {
       this.enforceElementSpellcheck(el);
     });
 
-    // 5. Observar mutaciones dinÃ¡micas (al desplegar nodos, modales, etc.)
+    // 5. Observar mutaciones dinámicas (al desplegar nodos, modales, etc.)
     const observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
         if (m.type === 'childList') {

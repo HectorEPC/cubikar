@@ -1,5 +1,5 @@
-﻿// js/modules/portal/subscriptionModal.js
-// GestiÃ³n integral de Planes de SuscripciÃ³n del Usuario: Gratuita, Plus y Pro
+// js/modules/portal/subscriptionModal.js
+// Gestión integral de Planes de Suscripción del Usuario: Gratuita, Plus y Pro
 
 import {
   getCurrentUser,
@@ -11,14 +11,14 @@ import {
   addFeaturedProfile,
   getActiveWorkspaceData,
   getUserPlanId
-} from './projectService.js?v=20261116_cf3';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf3';
-import { isNightMode } from '../../ui/themeController.js?v=20261116_cf3';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf3';
+} from './projectService.js?v=20261116_cf4';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf4';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf4';
 
 export const STORAGE_KEY_SUBSCRIPTION = 'adm_const_subscription';
 
-// MigraciÃ³n de compatibilidad: Asegurar que el plan quede ligado a la cuenta que lo comprÃ³
+// Migración de compatibilidad: Asegurar que el plan quede ligado a la cuenta que lo compró
 // y eliminar la clave global compartida para que no se filtre a otras cuentas ni a nuevos registros.
 try {
   if (typeof localStorage !== 'undefined') {
@@ -51,7 +51,7 @@ export const SUBSCRIPTION_PLANS = [
     id: 'free',
     name: 'Gratuita',
     badge: 'INICIAL',
-    tagline: 'Ideal para estudiantes, docentes y profesionales que quieren presupuestar y organizar obras pequeÃ±as.',
+    tagline: 'Ideal para estudiantes, docentes y profesionales que quieren presupuestar y organizar obras pequeñas.',
     monthlyPrice: 0,
     annualPrice: 0,
     currency: 'MXN',
@@ -70,24 +70,24 @@ export const SUBSCRIPTION_PLANS = [
     features: [
       'Hasta 2 proyectos activos en el portal',
       'Hasta 100 conceptos por proyecto',
-      'ColaboraciÃ³n de 1 a 3 (hasta 3 usuarios) por cuenta para trabajar en equipo',
-      'Almacenamiento en Nube de 200 MB para proyectos y evidencias (mÃ¡s guardado local en navegador)',
-      'Espacio de 6 MB para importar catÃ¡logos maestros',
-      'CatÃ¡logo Base, Matrices APU esenciales y ExplosiÃ³n de Insumos',
+      'Colaboración de 1 a 3 (hasta 3 usuarios) por cuenta para trabajar en equipo',
+      'Almacenamiento en Nube de 200 MB para proyectos y evidencias (más guardado local en navegador)',
+      'Espacio de 6 MB para importar catálogos maestros',
+      'Catálogo Base, Matrices APU esenciales y Explosión de Insumos',
       'Copiado de conceptos con Matriz APU entre obras',
       'Importador universal (Excel, CSV, JSON y Opus)',
-      'Calendario de Obra con Diagrama de Gantt bÃ¡sico',
-      'MÃ³dulo de Estimaciones de Obra, BitÃ¡cora de obra y Control de Gastos bÃ¡sicos',
-      'ImpresiÃ³n disponible en todas las pestaÃ±as (CatÃ¡logo Base, APU, Insumos, Calendario, Estimaciones, Gastos y BitÃ¡cora) con logotipo y nombre de la aplicaciÃ³n',
-      'Vista de DÃ­a y Modo Nocturno incluidos',
-      'IA EstÃ¡ndar (Motor local + Gemini Flash): hasta 10 conceptos/mes (o ilimitado con tu propia API Key de Google)',
+      'Calendario de Obra con Diagrama de Gantt básico',
+      'Módulo de Estimaciones de Obra, Bitácora de obra y Control de Gastos básicos',
+      'Impresión disponible en todas las pestañas (Catálogo Base, APU, Insumos, Calendario, Estimaciones, Gastos y Bitácora) con logotipo y nombre de la aplicación',
+      'Vista de Día y Modo Nocturno incluidos',
+      'IA Estándar (Motor local + Gemini Flash): hasta 10 conceptos/mes (o ilimitado con tu propia API Key de Google)',
       'Precios Web en Vivo (Google Search): 0 consultas/mes (o con API Key propia)'
     ]
   },
   {
     id: 'plus',
     name: 'Plus',
-    badge: 'MÃS POPULAR',
+    badge: 'MÁS POPULAR',
     tagline: 'Para arquitectos independientes, contratistas, residentes y despachos en crecimiento.',
     monthlyPrice: 350,
     annualPrice: 280,
@@ -108,19 +108,19 @@ export const SUBSCRIPTION_PLANS = [
     aiMonthlyConcepts: 1500,
     maxSearchQueries: 70,
     features: [
-      'Hasta 15 proyectos activos en la nube con sincronizaciÃ³n en tiempo real',
-      'Hasta 1,500 lÃ­neas/conceptos por proyecto',
-      'Hasta 10 usuarios incluidos bajo la misma suscripciÃ³n (invitados entran 100% gratis)',
-      'Selector de Espacio de Trabajo (AnfitriÃ³n / Personal)',
-      'Almacenamiento en Nube de 2 GB para facturas, PDFs y fotografÃ­as de obra (con compresiÃ³n inteligente)',
-      'Espacio de 50 MB para importar catÃ¡logos maestros personalizados',
-      'CatÃ¡logo Base, Matrices APU y ExplosiÃ³n de Insumos completa + copiado entre obras',
-      'Asistente IA para anÃ¡lisis de insumos, matrices y secuencia lÃ³gica en Gantt',
-      'Calendario Gantt avanzado con Ruta CrÃ­tica, Financiero y Curva "S"',
-      'Control de Compras, Gastos, Ã“rdenes de Compra y Dashboard Financiero (Presupuesto vs. Real)',
-      'BitÃ¡cora de Obra Digital Legal con firmas digitales y compilaciÃ³n automÃ¡tica PDF inmutable',
-      'MÃ³dulo completo de Estimaciones e ImpresiÃ³n profesional en todas las pestaÃ±as (sin marca de la app / con tu propio logotipo)',
-      'Motor IA + CatÃ¡logo Inteligente: hasta 1,500 conceptos APU al mes por cuenta',
+      'Hasta 15 proyectos activos en la nube con sincronización en tiempo real',
+      'Hasta 1,500 líneas/conceptos por proyecto',
+      'Hasta 10 usuarios incluidos bajo la misma suscripción (invitados entran 100% gratis)',
+      'Selector de Espacio de Trabajo (Anfitrión / Personal)',
+      'Almacenamiento en Nube de 2 GB para facturas, PDFs y fotografías de obra (con compresión inteligente)',
+      'Espacio de 50 MB para importar catálogos maestros personalizados',
+      'Catálogo Base, Matrices APU y Explosión de Insumos completa + copiado entre obras',
+      'Asistente IA para análisis de insumos, matrices y secuencia lógica en Gantt',
+      'Calendario Gantt avanzado con Ruta Crítica, Financiero y Curva "S"',
+      'Control de Compras, Gastos, Órdenes de Compra y Dashboard Financiero (Presupuesto vs. Real)',
+      'Bitácora de Obra Digital Legal con firmas digitales y compilación automática PDF inmutable',
+      'Módulo completo de Estimaciones e Impresión profesional en todas las pestañas (sin marca de la app / con tu propio logotipo)',
+      'Motor IA + Catálogo Inteligente: hasta 1,500 conceptos APU al mes por cuenta',
       'Cotizador Web en Vivo (Google Search): hasta 70 consultas de precios de mercado al mes'
     ]
   },
@@ -128,7 +128,7 @@ export const SUBSCRIPTION_PLANS = [
     id: 'pro',
     name: 'Pro',
     badge: 'EMPRESARIAL',
-    tagline: 'Para empresas constructoras, gerencias de obra, despachos de ingenierÃ­a de costos y licitadores.',
+    tagline: 'Para empresas constructoras, gerencias de obra, despachos de ingeniería de costos y licitadores.',
     monthlyPrice: 950,
     annualPrice: 760,
     originalMonthlyPrice: 1799,
@@ -148,18 +148,18 @@ export const SUBSCRIPTION_PLANS = [
     aiMonthlyConcepts: 3500,
     maxSearchQueries: 200,
     features: [
-      'Hasta 50 proyectos activos en la nube con sincronizaciÃ³n en tiempo real',
-      'Hasta 3,500 lÃ­neas/conceptos por proyecto (ideal para licitaciones y obra grande)',
-      'Hasta 30 usuarios incluidos bajo la misma suscripciÃ³n con control granular de permisos por proyecto y rol',
+      'Hasta 50 proyectos activos en la nube con sincronización en tiempo real',
+      'Hasta 3,500 líneas/conceptos por proyecto (ideal para licitaciones y obra grande)',
+      'Hasta 30 usuarios incluidos bajo la misma suscripción con control granular de permisos por proyecto y rol',
       'Almacenamiento en Nube de 5 GB de alta velocidad para toda la constructora',
-      'Espacio de 200 MB para importar grandes catÃ¡logos maestros (Opus, Neodata, Gobierno, Excel)',
-      'CatÃ¡logo Base, Matrices APU y ExplosiÃ³n de Insumos empresarial + copiado entre obras',
-      'Asistente IA completo para precios unitarios, insumos, optimizaciÃ³n de Ruta CrÃ­tica y Gantt',
-      'Calendario Gantt avanzado con Ruta CrÃ­tica, Flujo Financiero y Curva "S"',
-      'Control de Compras, NÃ³mina/Rayas y Dashboard Financiero Ejecutivo (comparativa y alertas de sobrecosto)',
-      'BitÃ¡cora de Obra Digital Legal: libro completo foliado en PDF, firmas digitales y archivo histÃ³rico',
-      'MÃ³dulo completo de Estimaciones e ImpresiÃ³n institucional en todas las pestaÃ±as (Marca blanca / Membrete propio)',
-      'GeneraciÃ³n APU con Motor IA de alto volumen: hasta 3,500 conceptos al mes por cuenta',
+      'Espacio de 200 MB para importar grandes catálogos maestros (Opus, Neodata, Gobierno, Excel)',
+      'Catálogo Base, Matrices APU y Explosión de Insumos empresarial + copiado entre obras',
+      'Asistente IA completo para precios unitarios, insumos, optimización de Ruta Crítica y Gantt',
+      'Calendario Gantt avanzado con Ruta Crítica, Flujo Financiero y Curva "S"',
+      'Control de Compras, Nómina/Rayas y Dashboard Financiero Ejecutivo (comparativa y alertas de sobrecosto)',
+      'Bitácora de Obra Digital Legal: libro completo foliado en PDF, firmas digitales y archivo histórico',
+      'Módulo completo de Estimaciones e Impresión institucional en todas las pestañas (Marca blanca / Membrete propio)',
+      'Generación APU con Motor IA de alto volumen: hasta 3,500 conceptos al mes por cuenta',
       'Cotizador Web en Vivo (Google Search): hasta 200 consultas de precios de mercado al mes'
     ]
   }
@@ -292,7 +292,7 @@ export function saveSubscription(planId, billingCycle = activeBillingCycle) {
 
   try {
     if (typeof localStorage !== 'undefined' && cleanEmail) {
-      // Guardar cachÃ© local por cuenta; la fuente autoritativa en la nube es Stripe Webhook -> empresas
+      // Guardar caché local por cuenta; la fuente autoritativa en la nube es Stripe Webhook -> empresas
       localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(payload));
     }
   } catch (e) {}
@@ -362,7 +362,7 @@ export function updateSubscriptionBadgesUI(options = {}) {
     headerActiveBadge.textContent = `Plan actual: ${plan.name}`;
   }
 
-  // Refrescar inmediatamente el indicador de membresÃ­a del portal (#mode-status-badge) y botÃ³n de nuevo proyecto
+  // Refrescar inmediatamente el indicador de membresía del portal (#mode-status-badge) y botón de nuevo proyecto
   if (refreshGrid) {
     try {
       if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
@@ -417,7 +417,7 @@ export function renderSubscriptionCards() {
     const hasDiscount = Boolean(origPrice && origPrice > price);
     const annualTotal = plan.annualPrice * 12;
 
-    // Estilos adaptativos segÃºn nivel de suscripciÃ³n y modo visual (DÃ­a / Nocturno)
+    // Estilos adaptativos según nivel de suscripción y modo visual (Día / Nocturno)
     let cardBorder = night ? 'border-slate-700/90 bg-slate-900/90' : 'border-slate-200 bg-white';
     let badgeClasses = night ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-slate-100 text-slate-700 border border-slate-200';
     let iconBoxClasses = night ? 'bg-slate-800 text-emerald-400 border border-slate-700' : 'bg-emerald-50 text-emerald-600 border border-emerald-200';
@@ -468,8 +468,8 @@ export function renderSubscriptionCards() {
     const billingSubtext = plan.id === 'free'
       ? 'Sin tarjeta bancaria ni vencimiento'
       : (activeBillingCycle === 'annual'
-        ? `Facturado anualmente ($${annualTotal.toLocaleString('es-MX')} MXN/aÃ±o â€¢ Ahorras 20%)`
-        : 'FacturaciÃ³n mensual flexible â€¢ Cancela cuando quieras');
+        ? `Facturado anualmente ($${annualTotal.toLocaleString('es-MX')} MXN/año • Ahorras 20%)`
+        : 'Facturación mensual flexible • Cancela cuando quieras');
 
     return `
       <div class="relative rounded-2xl border-2 p-5 flex flex-col justify-between transition duration-200 ${cardBorder}" data-plan-card="${plan.id}">
@@ -498,7 +498,7 @@ export function renderSubscriptionCards() {
             ` : ''}
           </div>
 
-          <!-- DescripciÃ³n corta -->
+          <!-- Descripción corta -->
           <p class="text-xs leading-relaxed mb-4 ${night ? 'text-slate-300' : 'text-slate-600'}">
             ${plan.tagline}
           </p>
@@ -554,7 +554,7 @@ export function renderSubscriptionCards() {
           </div>
         </div>
 
-        <!-- BotÃ³n de SelecciÃ³n -->
+        <!-- Botón de Selección -->
         <div class="pt-3 border-t ${night ? 'border-slate-800' : 'border-slate-100'}">
           <button type="button"
                   ${isCurrent ? 'disabled' : `onclick="selectSubscriptionPlan('${plan.id}')"`}
@@ -579,13 +579,13 @@ export function renderSubscriptionComparisonTable(night = isNightMode()) {
     ['Proyectos Activos', '2 proyectos', '15 proyectos', '50 proyectos'],
     ['Conceptos por Proyecto', '100', '1,500', '3,500'],
     ['Usuarios Colaboradores', '3 usuarios (1 a 3)', '10 usuarios', '30 usuarios'],
-    ['GeneraciÃ³n APU con IA (Motor + Flash)', '10 / mes', '1,500 / mes', '3,500 / mes'],
+    ['Generación APU con IA (Motor + Flash)', '10 / mes', '1,500 / mes', '3,500 / mes'],
     ['Precios Web en Vivo (Google Search)', '0 (o API propia)', '70 / mes', '200 / mes'],
-    ['ImpresiÃ³n en Todas las PestaÃ±as', 'Con logo y nombre de la App', 'Marca propia / Sin marca de App', 'Marca blanca corporativa'],
-    ['Ruta CrÃ­tica, Curva S y Financiero', 'BÃ¡sico', 'Completo', 'Completo'],
-    ['BitÃ¡cora Legal y Control de Compras', 'BÃ¡sico', 'Completo', 'Completo'],
+    ['Impresión en Todas las Pestañas', 'Con logo y nombre de la App', 'Marca propia / Sin marca de App', 'Marca blanca corporativa'],
+    ['Ruta Crítica, Curva S y Financiero', 'Básico', 'Completo', 'Completo'],
+    ['Bitácora Legal y Control de Compras', 'Básico', 'Completo', 'Completo'],
     ['Almacenamiento en Nube', '200 MB', '2 GB', '5 GB'],
-    ['CatÃ¡logos Maestros Importados', '6 MB', '50 MB', '200 MB']
+    ['Catálogos Maestros Importados', '6 MB', '50 MB', '200 MB']
   ];
 
   const wrapCls = night ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-800';
@@ -600,14 +600,14 @@ export function renderSubscriptionComparisonTable(night = isNightMode()) {
           <span>Cuadro Comparativo de Planes y Cuotas</span>
         </h4>
         <span class="text-[10px] font-semibold ${night ? 'text-slate-400' : 'text-slate-500'}">
-          Gratuita (\$0) â€¢ Plus (${isAnnual ? '$280' : '$350'}/mes) â€¢ Pro (${isAnnual ? '$760' : '$950'}/mes)
+          Gratuita (\$0) • Plus (${isAnnual ? '$280' : '$350'}/mes) • Pro (${isAnnual ? '$760' : '$950'}/mes)
         </span>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse text-[11px] sm:text-xs">
           <thead>
             <tr class="border-b ${thCls}">
-              <th class="py-2.5 px-3 font-bold">CaracterÃ­stica</th>
+              <th class="py-2.5 px-3 font-bold">Característica</th>
               <th class="py-2.5 px-3 font-bold text-center">Gratuita (\$0)</th>
               <th class="py-2.5 px-3 font-bold text-center text-blue-500">Plus (${isAnnual ? '$280' : '$350'} / mes)</th>
               <th class="py-2.5 px-3 font-bold text-center text-amber-500">Pro (${isAnnual ? '$760' : '$950'} / mes)</th>
@@ -642,7 +642,7 @@ export function openSubscriptionModal() {
     modal.classList.add('flex');
   }
 
-  // Sincronizar en segundo plano con la nube de Supabase por si se actualizÃ³ en otra computadora
+  // Sincronizar en segundo plano con la nube de Supabase por si se actualizó en otra computadora
   try {
     syncSubscriptionFromCloud().then(cloudSub => {
       if (cloudSub) {
@@ -680,15 +680,15 @@ export async function openStripeCustomerPortal() {
   try {
     const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
     if (!sb || !isSupabaseConfigured()) {
-      showToast('Configura Supabase para administrar tu suscripciÃ³n en Stripe.', 'warning');
+      showToast('Configura Supabase para administrar tu suscripción en Stripe.', 'warning');
       return;
     }
     const { data: { session } } = await sb.auth.getSession();
     if (!session?.access_token) {
-      showToast('Inicia sesiÃ³n para acceder al portal de facturaciÃ³n.', 'warning');
+      showToast('Inicia sesión para acceder al portal de facturación.', 'warning');
       return;
     }
-    showToast('Abriendo portal seguro de facturaciÃ³n Stripe...', 'info');
+    showToast('Abriendo portal seguro de facturación Stripe...', 'info');
     const { data, error } = await sb.functions.invoke('create-portal-link', {
       body: { returnUrl: typeof window !== 'undefined' ? window.location.href : '' }
     });
@@ -696,7 +696,7 @@ export async function openStripeCustomerPortal() {
       window.location.href = data.url;
       return;
     }
-    showToast(data?.error || error?.message || 'No se encontrÃ³ una suscripciÃ³n de Stripe activa asociada a tu empresa.', 'warning');
+    showToast(data?.error || error?.message || 'No se encontró una suscripción de Stripe activa asociada a tu empresa.', 'warning');
   } catch (err) {
     showToast(err?.message || 'Error al abrir el portal de Stripe.', 'error');
   }
@@ -732,12 +732,12 @@ export async function selectSubscriptionPlan(planId) {
   try {
     const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
     if (!sb || !isSupabaseConfigured()) {
-      showToast('Conecta tu sesiÃ³n de Supabase para activar un plan de pago.', 'warning');
+      showToast('Conecta tu sesión de Supabase para activar un plan de pago.', 'warning');
       return;
     }
     const { data: { session } } = await sb.auth.getSession();
     if (!session?.access_token) {
-      showToast('Inicia sesiÃ³n con tu cuenta antes de contratar un plan.', 'warning');
+      showToast('Inicia sesión con tu cuenta antes de contratar un plan.', 'warning');
       return;
     }
 
@@ -769,7 +769,7 @@ export async function selectSubscriptionPlan(planId) {
   }
 }
 
-// Exponer funciones globales para sincronizaciÃ³n unificada entre mÃ³dulos
+// Exponer funciones globales para sincronización unificada entre módulos
 if (typeof window !== 'undefined') {
   window.getCurrentSubscription = getCurrentSubscription;
   window.syncSubscriptionFromCloud = syncSubscriptionFromCloud;
