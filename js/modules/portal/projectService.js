@@ -1034,17 +1034,23 @@ export function getProjectsForUser(user) {
   const allProjects = getProjectsList();
   if (!user || !user.email) return allProjects;
   const emailLower = user.email.toLowerCase().trim();
+  const deletedList = getDeletedProjectsList();
+  const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
 
   return allProjects.filter(p => {
+    // Si fue eliminado, nunca incluir
+    if (isDeleted(p.id) || isDeleted(p.cloudId)) return false;
+
     // Es el creador/propietario del proyecto
     if (p.ownerEmail && p.ownerEmail.toLowerCase().trim() === emailLower) {
       return true;
     }
-    // O es miembro activo (no pendiente de invitación)
+    // O es miembro activo y aceptado
     if (Array.isArray(p.members)) {
       return p.members.some(m => {
         const mEmail = (m.email || '').toLowerCase().trim();
-        return mEmail === emailLower && m.status !== 'pending';
+        const mStatus = (m.status || '').toLowerCase().trim();
+        return mEmail === emailLower && (mStatus === 'active' || mStatus === 'accepted');
       });
     }
     return false;
@@ -1566,6 +1572,15 @@ export function removeProjectMember(projectId, memberId) {
     try {
       if (typeof window !== 'undefined' && typeof window.removeCollaboratorFromCloud === 'function') {
         window.removeCollaboratorFromCloud(projectId, targetMember.email);
+      }
+    } catch (_) {}
+
+    // Notificar en tiempo real al usuario removido y a los demás colaboradores
+    try {
+      if (typeof window !== 'undefined' && typeof window.broadcastCollaboratorRemoved === 'function') {
+        window.broadcastCollaboratorRemoved(projectId, targetMember.email);
+      } else if (typeof window !== 'undefined' && window.CubikarRealtime?.broadcastCollaboratorRemoved) {
+        window.CubikarRealtime.broadcastCollaboratorRemoved(projectId, targetMember.email);
       }
     } catch (_) {}
   }
@@ -2195,6 +2210,18 @@ export function rejectProjectInvitation(invitationId) {
         proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== (inv.email || '').toLowerCase().trim());
         saveProjectsList(list);
       }
+      try {
+        if (typeof window !== 'undefined' && typeof window.removeCollaboratorFromCloud === 'function') {
+          window.removeCollaboratorFromCloud(inv.projectId, inv.email);
+        }
+      } catch (_) {}
+      try {
+        if (typeof window !== 'undefined' && typeof window.broadcastCollaboratorRemoved === 'function') {
+          window.broadcastCollaboratorRemoved(inv.projectId, inv.email);
+        } else if (typeof window !== 'undefined' && window.CubikarRealtime?.broadcastCollaboratorRemoved) {
+          window.CubikarRealtime.broadcastCollaboratorRemoved(inv.projectId, inv.email);
+        }
+      } catch (_) {}
     }
 
     try {
@@ -2696,7 +2723,11 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
     }
 
     if (Array.isArray(p.members)) {
-      const mem = p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
+      const mem = p.members.find(m => {
+        const mEmail = (m.email || '').toLowerCase().trim();
+        const mStatus = (m.status || '').toLowerCase().trim();
+        return mEmail === uEmail && (mStatus === 'active' || mStatus === 'accepted');
+      });
       if (mem) {
         if (!map.has(oEmail)) {
           const hostName = resolveCleanHostName(oEmail, p.ownerName, p, uEmail);

@@ -42,6 +42,8 @@ if (localBroadcastChannel) {
       handleIncomingProjectUpdate(payload);
     } else if (type === 'proyecto_eliminado') {
       handleIncomingProjectDeleted(payload);
+    } else if (type === 'colaborador_removido') {
+      handleIncomingCollaboratorRemoved(payload);
     } else if (type === 'chat_mensaje_nuevo') {
       handleIncomingChatMessage(payload);
     } else if (type === 'chat_mensaje_eliminado') {
@@ -269,6 +271,13 @@ export function subscribeToProjectRealtime(projectId) {
   activeChannel.on('broadcast', { event: 'proyecto_eliminado' }, (payload) => {
     if (payload?.payload) {
       handleIncomingProjectDeleted(payload.payload);
+    }
+  });
+
+  // Escuchar remoción de colaboradores en tiempo real
+  activeChannel.on('broadcast', { event: 'colaborador_removido' }, (payload) => {
+    if (payload?.payload) {
+      handleIncomingCollaboratorRemoved(payload.payload);
     }
   });
 
@@ -770,6 +779,69 @@ export function initGlobalRealtimeSync() {
     }
   });
 
+  // 11. Escuchar remoción de colaboradores en tiempo real
+  globalSyncChannel.on('broadcast', { event: 'colaborador_removido' }, (payload) => {
+    if (payload?.payload) {
+      handleIncomingCollaboratorRemoved(payload.payload);
+    }
+  });
+
+  // 12. Escuchar eliminación directa de proyectos en Supabase PostgreSQL (CDC en tiempo real)
+  globalSyncChannel.on(
+    'postgres_changes',
+    {
+      event: 'DELETE',
+      schema: 'public',
+      table: 'proyectos'
+    },
+    (payload) => {
+      if (payload?.old?.id) {
+        handleIncomingProjectDeleted({ projectId: payload.old.id });
+      }
+    }
+  );
+
+  // 13. Escuchar remoción o cambios de colaboradores en Supabase PostgreSQL (CDC en tiempo real)
+  globalSyncChannel.on(
+    'postgres_changes',
+    {
+      event: '*',
+      schema: 'public',
+      table: 'proyecto_colaboradores'
+    },
+    (payload) => {
+      const user = getCurrentUser();
+      const myEmail = (user?.email || '').toLowerCase().trim();
+      if (!myEmail) return;
+
+      if (payload.eventType === 'DELETE') {
+        const oldEmail = (payload.old?.email_colaborador || '').toLowerCase().trim();
+        if (oldEmail === myEmail || !oldEmail) {
+          handleIncomingCollaboratorRemoved({
+            projectId: payload.old?.proyecto_id,
+            email: myEmail
+          });
+        }
+      } else if (payload.eventType === 'UPDATE') {
+        const newEmail = (payload.new?.email_colaborador || '').toLowerCase().trim();
+        if (newEmail === myEmail) {
+          if (payload.new?.estado_invitacion !== 'accepted') {
+            handleIncomingCollaboratorRemoved({
+              projectId: payload.new?.proyecto_id,
+              email: myEmail
+            });
+          } else {
+            if (typeof window.fetchCloudProjects === 'function') {
+              window.fetchCloudProjects().then(() => {
+                if (typeof window.refreshProjectsGridUI === 'function') window.refreshProjectsGridUI();
+              });
+            }
+          }
+        }
+      }
+    }
+  );
+
   globalSyncChannel.subscribe((status) => {
     if (status === 'SUBSCRIBED') {
       console.info('[Realtime] Canal global WebSocket conectado exitosamente.');
@@ -1197,6 +1269,103 @@ export function handleIncomingProjectDeleted(data) {
     }
     if (typeof window.renderSidebarNotificationsUI === 'function') {
       window.renderSidebarNotificationsUI();
+    }
+  }
+}
+
+/**
+ * Emitir broadcast cuando un colaborador es removido de un proyecto
+ */
+export function broadcastCollaboratorRemoved(projectId, email) {
+  if (!projectId || !email) return;
+  const payload = {
+    projectId,
+    email: (email || '').toLowerCase().trim(),
+    timestamp: Date.now()
+  };
+
+  if (localBroadcastChannel) {
+    try {
+      localBroadcastChannel.postMessage({
+        type: 'colaborador_removido',
+        payload
+      });
+    } catch (_) {}
+  }
+
+  if (activeChannel) {
+    try {
+      activeChannel.send({
+        type: 'broadcast',
+        event: 'colaborador_removido',
+        payload
+      });
+    } catch (_) {}
+  }
+
+  if (!globalSyncChannel) initGlobalRealtimeSync();
+  if (globalSyncChannel) {
+    try {
+      globalSyncChannel.send({
+        type: 'broadcast',
+        event: 'colaborador_removido',
+        payload
+      });
+    } catch (_) {}
+  }
+}
+
+/**
+ * Procesar remoción de colaborador recibida por tiempo real o Postgres CDC
+ */
+export function handleIncomingCollaboratorRemoved(data) {
+  if (!data || !data.projectId || !data.email) return;
+  const currentUser = getCurrentUser();
+  if (!currentUser || !currentUser.email) return;
+
+  const myEmail = currentUser.email.toLowerCase().trim();
+  const targetEmail = data.email.toLowerCase().trim();
+  const projectId = data.projectId;
+  const allProjects = getProjectsList();
+  const proj = allProjects.find(p => p.id === projectId || p.cloudId === projectId);
+
+  if (targetEmail === myEmail) {
+    // Si el usuario actual fue el removido: purgar la obra por completo de su entorno
+    const filtered = allProjects.filter(p => p.id !== projectId && p.cloudId !== projectId);
+    saveProjectsList(filtered);
+
+    try {
+      localStorage.removeItem(getSettingsKey(projectId));
+      localStorage.removeItem(getStorageKey(projectId));
+    } catch (_) {}
+
+    const currentPId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
+    if (currentPId && (currentPId === projectId)) {
+      if (typeof showToast === 'function') {
+        showToast('⚠️ Tu acceso a este proyecto fue retirado por el anfitrión.', 'warning');
+      }
+      setTimeout(() => {
+        if (typeof window.exitProjectToPortal === 'function') {
+          window.exitProjectToPortal();
+        } else {
+          window.location.reload();
+        }
+      }, 1200);
+    }
+
+    if (typeof window.refreshProjectsGridUI === 'function') {
+      window.refreshProjectsGridUI();
+    }
+  } else if (proj && Array.isArray(proj.members)) {
+    // Si otro colaborador fue removido: actualizar la lista de miembros de la obra
+    proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== targetEmail);
+    saveProjectsList(allProjects);
+
+    if (typeof window.renderInviteModalMembersList === 'function') {
+      window.renderInviteModalMembersList();
+    }
+    if (typeof window.renderHeaderCollaborators === 'function') {
+      window.renderHeaderCollaborators();
     }
   }
 }
@@ -1711,6 +1880,8 @@ if (typeof window !== 'undefined') {
     broadcastNewProject,
     broadcastProjectDeleted,
     handleIncomingProjectDeleted,
+    broadcastCollaboratorRemoved,
+    handleIncomingCollaboratorRemoved,
     broadcastProjectMutation,
     handleIncomingProjectUpdate,
     broadcastChatMessage,
@@ -1722,6 +1893,8 @@ if (typeof window !== 'undefined') {
   };
   window.broadcastProjectDeleted = broadcastProjectDeleted;
   window.handleIncomingProjectDeleted = handleIncomingProjectDeleted;
+  window.broadcastCollaboratorRemoved = broadcastCollaboratorRemoved;
+  window.handleIncomingCollaboratorRemoved = handleIncomingCollaboratorRemoved;
   window.subscribeToProjectRealtime = subscribeToProjectRealtime;
   window.unsubscribeFromProjectRealtime = unsubscribeFromProjectRealtime;
   window.broadcastProjectMutation = broadcastProjectMutation;

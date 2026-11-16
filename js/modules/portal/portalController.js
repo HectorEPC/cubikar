@@ -1438,27 +1438,78 @@ export function renderPortalDashboard() {
   // Sincronizar en segundo plano proyectos desde Supabase si hay sesión activa
   if (isSupabaseConfigured() && user?.id) {
     fetchCloudProjects().then(cloudList => {
-      if (Array.isArray(cloudList) && cloudList.length > 0) {
+      if (Array.isArray(cloudList)) {
         const deletedList = getDeletedProjectsList();
         const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
         const localList = getProjectsList();
+        const myEmail = (user.email || '').toLowerCase().trim();
+        const cloudIds = new Set(cloudList.map(cp => cp.id));
+
         let changed = false;
-        cloudList.forEach(cp => {
-          if (isDeleted(cp.id) || isDeleted(cp.cloudId)) return;
-          const exists = localList.some(lp => lp.id === cp.id || lp.cloudId === cp.id);
-          if (!exists) {
-            localList.unshift(cp);
+
+        // 1. REGLA DE ORO / CONFIRMACIONES 1 Y 2:
+        // Purgar de localList cualquier proyecto que pertenezca a un anfitrión externo
+        // pero que YA NO exista en la lista autorizada de la nube (fue eliminado o revocada la invitación).
+        const cleanedList = localList.filter(lp => {
+          if (isDeleted(lp.id) || isDeleted(lp.cloudId)) {
             changed = true;
-          } else {
-            const idx = localList.findIndex(lp => lp.id === cp.id || lp.cloudId === cp.id);
-            if (idx !== -1) {
-              localList[idx] = { ...localList[idx], ...cp, isCloudSynced: true };
+            return false;
+          }
+
+          const owner = (lp.ownerEmail || '').toLowerCase().trim();
+          const isMyOwnProject = (!owner || owner === myEmail || owner === 'admin@constructora.com' || owner === 'local@cubikar.app');
+
+          // Si es proyecto de un anfitrión (colaboración externa):
+          if (!isMyOwnProject) {
+            // Confirmación 1: Debe existir en la lista de la nube devuelta por Supabase
+            const existsInCloud = cloudIds.has(lp.id) || cloudIds.has(lp.cloudId);
+            if (!existsInCloud) {
+              console.info(`[PortalReconcile] Purgando proyecto fantasma/eliminado de anfitrión: ${lp.projectName} (${lp.id})`);
               changed = true;
+              try {
+                localStorage.removeItem(getSettingsKey(lp.id));
+                localStorage.removeItem(getStorageKey(lp.id));
+              } catch (_) {}
+              return false;
+            }
+
+            // Confirmación 2: El usuario actual DEBE tener invitación activa aceptada
+            const cloudProj = cloudList.find(cp => cp.id === lp.id || cp.id === lp.cloudId);
+            if (cloudProj && Array.isArray(cloudProj.members)) {
+              const myMem = cloudProj.members.find(m => (m.email || '').toLowerCase().trim() === myEmail);
+              if (!myMem || (myMem.status !== 'accepted' && myMem.status !== 'active')) {
+                console.info(`[PortalReconcile] Purgando proyecto sin membresía activa: ${lp.projectName} (${lp.id})`);
+                changed = true;
+                return false;
+              }
+            }
+          } else {
+            // Proyecto propio: si estaba sincronizado con la nube pero ya no existe en Supabase (fue eliminado)
+            if (lp.isCloudSynced && !cloudIds.has(lp.id) && !cloudIds.has(lp.cloudId)) {
+              console.info(`[PortalReconcile] Proyecto propio eliminado en la nube: ${lp.projectName} (${lp.id})`);
+              changed = true;
+              return false;
             }
           }
+
+          return true;
         });
-        if (changed) {
-          saveProjectsList(localList);
+
+        // 2. Incorporar y actualizar proyectos vigentes devueltos por la nube
+        cloudList.forEach(cp => {
+          if (isDeleted(cp.id) || isDeleted(cp.cloudId)) return;
+          const idx = cleanedList.findIndex(lp => lp.id === cp.id || lp.cloudId === cp.id);
+          if (idx === -1) {
+            cleanedList.unshift(cp);
+            changed = true;
+          } else {
+            cleanedList[idx] = { ...cleanedList[idx], ...cp, isCloudSynced: true };
+            changed = true;
+          }
+        });
+
+        if (changed || cleanedList.length !== localList.length) {
+          saveProjectsList(cleanedList);
           refreshProjectsGridUI();
         }
       }
@@ -1810,7 +1861,9 @@ export function setProjectScopeFilter(scope) {
 
     // Sincronizar y purgar proyectos eliminados del anfitrión en segundo plano
     if (typeof window !== 'undefined' && typeof window.syncHostWorkspaceProjects === 'function') {
-      window.syncHostWorkspaceProjects(targetEmail);
+      window.syncHostWorkspaceProjects(targetEmail).then(() => {
+        refreshProjectsGridUI();
+      });
     }
   } else {
     setActiveWorkspaceData(uEmail, user?.name || uEmail);
@@ -1999,7 +2052,21 @@ export function getFilteredProjectsList(allProjects) {
       filtered = filtered.filter(p => (p.ownerEmail || '').toLowerCase().trim() !== uEmail);
     } else if (currentScopeFilter.startsWith('owner:')) {
       const targetOwner = currentScopeFilter.replace('owner:', '').toLowerCase().trim();
-      filtered = filtered.filter(p => (p.ownerEmail || '').toLowerCase().trim() === targetOwner);
+      filtered = filtered.filter(p => {
+        // CONFIRMACIÓN 1: El proyecto debe pertenecer efectivamente al anfitrión seleccionado
+        const isHost = (p.ownerEmail || '').toLowerCase().trim() === targetOwner;
+        if (!isHost) return false;
+
+        // Si fue marcado como eliminado, excluir
+        if (isDeleted(p.id) || isDeleted(p.cloudId)) return false;
+
+        // CONFIRMACIÓN 2: El usuario invitado DEBE tener una invitación activa aceptada en este proyecto
+        const members = Array.isArray(p.members) ? p.members : [];
+        const myMem = members.find(m => (m.email || '').toLowerCase().trim() === uEmail);
+        if (!myMem) return false;
+        const status = (myMem.status || '').toLowerCase().trim();
+        return status === 'active' || status === 'accepted';
+      });
     }
   }
 

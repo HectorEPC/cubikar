@@ -545,43 +545,60 @@ export async function syncHostWorkspaceProjects(hostEmail) {
   if (!sb || typeof sb.from !== 'function') return false;
 
   const targetHost = hostEmail.toLowerCase().trim();
-  const rowId = `__manifest__${targetHost}`;
+  const user = getCurrentUser();
+  const myEmail = (user?.email || '').toLowerCase().trim();
 
   try {
-    const { data, error } = await sb
-      .from('chat_mensajes')
-      .select('mensaje, payload_json')
-      .eq('id', rowId)
-      .maybeSingle();
+    // Consultar proyectos del anfitrión directamente desde la tabla public.proyectos en Supabase.
+    // RLS de Supabase devuelve únicamente las obras de este anfitrión donde el usuario
+    // actual tiene permiso activo aceptado.
+    const { data: hostProjects, error } = await sb
+      .from('proyectos')
+      .select('*, proyecto_colaboradores(*)')
+      .ilike('owner_email', targetHost);
 
-    if (error || !data) return false;
-
-    let activeProjectIds = null;
-    if (data.payload_json && Array.isArray(data.payload_json.activeProjectIds)) {
-      activeProjectIds = data.payload_json.activeProjectIds;
-    } else if (data.mensaje) {
-      try {
-        const parsed = JSON.parse(data.mensaje);
-        if (Array.isArray(parsed)) activeProjectIds = parsed;
-      } catch (_) {}
+    if (error) {
+      console.warn('[HostWorkspaceSync] Error al consultar proyectos del anfitrión en Supabase:', error.message);
+      return false;
     }
 
-    if (!Array.isArray(activeProjectIds)) return false;
-
-    // Obtener lista actual de proyectos locales
     const currentList = getProjectsList();
-    const activeIdsSet = new Set(activeProjectIds);
+    const activeCloudProjects = Array.isArray(hostProjects) ? hostProjects : [];
+    const activeIdsSet = new Set(activeCloudProjects.map(p => p.id));
     let prunedCount = 0;
 
     const updatedList = currentList.filter(p => {
       const pOwner = (p.ownerEmail || '').toLowerCase().trim();
       if (pOwner === targetHost) {
-        // Si el proyecto pertenece a este anfitrión pero NO está en su manifiesto activo, purgar
+        // CONFIRMACIÓN 1 y 2:
+        // Si el proyecto pertenece a este anfitrión pero NO existe en la base de datos Supabase, ¡PURGAR!
         if (!activeIdsSet.has(p.id) && !activeIdsSet.has(p.cloudId)) {
           markProjectDeleted(p.id);
           if (p.cloudId) markProjectDeleted(p.cloudId);
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.removeItem(`adm_const_settings_${p.id}`);
+              localStorage.removeItem(`control_obra_tree_${p.id}`);
+              localStorage.removeItem(`adm_arq_settings_${p.id}`);
+              localStorage.removeItem(`cubikar_arq_tree_${p.id}`);
+            }
+          } catch (_) {}
           prunedCount++;
           return false;
+        }
+
+        // Si existe en la nube, verificar si el usuario actual sigue teniendo invitación activa aceptada
+        const cloudP = activeCloudProjects.find(cp => cp.id === p.id || cp.id === p.cloudId);
+        if (cloudP && Array.isArray(cloudP.proyecto_colaboradores)) {
+          const myMem = cloudP.proyecto_colaboradores.find(
+            c => (c.email_colaborador || '').toLowerCase().trim() === myEmail
+          );
+          if (!myMem || (myMem.estado_invitacion !== 'accepted' && myMem.estado_invitacion !== 'active')) {
+            markProjectDeleted(p.id);
+            if (p.cloudId) markProjectDeleted(p.cloudId);
+            prunedCount++;
+            return false;
+          }
         }
       }
       return true;
@@ -589,31 +606,14 @@ export async function syncHostWorkspaceProjects(hostEmail) {
 
     if (prunedCount > 0) {
       saveProjectsList(updatedList);
-
-      // Limpiar también del cubikar_cloud_state_v2 del usuario actual
-      const user = getCurrentUser();
-      if (user && user.user_metadata?.cubikar_cloud_state_v2) {
-        const cs = user.user_metadata.cubikar_cloud_state_v2;
-        if (Array.isArray(cs.collaboratedProjects)) {
-          cs.collaboratedProjects = cs.collaboratedProjects.filter(p => {
-            const pOwner = (p.ownerEmail || '').toLowerCase().trim();
-            if (pOwner === targetHost) {
-              return activeIdsSet.has(p.id) || activeIdsSet.has(p.cloudId);
-            }
-            return true;
-          });
-          saveCurrentUser(user);
-        }
-      }
-
-      console.info(`[HostManifestSync] Se purgaron ${prunedCount} proyectos eliminados del anfitrión ${targetHost}.`);
+      console.info(`[HostWorkspaceSync] Se purgaron ${prunedCount} proyectos inexistentes o sin permiso del anfitrión ${targetHost}.`);
       if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
         window.refreshProjectsGridUI();
       }
       return true;
     }
   } catch (err) {
-    console.warn('[HostManifestSync] Error al sincronizar manifiesto del anfitrión:', err);
+    console.warn('[HostWorkspaceSync] Error al sincronizar proyectos del anfitrión:', err);
   }
   return false;
 }
