@@ -1,0 +1,11 @@
+api/
+supabase/
+respaldos/
+raw_catalogs/
+worker.js
+wrangler.toml
+*.sql
+*.ps1
+*.bat
+*.md
+vercel.json
