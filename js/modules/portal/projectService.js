@@ -15,14 +15,14 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261116_cf4';
+} from '../../config/constants.js?v=20261116_cf5';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf4';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf4';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf4';
-import { deleteProjectFromCloud } from '../../core/cloudProjectService.js?v=20261116_cf4';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf4';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf5';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf5';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf5';
+import { deleteProjectFromCloud } from '../../core/cloudProjectService.js?v=20261116_cf5';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf5';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -588,7 +588,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261116_cf4').then(m => {
+            import('../../core/supabaseClient.js?v=20261116_cf5').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -935,15 +935,21 @@ export function getProjectsList() {
         if (Array.isArray(p.members)) {
           const pOwnerEmail = (p.ownerEmail || '').toLowerCase().trim();
           const fullTabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
+          const tabsMatch = (a, b) => Array.isArray(a) && a.length === b.length && b.every((v, idx) => a[idx] === v);
           p.members.forEach(m => {
             const mEmail = (m.email || '').toLowerCase().trim();
             if (pOwnerEmail && mEmail === pOwnerEmail) {
               // Garantizar que el dueño de la obra siempre conserve las 6 pestañas completas
-              m.role = 'editar';
-              m.allowedTabs = [...fullTabs];
+              if (m.role !== 'editar' || !tabsMatch(m.allowedTabs, fullTabs)) {
+                m.role = 'editar';
+                m.allowedTabs = [...fullTabs];
+                changed = true;
+              }
             } else if (m.role === 'editar') {
-              m.allowedTabs = [...fullTabs];
-              changed = true;
+              if (!tabsMatch(m.allowedTabs, fullTabs)) {
+                m.allowedTabs = [...fullTabs];
+                changed = true;
+              }
             } else if (!Array.isArray(m.allowedTabs)) {
               if (m.email && m.email.includes('mariana')) {
                 m.allowedTabs = ['insumos', 'estimaciones'];
@@ -997,7 +1003,7 @@ export function getProjectsList() {
           changed = true;
         }
       });
-      if (changed) saveProjectsList(list);
+      if (changed) saveProjectsList(list, { skipCloudSync: true });
       return list;
     }
   } catch (e) {
@@ -1023,13 +1029,15 @@ function triggerCloudCollabSync(user) {
   } catch (_) {}
 }
 
-export function saveProjectsList(projects) {
+export function saveProjectsList(projects, opts = {}) {
   try {
     localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(projects));
   } catch (e) {
     console.error('Error guardando proyectos:', e);
   }
-  triggerCloudCollabSync();
+  if (!opts?.skipCloudSync) {
+    triggerCloudCollabSync();
+  }
 }
 
 // Obtener proyectos accesibles para un usuario dado
@@ -1830,10 +1838,15 @@ export async function deleteProject(projectId) {
       modified = true;
     }
     const delIds = getDeletedProjectsList();
-    cs.deletedProjectIds = Array.isArray(delIds) ? delIds.slice(-500) : [];
-    if (modified) {
+    const compactDelIds = Array.isArray(delIds) ? delIds.slice(-40) : [];
+    const hadMoreDelIds = Array.isArray(cs.deletedProjectIds) && cs.deletedProjectIds.length > 40;
+    cs.deletedProjectIds = compactDelIds;
+    if (modified || hadMoreDelIds) {
       saveCurrentUser(user);
       try {
+        if (typeof window !== 'undefined' && typeof window.markInternalCloudAuthUpdate === 'function') {
+          window.markInternalCloudAuthUpdate();
+        }
         const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
         if (sb && typeof sb.auth?.updateUser === 'function') {
           await sb.auth.updateUser({ data: { cubikar_cloud_state_v2: cs } });
@@ -1937,11 +1950,13 @@ export function getStoredInvitations() {
   }
 }
 
-export function saveStoredInvitations(invitations) {
+export function saveStoredInvitations(invitations, opts = {}) {
   try {
     localStorage.setItem(STORAGE_KEY_INVITATIONS, JSON.stringify(invitations || []));
   } catch (e) {}
-  triggerCloudCollabSync();
+  if (!opts?.skipCloudSync) {
+    triggerCloudCollabSync();
+  }
 }
 
 // Obtener invitaciones pendientes para un usuario específico (por email)
@@ -3182,11 +3197,13 @@ export function getStoredPlanInvitations() {
   }
 }
 
-export function saveStoredPlanInvitations(invitations) {
+export function saveStoredPlanInvitations(invitations, opts = {}) {
   try {
     localStorage.setItem(STORAGE_KEY_PLAN_INVITATIONS, JSON.stringify(invitations || []));
   } catch (e) {}
-  triggerCloudCollabSync();
+  if (!opts?.skipCloudSync) {
+    triggerCloudCollabSync();
+  }
 }
 
 export function getPlanCollaboratorsForOwner(ownerEmail) {

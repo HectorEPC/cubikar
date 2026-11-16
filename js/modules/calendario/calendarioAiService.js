@@ -3,11 +3,11 @@
 // Analiza el Tipo de Obra, partidas, volúmenes, matrices APU y días inhábiles para proponer
 // duraciones realistas, dependencias Fin-a-Inicio libres de ciclos y frentes simultáneos.
 
-import { state, persistSettings } from '../../state/store.js?v=20261116_cf4';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf4';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf4';
-import { getProjectById } from '../portal/projectService.js?v=20261116_cf4';
-import { extractJsonFromAiResponse } from '../ai/geminiClient.js?v=20261116_cf4';
+import { state, persistSettings } from '../../state/store.js?v=20261116_cf5';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf5';
+import { getProjectById } from '../portal/projectService.js?v=20261116_cf5';
+import { extractJsonFromAiResponse } from '../ai/geminiClient.js?v=20261116_cf5';
+import { callGeminiProxyApi } from '../ai/aiQuotaAndCacheService.js?v=20261116_cf5';
 import {
   extractScheduleItems,
   getScheduleSettings,
@@ -19,7 +19,7 @@ import {
   formatDate,
   addDays,
   diffDays
-} from './calendarioModel.js?v=20261116_cf4';
+} from './calendarioModel.js?v=20261116_cf5';
 
 export const WORK_TYPE_PROFILES = {
   edificacion: {
@@ -624,7 +624,7 @@ export function generateLocalConstructiveProposal(options = {}) {
 // Genera una propuesta avanzada consultando Gemini IA en tiempo real (con respaldo seguro al motor experto)
 export async function generateGeminiConstructiveProposal(options = {}) {
   const apiKey = String(options.apiKey || state.settings?.apiKey || '').trim();
-  const { checkStandardAiQuota, recordAiQuotaConsumption, applyServerQuotaSnapshot } = await import('../ai/aiQuotaAndCacheService.js?v=20261116_cf4');
+  const { checkStandardAiQuota, recordAiQuotaConsumption, applyServerQuotaSnapshot } = await import('../ai/aiQuotaAndCacheService.js?v=20261116_cf5');
   const quotaCheck = checkStandardAiQuota(1, null, apiKey);
   if (!quotaCheck.allowed) {
     throw new Error(quotaCheck.reason || 'Cuota mensual de IA estándar agotada para tu plan.');
@@ -685,28 +685,15 @@ Reglas obligatorias:
   let lastError = 'No fue posible conectar con Gemini.';
   let usedModelName = 'gemini-2.5-flash';
   try {
-    const calHeaders = { 'Content-Type': 'application/json', ...(apiKey ? { 'X-Gemini-Key': apiKey } : {}) };
-    try {
-      const sb = getSupabaseClient();
-      if (sb) {
-        const { data: sessionData } = await sb.auth.getSession();
-        if (sessionData?.session?.access_token) calHeaders['Authorization'] = `Bearer ${sessionData.session.access_token}`;
-      }
-    } catch (_) {}
-
-    const proxyRes = await fetch('/api/gemini-apu', {
-      method: 'POST',
-      headers: calHeaders,
-      body: JSON.stringify({
-        mode: 'calendario',
-        useWebSearch: false,
-        planId: quotaCheck.ctx?.planId || 'free',
-        projectId: quotaCheck.ctx?.projectId || '',
-        ownerEmail: quotaCheck.ctx?.ownerEmail || '',
-        userApiKey: apiKey,
-        promptText
-      })
-    });
+    const proxyRes = await callGeminiProxyApi({
+      mode: 'calendario',
+      useWebSearch: false,
+      planId: quotaCheck.ctx?.planId || 'free',
+      projectId: quotaCheck.ctx?.projectId || '',
+      ownerEmail: quotaCheck.ctx?.ownerEmail || '',
+      userApiKey: apiKey,
+      promptText
+    }, apiKey);
     if (proxyRes.ok) {
       const pJson = await proxyRes.json();
       if (pJson?.quotaSnapshot) {
@@ -739,7 +726,7 @@ Reglas obligatorias:
     }
   }
 
-  const models = (options.__precomputedParsed || !apiKey) ? [] : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  const models = (options.__precomputedParsed || !apiKey) ? [] : ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
 
   for (const modelName of models) {
     try {

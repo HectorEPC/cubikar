@@ -115,7 +115,7 @@ export default async function handler(req, res) {
 
   if (!envKey) {
     for (const [k, v] of Object.entries(process.env)) {
-      if (typeof v === 'string' && (v.startsWith('AIzaSy') || k.toLowerCase().includes('gemini'))) {
+      if (typeof v === 'string' && (v.startsWith('AIzaSy') || v.startsWith('AQ.') || k.toLowerCase().includes('gemini'))) {
         envKey = v;
         break;
       }
@@ -436,13 +436,13 @@ Instrucciones de análisis:
   const attempts = useWebSearch
     ? [
         { model: 'gemini-2.5-flash', tools: [{ googleSearch: {} }] },
-        { model: 'gemini-2.0-flash', tools: [{ googleSearch: {} }] },
-        { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] }
+        { model: 'gemini-2.5-flash-lite', tools: [{ googleSearch: {} }] },
+        { model: 'gemini-2.0-flash', tools: [{ googleSearch: {} }] }
       ]
     : [
         { model: 'gemini-2.5-flash', tools: null },
-        { model: 'gemini-2.0-flash', tools: null },
-        { model: 'gemini-1.5-flash', tools: null }
+        { model: 'gemini-2.5-flash-lite', tools: null },
+        { model: 'gemini-2.0-flash', tools: null }
       ];
 
   let lastError = '';
@@ -462,11 +462,15 @@ Instrucciones de análisis:
       }
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${att.model}:generateContent?key=${apiKey}`;
-      const response = await fetch(url, {
+      const fetchOpts = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reqPayload)
-      });
+      };
+      if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+        fetchOpts.signal = AbortSignal.timeout(22000);
+      }
+      const response = await fetch(url, fetchOpts);
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));

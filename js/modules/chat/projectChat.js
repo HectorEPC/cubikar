@@ -3,8 +3,8 @@
 // conectada con Partidas de Nivel 1 (icono de alta visibilidad fa-comments),
 // Usuarios Asignados (@), Estimaciones (#), Reportes (!) y Notificaciones de Menciones en la barra lateral izquierda.
 
-import { state } from '../../state/store.js?v=20261116_cf4';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf4';
+import { state } from '../../state/store.js?v=20261116_cf5';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf5';
 import {
   getProjectById,
   getProjectsList,
@@ -20,15 +20,15 @@ import {
   getStoredPlanInvitations,
   saveStoredPlanInvitations,
   getDeletedProjectsList
-} from '../portal/projectService.js?v=20261116_cf4';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf4';
-import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261116_cf4';
-import { getExpensesRecords } from '../compras/expensesModel.js?v=20261116_cf4';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
-import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261116_cf4';
-import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261116_cf4';
-import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf4';
-import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261116_cf4';
+} from '../portal/projectService.js?v=20261116_cf5';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf5';
+import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261116_cf5';
+import { getExpensesRecords } from '../compras/expensesModel.js?v=20261116_cf5';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf5';
+import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261116_cf5';
+import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261116_cf5';
+import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf5';
+import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261116_cf5';
 
 let isChatDockExpanded = false; // Inicia como pequeño círculo flotante abajo a la derecha
 let isChatMaximized = false; // Permite maximizar o restaurar el tamaño de la ventana del chat
@@ -602,9 +602,16 @@ export function getReadMentionIds() {
   return [];
 }
 
+let lastNotifSyncSignature = '';
+let consecutiveNotifSyncFailures = 0;
+let nextNotifSyncAllowedAt = 0;
+
 export function syncNotificationStateToCloud() {
   if (typeof window === 'undefined') return;
   if (notifCloudSyncTimer) clearTimeout(notifCloudSyncTimer);
+  const now = Date.now();
+  const baseDelay = 1500;
+  const delay = nextNotifSyncAllowedAt > now ? Math.max(baseDelay, nextNotifSyncAllowedAt - now) : baseDelay;
   notifCloudSyncTimer = setTimeout(async () => {
     notifCloudSyncTimer = null;
     try {
@@ -613,22 +620,55 @@ export function syncNotificationStateToCloud() {
       const currentUser = getCurrentUser();
       if (!currentUser || !currentUser.id) return;
 
-      const dismissed = getDismissedNotificationIds().slice(-400);
-      const readIds = getReadMentionIds().slice(-400);
+      // Mantener payload compacto en user_metadata (< 3 KB) para no inflar el JWT en cada request HTTP
+      const dismissed = getDismissedNotificationIds().slice(-60);
+      const readIds = getReadMentionIds().slice(-60);
+
+      const nextSig = JSON.stringify({ dismissed, readIds });
+      const remoteMeta = currentUser.user_metadata || {};
+      const remoteDismissed = Array.isArray(remoteMeta.cubikar_dismissed_notifications) ? remoteMeta.cubikar_dismissed_notifications : [];
+      const remoteRead = Array.isArray(remoteMeta.cubikar_read_mentions) ? remoteMeta.cubikar_read_mentions : [];
+      const remoteHasArr = Array.isArray(remoteMeta.cubikar_dismissed_notifications) || Array.isArray(remoteMeta.cubikar_read_mentions);
+      const remoteIsCompact = remoteDismissed.length <= 60 && remoteRead.length <= 60;
+      const remoteSig = (remoteHasArr && remoteIsCompact)
+        ? JSON.stringify({ dismissed: remoteDismissed, readIds: remoteRead })
+        : '';
+
+      if (nextSig === lastNotifSyncSignature || nextSig === remoteSig) {
+        lastNotifSyncSignature = nextSig;
+        return;
+      }
 
       if (!currentUser.user_metadata) currentUser.user_metadata = {};
       currentUser.user_metadata.cubikar_dismissed_notifications = dismissed;
       currentUser.user_metadata.cubikar_read_mentions = readIds;
       if (typeof saveCurrentUser === 'function') saveCurrentUser(currentUser);
 
-      await sb.auth.updateUser({
+      if (typeof window.markInternalCloudAuthUpdate === 'function') {
+        window.markInternalCloudAuthUpdate();
+      }
+      const { error } = await sb.auth.updateUser({
         data: {
           cubikar_dismissed_notifications: dismissed,
           cubikar_read_mentions: readIds
         }
       });
-    } catch (_) {}
-  }, 450);
+
+      if (error) {
+        consecutiveNotifSyncFailures++;
+        const backoff = Math.min(120000, 5000 * Math.pow(2, consecutiveNotifSyncFailures - 1));
+        nextNotifSyncAllowedAt = Date.now() + backoff;
+        return;
+      }
+      consecutiveNotifSyncFailures = 0;
+      nextNotifSyncAllowedAt = 0;
+      lastNotifSyncSignature = nextSig;
+    } catch (_) {
+      consecutiveNotifSyncFailures++;
+      const backoff = Math.min(120000, 5000 * Math.pow(2, consecutiveNotifSyncFailures - 1));
+      nextNotifSyncAllowedAt = Date.now() + backoff;
+    }
+  }, delay);
 }
 
 export async function hydrateNotificationStateFromCloud(authUser = null) {

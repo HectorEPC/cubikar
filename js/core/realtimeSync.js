@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf4';
-import { state } from '../state/store.js?v=20261116_cf4';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf5';
+import { state } from '../state/store.js?v=20261116_cf5';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -17,10 +17,10 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261116_cf4';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf4';
-import { findNodeById } from '../modules/catalog/treeService.js?v=20261116_cf4';
-import { showToast } from '../ui/notifications.js?v=20261116_cf4';
+} from '../modules/portal/projectService.js?v=20261116_cf5';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf5';
+import { findNodeById } from '../modules/catalog/treeService.js?v=20261116_cf5';
+import { showToast } from '../ui/notifications.js?v=20261116_cf5';
 
 let activeChannel = null;
 let currentSubscribedProjectId = null;
@@ -640,7 +640,7 @@ export function handleIncomingProjectUpdate(data) {
       if (data.summary.factorSobrecosto !== undefined) proj.factorSobrecosto = data.summary.factorSobrecosto;
     }
     proj.updatedAt = new Date().toISOString();
-    saveProjectsList(allProjects);
+    saveProjectsList(allProjects, { skipCloudSync: true });
   }
 
   const isCurrentActive = Boolean(currentPId && (currentPId === projectId || (proj && (currentPId === proj.id || currentPId === proj.cloudId))));
@@ -1684,7 +1684,7 @@ export function handleIncomingCollaboratorRemoved(data) {
   } else if (proj && Array.isArray(proj.members)) {
     // Si otro colaborador fue removido: actualizar la lista de miembros de la obra
     proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== targetEmail);
-    saveProjectsList(allProjects);
+    saveProjectsList(allProjects, { skipCloudSync: true });
 
     if (typeof window.renderInviteModalMembersList === 'function') {
       window.renderInviteModalMembersList();
@@ -1908,7 +1908,7 @@ async function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
       }
     });
     if (projChanged) {
-      saveProjectsList(currentProjs);
+      saveProjectsList(currentProjs, { skipCloudSync: true });
       changed = true;
     }
   }

@@ -2,13 +2,13 @@
 // Servicio unificado de cuotas mensuales de IA (Estándar vs Google Search Grounding)
 // y caché inteligente de precios de insumos para proteger la rentabilidad de Cubikar.
 
-import { state } from '../../state/store.js?v=20261116_cf4';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf4';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf4';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf4';
-import { getMonthlyAiQuotaUsage, recordAiUsageDetailed, syncMonthlyAiQuotaFromServer, getCurrentMonthKey } from '../admin/cubikarAdmin.js?v=20261116_cf4';
-import { generateLocalMatrix } from './localMatrixEngine.js?v=20261116_cf4';
-import { buildLocalGenerationContext } from './localEstimator.js?v=20261116_cf4';
+import { state } from '../../state/store.js?v=20261116_cf5';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf5';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf5';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf5';
+import { getMonthlyAiQuotaUsage, recordAiUsageDetailed, syncMonthlyAiQuotaFromServer, getCurrentMonthKey } from '../admin/cubikarAdmin.js?v=20261116_cf5';
+import { generateLocalMatrix } from './localMatrixEngine.js?v=20261116_cf5';
+import { buildLocalGenerationContext } from './localEstimator.js?v=20261116_cf5';
 
 export const STORAGE_KEY_SUPPLY_PRICE_CACHE = 'cubikar_insumo_price_cache_v1';
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
@@ -446,4 +446,55 @@ export function getAiQuotaBadgeSummary() {
     webText: `Web Search: ${webUsed}/${webMax} este mes`,
     cacheEntries: cacheStats.totalEntries
   };
+}
+
+/**
+ * Envía petición al endpoint backend /api/gemini-apu con token de sesión Supabase,
+ * timeout controlado y reintento único automático ante micro-cortes de red (ERR_CONNECTION_RESET).
+ */
+export async function callGeminiProxyApi(payload, ownApiKey = '', { timeoutMs = 45000 } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  const cleanKey = String(ownApiKey || '').trim();
+  if (cleanKey) {
+    headers['X-Gemini-Key'] = cleanKey;
+  }
+  try {
+    const sb = getSupabaseClient();
+    if (sb) {
+      const { data: sessionData } = await sb.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+  } catch (_) {}
+
+  const serializedBody = JSON.stringify(payload || {});
+  let lastNetworkErr = null;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timerId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      const fetchOpts = {
+        method: 'POST',
+        headers,
+        body: serializedBody
+      };
+      if (controller) fetchOpts.signal = controller.signal;
+      return await fetch('/api/gemini-apu', fetchOpts);
+    } catch (err) {
+      lastNetworkErr = err;
+      const isAbort = err && (err.name === 'AbortError' || /aborted/i.test(err.message || ''));
+      if (attempt === 0 && !isAbort) {
+        await new Promise((r) => setTimeout(r, 650));
+        continue;
+      }
+      if (isAbort) {
+        throw new Error('El servidor de IA tardó demasiado en responder. Inténtalo nuevamente.');
+      }
+      throw new Error('No se pudo conectar con el servidor de IA (/api/gemini-apu). Verifica tu conexión o recarga la página.');
+    } finally {
+      if (timerId) clearTimeout(timerId);
+    }
+  }
+  throw lastNetworkErr || new Error('Error de red al consultar /api/gemini-apu');
 }

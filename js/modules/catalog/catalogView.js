@@ -1,14 +1,14 @@
-import { state } from '../../state/store.js?v=20261116_cf4';
-import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js?v=20261116_cf4';
-import { getHierarchyColor } from '../../core/colors.js?v=20261116_cf4';
-import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js?v=20261116_cf4';
-import { findNodeById } from './treeService.js?v=20261116_cf4';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf4';
-import { APU_WIDTH_KEY } from '../../config/constants.js?v=20261116_cf4';
-import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf4';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf4';
-import { getClampedApuWidth } from '../../ui/resizer.js?v=20261116_cf4';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf4';
+import { state } from '../../state/store.js?v=20261116_cf5';
+import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js?v=20261116_cf5';
+import { getHierarchyColor } from '../../core/colors.js?v=20261116_cf5';
+import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js?v=20261116_cf5';
+import { findNodeById } from './treeService.js?v=20261116_cf5';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf5';
+import { APU_WIDTH_KEY } from '../../config/constants.js?v=20261116_cf5';
+import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf5';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf5';
+import { getClampedApuWidth } from '../../ui/resizer.js?v=20261116_cf5';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf5';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';

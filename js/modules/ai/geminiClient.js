@@ -1,13 +1,12 @@
-import { state, persistSettings, persistLocalData } from '../../state/store.js?v=20261116_cf4';
-import { saveState } from '../../state/history.js?v=20261116_cf4';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
-import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf4';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf4';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf4';
-import { closeAiGeneratorModal, openAiGeneratorModal, aiModalTargetMode, aiModalSingleNodeId } from '../../ui/modalController.js?v=20261116_cf4';
-import { round2, getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf4';
-import { round5 } from '../../core/formatters.js?v=20261116_cf4';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf4';
+import { state, persistSettings, persistLocalData } from '../../state/store.js?v=20261116_cf5';
+import { saveState } from '../../state/history.js?v=20261116_cf5';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf5';
+import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf5';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf5';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf5';
+import { closeAiGeneratorModal, openAiGeneratorModal, aiModalTargetMode, aiModalSingleNodeId } from '../../ui/modalController.js?v=20261116_cf5';
+import { round2, getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf5';
+import { round5 } from '../../core/formatters.js?v=20261116_cf5';
 import {
   tryResolveConceptLocally,
   setCachedSupplyPrices,
@@ -16,8 +15,9 @@ import {
   checkWebSearchGroundingQuota,
   recordAiQuotaConsumption,
   applyServerQuotaSnapshot,
-  resolveActiveAiExecutionContext
-} from './aiQuotaAndCacheService.js?v=20261116_cf4';
+  resolveActiveAiExecutionContext,
+  callGeminiProxyApi
+} from './aiQuotaAndCacheService.js?v=20261116_cf5';
 
 // Extractor robusto de JSON para respuestas de Gemini
 export function extractJsonFromAiResponse(text) {
@@ -251,24 +251,7 @@ export async function generarMatrizConceptoActivoGoogleIA(targetNodeId = null, o
       userApiKey: ownApiKey
     };
 
-    const headers = { 'Content-Type': 'application/json' };
-    if (ownApiKey) {
-      headers['X-Gemini-Key'] = ownApiKey;
-    }
-    try {
-      const sb = getSupabaseClient();
-      if (sb) {
-        const { data: sessionData } = await sb.auth.getSession();
-        const accessToken = sessionData?.session?.access_token;
-        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-    } catch (_) {}
-
-    const response = await fetch('/api/gemini-apu', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload)
-    });
+    const response = await callGeminiProxyApi(payload, ownApiKey);
 
     const data = await response.json();
 
@@ -481,13 +464,13 @@ Instrucciones:
   const attempts = useWebSearch
     ? [
         { model: 'gemini-2.5-flash', tools: [{ googleSearch: {} }] },
-        { model: 'gemini-2.0-flash', tools: [{ googleSearch: {} }] },
-        { model: 'gemini-1.5-flash', tools: [{ googleSearch: {} }] }
+        { model: 'gemini-2.5-flash-lite', tools: [{ googleSearch: {} }] },
+        { model: 'gemini-2.0-flash', tools: [{ googleSearch: {} }] }
       ]
     : [
         { model: 'gemini-2.5-flash', tools: null },
-        { model: 'gemini-2.0-flash', tools: null },
-        { model: 'gemini-1.5-flash', tools: null }
+        { model: 'gemini-2.5-flash-lite', tools: null },
+        { model: 'gemini-2.0-flash', tools: null }
       ];
 
   let lastError = '';

@@ -12,10 +12,10 @@ import {
   countAccountUsersForOwner,
   resolveWorkspacePlanContext,
   STORAGE_KEY_REGISTERED_USERS
-} from '../portal/projectService.js?v=20261116_cf4';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf4';
-import { SUBSCRIPTION_PLANS, openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261116_cf4';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf4';
+} from '../portal/projectService.js?v=20261116_cf5';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf5';
+import { SUBSCRIPTION_PLANS, openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261116_cf5';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf5';
 
 // Administrador Maestro Oficial
 export const MASTER_ADMIN_EMAIL = 'hepc.90@gmail.com';

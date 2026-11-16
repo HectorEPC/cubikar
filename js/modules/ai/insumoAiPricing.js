@@ -2,17 +2,17 @@
 // Servicio de actualización y cotización de precios de insumos con Inteligencia Artificial
 // Soporta Google Gemini con Google Search Grounding y base de datos de mercado local en México
 
-import { state } from '../../state/store.js?v=20261116_cf4';
-import { round2 } from '../../core/formatters.js?v=20261116_cf4';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf4';
+import { state } from '../../state/store.js?v=20261116_cf5';
+import { round2 } from '../../core/formatters.js?v=20261116_cf5';
 import {
   getCachedSupplyPrice,
   setCachedSupplyPrices,
   checkStandardAiQuota,
   checkWebSearchGroundingQuota,
   recordAiQuotaConsumption,
-  applyServerQuotaSnapshot
-} from './aiQuotaAndCacheService.js?v=20261116_cf4';
+  applyServerQuotaSnapshot,
+  callGeminiProxyApi
+} from './aiQuotaAndCacheService.js?v=20261116_cf5';
 
 // Base de datos de referencia de precios de mercado de construcción en México (en Pesos Mexicanos MXN)
 const TABULADOR_MERCADO_MEXICO = [
@@ -202,35 +202,21 @@ export async function queryGeminiParaInsumo(insumo, apiKey = '', options = {}) {
 
   // Intentar vía endpoint unificado /api/gemini-apu (protege clave del servidor y valida cuotas)
   try {
-    const headers = { 'Content-Type': 'application/json' };
-    if (resolvedApiKey) headers['X-Gemini-Key'] = resolvedApiKey;
-    try {
-      const sb = getSupabaseClient();
-      if (sb) {
-        const { data: sData } = await sb.auth.getSession();
-        if (sData?.session?.access_token) headers['Authorization'] = `Bearer ${sData.session.access_token}`;
+    const proxyRes = await callGeminiProxyApi({
+      mode: 'insumo',
+      useWebSearch,
+      planId: quotaCheck.ctx?.planId || 'free',
+      projectId: quotaCheck.ctx?.projectId || '',
+      ownerEmail: quotaCheck.ctx?.ownerEmail || '',
+      userApiKey: resolvedApiKey,
+      insumo: {
+        tipo: insumo.tipo || 'Material',
+        clave: insumo.clave || '',
+        descripcion: insumo.descripcion || '',
+        unidad: insumo.unidad || 'pza',
+        costoActual: insumo.costoUnitario || 0
       }
-    } catch (_) {}
-
-    const proxyRes = await fetch('/api/gemini-apu', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        mode: 'insumo',
-        useWebSearch,
-        planId: quotaCheck.ctx?.planId || 'free',
-        projectId: quotaCheck.ctx?.projectId || '',
-        ownerEmail: quotaCheck.ctx?.ownerEmail || '',
-        userApiKey: resolvedApiKey,
-        insumo: {
-          tipo: insumo.tipo || 'Material',
-          clave: insumo.clave || '',
-          descripcion: insumo.descripcion || '',
-          unidad: insumo.unidad || 'pza',
-          costoActual: insumo.costoUnitario || 0
-        }
-      })
-    });
+    }, resolvedApiKey);
 
     if (proxyRes.ok) {
       const proxyData = await proxyRes.json();
@@ -384,35 +370,21 @@ export async function queryGeminiLoteInsumos(insumosList, apiKey = '', options =
 
     // Intentar primero vía backend /api/gemini-apu
     try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (resolvedApiKey) headers['X-Gemini-Key'] = resolvedApiKey;
-      try {
-        const sb = getSupabaseClient();
-        if (sb) {
-          const { data: sData } = await sb.auth.getSession();
-          if (sData?.session?.access_token) headers['Authorization'] = `Bearer ${sData.session.access_token}`;
-        }
-      } catch (_) {}
-
-      const proxyRes = await fetch('/api/gemini-apu', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          mode: 'insumos_batch',
-          useWebSearch,
-          planId: quotaCheck.ctx?.planId || 'free',
-          projectId: quotaCheck.ctx?.projectId || '',
-          ownerEmail: quotaCheck.ctx?.ownerEmail || '',
-          userApiKey: resolvedApiKey,
-          insumos: chunk.map(it => ({
-            key: it.key,
-            tipo: it.tipo,
-            descripcion: it.descripcion,
-            unidad: it.unidad,
-            costoUnitario: it.costoUnitario || 0
-          }))
-        })
-      });
+      const proxyRes = await callGeminiProxyApi({
+        mode: 'insumos_batch',
+        useWebSearch,
+        planId: quotaCheck.ctx?.planId || 'free',
+        projectId: quotaCheck.ctx?.projectId || '',
+        ownerEmail: quotaCheck.ctx?.ownerEmail || '',
+        userApiKey: resolvedApiKey,
+        insumos: chunk.map(it => ({
+          key: it.key,
+          tipo: it.tipo,
+          descripcion: it.descripcion,
+          unidad: it.unidad,
+          costoUnitario: it.costoUnitario || 0
+        }))
+      }, resolvedApiKey);
 
       if (proxyRes.ok) {
         const proxyData = await proxyRes.json();
