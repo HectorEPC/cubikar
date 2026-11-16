@@ -39,10 +39,10 @@ import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
   printExpensesActiveReport
-} from './expensesExporter.js?v=20261114_18';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261115_v14';
+} from './expensesExporter.js';
+import { renderTabAssignedAvatars } from '../portal/portalController.js';
 import { resolveWorkspacePlanContext } from '../portal/projectService.js';
-import { isNightMode } from '../../ui/themeController.js?v=20261114_18';
+import { isNightMode } from '../../ui/themeController.js';
 
 function isAdvancedExpensesAllowed() {
   return true;
@@ -1073,31 +1073,31 @@ function renderExpenseRowHtml(r) {
   return `
     <tr class="hover:bg-blue-50/40 transition">
       <td class="py-2.5 px-3 font-mono font-bold text-blue-700">
-        ${r.id}
+        ${escapeHtml(r.id)}
       </td>
       <td class="py-2.5 px-3 text-slate-600 font-mono">
-        ${r.date || '---'}
+        ${escapeHtml(r.date || '---')}
       </td>
       <td class="py-2.5 px-3">
         <span class="px-1.5 py-0.5 rounded text-[10px] font-bold border ${tCfg.bg}">
-          ${tCfg.label}
+          ${escapeHtml(tCfg.label)}
         </span>
       </td>
       <td class="py-2.5 px-3">
-        <div class="font-bold text-slate-900">${r.description || 'Sin descripción'}</div>
+        <div class="font-bold text-slate-900">${escapeHtml(r.description || 'Sin descripción')}</div>
         <div class="text-[10px] text-slate-400 flex items-center gap-2">
-          ${r.insumoClave ? `<span class="font-mono text-blue-600 font-semibold">${r.insumoClave}</span>` : ''}
-          ${r.category ? `<span>• ${r.category}</span>` : ''}
+          ${r.insumoClave ? `<span class="font-mono text-blue-600 font-semibold">${escapeHtml(r.insumoClave)}</span>` : ''}
+          ${r.category ? `<span>• ${escapeHtml(r.category)}</span>` : ''}
         </div>
       </td>
       <td class="py-2.5 px-3 text-slate-700 font-medium">
-        ${supName}
+        ${escapeHtml(supName)}
       </td>
       <td class="py-2.5 px-3 font-mono text-slate-600">
-        ${r.invoiceNumber || '---'}
+        ${escapeHtml(r.invoiceNumber || '---')}
       </td>
       <td class="py-2.5 px-3 text-right font-mono">
-        <strong>${formatNumber(r.quantity)}</strong> <span class="text-slate-400 text-[10px] font-sans">${r.unit || 'pza'}</span>
+        <strong>${formatNumber(r.quantity)}</strong> <span class="text-slate-400 text-[10px] font-sans">${escapeHtml(r.unit || 'pza')}</span>
       </td>
       <td class="py-2.5 px-3 text-right font-mono text-slate-600">
         ${formatCurrency(r.unitPrice)}
@@ -1494,14 +1494,14 @@ function renderComparativaRowHtml(item) {
   return `
     <tr class="${rowClass} transition">
       <td class="py-2 px-3 font-mono font-bold text-blue-700">
-        ${item.clave || '---'}
+        ${escapeHtml(item.clave || '---')}
       </td>
       <td class="py-2 px-3 font-medium text-slate-900">
-        <div>${item.descripcion || 'Sin descripción'}</div>
+        <div>${escapeHtml(item.descripcion || 'Sin descripción')}</div>
         ${item.isExtraordinario ? `<span class="text-[9.5px] font-bold text-rose-600 uppercase">Gasto Extraordinario</span>` : ''}
       </td>
       <td class="py-2 px-3 text-center text-slate-500 font-mono text-[11px]">
-        ${item.unidad || 'pza'}
+        ${escapeHtml(item.unidad || 'pza')}
       </td>
       <td class="py-2 px-3 text-right font-mono text-slate-700">
         ${formatNumber(item.cantidadPresupuestada)}
@@ -1526,7 +1526,7 @@ function renderComparativaRowHtml(item) {
       </td>
       <td class="py-2 px-3 text-center">
         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}">
-          ${item.alertReason}
+          ${escapeHtml(item.alertReason)}
         </span>
       </td>
     </tr>
@@ -1673,11 +1673,21 @@ export function openNewExpenseModal(editId = null) {
   document.getElementById('expense-form-date').value = existing?.date || today;
   document.getElementById('expense-form-type').value = existing?.type || 'material';
   document.getElementById('expense-form-category').value = existing?.category || '';
-  document.getElementById('expense-form-desc').value = existing?.description || '';
+  const descInput = document.getElementById('expense-form-desc');
+  if (descInput) {
+    descInput.value = existing?.description || '';
+    descInput.dataset.autoInsumoDesc = '';
+  }
   document.getElementById('expense-form-invoice').value = existing?.invoiceNumber || '';
   document.getElementById('expense-form-quantity').value = existing ? existing.quantity : 1;
   document.getElementById('expense-form-unit').value = existing?.unit || 'pza';
   document.getElementById('expense-form-price').value = existing ? existing.unitPrice : 0;
+  const applyTaxEl = document.getElementById('expense-form-apply-tax');
+  if (applyTaxEl) {
+    applyTaxEl.checked = existing
+      ? (typeof existing.applyTax === 'boolean' ? existing.applyTax : (parseFloat(existing.tax) || 0) > 0)
+      : true;
+  }
   document.getElementById('expense-form-subtotal').value = existing ? existing.subtotal : 0;
   document.getElementById('expense-form-tax').value = existing ? existing.tax : 0;
   document.getElementById('expense-form-total').value = existing ? existing.total : 0;
@@ -1765,8 +1775,8 @@ export function populateInsumosDropdown(selectedKey = '', searchTerm = '') {
     const compItem = compMap.get(ins.key);
     const saldo = compItem ? compItem.saldoDisponible : ins.cantidadPresupuestada;
 
-    html += `<option value="${ins.key}" data-clave="${ins.clave}" data-desc="${ins.descripcion}" data-unit="${ins.unidad}" data-cant="${ins.cantidadPresupuestada}" data-saldo="${saldo}" data-pu="${ins.puPresupuestado}" data-tipo="${ins.tipo}" ${isSel ? 'selected' : ''}>
-      [${ins.clave}] ${ins.descripcion.slice(0, 52)} | Obra: ${formatNumber(ins.cantidadPresupuestada)} ${ins.unidad} (Disp: ${formatNumber(saldo)}) - $${ins.puPresupuestado}
+    html += `<option value="${escapeHtml(ins.key)}" data-clave="${escapeHtml(ins.clave)}" data-desc="${escapeHtml(ins.descripcion)}" data-unit="${escapeHtml(ins.unidad)}" data-cant="${ins.cantidadPresupuestada}" data-saldo="${saldo}" data-pu="${ins.puPresupuestado}" data-tipo="${escapeHtml(ins.tipo)}" ${isSel ? 'selected' : ''}>
+      [${escapeHtml(ins.clave)}] ${escapeHtml((ins.descripcion || '').slice(0, 52))} | Obra: ${formatNumber(ins.cantidadPresupuestada)} ${escapeHtml(ins.unidad)} (Disp: ${formatNumber(saldo)}) - $${ins.puPresupuestado}
     </option>`;
   });
 
@@ -1776,8 +1786,8 @@ export function populateInsumosDropdown(selectedKey = '', searchTerm = '') {
     if (item) {
       const compItem = compMap.get(item.key);
       const saldo = compItem ? compItem.saldoDisponible : item.cantidadPresupuestada;
-      html += `<option value="${item.key}" data-clave="${item.clave}" data-desc="${item.descripcion}" data-unit="${item.unidad}" data-cant="${item.cantidadPresupuestada}" data-saldo="${saldo}" data-pu="${item.puPresupuestado}" data-tipo="${item.tipo}" selected>
-        [${item.clave}] ${item.descripcion.slice(0, 52)} | Obra: ${formatNumber(item.cantidadPresupuestada)} ${item.unidad} (Disp: ${formatNumber(saldo)}) - $${item.puPresupuestado}
+      html += `<option value="${escapeHtml(item.key)}" data-clave="${escapeHtml(item.clave)}" data-desc="${escapeHtml(item.descripcion)}" data-unit="${escapeHtml(item.unidad)}" data-cant="${item.cantidadPresupuestada}" data-saldo="${saldo}" data-pu="${item.puPresupuestado}" data-tipo="${escapeHtml(item.tipo)}" selected>
+        [${escapeHtml(item.clave)}] ${escapeHtml((item.descripcion || '').slice(0, 52))} | Obra: ${formatNumber(item.cantidadPresupuestada)} ${escapeHtml(item.unidad)} (Disp: ${formatNumber(saldo)}) - $${item.puPresupuestado}
       </option>`;
     }
   }
@@ -1864,10 +1874,23 @@ export function onExpenseInsumoSelectChange(selectEl) {
   const opt = selectEl.options[selectEl.selectedIndex];
   updateProjectQtyDisplay(opt);
 
-  if (!opt || !opt.value) return;
+  const descInput = document.getElementById('expense-form-desc');
+  const priceInput = document.getElementById('expense-form-price');
+
+  if (!opt || !opt.value) {
+    if (priceInput) priceInput.value = 0;
+    calculateExpenseModalTotals();
+    return;
+  }
 
   if (opt.value === 'EXTRA') {
     document.getElementById('expense-form-category').value = 'Extraordinarios / Imprevistos';
+    if (priceInput) priceInput.value = 0;
+    if (descInput && descInput.dataset.autoInsumoDesc === '1') {
+      descInput.value = '';
+      descInput.dataset.autoInsumoDesc = '';
+    }
+    calculateExpenseModalTotals();
     return;
   }
 
@@ -1879,16 +1902,15 @@ export function onExpenseInsumoSelectChange(selectEl) {
   const cant = parseFloat(opt.getAttribute('data-cant')) || 0;
   const saldo = parseFloat(opt.getAttribute('data-saldo'));
 
-  const descInput = document.getElementById('expense-form-desc');
-  if (!descInput.value || descInput.value.length < 5) {
+  if (descInput && (!descInput.value || descInput.value.trim().length < 5 || descInput.dataset.autoInsumoDesc === '1')) {
     descInput.value = desc;
+    descInput.dataset.autoInsumoDesc = '1';
   }
 
   document.getElementById('expense-form-unit').value = unit;
-  
-  const priceInput = document.getElementById('expense-form-price');
-  if (parseFloat(priceInput.value) === 0 && pu > 0) {
-    priceInput.value = pu;
+
+  if (priceInput) {
+    priceInput.value = pu > 0 ? pu : 0;
   }
 
   // Si la cantidad actual es 1 o 0 (valor default), sugerir la cantidad del presupuesto
@@ -1923,8 +1945,8 @@ function populateSuppliersDropdown(selectedId = '') {
   let html = `<option value="">-- Seleccionar Proveedor --</option>`;
   
   suppliers.forEach(s => {
-    html += `<option value="${s.id}" ${s.id === selectedId ? 'selected' : ''}>
-      ${s.name} ${s.rfc ? `(${s.rfc})` : ''}
+    html += `<option value="${escapeHtml(s.id)}" ${s.id === selectedId ? 'selected' : ''}>
+      ${escapeHtml(s.name)} ${s.rfc ? `(${escapeHtml(s.rfc)})` : ''}
     </option>`;
   });
 
@@ -2063,6 +2085,7 @@ export function saveExpenseModalForm() {
     total: parseFloat(document.getElementById('expense-form-total')?.value) || 0,
     paymentStatus: document.getElementById('expense-form-status')?.value || 'paid',
     paymentMethod: document.getElementById('expense-form-method')?.value || 'transfer',
+    applyTax: document.getElementById('expense-form-apply-tax')?.checked !== false,
     notes: document.getElementById('expense-form-notes')?.value.trim() || '',
     evidence: currentTempEvidence
       ? (({ __isNewTempUpload, ...clean }) => clean)(currentTempEvidence)
@@ -2108,17 +2131,17 @@ function renderSuppliersListTable() {
 
   container.innerHTML = suppliers.map(s => `
     <tr class="hover:bg-slate-50 transition border-b border-slate-100">
-      <td class="p-2.5 font-bold text-slate-900">${s.name}</td>
-      <td class="p-2.5 font-mono text-slate-600">${s.rfc || '---'}</td>
-      <td class="p-2.5 font-mono text-slate-600">${s.phone || '---'}</td>
-      <td class="p-2.5 text-slate-600">${s.email || '---'}</td>
-      <td class="p-2.5 text-slate-600">${s.contactPerson || '---'}</td>
+      <td class="p-2.5 font-bold text-slate-900">${escapeHtml(s.name)}</td>
+      <td class="p-2.5 font-mono text-slate-600">${escapeHtml(s.rfc || '---')}</td>
+      <td class="p-2.5 font-mono text-slate-600">${escapeHtml(s.phone || '---')}</td>
+      <td class="p-2.5 text-slate-600">${escapeHtml(s.email || '---')}</td>
+      <td class="p-2.5 text-slate-600">${escapeHtml(s.contactPerson || '---')}</td>
       <td class="p-2.5 text-center">
         <div class="flex items-center justify-center gap-1">
-          <button onclick="openSupplierModal('${s.id}')" class="w-6 h-6 rounded bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 transition flex items-center justify-center cursor-pointer" title="Editar">
+          <button onclick="openSupplierModal('${escapeHtml(s.id)}')" class="w-6 h-6 rounded bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 transition flex items-center justify-center cursor-pointer" title="Editar">
             <i class="fa-solid fa-pen text-[10px]"></i>
           </button>
-          <button onclick="deleteSupplierAction('${s.id}')" class="w-6 h-6 rounded bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-700 transition flex items-center justify-center cursor-pointer" title="Eliminar">
+          <button onclick="deleteSupplierAction('${escapeHtml(s.id)}')" class="w-6 h-6 rounded bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-700 transition flex items-center justify-center cursor-pointer" title="Eliminar">
             <i class="fa-solid fa-trash text-[10px]"></i>
           </button>
         </div>
@@ -2356,7 +2379,7 @@ export function saveExpensesSignaturesModal() {
 }
 
 // Asignar funciones globales para compatibilidad inline
-// Exponer funciones pÃºblicas de Compras y Pagos para compatibilidad inline total
+// Exponer funciones públicas de Compras y Pagos para compatibilidad inline total
 if (typeof window !== 'undefined') {
   window.renderExpensesView = renderExpensesView;
   window.switchExpensesSubTab = switchExpensesSubTab;
@@ -2404,7 +2427,7 @@ if (typeof window !== 'undefined') {
   window.resetDefaultExpensesSignatures = resetDefaultExpensesSignatures;
   window.saveExpensesSignaturesModal = saveExpensesSignaturesModal;
 
-  // Atajos de conveniencia para submÃ³dulos de compras
+  // Atajos de conveniencia para submódulos de compras
   window.switchComprasSubTab = window.switchComprasSubTab || function(sub) {
     if (sub === 'pagos' || sub === 'ordenes') {
       switchExpensesSubTab('bitacora');

@@ -18,6 +18,8 @@ import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetC
 import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js';
 import { openImportModal } from '../io/universalImporter.js';
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
+import { canCurrentUserEditProject } from '../portal/projectService.js';
+import { guardTabUnlocked } from '../../ui/tabLockController.js';
 
 let debounceTimer = null;
 let currentSearchResults = [];
@@ -283,6 +285,11 @@ if (typeof window !== 'undefined') {
 
 // Eliminar un catálogo con confirmación
 export async function handleDeleteCatalog(catalogId, catalogName) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: no tienes permisos para eliminar catálogos de referencia.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   if (!confirm(`¿Estás seguro de eliminar el catálogo "${catalogName}" y todos sus conceptos?`)) {
     return;
   }
@@ -428,6 +435,11 @@ function renderSearchResultsTable(items) {
 
 // Insertar concepto seleccionado al presupuesto de obra (TAB1-CAT-BASE)
 export function insertConceptIntoBudget(resultIndex) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: tu rol no permite insertar conceptos al presupuesto.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   const item = currentSearchResults[resultIndex];
   if (!item) return;
 

@@ -147,12 +147,18 @@ export function addChildRow(parentId, e) {
     return;
   }
 
-  const conceptDelta = (!parent.children || parent.children.length === 0) ? 0 : 1;
+  const wasLeaf = !Array.isArray(parent.children) || parent.children.length === 0;
+  const conceptDelta = wasLeaf ? 0 : 1;
   if (!guardConceptLimit(conceptDelta)) return;
 
   saveState();
   if (!parent.children) parent.children = [];
   parent.unidad = 'lote';
+  if (wasLeaf) {
+    parent.cantidad = 0;
+    parent.precioUnitario = 0;
+    parent.costoDirecto = 0;
+  }
   const newId = '_' + Math.random().toString(36).substr(2, 9);
   const newNode = {
     id: newId,

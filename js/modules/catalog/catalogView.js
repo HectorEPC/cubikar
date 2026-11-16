@@ -10,6 +10,16 @@ import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/pr
 import { getClampedApuWidth } from '../../ui/resizer.js';
 import { canCurrentUserEditProject } from '../portal/projectService.js';
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // Renderizado de la tabla principal de catálogo (TAB1-CAT-BASE)
 export function renderTAB1() {
   const tbody = document.getElementById('tb1-body');
@@ -77,13 +87,13 @@ export function renderTAB1() {
       tr.innerHTML = `
         <td class="p-1 text-center align-top pt-2">
           <div class="relative inline-flex items-center justify-center">
-            <label class="cursor-pointer flex items-center justify-center m-0 p-0" title="${node.color ? 'Color propio: ' + node.color + ' (clic para cambiar)' : (activeColor ? 'Color heredado del nivel superior (clic para personalizar)' : 'Elegir color para esta partida y sus sub-conceptos')}">
-              <input type="color" value="${node.color || activeColor || '#3b82f6'}" ${isCatLocked ? 'disabled' : ''}
-                     onchange="updateNodeColor('${node.id}', this.value, event)" 
+            <label class="cursor-pointer flex items-center justify-center m-0 p-0" title="${escapeHtml(node.color ? 'Color propio: ' + node.color + ' (clic para cambiar)' : (activeColor ? 'Color heredado del nivel superior (clic para personalizar)' : 'Elegir color para esta partida y sus sub-conceptos'))}">
+              <input type="color" value="${escapeHtml(node.color || activeColor || '#3b82f6')}" ${isCatLocked ? 'disabled' : ''}
+                     onchange="updateNodeColor('${escapeHtml(node.id)}', this.value, event)" 
                      class="color-picker-dot w-4 h-4 rounded-full cursor-pointer border ${node.color ? 'border-slate-500 ring-1 ring-slate-400' : (activeColor ? 'border-slate-400 opacity-75' : 'border-slate-300 opacity-30 hover:opacity-100')}">
             </label>
             ${node.color && !isCatLocked ? `
-              <button type="button" onclick="clearNodeColor('${node.id}', event)" 
+              <button type="button" onclick="clearNodeColor('${escapeHtml(node.id)}', event)" 
                       title="Quitar color propio" 
                       class="absolute -top-1.5 -right-1.5 bg-white hover:bg-red-600 hover:text-white text-slate-500 rounded-full w-3.5 h-3.5 flex items-center justify-center border border-slate-300 text-[7px] shadow-xs transition leading-none">
                 <i class="fa-solid fa-xmark"></i>
@@ -92,29 +102,29 @@ export function renderTAB1() {
           </div>
         </td>
         <td class="p-1.5 text-center align-top pt-2">
-          <input type="checkbox" ${node.selected ? 'checked' : ''} onchange="toggleSelectNode('${node.id}', this.checked, event)" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+          <input type="checkbox" ${node.selected ? 'checked' : ''} onchange="toggleSelectNode('${escapeHtml(node.id)}', this.checked, event)" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
         </td>
         <td class="p-1.5 text-center font-sans ${isLevel1 ? 'font-bold text-slate-700' : 'text-slate-400'} text-[10px] align-top pt-2">${level}</td>
-        <td class="p-1.5 ${isLevel1 ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'} align-top pt-2">${node.clave}</td>
+        <td class="p-1.5 ${isLevel1 ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'} align-top pt-2">${escapeHtml(node.clave)}</td>
         <td class="p-1.5 align-top text-justify">
           <div class="flex items-start" style="padding-left: ${paddingIndent}px">
             ${isParent ? `
-              <button onclick="toggleExpand('${node.id}', event)" class="mr-1 ${isLevel1 ? 'text-slate-700 font-bold' : 'text-slate-500'} hover:text-slate-900 w-3 text-center shrink-0 mt-1">
+              <button onclick="toggleExpand('${escapeHtml(node.id)}', event)" class="mr-1 ${isLevel1 ? 'text-slate-700 font-bold' : 'text-slate-500'} hover:text-slate-900 w-3 text-center shrink-0 mt-1">
                 <i class="fa-solid fa-chevron-${node.expanded ? 'down' : 'right'} text-[9px]"></i>
               </button>
             ` : '<span class="w-4 inline-block shrink-0"></span>'}
             <div class="cubikar-spell-wrap relative w-full flex-1">
               <div class="cubikar-spell-backdrop"></div>
-              <textarea ${isCatLocked ? 'disabled readonly' : ''} onchange="updateNode('${node.id}', 'descripcion', this.value)" 
+              <textarea ${isCatLocked ? 'disabled readonly' : ''} onchange="updateNode('${escapeHtml(node.id)}', 'descripcion', this.value)" 
                         spellcheck="false" autocorrect="off" autocapitalize="sentences" lang="es"
-                        class="desc-input w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 px-1 py-0.5 rounded text-xs font-sans ${isLevel1 ? 'font-bold text-slate-900' : 'text-slate-700'} text-justify leading-snug break-words whitespace-normal disabled:cursor-default">${node.descripcion || ''}</textarea>
+                        class="desc-input w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 px-1 py-0.5 rounded text-xs font-sans ${isLevel1 ? 'font-bold text-slate-900' : 'text-slate-700'} text-justify leading-snug break-words whitespace-normal disabled:cursor-default">${escapeHtml(node.descripcion || '')}</textarea>
             </div>
             <div class="ml-1.5 mt-0.5 shrink-0">${renderPartidaNivel1ChatButton(node.id, node.clave, node.descripcion)}</div>
           </div>
         </td>
         <td class="p-1.5 text-right align-top pt-2">
           ${!isParent ? `
-            <input type="number" step="0.01" ${isCatLocked ? 'disabled readonly' : ''} value="${Number(node.cantidad || 0).toFixed(2)}" onchange="updateNode('${node.id}', 'cantidad', parseFloat(this.value) || 0)" 
+            <input type="number" step="0.01" ${isCatLocked ? 'disabled readonly' : ''} value="${Number(node.cantidad || 0).toFixed(2)}" onchange="updateNode('${escapeHtml(node.id)}', 'cantidad', parseFloat(this.value) || 0)" 
                    class="w-16 text-right bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white py-0.5 rounded text-xs font-mono ${isLevel1 ? 'font-bold text-slate-900' : ''} disabled:cursor-default">
           ` : `<span class="${isLevel1 ? 'font-bold text-slate-600' : 'text-slate-400'} font-mono">${formatQty(node.cantidad)}</span>`}
         </td>
@@ -122,15 +132,15 @@ export function renderTAB1() {
           ${isParent ? `
             <span class="${isLevel1 ? 'font-bold text-slate-800' : 'text-slate-600 font-medium'} text-xs font-mono">lote</span>
           ` : `
-            <input type="text" ${isCatLocked ? 'disabled readonly' : ''} value="${node.unidad || 'pza'}" onchange="updateNode('${node.id}', 'unidad', this.value)" 
+            <input type="text" ${isCatLocked ? 'disabled readonly' : ''} value="${escapeHtml(node.unidad || 'pza')}" onchange="updateNode('${escapeHtml(node.id)}', 'unidad', this.value)" 
                    class="w-10 text-center bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white py-0.5 rounded text-xs ${isLevel1 ? 'font-bold text-slate-900' : ''} disabled:cursor-default">
           `}
         </td>
         <td class="p-1.5 text-right align-top pt-2">
           ${!isParent ? `
             <div class="flex items-center justify-end">
-              <span class="text-slate-500 mr-0.5 ${isLevel1 ? 'font-bold' : 'font-semibold'}">${getCurrencySymbol()}</span>
-              <input type="number" step="0.01" ${isCatLocked ? 'disabled readonly' : ''} value="${Number(node.precioUnitario || 0).toFixed(2)}" onchange="updateNode('${node.id}', 'precioUnitario', parseFloat(this.value) || 0)" 
+              <span class="text-slate-500 mr-0.5 ${isLevel1 ? 'font-bold' : 'font-semibold'}">${escapeHtml(getCurrencySymbol())}</span>
+              <input type="number" step="0.01" ${isCatLocked ? 'disabled readonly' : ''} value="${Number(node.precioUnitario || 0).toFixed(2)}" onchange="updateNode('${escapeHtml(node.id)}', 'precioUnitario', parseFloat(this.value) || 0)" 
                      class="w-20 text-right bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white py-0.5 rounded text-xs ${isLevel1 ? 'font-bold' : 'font-semibold'} text-blue-700 font-mono disabled:cursor-default">
             </div>
           ` : `<span class="${isLevel1 ? 'font-bold text-slate-500' : 'text-slate-400'}">-</span>`}
@@ -140,37 +150,37 @@ export function renderTAB1() {
         </td>
         <td class="p-1.5 text-center align-top pt-2">
           <div class="flex items-center justify-center space-x-1">
-            <button onclick="addChildRow('${node.id}', event)" ${isCatLocked ? 'disabled' : ''}
+            <button onclick="addChildRow('${escapeHtml(node.id)}', event)" ${isCatLocked ? 'disabled' : ''}
                     title="${isCatLocked ? 'Pestaña bloqueada (Solo consulta e impresión)' : (hasMatriz ? 'Restringido: Este concepto ya cuenta con matriz de insumos. No se pueden agregar sub-filas.' : 'Agregar Sub-renglón')}" 
                     class="${hasMatriz || isCatLocked ? 'text-slate-300 p-1 transition disabled:opacity-35 disabled:cursor-not-allowed' : 'text-blue-600 hover:text-blue-800 p-1'}">
               <i class="fa-solid fa-plus-circle text-xs ${hasMatriz || isCatLocked ? 'opacity-35' : ''}"></i>
             </button>
-            <div class="relative dropdown-container" id="dropdown-container-${node.id}">
+            <div class="relative dropdown-container" id="dropdown-container-${escapeHtml(node.id)}">
               <button type="button" 
-                      onclick="toggleDropdownMenu('${node.id}', event)" 
+                      onclick="toggleDropdownMenu('${escapeHtml(node.id)}', event)" 
                       title="Opciones de fila" 
                       class="dropdown-trigger text-slate-500 hover:text-slate-800 p-1 rounded hover:bg-slate-200 transition focus:outline-none">
                 <i class="fa-solid fa-ellipsis-vertical text-xs pointer-events-none"></i>
               </button>
-              <div id="dropdown-menu-${node.id}" class="dropdown-menu absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded shadow-lg z-50 text-left py-1 text-[11px] font-sans">
-                <button onclick="duplicarNode('${node.id}', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+              <div id="dropdown-menu-${escapeHtml(node.id)}" class="dropdown-menu absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded shadow-lg z-50 text-left py-1 text-[11px] font-sans">
+                <button onclick="duplicarNode('${escapeHtml(node.id)}', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
                   <i class="fa-solid fa-clone text-[10px]"></i> Duplicar
                 </button>
-                <button onclick="copiarNode('${node.id}', event); closeAllDropdownMenus();" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2" title="Copiar este concepto junto con toda su matriz APU para pegarlo aquí o en otro proyecto">
+                <button onclick="copiarNode('${escapeHtml(node.id)}', event); closeAllDropdownMenus();" class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2" title="Copiar este concepto junto con toda su matriz APU para pegarlo aquí o en otro proyecto">
                   <i class="fa-solid fa-copy text-[10px]"></i> Copiar con Matriz
                 </button>
-                <button onclick="pegarNode('${node.id}', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 ${!state.clipboardNode || isCatLocked ? 'opacity-40 cursor-not-allowed' : ''}" title="${state.clipboardNode ? `Pegar concepto copiado [${state.clipboardNode.clave || ''}] con su matriz APU` : 'No hay concepto en el portapapeles'}">
+                <button onclick="pegarNode('${escapeHtml(node.id)}', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 ${!state.clipboardNode || isCatLocked ? 'opacity-40 cursor-not-allowed' : ''}" title="${state.clipboardNode ? `Pegar concepto copiado [${escapeHtml(state.clipboardNode.clave || '')}] con su matriz APU` : 'No hay concepto en el portapapeles'}">
                   <i class="fa-solid fa-paste text-[10px]"></i> Pegar debajo
                 </button>
                 <div class="border-t border-slate-100 my-0.5"></div>
-                <button onclick="moverNode('${node.id}', 'up', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-slate-100 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+                <button onclick="moverNode('${escapeHtml(node.id)}', 'up', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-slate-100 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
                   <i class="fa-solid fa-arrow-up text-[10px]"></i> Mover Arriba
                 </button>
-                <button onclick="moverNode('${node.id}', 'down', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-slate-100 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+                <button onclick="moverNode('${escapeHtml(node.id)}', 'down', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-slate-100 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
                   <i class="fa-solid fa-arrow-down text-[10px]"></i> Mover Abajo
                 </button>
                 <div class="border-t border-slate-100 my-0.5"></div>
-                <button onclick="deleteNode('${node.id}', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-red-50 text-red-600 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+                <button onclick="deleteNode('${escapeHtml(node.id)}', event); closeAllDropdownMenus();" ${isCatLocked ? 'disabled' : ''} class="w-full text-left px-3 py-1 hover:bg-red-50 text-red-600 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
                   <i class="fa-solid fa-trash text-[10px]"></i> Eliminar
                 </button>
               </div>

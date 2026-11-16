@@ -17,7 +17,11 @@ export function showToast(message, type = 'info') {
   };
 
   toast.className = `${colors[type] || colors.info} px-3.5 py-2 rounded-lg shadow-xl text-xs flex items-center gap-2 pointer-events-auto transition-all duration-300 transform translate-y-0 font-medium`;
-  toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i> <span>${message}</span>`;
+  const iconEl = document.createElement('i');
+  iconEl.className = `fa-solid ${icons[type] || icons.info}`;
+  const msgEl = document.createElement('span');
+  msgEl.textContent = String(message ?? '');
+  toast.append(iconEl, msgEl);
   container.appendChild(toast);
 
   setTimeout(() => {

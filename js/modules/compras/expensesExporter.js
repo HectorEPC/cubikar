@@ -1056,7 +1056,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
   }
 }
 
-// Exponer función de impresiÃ³n de compras globalmente
+// Exponer función de impresión de compras globalmente
 if (typeof window !== 'undefined') {
   window.printExpensesActiveReport = printExpensesActiveReport;
 }

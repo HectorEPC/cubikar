@@ -1,9 +1,165 @@
 // js/ui/appSwitcher.js
 // Selector Unificado de Aplicaciones del Ecosistema Cubikar (Estilo Google Workspace Waffle 9-puntos)
 
-import { appendSsoToUrlFromStorage } from '../core/ssoHelper.js?v=20261115_v10';
+import { appendSsoToUrlFromStorage } from '../core/ssoHelper.js';
+import { getCurrentUser, getProjectsList, getDeletedProjectsList } from '../modules/portal/projectService.js';
+import { getStorageKey, getSettingsKey } from '../config/constants.js';
+import { getSupabaseClient } from '../core/supabaseClient.js';
+
+function csvEsc(val) {
+  const s = String(val ?? '').replace(/\r?\n/g, ' ');
+  return /[",]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function flattenTreeToCsv(nodes, parentPath = '', out = []) {
+  if (!Array.isArray(nodes)) return out;
+  for (const n of nodes) {
+    if (!n || typeof n !== 'object') continue;
+    const isConcept = n.type === 'concept' || !Array.isArray(n.children) || n.children.length === 0;
+    if (isConcept && (n.code || n.clave || n.description || n.descripcion || n.title)) {
+      const qty = Number(n.quantity ?? n.cantidad ?? 0);
+      const pu = Number(n.unitPrice ?? n.precioUnitario ?? n.precio_unitario ?? 0);
+      const imp = Number(n.total ?? n.importe ?? (qty * pu)) || 0;
+      out.push([
+        csvEsc(parentPath || n.partida || ''),
+        csvEsc(n.code || n.clave || n.id || ''),
+        csvEsc(n.description || n.descripcion || n.title || n.name || ''),
+        csvEsc(n.unit || n.unidad || ''),
+        qty.toFixed(4),
+        pu.toFixed(4),
+        imp.toFixed(2)
+      ].join(','));
+    }
+    if (Array.isArray(n.children) && n.children.length > 0) {
+      const lbl = n.code ? `${n.code} ${n.description || n.title || ''}`.trim() : (n.description || n.title || parentPath);
+      flattenTreeToCsv(n.children, lbl, out);
+    }
+  }
+  return out;
+}
+
+export async function exportProjectsBackupZip(appLabel = 'Construccion') {
+  const JSZipRef = typeof window !== 'undefined' ? window.JSZip : undefined;
+  if (!JSZipRef) {
+    if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+      window.showToast('Cargando librería de compresión ZIP. Intenta nuevamente en un momento.', 'warning');
+    } else {
+      alert('Cargando librería de compresión ZIP. Intenta nuevamente en un momento.');
+    }
+    return;
+  }
+
+  const user = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+  const cleanEmail = (user?.email || '').toLowerCase().trim();
+  const safeCompany = (user?.company || user?.name || 'Usuario').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const dateStr = new Date().toISOString().split('T')[0];
+
+  const deletedIds = new Set(typeof getDeletedProjectsList === 'function' ? getDeletedProjectsList() : []);
+  const allLocal = typeof getProjectsList === 'function' ? getProjectsList() : [];
+  const projects = (Array.isArray(allLocal) ? allLocal : []).filter(p => {
+    if (!p || !p.id || deletedIds.has(p.id) || (p.cloudId && deletedIds.has(p.cloudId))) return false;
+    if (!cleanEmail) return true;
+    return (p.ownerEmail || '').toLowerCase().trim() === cleanEmail ||
+      (Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === cleanEmail));
+  });
+
+  const zip = new JSZipRef();
+  const root = zip.folder(`Cubikar_${appLabel}_${safeCompany}`);
+  const summaryRows = ['ID,Nombre,Tipo_Obra,Empresa,Ubicacion,Moneda,Propietario,Creado'];
+  const projectsDir = root.folder('Proyectos');
+
+  for (const p of projects) {
+    const slug = `${(p.projectName || p.id).replace(/[^a-zA-Z0-9_\- ]/g, '').trim().slice(0, 45) || 'Proyecto'}_${String(p.id).slice(0, 8)}`;
+    const pDir = projectsDir.folder(slug);
+    summaryRows.push([
+      csvEsc(p.id),
+      csvEsc(p.projectName),
+      csvEsc(p.tipoObra || ''),
+      csvEsc(p.companyName || ''),
+      csvEsc(p.projectLocation || ''),
+      csvEsc(p.currency || 'MXN'),
+      csvEsc(p.ownerEmail || cleanEmail),
+      csvEsc(p.createdAt || '')
+    ].join(','));
+
+    pDir.file('metadata.json', JSON.stringify(p, null, 2));
+    try {
+      const sRaw = localStorage.getItem(getSettingsKey(p.id));
+      const tRaw = localStorage.getItem(getStorageKey(p.id));
+      const eRaw = localStorage.getItem(`estimaciones_data_${p.id}`);
+      const cRaw = localStorage.getItem(`compras_data_${p.id}`);
+      const bRaw = localStorage.getItem(`bitacora_data_${p.id}`);
+      const crRaw = localStorage.getItem(`cronograma_data_${p.id}`);
+      if (sRaw) pDir.file('configuracion.json', sRaw);
+      if (eRaw) pDir.file('estimaciones.json', eRaw);
+      if (cRaw) pDir.file('compras_gastos.json', cRaw);
+      if (bRaw) pDir.file('bitacora.json', bRaw);
+      if (crRaw) pDir.file('cronograma.json', crRaw);
+      if (tRaw) {
+        pDir.file('presupuesto_tree.json', tRaw);
+        const csvLines = ['Partida,Clave,Descripcion,Unidad,Cantidad,Precio_Unitario,Importe'];
+        flattenTreeToCsv(JSON.parse(tRaw), '', csvLines);
+        pDir.file('catalogo_conceptos.csv', '\uFEFF' + csvLines.join('\n'));
+      }
+    } catch (_) {}
+  }
+
+  // Complementar si existen proyectos remotos adicionales en Supabase aún no cacheados localmente
+  try {
+    const sb = getSupabaseClient();
+    if (sb && user?.id) {
+      const { data: cloudProjs } = await sb.from('proyectos').select('*').order('updated_at', { ascending: false });
+      const seen = new Set(projects.flatMap(p => [p.id, p.cloudId].filter(Boolean)));
+      for (const cp of (cloudProjs || [])) {
+        if (!cp?.id || seen.has(cp.id) || deletedIds.has(cp.id)) continue;
+        const slug = `${(cp.nombre || cp.id).replace(/[^a-zA-Z0-9_\- ]/g, '').trim().slice(0, 45) || 'Proyecto'}_${String(cp.id).slice(0, 8)}`;
+        const pDir = projectsDir.folder(slug);
+        summaryRows.push([
+          csvEsc(cp.id),
+          csvEsc(cp.nombre),
+          csvEsc(cp.tipo_obra || ''),
+          csvEsc(cp.configuracion?.companyName || ''),
+          csvEsc(cp.ubicacion || ''),
+          csvEsc(cp.moneda || 'MXN'),
+          csvEsc(cp.owner_email || cleanEmail),
+          csvEsc(cp.created_at || '')
+        ].join(','));
+        pDir.file('metadata.json', JSON.stringify(cp, null, 2));
+        const { data: concepts } = await sb.from('catalogo_conceptos').select('*').eq('proyecto_id', cp.id);
+        if (Array.isArray(concepts)) pDir.file('catalogo_conceptos.json', JSON.stringify(concepts, null, 2));
+      }
+    }
+  } catch (_) {}
+
+  root.file('resumen_proyectos.csv', '\uFEFF' + summaryRows.join('\n'));
+  root.file(
+    'LEEME_RESPALDO.txt',
+    `RESPALDO CUBIKAR (${appLabel.toUpperCase()})\nFecha: ${new Date().toLocaleString()}\nUsuario: ${user?.name || 'Invitado'} (${cleanEmail || 'sin correo'})\nProyectos incluidos: ${summaryRows.length - 1}\n`
+  );
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Cubikar_${appLabel}_${safeCompany}_Respaldo_${dateStr}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+    window.showToast(`Respaldo ZIP generado con ${summaryRows.length - 1} proyecto(s).`, 'success');
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.triggerDemoBackupDownload = () => exportProjectsBackupZip('Construccion');
+}
 
 export function initAppSwitcher(containerId = 'cubikar-app-switcher-mount', currentApp = 'portal') {
+  if (typeof window !== 'undefined') {
+    window.triggerDemoBackupDownload = () => exportProjectsBackupZip('Construccion');
+  }
   const mount = document.getElementById(containerId);
   if (!mount) return;
 

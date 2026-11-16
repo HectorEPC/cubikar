@@ -180,6 +180,7 @@ export function parseOpusBakBuffer(arrayBuffer) {
 
     // 1. Recursos (ObjId 50)
     const recursos = new Map();
+    const INSUMO_CATEGORIES = ['Material', 'Mano de Obra', 'Herramienta', 'Equipo', 'Maquinaria', 'Subcontrato', 'Flete', 'Auxiliar'];
     const TIPO_MAP = {
       1: 'Material', 2: 'Mano de Obra', 3: 'Herramienta', 4: 'Equipo', 5: 'Equipo', 6: 'Flete', 7: 'Subcontrato', 8: 'Auxiliar'
     };

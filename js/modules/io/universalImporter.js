@@ -15,6 +15,8 @@ import { saveReferenceCatalog, getReferenceDatabaseStats, canImportReferenceCata
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
 import { parseOpusOrNeodataFile } from './opusNeodataImporter.js';
 import { cleanMojibake, sanitizeCatalogNodes, readBlobAsTextSmart } from '../../core/textSanitizer.js';
+import { canCurrentUserEditProject } from '../portal/projectService.js';
+import { guardTabUnlocked } from '../../ui/tabLockController.js';
 
 let currentParsedData = null; // Almacena el resultado del parsing del archivo actual
 let currentWorkbook = null;
@@ -972,6 +974,11 @@ function displayParsedPreview(parsedData, fileName) {
 
 // Ejecutar importación final según la opción elegida por el usuario
 export async function executeImport() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: tu rol no permite importar catálogos o presupuestos.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   if (!currentParsedData || !currentParsedData.items || currentParsedData.items.length === 0) {
     showToast('No hay datos para importar', 'warning');
     return;
@@ -1049,12 +1056,6 @@ export async function executeImport() {
     } else {
       // Cargar directamente al Presupuesto de Obra Activo (TAB1-CAT-BASE)
       const budgetMode = document.querySelector('input[name="budget-import-mode"]:checked')?.value || 'append';
-      const importedConceptsCount = countTreeConcepts(newNodes);
-      if (!guardConceptLimit(importedConceptsCount, { replaceExisting: budgetMode === 'replace' })) {
-        return;
-      }
-      saveState();
-
       const hasChildren = currentParsedData.items.some(i => Array.isArray(i.children) && i.children.length > 0);
       let newNodes = [];
 
@@ -1063,6 +1064,12 @@ export async function executeImport() {
       } else {
         newNodes = convertFlatToTreeNodes(currentParsedData.items, selectedZone, null);
       }
+
+      const importedConceptsCount = countTreeConcepts(newNodes);
+      if (!guardConceptLimit(importedConceptsCount, { replaceExisting: budgetMode === 'replace' })) {
+        return;
+      }
+      saveState();
 
       const isCustomClaves = hasCustomClaves(newNodes);
       if (isCustomClaves) {
@@ -1116,6 +1123,11 @@ export async function executeImport() {
 
 // Carga directa del Catálogo Muestra - Proyecto Residencial (desde Catalogo_Muestra_Proyecto_Residencial_APU.zip) con 12 partidas y 102 conceptos exactos
 export async function loadCasaLauraOpusDirectly() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: tu rol no permite cargar el catálogo de muestra en este proyecto.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   saveState();
   let rawCopy = null;
   try {

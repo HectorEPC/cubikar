@@ -21,16 +21,26 @@ CREATE TABLE IF NOT EXISTS public.empresas (
     stripe_customer_id VARCHAR(100) UNIQUE,
     stripe_subscription_id VARCHAR(100) UNIQUE,
     plan VARCHAR(50) DEFAULT 'free' CHECK (plan IN ('free', 'plus', 'pro', 'enterprise')),
+    billing_cycle VARCHAR(20) DEFAULT 'monthly',
     estado_suscripcion VARCHAR(50) DEFAULT 'trialing' CHECK (estado_suscripcion IN ('trialing', 'active', 'past_due', 'canceled', 'unpaid')),
     periodo_fin TIMESTAMPTZ,
+    acceso_arq BOOLEAN DEFAULT false,
+    plan_arq VARCHAR(50) DEFAULT NULL,
+    periodo_fin_arq TIMESTAMPTZ DEFAULT NULL,
+    acceso_const BOOLEAN DEFAULT false,
+    plan_const VARCHAR(50) DEFAULT NULL,
+    periodo_fin_const TIMESTAMPTZ DEFAULT NULL,
     created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+ALTER TABLE IF EXISTS public.empresas
+    ADD COLUMN IF NOT EXISTS billing_cycle VARCHAR(20) DEFAULT 'monthly';
+
 -- Perfiles de usuario vinculados al sistema de auth nativo de Supabase (auth.users)
 CREATE TABLE IF NOT EXISTS public.perfiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    empresa_id UUID REFERENCES public.empresas(id) ON DELETE RESTRICT,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
     nombre_completo VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
     avatar_url TEXT DEFAULT '',
@@ -45,7 +55,8 @@ CREATE TABLE IF NOT EXISTS public.perfiles (
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.proyectos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    empresa_id UUID NOT NULL REFERENCES public.empresas(id) ON DELETE CASCADE,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE CASCADE,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
     clave VARCHAR(50) DEFAULT '',
     nombre VARCHAR(255) NOT NULL,
     cliente VARCHAR(255) DEFAULT '',
@@ -62,7 +73,7 @@ CREATE TABLE IF NOT EXISTS public.proyectos (
     fecha_inicio DATE DEFAULT CURRENT_DATE,
     fecha_fin DATE,
     version INTEGER DEFAULT 1,
-    creado_por UUID REFERENCES public.perfiles(id),
+    creado_por UUID REFERENCES public.perfiles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -101,7 +112,7 @@ CREATE INDEX IF NOT EXISTS idx_catalogo_parent ON public.catalogo_conceptos(pare
 CREATE TABLE IF NOT EXISTS public.insumos_apu (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     concepto_id UUID NOT NULL REFERENCES public.catalogo_conceptos(id) ON DELETE CASCADE,
-    tipo VARCHAR(30) NOT NULL CHECK (tipo IN ('Material', 'Mano de Obra', 'Equipo', 'Subcontrato')),
+    tipo VARCHAR(30) NOT NULL CHECK (tipo IN ('Material', 'Mano de Obra', 'Herramienta', 'Equipo', 'Maquinaria', 'Subcontrato', 'Flete', 'Auxiliar')),
     clave VARCHAR(50) NOT NULL,
     descripcion TEXT NOT NULL,
     unidad VARCHAR(30) NOT NULL,
@@ -215,6 +226,43 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS update_empresas_modtime ON public.empresas;
 CREATE TRIGGER update_empresas_modtime BEFORE UPDATE ON public.empresas FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
+CREATE OR REPLACE FUNCTION public.protect_empresa_billing_columns()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_role TEXT := COALESCE(current_setting('request.jwt.claim.role', true), auth.role(), '');
+    v_email TEXT := LOWER(TRIM(COALESCE(auth.jwt()->>'email', '')));
+BEGIN
+    IF v_role IN ('service_role', 'supabase_admin')
+       OR current_user IN ('postgres', 'supabase_admin')
+       OR auth.uid() IS NULL
+       OR v_email = 'hepc.90@gmail.com' THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.plan IS DISTINCT FROM OLD.plan
+       OR NEW.billing_cycle IS DISTINCT FROM OLD.billing_cycle
+       OR NEW.estado_suscripcion IS DISTINCT FROM OLD.estado_suscripcion
+       OR NEW.periodo_fin IS DISTINCT FROM OLD.periodo_fin
+       OR NEW.stripe_customer_id IS DISTINCT FROM OLD.stripe_customer_id
+       OR NEW.stripe_subscription_id IS DISTINCT FROM OLD.stripe_subscription_id
+       OR NEW.acceso_arq IS DISTINCT FROM OLD.acceso_arq
+       OR NEW.plan_arq IS DISTINCT FROM OLD.plan_arq
+       OR NEW.periodo_fin_arq IS DISTINCT FROM OLD.periodo_fin_arq
+       OR NEW.acceso_const IS DISTINCT FROM OLD.acceso_const
+       OR NEW.plan_const IS DISTINCT FROM OLD.plan_const
+       OR NEW.periodo_fin_const IS DISTINCT FROM OLD.periodo_fin_const THEN
+        RAISE EXCEPTION 'No autorizado para modificar suscripción o facturación desde cliente.';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_empresa_billing ON public.empresas;
+CREATE TRIGGER trg_protect_empresa_billing
+    BEFORE UPDATE ON public.empresas
+    FOR EACH ROW EXECUTE FUNCTION public.protect_empresa_billing_columns();
+
 DROP TRIGGER IF EXISTS update_perfiles_modtime ON public.perfiles;
 CREATE TRIGGER update_perfiles_modtime BEFORE UPDATE ON public.perfiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -264,7 +312,17 @@ CREATE POLICY "Los dueños pueden editar su empresa"
     ON public.empresas FOR UPDATE 
     USING (
         LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
-        OR id = public.obtener_mi_empresa_id()
+        OR EXISTS (
+            SELECT 1 FROM public.perfiles pf
+            WHERE pf.id = auth.uid() AND pf.empresa_id = empresas.id AND pf.rol = 'owner'
+        )
+    )
+    WITH CHECK (
+        LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+        OR EXISTS (
+            SELECT 1 FROM public.perfiles pf
+            WHERE pf.id = auth.uid() AND pf.empresa_id = empresas.id AND pf.rol = 'owner'
+        )
     );
 
 -- Políticas para PERFILES
@@ -273,12 +331,21 @@ CREATE POLICY "Los usuarios ven perfiles de su misma empresa"
     ON public.perfiles FOR SELECT 
     USING (
         LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+        OR id = auth.uid()
         OR empresa_id = public.obtener_mi_empresa_id()
     );
 
 DROP POLICY IF EXISTS "Los usuarios pueden actualizar su propio perfil" ON public.perfiles;
 CREATE POLICY "Los usuarios pueden actualizar su propio perfil" 
     ON public.perfiles FOR UPDATE 
+    USING (
+        LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+        OR id = auth.uid()
+    );
+
+DROP POLICY IF EXISTS "Los usuarios pueden eliminar su propio perfil" ON public.perfiles;
+CREATE POLICY "Los usuarios pueden eliminar su propio perfil"
+    ON public.perfiles FOR DELETE
     USING (
         LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
         OR id = auth.uid()
@@ -387,7 +454,17 @@ CREATE TABLE IF NOT EXISTS public.invitaciones (
 
 ALTER TABLE public.invitaciones ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Acceso a invitaciones" ON public.invitaciones;
-CREATE POLICY "Acceso a invitaciones" ON public.invitaciones FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso a invitaciones" ON public.invitaciones FOR ALL
+    USING (
+        LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+        OR LOWER(owner_email) = LOWER(COALESCE(auth.jwt()->>'email', ''))
+        OR LOWER(invitee_email) = LOWER(COALESCE(auth.jwt()->>'email', ''))
+    )
+    WITH CHECK (
+        LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+        OR LOWER(owner_email) = LOWER(COALESCE(auth.jwt()->>'email', ''))
+        OR LOWER(invitee_email) = LOWER(COALESCE(auth.jwt()->>'email', ''))
+    );
 
 -- ==============================================================================
 -- 11. FUNCIÓN AUXILIAR DE ACCESO MULTI-TENANT Y COLABORADORES INVITADOS
@@ -398,37 +475,80 @@ CREATE OR REPLACE FUNCTION public.tiene_acceso_registro(
     p_proyecto_id TEXT
 ) RETURNS BOOLEAN AS $$
 DECLARE
-    v_email TEXT := LOWER(COALESCE(auth.jwt()->>'email', ''));
+    v_email TEXT := LOWER(TRIM(COALESCE(auth.jwt()->>'email', '')));
+    v_has_colab_fn BOOLEAN := (to_regprocedure('public.check_user_project_access(text,text[])') IS NOT NULL);
 BEGIN
-    IF auth.uid() IS NULL THEN
+    IF auth.uid() IS NULL OR v_email = '' THEN
         RETURN false;
     END IF;
 
-    IF p_empresa_id IS NOT NULL AND p_empresa_id = public.obtener_mi_empresa_id() THEN
+    IF v_email = 'hepc.90@gmail.com' THEN
         RETURN true;
     END IF;
 
-    IF v_email <> '' AND LOWER(COALESCE(p_owner_email, '')) = v_email THEN
+    IF LOWER(TRIM(COALESCE(p_owner_email, ''))) = v_email THEN
         RETURN true;
     END IF;
 
-    IF COALESCE(p_proyecto_id, '') <> '' THEN
+    IF COALESCE(TRIM(p_proyecto_id), '') <> '' THEN
+        IF v_has_colab_fn AND public.check_user_project_access(p_proyecto_id) THEN
+            RETURN true;
+        END IF;
+
         IF EXISTS (
             SELECT 1 FROM public.proyectos p
             WHERE p.id::text = p_proyecto_id
-              AND p.empresa_id = public.obtener_mi_empresa_id()
+              AND (LOWER(TRIM(COALESCE(p.owner_email, ''))) = v_email OR (COALESCE(TRIM(p.owner_email), '') = '' AND p.empresa_id = public.obtener_mi_empresa_id()))
         ) THEN
             RETURN true;
+        END IF;
+    END IF;
+
+    IF COALESCE(TRIM(p_proyecto_id), '') = '' AND p_empresa_id IS NOT NULL AND p_empresa_id = public.obtener_mi_empresa_id() THEN
+        RETURN true;
+    END IF;
+
+    RETURN false;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.tiene_acceso_escritura_registro(
+    p_empresa_id UUID,
+    p_owner_email TEXT,
+    p_proyecto_id TEXT
+) RETURNS BOOLEAN AS $$
+DECLARE
+    v_email TEXT := LOWER(TRIM(COALESCE(auth.jwt()->>'email', '')));
+    v_has_colab_fn BOOLEAN := (to_regprocedure('public.check_user_project_access(text,text[])') IS NOT NULL);
+BEGIN
+    IF auth.uid() IS NULL OR v_email = '' THEN
+        RETURN false;
+    END IF;
+
+    IF v_email = 'hepc.90@gmail.com' THEN
+        RETURN true;
+    END IF;
+
+    IF LOWER(TRIM(COALESCE(p_owner_email, ''))) = v_email THEN
+        RETURN true;
+    END IF;
+
+    IF COALESCE(TRIM(p_proyecto_id), '') <> '' THEN
+        IF v_has_colab_fn THEN
+            RETURN public.check_user_project_access(p_proyecto_id, ARRAY['owner', 'admin', 'editar', 'escribir']);
         END IF;
 
-        IF v_email <> '' AND EXISTS (
-            SELECT 1 FROM public.invitaciones i
-            WHERE i.proyecto_id::text = p_proyecto_id
-              AND LOWER(i.invitee_email) = v_email
-              AND i.estado IN ('pending', 'accepted', 'active')
+        IF EXISTS (
+            SELECT 1 FROM public.proyectos p
+            WHERE p.id::text = p_proyecto_id
+              AND (LOWER(TRIM(COALESCE(p.owner_email, ''))) = v_email OR (COALESCE(TRIM(p.owner_email), '') = '' AND p.empresa_id = public.obtener_mi_empresa_id()))
         ) THEN
             RETURN true;
         END IF;
+    END IF;
+
+    IF COALESCE(TRIM(p_proyecto_id), '') = '' AND p_empresa_id IS NOT NULL AND p_empresa_id = public.obtener_mi_empresa_id() THEN
+        RETURN true;
     END IF;
 
     RETURN false;
@@ -462,10 +582,24 @@ CREATE TRIGGER update_cronograma_config_modtime
 
 ALTER TABLE public.cronograma_config ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Acceso cronograma config" ON public.cronograma_config;
-CREATE POLICY "Acceso cronograma config"
-    ON public.cronograma_config FOR ALL
-    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
-    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+DROP POLICY IF EXISTS "cronograma_config_select" ON public.cronograma_config;
+DROP POLICY IF EXISTS "cronograma_config_insert" ON public.cronograma_config;
+DROP POLICY IF EXISTS "cronograma_config_update" ON public.cronograma_config;
+DROP POLICY IF EXISTS "cronograma_config_delete" ON public.cronograma_config;
+
+CREATE POLICY "cronograma_config_select"
+    ON public.cronograma_config FOR SELECT
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "cronograma_config_insert"
+    ON public.cronograma_config FOR INSERT
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "cronograma_config_update"
+    ON public.cronograma_config FOR UPDATE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "cronograma_config_delete"
+    ON public.cronograma_config FOR DELETE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
 
 -- ==============================================================================
 -- 13. ÍNDICE CENTRAL DE ARCHIVOS EN AWS S3 Y CONTROL DE CUOTAS (archivos_almacen)
@@ -615,16 +749,44 @@ ALTER TABLE public.bitacora_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bitacora_notas ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Acceso bitacora config" ON public.bitacora_config;
-CREATE POLICY "Acceso bitacora config"
-    ON public.bitacora_config FOR ALL
-    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
-    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+DROP POLICY IF EXISTS "bitacora_config_select" ON public.bitacora_config;
+DROP POLICY IF EXISTS "bitacora_config_insert" ON public.bitacora_config;
+DROP POLICY IF EXISTS "bitacora_config_update" ON public.bitacora_config;
+DROP POLICY IF EXISTS "bitacora_config_delete" ON public.bitacora_config;
+
+CREATE POLICY "bitacora_config_select"
+    ON public.bitacora_config FOR SELECT
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_config_insert"
+    ON public.bitacora_config FOR INSERT
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_config_update"
+    ON public.bitacora_config FOR UPDATE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_config_delete"
+    ON public.bitacora_config FOR DELETE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
 
 DROP POLICY IF EXISTS "Acceso bitacora notas" ON public.bitacora_notas;
-CREATE POLICY "Acceso bitacora notas"
-    ON public.bitacora_notas FOR ALL
-    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
-    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+DROP POLICY IF EXISTS "bitacora_notas_select" ON public.bitacora_notas;
+DROP POLICY IF EXISTS "bitacora_notas_insert" ON public.bitacora_notas;
+DROP POLICY IF EXISTS "bitacora_notas_update" ON public.bitacora_notas;
+DROP POLICY IF EXISTS "bitacora_notas_delete" ON public.bitacora_notas;
+
+CREATE POLICY "bitacora_notas_select"
+    ON public.bitacora_notas FOR SELECT
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_notas_insert"
+    ON public.bitacora_notas FOR INSERT
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_notas_update"
+    ON public.bitacora_notas FOR UPDATE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_notas_delete"
+    ON public.bitacora_notas FOR DELETE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
 
 -- ==============================================================================
 -- 15. MÓDULO DE COMPRAS, GASTOS Y PROVEEDORES
@@ -687,29 +849,60 @@ ALTER TABLE public.proveedores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.compras_gastos ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Acceso proveedores" ON public.proveedores;
-CREATE POLICY "Acceso proveedores"
-    ON public.proveedores FOR ALL
-    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
-    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+DROP POLICY IF EXISTS "proveedores_select" ON public.proveedores;
+DROP POLICY IF EXISTS "proveedores_insert" ON public.proveedores;
+DROP POLICY IF EXISTS "proveedores_update" ON public.proveedores;
+DROP POLICY IF EXISTS "proveedores_delete" ON public.proveedores;
+
+CREATE POLICY "proveedores_select"
+    ON public.proveedores FOR SELECT
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "proveedores_insert"
+    ON public.proveedores FOR INSERT
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "proveedores_update"
+    ON public.proveedores FOR UPDATE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "proveedores_delete"
+    ON public.proveedores FOR DELETE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
 
 DROP POLICY IF EXISTS "Acceso compras gastos" ON public.compras_gastos;
-CREATE POLICY "Acceso compras gastos"
-    ON public.compras_gastos FOR ALL
-    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
-    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+DROP POLICY IF EXISTS "compras_gastos_select" ON public.compras_gastos;
+DROP POLICY IF EXISTS "compras_gastos_insert" ON public.compras_gastos;
+DROP POLICY IF EXISTS "compras_gastos_update" ON public.compras_gastos;
+DROP POLICY IF EXISTS "compras_gastos_delete" ON public.compras_gastos;
+
+CREATE POLICY "compras_gastos_select"
+    ON public.compras_gastos FOR SELECT
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "compras_gastos_insert"
+    ON public.compras_gastos FOR INSERT
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "compras_gastos_update"
+    ON public.compras_gastos FOR UPDATE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "compras_gastos_delete"
+    ON public.compras_gastos FOR DELETE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
 
 -- ==============================================================================
 -- 16. MÓDULO DE CHAT INTERNO DE OBRA Y CATÁLOGOS MAESTROS EN NUBE
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.chat_mensajes (
-    id VARCHAR(120) PRIMARY KEY,
+    id VARCHAR(255) PRIMARY KEY,
     proyecto_id TEXT NOT NULL,
     empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
     owner_email VARCHAR(255) NOT NULL DEFAULT '',
     autor_nombre VARCHAR(255) NOT NULL DEFAULT '',
     autor_email VARCHAR(255) NOT NULL DEFAULT '',
+    autor_avatar TEXT DEFAULT '',
     autor_avatar_url TEXT DEFAULT '',
     mensaje TEXT NOT NULL DEFAULT '',
+    partida_id VARCHAR(100) DEFAULT NULL,
+    etiquetas JSONB DEFAULT '[]'::jsonb,
     adjuntos JSONB DEFAULT '[]'::jsonb,
     payload_json JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -933,15 +1126,29 @@ ALTER TABLE public.cubikar_registros ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Permitir insercion publica de registros" ON public.cubikar_registros;
 CREATE POLICY "Permitir insercion publica de registros" 
-    ON public.cubikar_registros FOR INSERT WITH CHECK (true);
+    ON public.cubikar_registros FOR INSERT
+    WITH CHECK (
+        auth.role() = 'authenticated' AND (
+            LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+            OR LOWER(TRIM(email)) = LOWER(TRIM(COALESCE(auth.jwt()->>'email', '')))
+        )
+    );
 
 DROP POLICY IF EXISTS "Permitir actualizacion publica de registros" ON public.cubikar_registros;
 CREATE POLICY "Permitir actualizacion publica de registros" 
-    ON public.cubikar_registros FOR UPDATE USING (true);
+    ON public.cubikar_registros FOR UPDATE
+    USING (
+        LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+        OR LOWER(TRIM(email)) = LOWER(TRIM(COALESCE(auth.jwt()->>'email', '')))
+    );
 
 DROP POLICY IF EXISTS "Permitir lectura de registros" ON public.cubikar_registros;
 CREATE POLICY "Permitir lectura de registros" 
-    ON public.cubikar_registros FOR SELECT USING (true);
+    ON public.cubikar_registros FOR SELECT
+    USING (
+        LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com'
+        OR LOWER(TRIM(email)) = LOWER(TRIM(COALESCE(auth.jwt()->>'email', '')))
+    );
 
 -- Función RPC para el panel de administración de Cubikar
 CREATE OR REPLACE FUNCTION public.obtener_usuarios_admin()
@@ -961,8 +1168,16 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
+DECLARE
+    v_role TEXT := COALESCE(current_setting('request.jwt.claim.role', true), auth.role(), '');
+    v_email TEXT := LOWER(TRIM(COALESCE(auth.jwt()->>'email', '')));
 BEGIN
+    IF v_role NOT IN ('service_role', 'supabase_admin') AND v_email <> 'hepc.90@gmail.com' THEN
+        RAISE EXCEPTION 'Acceso denegado: solo Administrador Maestro.';
+    END IF;
+
     RETURN QUERY
     SELECT 
         p.id,

@@ -114,6 +114,38 @@ export function isUserAdmin(email) {
   return coAdmins.some(a => (a.email || '').toLowerCase().trim() === cleanEmail);
 }
 
+export async function syncCurrentUserRoleFromCloud() {
+  try {
+    const sb = getSupabaseClient();
+    const currentUser = getCurrentUser();
+    if (!sb || !currentUser || !currentUser.email) return null;
+
+    const { data: sessionData } = await sb.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) return null;
+
+    const res = await fetch('/api/admin-users', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!res.ok) return null;
+    const payload = await res.json();
+    const users = Array.isArray(payload?.users) ? payload.users : [];
+    const myEmail = currentUser.email.toLowerCase().trim();
+    const found = users.find(u => (u.email || '').toLowerCase().trim() === myEmail);
+    if (found && found.role) {
+      currentUser.role = found.role;
+      return found.role;
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
 export function addCoAdmin(email, name = '') {
   if (!email || !email.trim()) {
     showToast('Ingresa un correo electrónico válido.', 'error');
@@ -599,7 +631,45 @@ export function updateAdminDeleteButtonUI() {
   }
 }
 
-export function deleteSelectedAdminUsers() {
+export async function deleteRegisteredUser(email) {
+  const cleanEmail = String(email || '').toLowerCase().trim();
+  if (!cleanEmail || isUserMasterAdmin(cleanEmail)) return false;
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    const sb = getSupabaseClient();
+    if (sb && typeof sb.auth?.getSession === 'function') {
+      const { data } = await sb.auth.getSession();
+      if (data?.session?.access_token) {
+        headers['Authorization'] = `Bearer ${data.session.access_token}`;
+      }
+    }
+    if (headers['Authorization']) {
+      const res = await fetch('/api/admin-users', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'delete', emails: [cleanEmail] })
+      });
+      if (!res.ok) {
+        showToast('No se pudo eliminar el usuario en la nube.', 'error');
+        return false;
+      }
+    }
+  } catch (err) {
+    console.warn('[Cloud Delete Sync Error]:', err);
+    return false;
+  }
+
+  deleteUserAccountAndData(cleanEmail);
+  removeCoAdmin(cleanEmail);
+  try {
+    localStorage.removeItem(`${STORAGE_KEY_CONSUMPTION}_${cleanEmail}`);
+  } catch (_) {}
+  renderCubikarAdminTable();
+  return true;
+}
+
+export async function deleteSelectedAdminUsers() {
   const targets = Array.from(selectedAdminUserEmails).filter(e => !isUserMasterAdmin(e));
   if (targets.length === 0) {
     showToast('Selecciona al menos un usuario para eliminar (el Administrador Maestro está protegido).', 'warning');
@@ -614,6 +684,33 @@ export function deleteSelectedAdminUsers() {
     return;
   }
 
+  // Notificar a la nube / Supabase para eliminar registros remotos usando JWT verificado y verificar res.ok
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    const sb = getSupabaseClient();
+    if (sb && typeof sb.auth?.getSession === 'function') {
+      const { data } = await sb.auth.getSession();
+      if (data?.session?.access_token) {
+        headers['Authorization'] = `Bearer ${data.session.access_token}`;
+      }
+    }
+    if (headers['Authorization']) {
+      const res = await fetch('/api/admin-users', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'delete', emails: targets })
+      });
+      if (!res.ok) {
+        showToast('Error al eliminar usuarios en el servidor remoto.', 'error');
+        return;
+      }
+    } else {
+      console.warn('[Cloud Delete Sync]: Sin sesión Supabase activa para autorizar /api/admin-users');
+    }
+  } catch (err) {
+    console.warn('[Cloud Delete Sync Error]:', err);
+  }
+
   let deletedCount = 0;
   targets.forEach(email => {
     try {
@@ -626,25 +723,11 @@ export function deleteSelectedAdminUsers() {
     }
   });
 
-  // Notificar a la nube / Supabase para eliminar registros remotos
-  try {
-    const serviceKey = getSavedServiceRoleKey();
-    fetch('/api/admin-users', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-supabase-service-key': serviceKey,
-        'x-admin-email': MASTER_ADMIN_EMAIL
-      },
-      body: JSON.stringify({ action: 'delete', emails: targets })
-    }).catch(err => console.warn('[Cloud Delete Sync Error]:', err));
-  } catch (_) {}
-
   selectedAdminUserEmails.clear();
   const selectAll = document.getElementById('admin-select-all-checkbox');
   if (selectAll) selectAll.checked = false;
 
-  showToast(`Â¡${deletedCount} usuario(s) eliminado(s) correctamente!`, 'success');
+  showToast(`¡${deletedCount} usuario(s) eliminado(s) correctamente!`, 'success');
   renderCubikarAdminTable();
 }
 
@@ -686,16 +769,11 @@ export async function syncAdminUsersFromCloud(isUserTriggered = false) {
   }
 
   try {
-    const serviceKey = getSavedServiceRoleKey();
     const headers = {
-      'Content-Type': 'application/json',
-      'x-admin-email': MASTER_ADMIN_EMAIL
+      'Content-Type': 'application/json'
     };
-    if (serviceKey) {
-      headers['x-supabase-service-key'] = serviceKey;
-    }
 
-    // Si hay token de usuario en Supabase, adjuntarlo
+    // Adjuntar JWT de sesión verificada en Supabase
     try {
       const sb = getSupabaseClient();
       if (sb && typeof sb.auth?.getSession === 'function') {
@@ -705,6 +783,13 @@ export async function syncAdminUsersFromCloud(isUserTriggered = false) {
         }
       }
     } catch (_) {}
+
+    if (!headers['Authorization']) {
+      return {
+        ok: false,
+        reason: 'Sin sesión autenticada en Supabase para consultar administradores.'
+      };
+    }
 
     const res = await fetch('/api/admin-users', {
       method: 'GET',
@@ -842,11 +927,13 @@ CREATE TABLE IF NOT EXISTS public.cubikar_registros (
 
 ALTER TABLE public.cubikar_registros ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir insercion publica de registros" ON public.cubikar_registros;
-CREATE POLICY "Permitir insercion publica de registros" ON public.cubikar_registros FOR INSERT WITH CHECK (true);
+CREATE POLICY "Permitir insercion publica de registros" ON public.cubikar_registros FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 DROP POLICY IF EXISTS "Permitir actualizacion publica de registros" ON public.cubikar_registros;
-CREATE POLICY "Permitir actualizacion publica de registros" ON public.cubikar_registros FOR UPDATE USING (true);
+CREATE POLICY "Permitir actualizacion publica de registros" ON public.cubikar_registros FOR UPDATE USING (LOWER(COALESCE(auth.jwt()->>'email', '')) = LOWER(email) OR LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com');
 DROP POLICY IF EXISTS "Permitir lectura de registros" ON public.cubikar_registros;
-CREATE POLICY "Permitir lectura de registros" ON public.cubikar_registros FOR SELECT USING (true);
+CREATE POLICY "Permitir lectura de registros" ON public.cubikar_registros FOR SELECT USING (LOWER(COALESCE(auth.jwt()->>'email', '')) = LOWER(email) OR LOWER(COALESCE(auth.jwt()->>'email', '')) = 'hepc.90@gmail.com');
+
+-- Acceso de módulos por proyecto verificado: USING (public.check_user_project_access(proyecto_id::text))
 
 -- Permisos SuperAdmin para hepc.90@gmail.com
 DO $$
@@ -1373,9 +1460,15 @@ export function exportCubikarDatabaseToExcel() {
 // 9. FILTROS Y EVENTOS GLOBALES
 // =========================================================================
 
+let adminSearchDebounceTimer = null;
+
 export function setAdminTableSearch(text) {
   adminTableFilterText = text || '';
-  renderCubikarAdminTable();
+  if (adminSearchDebounceTimer) clearTimeout(adminSearchDebounceTimer);
+  adminSearchDebounceTimer = setTimeout(() => {
+    adminSearchDebounceTimer = null;
+    renderCubikarAdminTable();
+  }, 300);
 }
 
 export function setAdminFilterActivity(val) {

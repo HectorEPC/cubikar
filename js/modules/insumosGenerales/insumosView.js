@@ -15,6 +15,19 @@ let globalConsolidatedMap = {};
 let activeCombinarContext = null;
 let selectedInsumoRowKey = null;
 
+function escapeInsumoHtml(str = '') {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeInsumoJsArg(str = '') {
+  return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 // Seleccionar y resaltar una fila en las tablas de Insumos Base (mismo estilo que Catálogo Base)
 export function selectInsumoBaseRow(key) {
   selectedInsumoRowKey = key;
@@ -103,19 +116,26 @@ export function renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId) {
     tr.onclick = () => selectInsumoBaseRow(item.key);
     tr.onfocusin = () => selectInsumoBaseRow(item.key);
 
+    const safeKeyAttr = escapeInsumoHtml(item.key);
+    const safeKeyJs = escapeInsumoHtml(escapeInsumoJsArg(item.key));
+    const safeTipoJs = escapeInsumoHtml(escapeInsumoJsArg(tipo));
+    const safeDescHtml = escapeInsumoHtml(item.descripcion || '');
+    const safeClaveHtml = escapeInsumoHtml(item.clave || '');
+    const safeUnidadHtml = escapeInsumoHtml(item.unidad || '');
+
     tr.innerHTML = `
       <td class="p-2 text-center align-middle sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-200">
-        <input type="checkbox" data-tipo="${tipo}" data-key="${item.key}" ${isInsLocked ? 'disabled' : ''} class="row-checkbox-${tipo} rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+        <input type="checkbox" data-tipo="${escapeInsumoHtml(tipo)}" data-key="${safeKeyAttr}" data-old-desc="${safeDescHtml}" ${isInsLocked ? 'disabled' : ''} class="row-checkbox-${tipo} rounded text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
       </td>
-      <td class="p-2 font-semibold text-slate-700 align-middle whitespace-nowrap">${item.clave}</td>
-      <td class="p-2 text-slate-700 align-middle min-w-[280px]">
-        <div class="font-medium leading-snug">${item.descripcion}</div>
+      <td class="p-2 font-semibold text-slate-700 align-middle whitespace-nowrap">${safeClaveHtml}</td>
+      <td class="p-2 text-slate-700 align-middle min-w-[280px]" data-old-desc="${safeDescHtml}">
+        <div class="font-medium leading-snug">${safeDescHtml}</div>
         <div class="text-[10px] text-slate-400 mt-1 flex flex-wrap items-center gap-1.5 font-sans">
           <span class="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200 font-mono font-semibold text-[9px]">
             <i class="fa-solid fa-calculator text-[8px] mr-0.5"></i> ${item.sources.length} ${item.sources.length === 1 ? 'matriz' : 'matrices'}
           </span>
-          <span class="truncate max-w-sm text-slate-500 cursor-help" title="${item.sources.map(s => `• [${s.nodeClave}] ${s.nodeDesc}: ${formatQty(s.cantConcepto)} ${s.nodeUnidad} obra × ${formatMatrixQty(s.cantUnitaria)} ${item.unidad}/ud = ${formatQty(s.cantTotal)} ${item.unidad}`).join('\n')}">
-            Partidas: ${item.sources.map(s => s.nodeClave).filter(Boolean).slice(0, 4).join(', ')}${item.sources.length > 4 ? '...' : ''}
+          <span class="truncate max-w-sm text-slate-500 cursor-help" title="${escapeInsumoHtml(item.sources.map(s => `• [${s.nodeClave}] ${s.nodeDesc}: ${formatQty(s.cantConcepto)} ${s.nodeUnidad} obra × ${formatMatrixQty(s.cantUnitaria)} ${item.unidad}/ud = ${formatQty(s.cantTotal)} ${item.unidad}`).join('\n'))}">
+            Partidas: ${escapeInsumoHtml(item.sources.map(s => s.nodeClave).filter(Boolean).slice(0, 4).join(', '))}${item.sources.length > 4 ? '...' : ''}
           </span>
         </div>
       </td>
@@ -123,7 +143,7 @@ export function renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId) {
         <div class="flex items-center justify-end gap-1">
           <button type="button" ${isInsLocked ? 'disabled' : ''}
                   id="btn-ai-cost-${item.key.replace(/[^a-zA-Z0-9_-]/g, '_')}"
-                  onclick="actualizarCostoIndividualConIA('${tipo}', '${item.key}')" 
+                  onclick="actualizarCostoIndividualConIA('${safeTipoJs}', '${safeKeyJs}')" 
                   class="w-6 h-6 rounded bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 flex items-center justify-center transition-all cursor-pointer shadow-2xs group/aibtn shrink-0 disabled:opacity-40 disabled:cursor-not-allowed" 
                   title="${isInsLocked ? 'Pestaña bloqueada (Solo consulta e impresión)' : 'Actualizar costo de este insumo con Inteligencia Artificial'}">
             <i class="fa-solid fa-wand-magic-sparkles text-[10px] group-hover/aibtn:scale-110 transition-transform"></i>
@@ -131,11 +151,11 @@ export function renderCategoryTableWithSearchAndCheck(tipo, bodyId, sumId) {
           <span class="text-slate-500 mr-0.5">${getCurrencySymbol()}</span>
           <input type="number" step="0.01" ${isInsLocked ? 'disabled readonly' : ''} value="${Number(item.costoUnitario || 0).toFixed(2)}" 
                  id="input-costo-${item.key.replace(/[^a-zA-Z0-9_-]/g, '_')}"
-                 onchange="updateCostoUnitarioGeneral('${tipo}', '${item.key}', parseFloat(this.value) || 0)" 
+                 onchange="updateCostoUnitarioGeneral('${safeTipoJs}', '${safeKeyJs}', parseFloat(this.value) || 0)" 
                  class="w-20 text-right bg-transparent border border-slate-200 hover:border-slate-400 focus:border-blue-500 focus:bg-white px-1 py-0.5 rounded text-xs font-semibold text-blue-700 font-mono disabled:opacity-60 disabled:cursor-not-allowed">
         </div>
       </td>
-      <td class="p-2 text-center text-slate-500 align-middle whitespace-nowrap">${item.unidad}</td>
+      <td class="p-2 text-center text-slate-500 align-middle whitespace-nowrap">${safeUnidadHtml}</td>
       <td class="p-2 text-right font-bold text-blue-900 align-middle whitespace-nowrap" title="Suma total en obra: ${formatQty(item.cantidadTotal)} ${item.unidad}&#10;Suma unitaria directa: ${formatMatrixQty(item.sumCantUnitaria || 0)} ${item.unidad}">
         <div>${formatQty(item.cantidadTotal)}</div>
         ${item.sources.length > 1 ? `<div class="text-[9px] text-slate-400 font-normal font-sans" title="Suma directa de consumos unitarios de las ${item.sources.length} matrices">Σ unit: ${formatMatrixQty(item.sumCantUnitaria || 0)}</div>` : ''}
@@ -319,19 +339,22 @@ export function openCombinarModal(tipo, selectedItems) {
 
   const listEl = document.getElementById('combinar-modal-items-list');
   if (listEl) {
-    listEl.innerHTML = selectedItems.map((item, idx) => `
-      <label class="combinar-item-card flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition select-none ${idx === 0 ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-300' : 'border-slate-200 hover:border-slate-300 bg-white'}" onclick="selectCombinarTarget('${item.key}')">
-        <input type="radio" name="target-insumo-key" value="${item.key}" ${idx === 0 ? 'checked' : ''} class="mt-1 text-blue-600 focus:ring-blue-500 cursor-pointer" onchange="selectCombinarTarget('${item.key}')">
+    listEl.innerHTML = selectedItems.map((item, idx) => {
+      const safeKeyAttr = escapeInsumoHtml(item.key);
+      const safeKeyJs = escapeInsumoHtml(escapeInsumoJsArg(item.key));
+      return `
+      <label class="combinar-item-card flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition select-none ${idx === 0 ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-300' : 'border-slate-200 hover:border-slate-300 bg-white'}" onclick="selectCombinarTarget('${safeKeyJs}')">
+        <input type="radio" name="target-insumo-key" value="${safeKeyAttr}" ${idx === 0 ? 'checked' : ''} class="mt-1 text-blue-600 focus:ring-blue-500 cursor-pointer" onchange="selectCombinarTarget('${safeKeyJs}')">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap mb-1">
-            <span class="font-mono font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">${item.clave}</span>
-            <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">${item.unidad}</span>
-            <span class="text-xs font-bold font-mono text-blue-700 ml-auto">${getCurrencySymbol()}${Number(item.costoUnitario || 0).toFixed(2)} / ${item.unidad}</span>
+            <span class="font-mono font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">${escapeInsumoHtml(item.clave)}</span>
+            <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">${escapeInsumoHtml(item.unidad)}</span>
+            <span class="text-xs font-bold font-mono text-blue-700 ml-auto">${getCurrencySymbol()}${Number(item.costoUnitario || 0).toFixed(2)} / ${escapeInsumoHtml(item.unidad)}</span>
           </div>
-          <div class="font-semibold text-slate-800 text-xs leading-snug break-words">${item.descripcion}</div>
+          <div class="font-semibold text-slate-800 text-xs leading-snug break-words">${escapeInsumoHtml(item.descripcion)}</div>
           <div class="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500 flex-wrap font-sans">
             <span class="flex items-center gap-1 text-slate-600 font-medium">
-              <i class="fa-solid fa-cubes text-[10px] text-slate-400"></i> Vol. en obra: <strong class="text-slate-800 font-mono">${formatQty(item.cantidadTotal)} ${item.unidad}</strong>
+              <i class="fa-solid fa-cubes text-[10px] text-slate-400"></i> Vol. en obra: <strong class="text-slate-800 font-mono">${formatQty(item.cantidadTotal)} ${escapeInsumoHtml(item.unidad)}</strong>
             </span>
             <span class="flex items-center gap-1 text-slate-600 font-medium">
               <i class="fa-solid fa-calculator text-[10px] text-slate-400"></i> Matrices: <strong class="text-blue-700">${item.sources.length}</strong>
@@ -342,7 +365,8 @@ export function openCombinarModal(tipo, selectedItems) {
           </div>
         </div>
       </label>
-    `).join('');
+    `;
+    }).join('');
   }
 
   modal.classList.remove('hidden');
@@ -361,8 +385,10 @@ export function closeCombinarModal() {
 
 // Selección visual y de radio button del concepto definitivo
 export function selectCombinarTarget(key) {
-  const radio = document.querySelector(`input[name="target-insumo-key"][value="${key}"]`);
-  if (radio) radio.checked = true;
+  const radios = document.querySelectorAll('input[name="target-insumo-key"]');
+  radios.forEach(r => {
+    if (r.value === String(key)) r.checked = true;
+  });
 
   const cards = document.querySelectorAll('.combinar-item-card');
   cards.forEach(card => {

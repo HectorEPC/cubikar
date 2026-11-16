@@ -8,6 +8,8 @@ import { recalculateClaves } from '../catalog/treeService.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
 import { getActiveProjectId } from '../../config/constants.js';
 import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js';
+import { canCurrentUserEditProject } from '../portal/projectService.js';
+import { guardTabUnlocked } from '../../ui/tabLockController.js';
 
 // Abrir modal interactivo de selección de formato de exportación
 export function openExportModal() {
@@ -36,7 +38,8 @@ function getFlattenedCatalogRows() {
     nodes.forEach((n, idx) => {
       const isParent = Boolean(n.children && n.children.length > 0);
       const rowTotal = isParent ? calculateParentTotal(n) : ((n.cantidad || 0) * (n.precioUnitario || 0));
-      const rowDirectTotal = isParent ? calculateParentDirectTotal(n) : ((n.cantidad || 0) * (n.costoUnitario || n.precioUnitario || 0));
+      const directPu = n.costoDirecto !== undefined ? n.costoDirecto : (n.costoUnitario || n.precioUnitario || 0);
+      const rowDirectTotal = isParent ? calculateParentDirectTotal(n) : ((n.cantidad || 0) * directPu);
       const currentPath = parentPath ? `${parentPath} > ${n.descripcion || ''}` : (n.descripcion || '');
 
       rows.push({
@@ -48,7 +51,8 @@ function getFlattenedCatalogRows() {
         unidad: isParent ? (n.unidad || '') : (n.unidad || 'pza'),
         cantidad: isParent ? 0 : (n.cantidad || 0),
         precioUnitario: isParent ? 0 : (n.precioUnitario || 0),
-        costoUnitario: isParent ? 0 : (n.costoUnitario || n.precioUnitario || 0),
+        costoDirecto: isParent ? 0 : directPu,
+        costoUnitario: isParent ? 0 : directPu,
         total: rowTotal,
         directTotal: rowDirectTotal,
         path: currentPath,
@@ -69,7 +73,7 @@ function getFlattenedCatalogRows() {
 
 // Helper: sanitizar nombres de archivo
 function getSafeProjectFilename(suffix = '') {
-  const projectName = (state.projectName || state.proyecto?.nombre || 'Presupuesto_Catalogo')
+  const projectName = (state.settings?.projectName || state.projectName || state.proyecto?.nombre || 'Presupuesto_Catalogo')
     .replace(/[\\/:*?"<>|]/g, '_')
     .trim();
   const dateStr = new Date().toISOString().slice(0, 10);
@@ -91,7 +95,7 @@ export function exportCatalogExcel() {
       return;
     }
 
-    const projectName = state.projectName || state.proyecto?.nombre || 'Presupuesto de Obra';
+    const projectName = state.settings?.projectName || state.projectName || state.proyecto?.nombre || 'Presupuesto de Obra';
     const clientName = state.clientName || state.proyecto?.cliente || '';
     const currency = state.settings?.currency || 'MXN';
 
@@ -182,7 +186,7 @@ export async function exportCatalogOpusZip() {
 
     showToast('Generando paquete de restauración Opus (.zip)...', 'info');
     const zip = new window.JSZip();
-    const projectName = (state.projectName || state.proyecto?.nombre || 'Obra_Opus')
+    const projectName = (state.settings?.projectName || state.projectName || state.proyecto?.nombre || 'Obra_Opus')
       .replace(/[\\/:*?"<>|]/g, '_')
       .trim();
 
@@ -334,7 +338,7 @@ export async function exportCatalogNeodataZip() {
 
     showToast('Generando paquete de intercambio Neodata (.zip)...', 'info');
     const zip = new window.JSZip();
-    const projectName = (state.projectName || state.proyecto?.nombre || 'Obra_Neodata')
+    const projectName = (state.settings?.projectName || state.projectName || state.proyecto?.nombre || 'Obra_Neodata')
       .replace(/[\\/:*?"<>|]/g, '_')
       .trim();
 
@@ -501,6 +505,15 @@ export function exportData() {
 
 // Importación y parsing de archivo CSV con reconstrucción de árbol jerárquico
 export function importData(event) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: tu rol no permite importar catálogos.', 'warning');
+    if (event?.target) event.target.value = '';
+    return;
+  }
+  if (!guardTabUnlocked('cat')) {
+    if (event?.target) event.target.value = '';
+    return;
+  }
   const file = event.target?.files?.[0];
   if (!file) return;
 
@@ -538,7 +551,6 @@ export function importData(event) {
         return fields;
       }
 
-      saveState();
       const parsedTree = [];
       const stack = []; // Stack con { level, node }
 
@@ -550,8 +562,10 @@ export function importData(event) {
         const clave = cols[1] || '';
         const desc = cols[2] || 'Concepto importado';
         const unid = cols[3] || 'pza';
-        const cant = Math.round(((parseFloat(cols[4]) || 1) + Number.EPSILON) * 100) / 100;
-        const pu = Math.round(((parseFloat(cols[5]) || 0) + Number.EPSILON) * 100) / 100;
+        const parsedCant = parseFloat(cols[4]);
+        const cant = Number.isFinite(parsedCant) ? Math.round((Math.max(0, parsedCant) + Number.EPSILON) * 100) / 100 : 1;
+        const parsedPu = parseFloat(cols[5]);
+        const pu = Number.isFinite(parsedPu) ? Math.round((Math.max(0, parsedPu) + Number.EPSILON) * 100) / 100 : 0;
         const isSel = (cols[7] || '').toLowerCase().includes('s');
 
         const newNode = {
@@ -578,7 +592,10 @@ export function importData(event) {
           }
 
           if (stack.length > 0) {
-            stack[stack.length - 1].node.children.push(newNode);
+            const parent = stack[stack.length - 1].node;
+            parent.precioUnitario = 0;
+            parent.costoDirecto = 0;
+            parent.children.push(newNode);
           } else {
             parsedTree.push(newNode);
           }
@@ -589,6 +606,7 @@ export function importData(event) {
       if (!guardConceptLimit(countTreeConcepts(parsedTree), { replaceExisting: true })) {
         return;
       }
+      saveState();
       state.treeData = parsedTree;
       recalculateClaves(state.treeData);
       persistLocalData();

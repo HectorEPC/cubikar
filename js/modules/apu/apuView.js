@@ -6,6 +6,7 @@ import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.j
 import { updateModalIfOpen } from './matrizModal.js';
 import { getExactOpusInsumosForClave } from '../io/casaLauraData.js';
 import { isTabLocked } from '../../ui/tabLockController.js';
+import { canCurrentUserEditProject } from '../portal/projectService.js';
 
 // Renderizar tabla Matriz APU del concepto seleccionado
 let selectedApuInsumoIdx = null;
@@ -61,7 +62,7 @@ export function renderAPUInsumos(node) {
   let sumMat = 0, sumMO = 0, sumHerr = 0, sumEq = 0, sumMaq = 0, sumSub = 0;
 
   let visibleCount = 0;
-  const isCatLocked = isTabLocked('cat');
+  const isCatLocked = isTabLocked('cat') || !canCurrentUserEditProject();
 
 
   node.insumos.forEach((ins, idx) => {
@@ -74,7 +75,7 @@ export function renderAPUInsumos(node) {
     else if (ins.tipo === 'Herramienta') sumHerr = round2(sumHerr + total);
     else if (ins.tipo === 'Equipo') sumEq = round2(sumEq + total);
     else if (ins.tipo === 'Maquinaria') sumMaq = round2(sumMaq + total);
-    else if (ins.tipo === 'Subcontrato') sumSub = round2(sumSub + total);
+    else if (ins.tipo === 'Subcontrato' || ins.tipo === 'Flete' || ins.tipo === 'Auxiliar') sumSub = round2(sumSub + total);
 
     // Filtro activo por tipo en la matriz
     if (state.currentMatrizFilter !== 'Todos' && ins.tipo !== state.currentMatrizFilter) {
@@ -110,13 +111,15 @@ export function renderAPUInsumos(node) {
           <input type="text" ${isCatLocked ? 'disabled readonly' : ''} value="${ins.clave || ''}" onchange="updateInsumo(${idx}, 'clave', this.value)" 
                  placeholder="Clave" title="Clave del insumo" 
                  class="w-16 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 font-mono text-[8px] font-semibold text-slate-700 px-0.5">
-          <select ${isCatLocked ? 'disabled' : ''} onchange="updateInsumo(${idx}, 'tipo', this.value)" class="text-[8px] font-semibold rounded px-1 py-0.5 border cursor-pointer ${ins.tipo === 'Material' ? 'bg-blue-100/80 text-blue-800 border-blue-200' : (ins.tipo === 'Mano de Obra' ? 'bg-amber-100/80 text-amber-800 border-amber-200' : (ins.tipo === 'Herramienta' ? 'bg-orange-100/80 text-orange-800 border-orange-200' : (ins.tipo === 'Equipo' ? 'bg-purple-100/80 text-purple-800 border-purple-200' : (ins.tipo === 'Maquinaria' ? 'bg-rose-100/80 text-rose-800 border-rose-200' : (ins.tipo === 'Subcontrato' ? 'bg-emerald-100/80 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200')))))}">
+          <select ${isCatLocked ? 'disabled' : ''} onchange="updateInsumo(${idx}, 'tipo', this.value)" class="text-[8px] font-semibold rounded px-1 py-0.5 border cursor-pointer ${ins.tipo === 'Material' ? 'bg-blue-100/80 text-blue-800 border-blue-200' : (ins.tipo === 'Mano de Obra' ? 'bg-amber-100/80 text-amber-800 border-amber-200' : (ins.tipo === 'Herramienta' ? 'bg-orange-100/80 text-orange-800 border-orange-200' : (ins.tipo === 'Equipo' ? 'bg-purple-100/80 text-purple-800 border-purple-200' : (ins.tipo === 'Maquinaria' ? 'bg-rose-100/80 text-rose-800 border-rose-200' : (ins.tipo === 'Subcontrato' || ins.tipo === 'Flete' || ins.tipo === 'Auxiliar' ? 'bg-emerald-100/80 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200')))))}">
             <option value="Material" ${ins.tipo === 'Material' ? 'selected' : ''}>Material</option>
             <option value="Mano de Obra" ${ins.tipo === 'Mano de Obra' ? 'selected' : ''}>M. Obra</option>
             <option value="Herramienta" ${ins.tipo === 'Herramienta' ? 'selected' : ''}>Herramienta</option>
             <option value="Equipo" ${ins.tipo === 'Equipo' ? 'selected' : ''}>Equipo</option>
             <option value="Maquinaria" ${ins.tipo === 'Maquinaria' ? 'selected' : ''}>Maquinaria</option>
             <option value="Subcontrato" ${ins.tipo === 'Subcontrato' ? 'selected' : ''}>Subcontrato</option>
+            <option value="Flete" ${ins.tipo === 'Flete' ? 'selected' : ''}>Flete</option>
+            <option value="Auxiliar" ${ins.tipo === 'Auxiliar' ? 'selected' : ''}>Auxiliar</option>
           </select>
         </div>
       </td>

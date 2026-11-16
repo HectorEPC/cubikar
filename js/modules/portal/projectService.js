@@ -15,13 +15,14 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261115_v14';
+} from '../../config/constants.js';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
 import { defaultTreeData, defaultSettings } from '../../config/defaultData.js';
 import { cleanMojibake } from '../../core/textSanitizer.js';
 import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js';
 import { deleteProjectFromCloud } from '../../core/cloudProjectService.js';
+import { getSupabaseClient } from '../../core/supabaseClient.js';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -170,6 +171,14 @@ export async function syncUserToCloudAdmin(userObj) {
   if (!userObj || !userObj.email) return;
   try {
     const cleanEmail = userObj.email.toLowerCase().trim();
+    const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+    let accessToken = null;
+    if (sb && typeof sb.auth?.getSession === 'function') {
+      const { data } = await sb.auth.getSession();
+      accessToken = data?.session?.access_token || null;
+    }
+    if (!accessToken) return;
+
     const payload = {
       action: 'sync_user',
       user: {
@@ -186,7 +195,10 @@ export async function syncUserToCloudAdmin(userObj) {
     if (typeof fetch === 'function') {
       fetch('/api/admin-users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
         body: JSON.stringify(payload)
       }).catch(() => {});
     }
@@ -270,8 +282,8 @@ export function getFeaturedProfilesList() {
         email: em,
         avatar: p.avatar || (AVATARS_BY_SEX && AVATARS_BY_SEX[p.sexo]) || (AVATARS_BY_SEX && AVATARS_BY_SEX['Masculino']) || 'assets/branding/cubikar_icon_transparent.png',
         sexo: p.sexo || 'Masculino',
-        role: p.role || 'Admin General',
-        roleLabel: p.roleLabel || 'Administrador',
+        role: p.role || 'usuario',
+        roleLabel: p.roleLabel || 'Usuario',
         dob: p.dob || '',
         subscription: (() => {
           if (typeof localStorage !== 'undefined') {
@@ -339,8 +351,8 @@ export function addFeaturedProfile(user) {
       email: cleanEmail,
       avatar: user.avatar || (AVATARS_BY_SEX && AVATARS_BY_SEX[user.sexo]) || (AVATARS_BY_SEX && AVATARS_BY_SEX['Masculino']) || 'assets/branding/cubikar_icon_transparent.png',
       sexo: user.sexo || 'Masculino',
-      role: user.role || 'Admin General',
-      roleLabel: user.roleLabel || 'Administrador',
+      role: user.role || 'usuario',
+      roleLabel: user.roleLabel || 'Usuario',
       dob: user.dob || '',
       subscription: (() => {
         if (typeof localStorage !== 'undefined') {
@@ -596,8 +608,21 @@ export function enforceGlobalSessionRevocation() {
 // ==========================================
 // GESTIÓN DE USUARIO
 // ==========================================
-export function getCurrentUser() {
+let _simulatedUserView = null;
+
+export function setSimulatedUserView(simUser = null) {
+  _simulatedUserView = simUser ? { ...simUser, isSimulation: true } : null;
+}
+
+export function getSimulatedUserView() {
+  return _simulatedUserView;
+}
+
+export function getCurrentUser(ignoreSimulation = false) {
   try {
+    if (!ignoreSimulation && _simulatedUserView) {
+      return { ..._simulatedUserView };
+    }
     enforceGlobalSessionRevocation();
     let raw = null;
     // 1. Revisar si hay sesión temporal en sessionStorage (ej. no se marcó "Recordar en este equipo")
@@ -673,23 +698,20 @@ export function getLastKnownUser() {
   if (saved) return saved;
 
   const fallback = {
-    name: 'Usuario',
-    email: 'admin@obra.com',
+    name: 'Invitado',
+    email: '',
     avatar: '',
-    role: 'Admin General',
+    role: 'invitado',
+    roleLabel: 'Invitado',
     sexo: 'Masculino'
   };
-  try {
-    const cleanEmail = (fallback.email || '').toLowerCase().trim();
-    const subRaw = cleanEmail ? localStorage.getItem(`adm_const_subscription_${cleanEmail}`) : null;
-    if (subRaw) fallback.subscription = JSON.parse(subRaw);
-  } catch (e) {}
   return fallback;
 }
 
 export function saveCurrentUser(user, remember = null) {
   try {
     if (!user) {
+      _simulatedUserView = null;
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem(STORAGE_KEY_USER);
         localStorage.removeItem(STORAGE_KEY_USER + '_last');
@@ -1464,6 +1486,15 @@ export function duplicateProject(projectId) {
   copySettings.projectName = orig.projectName + ' (Copia)';
 
   const copyTree = JSON.parse(JSON.stringify(origTree));
+  const stripNodeUuids = (nodes) => {
+    if (!Array.isArray(nodes)) return;
+    nodes.forEach(n => {
+      if (!n || typeof n !== 'object') return;
+      delete n.uuid;
+      if (Array.isArray(n.children)) stripNodeUuids(n.children);
+    });
+  };
+  stripNodeUuids(copyTree);
 
   try {
     localStorage.setItem(getSettingsKey(newId), JSON.stringify(copySettings));
@@ -1472,10 +1503,24 @@ export function duplicateProject(projectId) {
     if (origEst) {
       localStorage.setItem(`estimaciones_data_${newId}`, origEst);
     }
+    const origExpenses = localStorage.getItem(`expenses_control_${projectId}`);
+    if (origExpenses) {
+      localStorage.setItem(`expenses_control_${newId}`, origExpenses);
+    }
+    const origCalCfg = localStorage.getItem(`calendario_cfg_${projectId}`);
+    if (origCalCfg) {
+      localStorage.setItem(`calendario_cfg_${newId}`, origCalCfg);
+    }
+    const origCalWork = localStorage.getItem(`calendario_workdays_${projectId}`);
+    if (origCalWork) {
+      localStorage.setItem(`calendario_workdays_${newId}`, origCalWork);
+    }
   } catch(e) {}
 
   const newProj = Object.assign({}, orig, {
     id: newId,
+    cloudId: null,
+    isCloudSynced: false,
     projectName: copySettings.projectName,
     members: (orig.members || []).map(m => Object.assign({}, m)),
     createdAt: new Date().toISOString().slice(0, 10)
@@ -1571,16 +1616,16 @@ export function removeProjectMember(projectId, memberId) {
     // Eliminar en Supabase PostgreSQL (public.proyecto_colaboradores)
     try {
       if (typeof window !== 'undefined' && typeof window.removeCollaboratorFromCloud === 'function') {
-        window.removeCollaboratorFromCloud(projectId, targetMember.email);
+        window.removeCollaboratorFromCloud(proj.cloudId || projectId, targetMember.email);
       }
     } catch (_) {}
 
     // Notificar en tiempo real al usuario removido y a los demás colaboradores
     try {
       if (typeof window !== 'undefined' && typeof window.broadcastCollaboratorRemoved === 'function') {
-        window.broadcastCollaboratorRemoved(projectId, targetMember.email);
+        window.broadcastCollaboratorRemoved(projectId, targetMember.email, proj.cloudId || null);
       } else if (typeof window !== 'undefined' && window.CubikarRealtime?.broadcastCollaboratorRemoved) {
-        window.CubikarRealtime.broadcastCollaboratorRemoved(projectId, targetMember.email);
+        window.CubikarRealtime.broadcastCollaboratorRemoved(projectId, targetMember.email, proj.cloudId || null);
       }
     } catch (_) {}
   }
@@ -1597,6 +1642,17 @@ export function updateProjectMemberRole(projectId, memberId, newRole) {
   if (mem) {
     mem.role = newRole;
     saveProjectsList(list);
+    try {
+      const targetCloudId = proj.cloudId || proj.id;
+      if (typeof window !== 'undefined' && mem.email) {
+        if (typeof window.updateCollaboratorRoleInCloud === 'function') {
+          window.updateCollaboratorRoleInCloud(targetCloudId, mem.email, newRole);
+        } else if (typeof window.addCollaboratorToCloud === 'function') {
+          window.addCollaboratorToCloud(targetCloudId, mem.email, newRole, mem.status === 'pending' ? 'pending' : 'accepted');
+        }
+      }
+    } catch (_) {}
+    triggerCloudCollabSync();
     return true;
   }
   return false;
@@ -1612,6 +1668,13 @@ export function updateProjectMemberTabs(projectId, memberId, allowedTabs) {
   if (mem) {
     mem.allowedTabs = Array.isArray(allowedTabs) ? allowedTabs : [];
     saveProjectsList(list);
+    try {
+      const targetCloudId = proj.cloudId || proj.id;
+      if (typeof window !== 'undefined' && typeof window.syncProjectMemberTabsToCloud === 'function' && mem.email) {
+        window.syncProjectMemberTabsToCloud(targetCloudId, mem.email, mem.allowedTabs);
+      }
+    } catch (_) {}
+    triggerCloudCollabSync();
     return true;
   }
   return false;
@@ -1624,6 +1687,7 @@ export function setTabAssignedMembers(projectId, tabId, memberIds) {
   if (!proj || !Array.isArray(proj.members)) return false;
 
   const idSet = new Set(memberIds);
+  const tabsMap = {};
   proj.members.forEach(m => {
     if (!Array.isArray(m.allowedTabs)) {
       m.allowedTabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
@@ -1635,9 +1699,19 @@ export function setTabAssignedMembers(projectId, tabId, memberIds) {
     } else {
       m.allowedTabs = m.allowedTabs.filter(t => t !== tabId);
     }
+    if (m.email) {
+      tabsMap[m.email.toLowerCase().trim()] = m.allowedTabs;
+    }
   });
 
   saveProjectsList(list);
+  try {
+    const targetCloudId = proj.cloudId || proj.id;
+    if (typeof window !== 'undefined' && typeof window.syncProjectMemberTabsToCloud === 'function') {
+      window.syncProjectMemberTabsToCloud(targetCloudId, tabsMap);
+    }
+  } catch (_) {}
+  triggerCloudCollabSync();
   return true;
 }
 
@@ -1669,6 +1743,9 @@ export async function deleteProject(projectId) {
       localStorage.removeItem(getSettingsKey(pid));
       localStorage.removeItem(getStorageKey(pid));
       localStorage.removeItem(`estimaciones_data_${pid}`);
+      localStorage.removeItem(`expenses_control_${pid}`);
+      localStorage.removeItem(`calendario_cfg_${pid}`);
+      localStorage.removeItem(`calendario_workdays_${pid}`);
       localStorage.removeItem(`adm_const_project_chat_${pid}`);
       localStorage.removeItem(`adm_arq_project_chat_${pid}`);
       localStorage.removeItem(`adm_const_chat_${pid}`);
@@ -1677,6 +1754,10 @@ export async function deleteProject(projectId) {
       localStorage.removeItem(`adm_const_bitacora_${pid}`);
       localStorage.removeItem(`adm_const_expenses_${pid}`);
       localStorage.removeItem(`adm_const_suppliers_${pid}`);
+      localStorage.removeItem(`adm_arq_signatures_${pid}`);
+      localStorage.removeItem(`adm_arq_bitacora_${pid}`);
+      localStorage.removeItem(`adm_arq_expenses_${pid}`);
+      localStorage.removeItem(`adm_arq_suppliers_${pid}`);
     } catch (e) {}
   });
 
@@ -1710,24 +1791,33 @@ export async function deleteProject(projectId) {
     if (typeof setActiveProjectId === 'function') setActiveProjectId(null);
   }
 
-  // 3. Purgar del estado sincronizado del usuario en user_metadata (cubikar_cloud_state_v2)
+  // 3. Purgar del estado sincronizado del usuario en user_metadata (cubikar_cloud_state_v2) y persistir en Supabase Auth
   const user = getCurrentUser();
   const myEmail = (user?.email || '').toLowerCase().trim();
+  const collabEmails = Array.isArray(targetObj?.members)
+    ? targetObj.members.map(m => String(m?.email || '').toLowerCase().trim()).filter(Boolean)
+    : [];
   if (user && user.user_metadata?.cubikar_cloud_state_v2) {
     const cs = user.user_metadata.cubikar_cloud_state_v2;
     let modified = false;
-    if (Array.isArray(cs.ownedProjects)) {
-      const prevLen = cs.ownedProjects.length;
-      cs.ownedProjects = cs.ownedProjects.filter(p => p.id !== projectId && p.cloudId !== projectId && (!cloudId || (p.id !== cloudId && p.cloudId !== cloudId)));
-      if (cs.ownedProjects.length !== prevLen) modified = true;
+    if (Array.isArray(cs.ownedProjects) && cs.ownedProjects.length > 0) {
+      cs.ownedProjects = [];
+      modified = true;
     }
-    if (Array.isArray(cs.collaboratedProjects)) {
-      const prevLen = cs.collaboratedProjects.length;
-      cs.collaboratedProjects = cs.collaboratedProjects.filter(p => p.id !== projectId && p.cloudId !== projectId && (!cloudId || (p.id !== cloudId && p.cloudId !== cloudId)));
-      if (cs.collaboratedProjects.length !== prevLen) modified = true;
+    if (Array.isArray(cs.collaboratedProjects) && cs.collaboratedProjects.length > 0) {
+      cs.collaboratedProjects = [];
+      modified = true;
     }
+    const delIds = getDeletedProjectsList();
+    cs.deletedProjectIds = Array.isArray(delIds) ? delIds.slice(-500) : [];
     if (modified) {
       saveCurrentUser(user);
+      try {
+        const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+        if (sb && typeof sb.auth?.updateUser === 'function') {
+          await sb.auth.updateUser({ data: { cubikar_cloud_state_v2: cs } });
+        }
+      } catch (_) {}
     }
   }
 
@@ -1745,22 +1835,29 @@ export async function deleteProject(projectId) {
   // 5. Registrar lápida (tombstone) y actualizar manifiesto de obras activas del anfitrión en Supabase
   try {
     if (typeof window !== 'undefined' && typeof window.recordDeletedProjectTombstone === 'function') {
-      await window.recordDeletedProjectTombstone(projectId, myEmail);
+      const tombOpts = { deletedByEmail: myEmail, collaboratorEmails: collabEmails };
+      await window.recordDeletedProjectTombstone(projectId, targetObj?.ownerEmail || myEmail, tombOpts);
       if (cloudId && cloudId !== projectId) {
-        await window.recordDeletedProjectTombstone(cloudId, myEmail);
+        await window.recordDeletedProjectTombstone(cloudId, targetObj?.ownerEmail || myEmail, tombOpts);
       }
     }
     if (myEmail && typeof window !== 'undefined' && typeof window.recordHostActiveManifest === 'function') {
-      const myActiveIds = list.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail).map(p => p.id);
+      const myActiveIds = list.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail).map(p => p.cloudId || p.id);
       await window.recordHostActiveManifest(myEmail, myActiveIds);
     }
   } catch (_) {}
 
-  // 6. Eliminar de la base de datos Supabase
+  // 6. Eliminar de la base de datos Supabase (con verificación de errores y lápida persistente)
   try {
-    await deleteProjectFromCloud(projectId);
-    if (cloudId && cloudId !== projectId) {
-      await deleteProjectFromCloud(cloudId);
+    const delRes = await deleteProjectFromCloud(cloudId || projectId, {
+      project: targetObj,
+      cloudId,
+      ownerEmail: targetObj?.ownerEmail || myEmail,
+      deletedByEmail: myEmail,
+      collaboratorEmails: collabEmails
+    });
+    if (delRes && delRes.success === false && delRes.error) {
+      console.warn('[deleteProject] Error al eliminar fila en Supabase:', delRes.error);
     }
   } catch (err) {
     console.warn('[deleteProject] Aviso al eliminar en Supabase:', err);
@@ -2137,8 +2234,12 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
 
     // Actualizar colaborador en Supabase PostgreSQL (public.proyecto_colaboradores)
     try {
-      if (typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
-        window.addCollaboratorToCloud(targetProjectId, userEmail, targetInv.role || 'editar', 'accepted');
+      if (targetInv && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
+        const invRole = targetInv.role || targetPlanInv?.role || 'editar';
+        const cid = proj?.cloudId || targetProjectId;
+        if (cid) {
+          window.addCollaboratorToCloud(cid, (targetInv.email || userEmail).toLowerCase().trim(), invRole, 'accepted');
+        }
       }
     } catch (_) {}
 
@@ -2209,8 +2310,17 @@ export function acceptProjectInvitation(invitationId, currentUser = null) {
 
     // Actualizar colaborador en Supabase PostgreSQL (public.proyecto_colaboradores)
     try {
-      if (typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
-        window.addCollaboratorToCloud(targetProjectId, userEmail, targetInv.role || 'editar', 'accepted');
+      if (targetPlanInv && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
+        const planRole = targetPlanInv.role || 'editar';
+        if (targetProjectId) {
+          window.addCollaboratorToCloud(targetProjectId, userEmail, planRole, 'accepted');
+        }
+        hostProjects.forEach(hp => {
+          const cid = hp.cloudId || hp.id;
+          if (cid) {
+            window.addCollaboratorToCloud(cid, userEmail, planRole, 'accepted');
+          }
+        });
       }
     } catch (_) {}
 
@@ -2256,34 +2366,14 @@ export function rejectProjectInvitation(invitationId) {
   let planInvs = getStoredPlanInvitations();
   const list = getProjectsList();
   const targetId = String(invitationId || '').trim();
+  if (!targetId || targetId === 'all') {
+    return false;
+  }
 
   let rejected = false;
 
-  // 0. Si se solicitó purgar todas las invitaciones del usuario
-  if (targetId === 'all' || !targetId) {
-    if (userEmail) {
-      invs = invs.filter(i => (i.email || '').toLowerCase().trim() !== userEmail);
-      saveStoredInvitations(invs);
-      planInvs = planInvs.filter(pi => (pi.email || '').toLowerCase().trim() !== userEmail);
-      saveStoredPlanInvitations(planInvs);
-      list.forEach(p => {
-        if (Array.isArray(p.members)) {
-          p.members = p.members.filter(m => (m.email || '').toLowerCase().trim() !== userEmail || (m.status !== 'pending' && m.status !== 'rejected'));
-        }
-      });
-      saveProjectsList(list);
-      rejected = true;
-    }
-  }
-
-  // 1. Buscar en invitaciones formales de proyectos con coincidencia flexible
-  const initialLen = invs.length;
-  const matchedInvs = invs.filter(i => 
-    i.id === targetId ||
-    (userEmail && (i.email || '').toLowerCase().trim() === userEmail && i.id === targetId) ||
-    (i.projectId && (i.projectId === targetId || targetId.includes(i.projectId))) ||
-    (i.projectName && (i.projectName === targetId || targetId.includes(i.projectName)))
-  );
+  // 1. Buscar en invitaciones formales de proyectos únicamente por ID exacto
+  const matchedInvs = invs.filter(i => i.id === targetId);
 
   if (matchedInvs.length > 0) {
     const matchedIds = new Set(matchedInvs.map(m => m.id));
@@ -2292,22 +2382,23 @@ export function rejectProjectInvitation(invitationId) {
     rejected = true;
 
     matchedInvs.forEach(inv => {
+      const targetEmail = (inv.email || userEmail || '').toLowerCase().trim();
       if (inv.projectId) {
         const proj = list.find(p => p.id === inv.projectId || p.cloudId === inv.projectId);
         if (proj && Array.isArray(proj.members)) {
-          proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== (inv.email || userEmail));
+          proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== targetEmail);
           saveProjectsList(list);
         }
         try {
-          if (typeof window !== 'undefined' && typeof window.removeCollaboratorFromCloud === 'function') {
-            window.removeCollaboratorFromCloud(inv.projectId, inv.email || userEmail);
+          if (typeof window !== 'undefined' && typeof window.removeCollaboratorFromCloud === 'function' && targetEmail) {
+            window.removeCollaboratorFromCloud(proj?.cloudId || inv.projectId, targetEmail);
           }
         } catch (_) {}
         try {
           if (typeof window !== 'undefined' && typeof window.broadcastCollaboratorRemoved === 'function') {
-            window.broadcastCollaboratorRemoved(inv.projectId, inv.email || userEmail);
+            window.broadcastCollaboratorRemoved(inv.projectId, targetEmail, proj?.cloudId || null);
           } else if (typeof window !== 'undefined' && window.CubikarRealtime?.broadcastCollaboratorRemoved) {
-            window.CubikarRealtime.broadcastCollaboratorRemoved(inv.projectId, inv.email || userEmail);
+            window.CubikarRealtime.broadcastCollaboratorRemoved(inv.projectId, targetEmail, proj?.cloudId || null);
           }
         } catch (_) {}
       }
@@ -2319,11 +2410,11 @@ export function rejectProjectInvitation(invitationId) {
     });
   }
 
-  // 2. Buscar en invitaciones al plan
-  const planIdx = planInvs.findIndex(pi => 
-    pi.id === targetId || 
-    (typeof targetId === 'string' && (targetId.includes(pi.id) || targetId.endsWith(`-${pi.id}`))) ||
-    (userEmail && (pi.email || '').toLowerCase().trim() === userEmail && (pi.id === targetId || targetId.includes(pi.ownerEmail || '')))
+  // 2. Buscar en invitaciones al plan únicamente por ID exacto o prefijo estándar plan-inv-
+  const planIdx = planInvs.findIndex(pi =>
+    pi.id === targetId ||
+    targetId === `plan-inv-${pi.id}` ||
+    (typeof targetId === 'string' && targetId.startsWith('plan-inv-') && targetId.endsWith(`-${pi.id}`))
   );
   if (planIdx >= 0) {
     const pInv = planInvs[planIdx];
@@ -2332,16 +2423,25 @@ export function rejectProjectInvitation(invitationId) {
     rejected = true;
 
     const hostEmail = (pInv.ownerEmail || '').toLowerCase().trim();
+    const targetGuestEmail = (pInv.email || userEmail || '').toLowerCase().trim();
     list.forEach(p => {
       if ((p.ownerEmail || '').toLowerCase().trim() === hostEmail && Array.isArray(p.members)) {
-        p.members = p.members.filter(m => (m.email || '').toLowerCase().trim() !== userEmail || m.status !== 'pending');
+        const hadMem = p.members.some(m => (m.email || '').toLowerCase().trim() === targetGuestEmail);
+        p.members = p.members.filter(m => (m.email || '').toLowerCase().trim() !== targetGuestEmail || m.status !== 'pending');
+        if (hadMem && targetGuestEmail) {
+          try {
+            if (typeof window !== 'undefined' && typeof window.removeCollaboratorFromCloud === 'function') {
+              window.removeCollaboratorFromCloud(p.cloudId || p.id, targetGuestEmail);
+            }
+          } catch (_) {}
+        }
       }
     });
     saveProjectsList(list);
 
     try {
       if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationRejected === 'function') {
-        window.CubikarRealtime.broadcastInvitationRejected({ id: pInv.id, ownerEmail: hostEmail, email: userEmail }, user);
+        window.CubikarRealtime.broadcastInvitationRejected({ id: pInv.id, ownerEmail: hostEmail, email: targetGuestEmail }, user);
       }
     } catch (e) {}
   }
@@ -2355,6 +2455,11 @@ export function rejectProjectInvitation(invitationId) {
           p.members.splice(memIdx, 1);
           saveProjectsList(list);
           rejected = true;
+          try {
+            if (typeof window !== 'undefined' && typeof window.removeCollaboratorFromCloud === 'function') {
+              window.removeCollaboratorFromCloud(p.cloudId || p.id, userEmail);
+            }
+          } catch (_) {}
         }
       }
     });
@@ -2814,7 +2919,7 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
       const mem = p.members.find(m => {
         const mEmail = (m.email || '').toLowerCase().trim();
         const mStatus = (m.status || '').toLowerCase().trim();
-        return mEmail === uEmail && (mStatus === 'active' || mStatus === 'accepted');
+        return mEmail === uEmail && (mStatus === 'active' || mStatus === 'accepted' || !mStatus);
       });
       if (mem) {
         if (!map.has(oEmail)) {
@@ -2880,19 +2985,33 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
     }
   });
 
-  return Array.from(map.values()).map(inv => {
-    let myRoleDisplay = 'Leer';
-    if (inv.isEditor) {
-      myRoleDisplay = 'Editor';
-    } else if (inv.roles.has('escribir')) {
-      myRoleDisplay = 'Escribir';
-    }
-    return {
-      ...inv,
-      roles: Array.from(inv.roles),
-      myRoleDisplay
-    };
-  });
+  return Array.from(map.entries())
+    .filter(([ownerKey, inv]) => {
+      if (!inv || inv.count <= 0) return false;
+      return userProjects.some(p => {
+        if (!p || p.isSample || isProjectMarkedDeleted(p.id) || (p.cloudId && isProjectMarkedDeleted(p.cloudId))) return false;
+        if (p.id === 'proj-opus-casa-laura' || p.id === 'proj-default-01' || p.id === 'proj-demo-02' || (typeof p.id === 'string' && p.id.startsWith('proj-demo'))) return false;
+        if ((p.ownerEmail || '').toLowerCase().trim() !== ownerKey) return false;
+        return Array.isArray(p.members) && p.members.some(m => {
+          const mEmail = (m.email || '').toLowerCase().trim();
+          const status = (m.status || '').toLowerCase().trim();
+          return mEmail === uEmail && (status === 'active' || status === 'accepted' || !status);
+        });
+      });
+    })
+    .map(([, inv]) => {
+      let myRoleDisplay = 'Leer';
+      if (inv.isEditor) {
+        myRoleDisplay = 'Editor';
+      } else if (inv.roles.has('escribir')) {
+        myRoleDisplay = 'Escribir';
+      }
+      return {
+        ...inv,
+        roles: Array.from(inv.roles),
+        myRoleDisplay
+      };
+    });
 }
 
 // Validar si el usuario puede invitar a colaboradores a un proyecto específico
@@ -3004,22 +3123,30 @@ export function getUserRoleInProject(projectId, user = null) {
 // Determinar si el usuario actual tiene permisos de edición (escritura/eliminación) en el proyecto
 export function canCurrentUserEditProject(projectId = null, user = null) {
   const u = user || getCurrentUser();
-  if (!u || !u.email) return true; // Operación local segura por defecto
+  const pId = projectId || getActiveProjectId();
+  const proj = pId ? getProjectById(pId) : null;
+
+  if (!u || !u.email) {
+    return !proj || !proj.ownerEmail;
+  }
+
+  if (!pId || !proj) {
+    return getProjectsList().length === 0;
+  }
 
   const uEmail = (u.email || '').toLowerCase().trim();
-  if (u.role === 'Admin General' || uEmail === 'admin.general@constructora.com') {
+  const ownerEmail = (proj.ownerEmail || '').toLowerCase().trim();
+  if (!ownerEmail || ownerEmail === uEmail) {
     return true;
   }
 
-  const pId = projectId || getActiveProjectId();
-  if (!pId) return true;
-
   const role = getUserRoleInProject(pId, u);
-  if (!role || role === 'owner') return true;
+  if (!role) return false;
+  if (role === 'owner' || role === 'admin') return true;
   const normalizedRole = String(role).toLowerCase().trim();
-  if (normalizedRole === 'editar' || normalizedRole === 'escribir' || normalizedRole === 'editor' || normalizedRole === 'escritura') return true;
+  if (normalizedRole === 'owner' || normalizedRole === 'admin' || normalizedRole === 'editar' || normalizedRole === 'escribir' || normalizedRole === 'editor' || normalizedRole === 'escritura') return true;
   if (normalizedRole === 'leer' || normalizedRole === 'lector' || normalizedRole === 'view' || normalizedRole === 'viewer') return false;
-  return true;
+  return false;
 }
 
 // ==========================================
@@ -3269,7 +3396,7 @@ export function removePlanCollaborator(collaboratorEmail, user = null) {
   ));
   saveStoredPlanInvitations(invs);
 
-  // Remover también de los proyectos del anfitrión
+  // Remover también de los proyectos del anfitrión y sincronizar en Supabase
   const allProjects = getProjectsList();
   let modified = false;
   allProjects.forEach(proj => {
@@ -3277,6 +3404,13 @@ export function removePlanCollaborator(collaboratorEmail, user = null) {
       const prevLen = proj.members.length;
       proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== targetEmail);
       if (proj.members.length !== prevLen) modified = true;
+      try {
+        const cid = proj.cloudId || proj.id;
+        if (cid && typeof window !== 'undefined') {
+          window.removeCollaboratorFromCloud?.(cid, targetEmail);
+          window.broadcastCollaboratorRemoved?.(cid, targetEmail) || window.CubikarRealtime?.broadcastCollaboratorRemoved?.(cid, targetEmail);
+        }
+      } catch (_) {}
     }
   });
 
@@ -3320,7 +3454,7 @@ export function updatePlanCollaboratorRole(collaboratorEmail, newRole, user = nu
     saveStoredInvitations(projInvs);
   }
 
-  // 3. Actualizar en los miembros de todos los proyectos propiedad del dueño
+  // 3. Actualizar en los miembros de todos los proyectos propiedad del dueño y sincronizar en Supabase
   const allProjects = getProjectsList();
   let projectsModified = false;
   allProjects.forEach(proj => {
@@ -3329,6 +3463,16 @@ export function updatePlanCollaboratorRole(collaboratorEmail, newRole, user = nu
         if ((m.email || '').toLowerCase().trim() === targetEmail) {
           m.role = newRole;
           projectsModified = true;
+          try {
+            const cid = proj.cloudId || proj.id;
+            if (cid && typeof window !== 'undefined') {
+              if (typeof window.updateCollaboratorRoleInCloud === 'function') {
+                window.updateCollaboratorRoleInCloud(cid, targetEmail, newRole);
+              } else if (typeof window.addCollaboratorToCloud === 'function') {
+                window.addCollaboratorToCloud(cid, targetEmail, newRole, m.status === 'pending' ? 'pending' : 'accepted');
+              }
+            }
+          } catch (_) {}
         }
       });
     }

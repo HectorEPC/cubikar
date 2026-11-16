@@ -25,10 +25,16 @@ serve(async (req) => {
     return new Response("Webhook signature o endpoint secret no configurados", { status: 400 });
   }
 
+  let event: Stripe.Event;
   try {
     const body = await req.text();
-    const event = await stripe.webhooks.constructEventAsync(body, signature, endpointSecret);
+    event = await stripe.webhooks.constructEventAsync(body, signature, endpointSecret);
+  } catch (sigErr: any) {
+    console.error("[Stripe Webhook] Firma inválida:", sigErr.message);
+    return new Response(`Webhook Signature Error: ${sigErr.message}`, { status: 400 });
+  }
 
+  try {
     console.info(`[Stripe Webhook] Evento recibido: ${event.type}`);
 
     switch (event.type) {
@@ -40,8 +46,8 @@ serve(async (req) => {
 
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          const plan = subscription.metadata?.plan || "plus";
-          const producto = subscription.metadata?.producto || "const"; // 'const' | 'arq' | 'combo'
+          const plan = subscription.metadata?.plan || session.metadata?.plan || "plus";
+          const producto = subscription.metadata?.producto || session.metadata?.producto || "const"; // 'const' | 'arq' | 'combo'
           const periodoFin = new Date(subscription.current_period_end * 1000).toISOString();
 
           const updatePayload: Record<string, any> = {
@@ -68,10 +74,13 @@ serve(async (req) => {
             updatePayload.periodo_fin_const = periodoFin;
           }
 
-          await supabaseAdmin
+          const { error: updErr } = await supabaseAdmin
             .from("empresas")
             .update(updatePayload)
             .eq("stripe_customer_id", customerId);
+          if (updErr) {
+            throw new Error(`Error actualizando empresa en checkout.session.completed: ${updErr.message}`);
+          }
         }
         break;
       }
@@ -91,14 +100,25 @@ serve(async (req) => {
         };
         if (plan) {
           updatePayload.plan = plan;
-          if (producto === "arq" || producto === "combo") updatePayload.plan_arq = plan;
-          if (producto === "const" || producto === "combo") updatePayload.plan_const = plan;
+          if (producto === "arq" || producto === "combo") {
+            updatePayload.plan_arq = plan;
+            updatePayload.acceso_arq = status === "active" || status === "trialing";
+            updatePayload.periodo_fin_arq = periodoFin;
+          }
+          if (producto === "const" || producto === "combo") {
+            updatePayload.plan_const = plan;
+            updatePayload.acceso_const = status === "active" || status === "trialing";
+            updatePayload.periodo_fin_const = periodoFin;
+          }
         }
 
-        await supabaseAdmin
+        const { error: updErr } = await supabaseAdmin
           .from("empresas")
           .update(updatePayload)
           .eq("stripe_customer_id", customerId);
+        if (updErr) {
+          throw new Error(`Error actualizando empresa en customer.subscription.updated: ${updErr.message}`);
+        }
 
         break;
       }
@@ -109,29 +129,63 @@ serve(async (req) => {
         const customerId = subscription.customer as string;
         const producto = subscription.metadata?.producto || "const";
 
-        const updatePayload: Record<string, any> = {
-          estado_suscripcion: "canceled",
-          stripe_subscription_id: null,
-        };
+        const { data: currentEmpresa, error: fetchErr } = await supabaseAdmin
+          .from("empresas")
+          .select("acceso_arq, plan_arq, acceso_const, plan_const")
+          .eq("stripe_customer_id", customerId)
+          .maybeSingle();
+        if (fetchErr) {
+          throw new Error(`Error consultando empresa en customer.subscription.deleted: ${fetchErr.message}`);
+        }
+
+        const hasActiveArq = Boolean(currentEmpresa?.acceso_arq && currentEmpresa?.plan_arq && currentEmpresa.plan_arq !== "free");
+        const hasActiveConst = Boolean(currentEmpresa?.acceso_const && currentEmpresa?.plan_const && currentEmpresa.plan_const !== "free");
+
+        const updatePayload: Record<string, any> = {};
 
         if (producto === "arq") {
           updatePayload.acceso_arq = false;
           updatePayload.plan_arq = "free";
+          updatePayload.periodo_fin_arq = null;
+          if (hasActiveConst) {
+            updatePayload.plan = currentEmpresa?.plan_const || "plus";
+            updatePayload.estado_suscripcion = "active";
+          } else {
+            updatePayload.plan = "free";
+            updatePayload.estado_suscripcion = "canceled";
+            updatePayload.stripe_subscription_id = null;
+          }
         } else if (producto === "const") {
           updatePayload.acceso_const = false;
           updatePayload.plan_const = "free";
+          updatePayload.periodo_fin_const = null;
+          if (hasActiveArq) {
+            updatePayload.plan = currentEmpresa?.plan_arq || "plus";
+            updatePayload.estado_suscripcion = "active";
+          } else {
+            updatePayload.plan = "free";
+            updatePayload.estado_suscripcion = "canceled";
+            updatePayload.stripe_subscription_id = null;
+          }
         } else if (producto === "combo") {
           updatePayload.acceso_arq = false;
           updatePayload.plan_arq = "free";
+          updatePayload.periodo_fin_arq = null;
           updatePayload.acceso_const = false;
           updatePayload.plan_const = "free";
+          updatePayload.periodo_fin_const = null;
           updatePayload.plan = "free";
+          updatePayload.estado_suscripcion = "canceled";
+          updatePayload.stripe_subscription_id = null;
         }
 
-        await supabaseAdmin
+        const { error: updErr } = await supabaseAdmin
           .from("empresas")
           .update(updatePayload)
           .eq("stripe_customer_id", customerId);
+        if (updErr) {
+          throw new Error(`Error actualizando empresa en customer.subscription.deleted: ${updErr.message}`);
+        }
 
         break;
       }
@@ -141,12 +195,15 @@ serve(async (req) => {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
 
-        await supabaseAdmin
+        const { error: updErr } = await supabaseAdmin
           .from("empresas")
           .update({
             estado_suscripcion: "past_due",
           })
           .eq("stripe_customer_id", customerId);
+        if (updErr) {
+          throw new Error(`Error actualizando empresa en invoice.payment_failed: ${updErr.message}`);
+        }
 
         break;
       }
@@ -158,6 +215,6 @@ serve(async (req) => {
     });
   } catch (err: any) {
     console.error("[Stripe Webhook] Error:", err.message);
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    return new Response(`Webhook Error: ${err.message}`, { status: 500 });
   }
 });

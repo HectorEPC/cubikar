@@ -5,7 +5,7 @@
 // barra de tiempo deslizable (scrubber), selector de velocidad y narración por voz fluida
 // sincronizada adaptativamente con Web Speech API para garantizar locución 100% íntegra y natural.
 
-import { renderModuleVisualScene } from './realisticSimulatorShell.js?v=20261115_01';
+import { renderModuleVisualScene } from './realisticSimulatorShell.js';
 
 let isVideoModalOpen = false;
 let currentModuleId = 1;

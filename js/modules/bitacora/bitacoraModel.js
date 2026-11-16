@@ -117,7 +117,7 @@ export function getDefaultBitacoraData() {
   const sched = getScheduleSettings();
   return {
     config: {
-      obraInicio: sched?.startDate || formatDate(new Date()),
+      obraInicio: sched?.startDate || '',
       obraFinProgramada: '',
       contratoNumero: '',
       contratistaNombre: state.settings?.companyName || '',

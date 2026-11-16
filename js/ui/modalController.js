@@ -10,10 +10,10 @@ import { renderAPUInsumos } from '../modules/apu/apuView.js';
 import { renderInsumosGenerales } from '../modules/insumosGenerales/insumosView.js';
 import { renderCalendarioObra } from '../modules/calendario/calendarioView.js';
 import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView.js';
-import { renderExpensesView } from '../modules/compras/expensesView.js?v=20261114_18';
+import { renderExpensesView } from '../modules/compras/expensesView.js';
 import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js';
 import { renderBrandingUI } from './brandingController.js';
-import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js?v=20261115_v14';
+import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js';
 import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js';
 
 // Modo de destino del modal Google IA: 'single' (solo concepto activo en matriz) o 'batch' (conceptos con casilla)
@@ -386,8 +386,8 @@ export function saveSettings() {
   if (projName) state.settings.projectName = projName;
   const projLoc = (document.getElementById('cfg-project-location')?.value || '').trim();
   if (projLoc) state.settings.projectLocation = projLoc;
-  const compSub = (document.getElementById('cfg-company-subtitle')?.value || '').trim();
-  state.settings.companySubtitle = compSub;
+  const compSubEl = document.getElementById('cfg-company-subtitle') || document.getElementById('setCompanySubtitle');
+  state.settings.companySubtitle = (compSubEl?.value ?? state.settings.companySubtitle ?? '').trim();
   renderBrandingUI();
   persistSettings();
 
@@ -426,8 +426,8 @@ export function saveSettings() {
 }
 
 export function toggleApiKeyVisibility() {
-  const input = document.getElementById('cfg-api-key');
-  const icon = document.getElementById('eye-icon');
+  const input = document.getElementById('cfg-api-key') || document.getElementById('ai-modal-api-key');
+  const icon = document.getElementById('ai-key-eye-icon') || document.getElementById('eye-icon');
   if (!input || !icon) return;
   if (input.type === 'password') {
     input.type = 'text';
@@ -783,8 +783,8 @@ const SINGLE_POPOVER_CLOSE_RULES = [
     close: () => window.closePortalUserDropdown?.()
   },
   {
-    isOpen: () => isFloatingElementVisible(document.getElementById('cubikar-chat-dock')),
-    allowedSelector: '#cubikar-chat-dock, #sidebar-project-chat-wrapper, #btn-sidebar-project-chat, [onclick*="openProjectChatForPartida"], [onclick*="toggleProjectChatDock"]',
+    isOpen: () => isFloatingElementVisible(document.getElementById('project-chat-dock')) || isFloatingElementVisible(document.getElementById('cubikar-chat-dock')),
+    allowedSelector: '#project-chat-dock, #cubikar-chat-dock, #sidebar-project-chat-wrapper, #btn-sidebar-project-chat, [onclick*="openProjectChatForPartida"], [onclick*="toggleProjectChatDock"]',
     close: () => window.toggleProjectChatDock?.(false)
   }
 ];

@@ -11,8 +11,11 @@
 import { state, persistLocalData } from '../state/store.js';
 import { wordAutocorrectService } from '../core/wordAutocorrectService.js';
 import { renderTAB1 } from '../modules/catalog/catalogView.js';
+import { findNodeById } from '../modules/catalog/treeService.js';
 import { renderAPUInsumos } from '../modules/apu/apuView.js';
 import { showToast } from './notifications.js';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js';
+import { guardTabUnlocked } from './tabLockController.js';
 
 let activeErrors = [];
 let currentErrorIndex = 0;
@@ -267,6 +270,11 @@ function replaceWordAt(text, oldWord, newWord, expectedStart) {
  * Acción: [Cambiar] una palabra (como en Word)
  */
 export function changeSpellCheckCurrentWord() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: tu rol no permite modificar el catálogo.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   if (activeErrors.length === 0 || currentErrorIndex >= activeErrors.length) return;
 
   const manualInput = document.getElementById('spellcheck-manual-input');
@@ -286,7 +294,8 @@ export function changeSpellCheckCurrentWord() {
   persistLocalData();
   renderTAB1();
   if (state.activeSelectedId) {
-    renderAPUInsumos();
+    const activeNode = findNodeById(state.treeData, state.activeSelectedId);
+    if (activeNode) renderAPUInsumos(activeNode);
   }
 
   showToast(`Cambiado "${current.word}" por "${replacement}"`, 'success');
@@ -297,6 +306,11 @@ export function changeSpellCheckCurrentWord() {
  * Acción: [Cambiar todas] las ocurrencias de esta palabra en el catálogo
  */
 export function changeAllSpellCheckWord() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: tu rol no permite modificar el catálogo.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   if (activeErrors.length === 0 || currentErrorIndex >= activeErrors.length) return;
 
   const manualInput = document.getElementById('spellcheck-manual-input');
@@ -348,7 +362,8 @@ export function changeAllSpellCheckWord() {
   persistLocalData();
   renderTAB1();
   if (state.activeSelectedId) {
-    renderAPUInsumos();
+    const activeNode = findNodeById(state.treeData, state.activeSelectedId);
+    if (activeNode) renderAPUInsumos(activeNode);
   }
 
   showToast(`Se reemplazaron ${count} ocurrencias de "${targetWord}" por "${replacement}"`, 'success');

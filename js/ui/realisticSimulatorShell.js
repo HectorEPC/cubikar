@@ -1,9 +1,9 @@
 // js/ui/realisticSimulatorShell.js
 // Motor de Renderizado Fotorrealista para el Video-Simulador de Cubikar (Alternativa 1)
 // Reproduce fielmente al 100% la interfaz real de Cubikar: Barra Lateral (Rail Monday),
-// Encabezado Superior con Logotipo, 5 PestaÃ±as Maestras, Toolbar de Acciones, Tablas
-// y VENTANAS FLOTANTES / MODALES AUTÃ‰NTICAS (blancas, encabezados degradados oficiales,
-// tarjetas de pasos, formularios, conmutadores y botones idÃ©nticos a la aplicaciÃ³n real).
+// Encabezado Superior con Logotipo, 5 Pestañas Maestras, Toolbar de Acciones, Tablas
+// y VENTANAS FLOTANTES / MODALES AUTÉNTICAS (blancas, encabezados degradados oficiales,
+// tarjetas de pasos, formularios, conmutadores y botones idénticos a la aplicación real).
 
 export function getRealisticBudgetTableHtml(options = {}) {
   const {
@@ -19,14 +19,14 @@ export function getRealisticBudgetTableHtml(options = {}) {
   return `
     <div class="flex-1 bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col overflow-hidden m-2 text-slate-800 text-[11px]">
       
-      <!-- Encabezado Superior Sub-pestaÃ±as y Proyecto -->
+      <!-- Encabezado Superior Sub-pestañas y Proyecto -->
       <div class="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 shrink-0">
         <div class="flex items-center gap-1.5 bg-slate-200/80 p-0.5 rounded-md border border-slate-300">
           <button type="button" class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white shadow-2xs flex items-center gap-1">
-            <i class="fa-solid fa-list-check"></i> CatÃ¡logo Base (Presupuesto / APU)
+            <i class="fa-solid fa-list-check"></i> Catálogo Base (Presupuesto / APU)
           </button>
           <button type="button" id="mock-step8-tab-insumos" class="px-2.5 py-0.5 rounded text-[10px] font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1">
-            <i class="fa-solid fa-boxes-stacked"></i> ExplosiÃ³n de Insumos (6 CategorÃ­as)
+            <i class="fa-solid fa-boxes-stacked"></i> Explosión de Insumos (6 Categorías)
           </button>
         </div>
 
@@ -76,7 +76,7 @@ export function getRealisticBudgetTableHtml(options = {}) {
             </button>
           </div>
 
-          <button id="mock-step16-btn-lock" class="bg-white text-slate-700 border border-slate-300 px-1.5 py-0.5 rounded shadow-2xs" title="Bloquear ediciÃ³n">
+          <button id="mock-step16-btn-lock" class="bg-white text-slate-700 border border-slate-300 px-1.5 py-0.5 rounded shadow-2xs" title="Bloquear edición">
             <i class="fa-solid fa-lock-open text-[9px] text-slate-600"></i>
           </button>
 
@@ -166,7 +166,7 @@ export function getRealisticBudgetTableHtml(options = {}) {
               <th class="p-1.5 w-6 text-center"><input type="checkbox" class="rounded scale-75"></th>
               <th class="p-1.5 w-12 text-center">Item</th>
               <th class="p-1.5 w-20">Clave</th>
-              <th class="p-1.5">DescripciÃ³n del Concepto de Obra</th>
+              <th class="p-1.5">Descripción del Concepto de Obra</th>
               <th class="p-1.5 w-16 text-right">Cantidad</th>
               <th class="p-1.5 w-12 text-center">Unidad</th>
               <th class="p-1.5 w-24 text-right">P.U. Base</th>
@@ -182,7 +182,7 @@ export function getRealisticBudgetTableHtml(options = {}) {
               <td class="p-1.5 text-center"><input type="checkbox" class="rounded scale-75"></td>
               <td class="p-1.5 text-center">1</td>
               <td class="p-1.5">PART-01</td>
-              <td class="p-1.5 uppercase tracking-wide">01 PRELIMINARES Y TERRACERÃAS</td>
+              <td class="p-1.5 uppercase tracking-wide">01 PRELIMINARES Y TERRACERÍAS</td>
               <td class="p-1.5 text-right font-mono"></td>
               <td class="p-1.5 text-center"></td>
               <td class="p-1.5 text-right font-mono"></td>
@@ -196,7 +196,7 @@ export function getRealisticBudgetTableHtml(options = {}) {
               <td class="p-1.5 text-center"><input type="checkbox" class="rounded scale-75"></td>
               <td class="p-1.5 text-center text-slate-400">1.1</td>
               <td class="p-1.5 font-bold text-slate-700">PRE-001</td>
-              <td class="p-1.5 font-sans text-slate-800">Limpieza y despalme de terreno natural espesor 20cm a mÃ¡quina</td>
+              <td class="p-1.5 font-sans text-slate-800">Limpieza y despalme de terreno natural espesor 20cm a máquina</td>
               <td class="p-1.5 text-right font-bold">450.00</td>
               <td class="p-1.5 text-center">m2</td>
               <td class="p-1.5 text-right font-bold text-slate-800">$18.50</td>
@@ -212,7 +212,7 @@ export function getRealisticBudgetTableHtml(options = {}) {
               <td class="p-1.5 text-center"><input type="checkbox" class="rounded scale-75"></td>
               <td class="p-1.5 text-center text-slate-400">1.2</td>
               <td class="p-1.5 font-bold text-slate-700">PRE-002</td>
-              <td class="p-1.5 font-sans text-slate-800">Trazo y nivelaciÃ³n con equipo topogrÃ¡fico de precisiÃ³n para desplante</td>
+              <td class="p-1.5 font-sans text-slate-800">Trazo y nivelación con equipo topográfico de precisión para desplante</td>
               <td class="p-1.5 text-right font-bold">252.00</td>
               <td class="p-1.5 text-center">m2</td>
               <td class="p-1.5 text-right font-bold text-slate-800">$23.50</td>
@@ -222,13 +222,13 @@ export function getRealisticBudgetTableHtml(options = {}) {
               </td>
             </tr>
 
-            <!-- Fila Partida 02: CIMENTACIÃ“N -->
+            <!-- Fila Partida 02: CIMENTACIÓN -->
             <tr class="bg-slate-200/70 font-sans font-bold text-slate-900">
               <td class="p-1.5 text-center"><i class="fa-solid fa-chevron-down text-[8px] text-slate-600"></i></td>
               <td class="p-1.5 text-center"><input type="checkbox" class="rounded scale-75"></td>
               <td class="p-1.5 text-center">2</td>
               <td class="p-1.5">PART-02</td>
-              <td class="p-1.5 uppercase tracking-wide">02 CIMENTACIÃ“N Y ESTRUCTURAS</td>
+              <td class="p-1.5 uppercase tracking-wide">02 CIMENTACIÓN Y ESTRUCTURAS</td>
               <td class="p-1.5 text-right font-mono"></td>
               <td class="p-1.5 text-center"></td>
               <td class="p-1.5 text-right font-mono"></td>
@@ -315,8 +315,8 @@ export function renderRealisticWorkspaceShell({
             <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
           </div>
 
-          <!-- CatÃ¡logo Maestro de Referencia -->
-          <div id="mock-step7-rail-btn" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-900 cursor-pointer ${activeRail === 'master' ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40' : ''}" title="CatÃ¡logos Maestros y Tabuladores">
+          <!-- Catálogo Maestro de Referencia -->
+          <div id="mock-step7-rail-btn" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-900 cursor-pointer ${activeRail === 'master' ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40' : ''}" title="Catálogos Maestros y Tabuladores">
             <i class="fa-solid fa-book-bookmark text-xs"></i>
           </div>
 
@@ -337,7 +337,7 @@ export function renderRealisticWorkspaceShell({
       <!-- 2. MAIN WORKSPACE VIEWPORT -->
       <div class="flex-1 flex flex-col overflow-hidden min-w-0 bg-slate-900">
         
-        <!-- TOP HEADER: CASCO, EMPRESA Y 5 PESTAÃ‘AS MAESTRAS -->
+        <!-- TOP HEADER: CASCO, EMPRESA Y 5 PESTAÑAS MAESTRAS -->
         <header class="bg-slate-950 border-b border-slate-800 px-3 py-1.5 flex flex-col gap-1 shrink-0 shadow-md">
           
           <!-- Fila Superior: Casco, Empresa y Colaboradores -->
@@ -349,11 +349,11 @@ export function renderRealisticWorkspaceShell({
               </div>
               <div class="truncate">
                 <span class="text-xs font-bold text-white block truncate leading-tight">${companyName}</span>
-                <span class="text-[9.5px] text-slate-400 font-mono truncate block leading-tight">Cubikar v2.0 â€¢ Sistema Integral</span>
+                <span class="text-[9.5px] text-slate-400 font-mono truncate block leading-tight">Cubikar v2.0 • Sistema Integral</span>
               </div>
             </div>
 
-            <!-- Derecha: PÃ­ldora de Colaboradores e Invitar -->
+            <!-- Derecha: Píldora de Colaboradores e Invitar -->
             <div class="flex items-center gap-1.5 shrink-0">
               <div class="flex items-center gap-1 bg-slate-900 border border-slate-750 px-2 py-0.5 rounded-full text-[10px] text-slate-300">
                 <div class="flex -space-x-1">
@@ -374,7 +374,7 @@ export function renderRealisticWorkspaceShell({
             </div>
           </div>
 
-          <!-- Fila Inferior: 5 PESTAÃ‘AS MAESTRAS DE CUBIKAR -->
+          <!-- Fila Inferior: 5 PESTAÑAS MAESTRAS DE CUBIKAR -->
           <div class="flex items-center justify-between border-t border-slate-800/80 pt-1">
             <nav class="flex items-center gap-1 text-[10px] font-sans">
               <button class="px-2 py-1 rounded font-bold flex items-center gap-1 ${activeTab === 'presupuesto' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-300 hover:text-white'}">
@@ -390,7 +390,7 @@ export function renderRealisticWorkspaceShell({
                 <i class="fa-solid fa-cart-shopping text-[9px]"></i> COMPRAS
               </button>
               <button id="mock-step13-tab-bitacora" class="px-2 py-1 rounded font-bold flex items-center gap-1 ${activeTab === 'bitacora' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-300 hover:text-white'}">
-                <i class="fa-solid fa-book-bookmark text-[9px]"></i> BITÃCORA
+                <i class="fa-solid fa-book-bookmark text-[9px]"></i> BITÁCORA
               </button>
             </nav>
           </div>
@@ -403,11 +403,11 @@ export function renderRealisticWorkspaceShell({
               <i class="fa-solid fa-folder-tree text-blue-600"></i> Proyecto: <strong class="text-slate-900">${projectName}</strong>
             </span>
             <span class="flex items-center gap-1 text-slate-600 hidden sm:inline">
-              <i class="fa-solid fa-location-dot text-rose-600"></i> UbicaciÃ³n: Ciudad de MÃ©xico, CDMX
+              <i class="fa-solid fa-location-dot text-rose-600"></i> Ubicación: Ciudad de México, CDMX
             </span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold text-[9px]">En EjecuciÃ³n</span>
+            <span class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold text-[9px]">En Ejecución</span>
           </div>
         </div>
 
@@ -419,7 +419,7 @@ export function renderRealisticWorkspaceShell({
             ${contentHtml}
           </div>
 
-          <!-- Chat Dock Lateral (si showChatDock estÃ¡ activo) -->
+          <!-- Chat Dock Lateral (si showChatDock está activo) -->
           ${showChatDock ? `
             <div id="mock-step3-chat-dock" class="w-64 bg-slate-900 border-l border-slate-800 flex flex-col text-white text-[10px] shrink-0 animate-in slide-in-from-right duration-200">
               <div class="p-2 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
@@ -433,7 +433,7 @@ export function renderRealisticWorkspaceShell({
 
               <!-- Subtabs de Canal -->
               <div id="mock-step14-tabs" class="grid grid-cols-2 p-1 gap-1 bg-slate-950/80 border-b border-slate-800 text-center font-bold">
-                <span class="py-1 rounded bg-blue-600 text-white">Canal TÃ©cnico</span>
+                <span class="py-1 rounded bg-blue-600 text-white">Canal Técnico</span>
                 <span class="py-1 rounded text-slate-400 hover:text-white">Canal Financiero</span>
               </div>
 
@@ -441,12 +441,12 @@ export function renderRealisticWorkspaceShell({
               <div class="flex-1 p-2 space-y-2 overflow-y-auto">
                 <div class="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
                   <div class="flex items-center justify-between mb-1">
-                    <strong class="text-amber-300 font-bold text-[9px]">Arq. SofÃ­a M.</strong>
+                    <strong class="text-amber-300 font-bold text-[9px]">Arq. Sofía M.</strong>
                     <span class="text-[8px] text-slate-400">10:14 AM</span>
                   </div>
-                  <p class="text-slate-200 leading-tight">Se autorizÃ³ el colado del eje 4 al 8 para maÃ±ana a las 7:00 AM.</p>
+                  <p class="text-slate-200 leading-tight">Se autorizó el colado del eje 4 al 8 para mañana a las 7:00 AM.</p>
                   <div id="mock-step14-bitacora-note" class="mt-1.5 inline-block px-1.5 py-0.2 rounded bg-blue-950 text-blue-300 border border-blue-600/40 text-[8.5px] font-mono">
-                    Partida 02 â€¢ CIM-001
+                    Partida 02 • CIM-001
                   </div>
                 </div>
 
@@ -455,14 +455,14 @@ export function renderRealisticWorkspaceShell({
                     <strong class="text-blue-300 font-bold text-[9px]">Ing. Residente</strong>
                     <span class="text-[8px] text-slate-400">Ahora</span>
                   </div>
-                  <p class="text-slate-200 leading-tight">Enterado. Cuadrilla y camiÃ³n bomba listos.</p>
+                  <p class="text-slate-200 leading-tight">Enterado. Cuadrilla y camión bomba listos.</p>
                 </div>
               </div>
 
-              <!-- Input de Chat con MenciÃ³n @ -->
+              <!-- Input de Chat con Mención @ -->
               <div class="p-2 border-t border-slate-800 bg-slate-950 flex gap-1">
                 <div id="mock-step3-chat-input" class="flex-1 p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 font-mono text-[9.5px]">
-                  <span class="mock-type-value">@Carlos Revisar volumen de concreto en cimentaciÃ³n</span>
+                  <span class="mock-type-value">@Carlos Revisar volumen de concreto en cimentación</span>
                 </div>
                 <button id="mock-step3-btn-send" class="px-2 py-1 bg-blue-600 text-white rounded-lg">
                   <i class="fa-solid fa-paper-plane text-[9px]"></i>
@@ -590,14 +590,14 @@ export function renderRealisticPortalShell({
               
               <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                  <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-600/20 text-blue-300 border border-blue-500/30">EdificaciÃ³n</span>
+                  <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-600/20 text-blue-300 border border-blue-500/30">Edificación</span>
                   <span class="text-[10px] text-emerald-400 font-mono font-bold">$417,726.92</span>
                 </div>
                 <h3 class="font-bold text-sm text-white group-hover:text-blue-400 transition">Residencial Palmas Norte</h3>
                 <p class="text-[10.5px] text-slate-300 truncate">Constructora del Valle S.A.</p>
                 <div class="pt-1">
                   <div class="flex justify-between text-[9px] text-slate-400 mb-1">
-                    <span>Avance FÃ­sico</span><span class="font-bold text-white">43.7%</span>
+                    <span>Avance Físico</span><span class="font-bold text-white">43.7%</span>
                   </div>
                   <div class="h-1.5 bg-slate-750 rounded-full overflow-hidden">
                     <div class="h-full bg-blue-500 rounded-full" style="width: 43.7%;"></div>
@@ -639,14 +639,14 @@ export function renderRealisticPortalShell({
               </div>
             </div>
 
-            <!-- Tarjeta 3: UrbanizaciÃ³n Lomas -->
+            <!-- Tarjeta 3: Urbanización Lomas -->
             <div class="bg-slate-850/80 border border-slate-750 rounded-2xl p-3.5 shadow-md flex flex-col justify-between opacity-80">
               <div class="space-y-1.5">
                 <div class="flex items-center justify-between">
                   <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-600/20 text-amber-300 border border-amber-500/30">Obra Civil</span>
                   <span class="text-[10px] text-emerald-400 font-mono font-bold">$920,400.00</span>
                 </div>
-                <h3 class="font-bold text-xs text-white">PavimentaciÃ³n y Drenaje Lomas</h3>
+                <h3 class="font-bold text-xs text-white">Pavimentación y Drenaje Lomas</h3>
                 <p class="text-[10px] text-slate-400 truncate">Municipio de Zapopan</p>
                 <div class="pt-1">
                   <div class="h-1.5 bg-slate-750 rounded-full overflow-hidden">
@@ -716,7 +716,7 @@ export function renderRealisticPortalShell({
         </div>
       </div>
 
-      <!-- Overlay Modal AutÃ©ntico Superpuesto -->
+      <!-- Overlay Modal Auténtico Superpuesto -->
       ${overlayModal ? `
         <div class="absolute inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-3 z-30 animate-in fade-in duration-150">
           ${overlayModal}
@@ -732,7 +732,7 @@ export function renderModuleVisualScene(moduleId) {
   if (!container) return;
 
   switch (Number(moduleId)) {
-case 1: { // Crear Proyecto (Modal AutÃ©ntico: modal-nuevo-proyecto)
+case 1: { // Crear Proyecto (Modal Auténtico: modal-nuevo-proyecto)
       const modalHtml = `
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Encabezado Real -->
@@ -743,7 +743,7 @@ case 1: { // Crear Proyecto (Modal AutÃ©ntico: modal-nuevo-proyecto)
               </div>
               <div>
                 <h3 class="font-bold text-xs sm:text-sm tracking-wide text-white">Crear Nuevo Proyecto</h3>
-                <p class="text-[10px] text-slate-300">Asistente de configuraciÃ³n inicial en 2 pasos</p>
+                <p class="text-[10px] text-slate-300">Asistente de configuración inicial en 2 pasos</p>
               </div>
             </div>
             <button class="text-slate-400 hover:text-white p-1 rounded transition"><i class="fa-solid fa-xmark text-sm"></i></button>
@@ -753,7 +753,7 @@ case 1: { // Crear Proyecto (Modal AutÃ©ntico: modal-nuevo-proyecto)
           <div class="bg-slate-100 border-b border-slate-200 px-5 py-2 flex items-center justify-between text-[11px] font-semibold shrink-0">
             <div class="flex items-center gap-1.5 text-blue-900 font-bold">
               <span class="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
-              <span>1. InformaciÃ³n del Proyecto</span>
+              <span>1. Información del Proyecto</span>
             </div>
             <i class="fa-solid fa-arrow-right text-slate-400 text-[10px]"></i>
             <div class="flex items-center gap-1.5 opacity-50">
@@ -768,8 +768,8 @@ case 1: { // Crear Proyecto (Modal AutÃ©ntico: modal-nuevo-proyecto)
             <div class="p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 flex items-start gap-2 text-[10.5px]">
               <i class="fa-solid fa-circle-info text-blue-600 mt-0.5"></i>
               <div>
-                <strong class="font-semibold">InformaciÃ³n del Proyecto</strong>
-                <p class="text-[10px] text-blue-700">Se vincularÃ¡ de forma permanente al encabezado, catÃ¡logo y reportes.</p>
+                <strong class="font-semibold">Información del Proyecto</strong>
+                <p class="text-[10px] text-blue-700">Se vinculará de forma permanente al encabezado, catálogo y reportes.</p>
               </div>
             </div>
 
@@ -805,7 +805,7 @@ case 1: { // Crear Proyecto (Modal AutÃ©ntico: modal-nuevo-proyecto)
             <div>
               <label class="block font-bold text-slate-700 mb-1 text-[10.5px]">Nombre del Proyecto *</label>
               <div id="mock-step1-obra" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold bg-white text-slate-900 shadow-2xs">
-                <span class="mock-type-value">Residencial Palmas Norte (EdificaciÃ³n)</span>
+                <span class="mock-type-value">Residencial Palmas Norte (Edificación)</span>
               </div>
             </div>
 
@@ -856,7 +856,7 @@ case 3: { // Invitar Colaboradores y Permisos Granulares (Modal: modal-invitacio
                   <i class="fa-solid fa-users-gear"></i>
                 </span>
                 <h3 class="font-bold text-xs sm:text-sm flex items-center gap-2 text-white">
-                  Invitaciones a tu Plan de SuscripciÃ³n
+                  Invitaciones a tu Plan de Suscripción
                 </h3>
                 <span class="text-[9.5px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
                   Plan Pro
@@ -869,7 +869,7 @@ case 3: { // Invitar Colaboradores y Permisos Granulares (Modal: modal-invitacio
             <button class="text-slate-400 hover:text-white p-1 rounded"><i class="fa-solid fa-xmark text-sm"></i></button>
           </div>
 
-          <!-- PestaÃ±as Superiores del Modal -->
+          <!-- Pestañas Superiores del Modal -->
           <div class="flex border-b border-slate-200 bg-slate-100/80 px-4 pt-2 gap-1.5 shrink-0">
             <button class="px-3.5 py-2 text-xs font-bold rounded-t-xl border-t border-x border-slate-200 bg-white text-blue-600 shadow-2xs -mb-px flex items-center gap-1.5">
               <i class="fa-solid fa-user-plus text-blue-600"></i> Invitar Nuevo Usuario
@@ -879,19 +879,19 @@ case 3: { // Invitar Colaboradores y Permisos Granulares (Modal: modal-invitacio
             </button>
           </div>
 
-          <!-- Formulario de InvitaciÃ³n -->
+          <!-- Formulario de Invitación -->
           <div class="p-4 space-y-3 bg-white text-slate-800">
             <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-3">
               <div class="flex items-center justify-between pb-1 border-b border-slate-200">
                 <h4 class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                  <i class="fa-solid fa-user-plus text-blue-600"></i> Formulario de InvitaciÃ³n
+                  <i class="fa-solid fa-user-plus text-blue-600"></i> Formulario de Invitación
                 </h4>
                 <span class="text-[10px] text-slate-500 font-medium">Asigna rol y correo</span>
               </div>
 
               <!-- Correo -->
               <div>
-                <label class="block font-bold text-slate-700 mb-1 text-[10.5px]">Correo ElectrÃ³nico del Invitado *</label>
+                <label class="block font-bold text-slate-700 mb-1 text-[10.5px]">Correo Electrónico del Invitado *</label>
                 <div id="mock-step3-email" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono font-semibold text-slate-900 shadow-2xs">
                   <span class="mock-type-value">ing.torres@constructora.com</span>
                 </div>
@@ -916,9 +916,9 @@ case 3: { // Invitar Colaboradores y Permisos Granulares (Modal: modal-invitacio
                 </div>
               </div>
 
-              <!-- Permisos por PestaÃ±a -->
+              <!-- Permisos por Pestaña -->
               <div id="mock-step3-tabs" class="pt-1">
-                <label class="block font-bold text-slate-700 mb-1 text-[10.5px]">Permisos de PestaÃ±as Habilitadas:</label>
+                <label class="block font-bold text-slate-700 mb-1 text-[10.5px]">Permisos de Pestañas Habilitadas:</label>
                 <div class="flex flex-wrap gap-2 text-[10px]">
                   <span class="px-2 py-1 rounded bg-blue-100 text-blue-800 font-bold border border-blue-300 flex items-center gap-1 cursor-pointer">
                     <i class="fa-solid fa-check text-[9px]"></i> Presupuesto / APU
@@ -927,7 +927,7 @@ case 3: { // Invitar Colaboradores y Permisos Granulares (Modal: modal-invitacio
                     <i class="fa-solid fa-check text-[9px]"></i> Compras y Pagos
                   </span>
                   <span class="px-2 py-1 rounded bg-slate-200 text-slate-700 font-semibold border border-slate-300 flex items-center gap-1 cursor-pointer">
-                    BitÃ¡cora de Obra
+                    Bitácora de Obra
                   </span>
                 </div>
               </div>
@@ -938,7 +938,7 @@ case 3: { // Invitar Colaboradores y Permisos Granulares (Modal: modal-invitacio
           <div class="bg-slate-100 px-4 py-2.5 border-t border-slate-200 flex justify-end gap-2 shrink-0">
             <button class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">Cancelar</button>
             <button id="mock-step3-btn-add" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5">
-              <i class="fa-solid fa-paper-plane text-[10px]"></i> Enviar InvitaciÃ³n
+              <i class="fa-solid fa-paper-plane text-[10px]"></i> Enviar Invitación
             </button>
           </div>
         </div>
@@ -947,7 +947,7 @@ case 3: { // Invitar Colaboradores y Permisos Granulares (Modal: modal-invitacio
       break;
     }
 
-case 4: { // CatÃ¡logo de Conceptos y Presupuesto Base
+case 4: { // Catálogo de Conceptos y Presupuesto Base
       container.innerHTML = renderRealisticWorkspaceShell({
         activeTab: 'presupuesto',
         mainContent: getRealisticBudgetTableHtml({ highlightPartidaBtn: true, highlightDesc: true, highlightCells: true, highlightReorder: true, highlightColor: true })
@@ -955,7 +955,7 @@ case 4: { // CatÃ¡logo de Conceptos y Presupuesto Base
       break;
     }
 
-case 5: { // AnÃ¡lisis de Precios Unitarios (APU Side Panel AutÃ©ntico)
+case 5: { // Análisis de Precios Unitarios (APU Side Panel Auténtico)
       const apuPanelHtml = `
         <div class="flex-1 flex overflow-hidden">
           <!-- Tabla a la izquierda -->
@@ -963,7 +963,7 @@ case 5: { // AnÃ¡lisis de Precios Unitarios (APU Side Panel AutÃ©ntico)
             ${getRealisticBudgetTableHtml({ highlightApuBtn: true })}
           </div>
 
-          <!-- Panel Lateral APU AutÃ©ntico de Cubikar (bg-white, encabezado slate-800, tarjetas resumen y cuadrillas) -->
+          <!-- Panel Lateral APU Auténtico de Cubikar (bg-white, encabezado slate-800, tarjetas resumen y cuadrillas) -->
           <div id="mock-step5-apu-panel" class="w-full md:w-[460px] bg-white border-l border-slate-200 flex flex-col text-slate-800 text-[10.5px] shrink-0 overflow-hidden shadow-2xl">
             
             <!-- APU Header Real -->
@@ -973,7 +973,7 @@ case 5: { // AnÃ¡lisis de Precios Unitarios (APU Side Panel AutÃ©ntico)
                   <span class="bg-amber-400 text-slate-900 font-bold text-[9px] px-1 py-0.5 rounded font-mono">PRE-002</span>
                   <h2 class="font-bold text-xs text-slate-100 truncate">Matriz de Precio Unitario</h2>
                 </div>
-                <p class="text-[10px] text-slate-300 mt-0.5 truncate italic">Trazo y nivelaciÃ³n con equipo topogrÃ¡fico (m2)</p>
+                <p class="text-[10px] text-slate-300 mt-0.5 truncate italic">Trazo y nivelación con equipo topográfico (m2)</p>
               </div>
               <div class="flex items-center gap-1.5 shrink-0">
                 <span class="bg-indigo-600 text-white text-[9.5px] px-2 py-0.5 rounded font-semibold flex items-center gap-1">
@@ -986,7 +986,7 @@ case 5: { // AnÃ¡lisis de Precios Unitarios (APU Side Panel AutÃ©ntico)
             <!-- APU Body -->
             <div class="flex-1 overflow-auto p-2.5 space-y-2.5">
               
-              <!-- Fila SecciÃ³n Matriz con BotÃ³n IA -->
+              <!-- Fila Sección Matriz con Botón IA -->
               <div class="flex justify-between items-center border-b border-slate-200 pb-1">
                 <span class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
                   <i class="fa-solid fa-calculator text-blue-600"></i> MATRIZ DE PRECIO UNITARIO
@@ -1001,7 +1001,7 @@ case 5: { // AnÃ¡lisis de Precios Unitarios (APU Side Panel AutÃ©ntico)
                 </div>
               </div>
 
-              <!-- 6 Tarjetas Resumen IdÃ©nticas a index.html (Materiales, Mano de Obra, Herramienta, Equipo, Maq, Sub) -->
+              <!-- 6 Tarjetas Resumen Idénticas a index.html (Materiales, Mano de Obra, Herramienta, Equipo, Maq, Sub) -->
               <div id="mock-step5-matriz-grid" class="grid grid-cols-3 gap-1.5 text-center text-[10px]">
                 <div class="bg-blue-50 border border-blue-200 p-1 rounded shadow-2xs">
                   <div class="flex items-center justify-center gap-1 text-blue-700 font-bold text-[8.5px]">
@@ -1047,7 +1047,7 @@ case 5: { // AnÃ¡lisis de Precios Unitarios (APU Side Panel AutÃ©ntico)
                   <thead class="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
                     <tr>
                       <th class="p-1">Clave</th>
-                      <th class="p-1">DescripciÃ³n del Insumo</th>
+                      <th class="p-1">Descripción del Insumo</th>
                       <th class="p-1 text-right">Cant.</th>
                       <th class="p-1 text-right">Costo</th>
                       <th class="p-1 text-right">Importe</th>
@@ -1063,14 +1063,14 @@ case 5: { // AnÃ¡lisis de Precios Unitarios (APU Side Panel AutÃ©ntico)
                     </tr>
                     <tr>
                       <td class="p-1 font-bold text-amber-700">MO-001</td>
-                      <td class="p-1 font-sans text-slate-800">Cuadrilla 01 TopÃ³grafo + 2 Cadeneros</td>
+                      <td class="p-1 font-sans text-slate-800">Cuadrilla 01 Topógrafo + 2 Cadeneros</td>
                       <td class="p-1 text-right">0.0028</td>
                       <td class="p-1 text-right">$3,642.00</td>
                       <td class="p-1 text-right font-bold text-slate-900">$10.20</td>
                     </tr>
                     <tr>
                       <td class="p-1 font-bold text-purple-700">EQ-001</td>
-                      <td class="p-1 font-sans text-slate-800">EstaciÃ³n total y trÃ­pode</td>
+                      <td class="p-1 font-sans text-slate-800">Estación total y trípode</td>
                       <td class="p-1 text-right">0.022</td>
                       <td class="p-1 text-right">$133.60</td>
                       <td class="p-1 text-right font-bold text-slate-900">$2.94</td>
@@ -1210,7 +1210,7 @@ case 6: { // Inteligencia Artificial y Google Search Grounding (Modal Oficial: m
       break;
     }
 
-case 7: { // CatÃ¡logos Maestros y Biblioteca de Referencia (Modal: master-catalog-modal)
+case 7: { // Catálogos Maestros y Biblioteca de Referencia (Modal: master-catalog-modal)
       const masterModalHtml = `
         <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Encabezado Real de index.html -->
@@ -1220,12 +1220,12 @@ case 7: { // CatÃ¡logos Maestros y Biblioteca de Referencia (Modal: master-cat
                 <i class="fa-solid fa-book-bookmark"></i>
               </div>
               <div>
-                <h2 class="font-bold text-xs sm:text-sm leading-tight text-white">CatÃ¡logo Maestro y Biblioteca de Referencia</h2>
+                <h2 class="font-bold text-xs sm:text-sm leading-tight text-white">Catálogo Maestro y Biblioteca de Referencia</h2>
                 <div class="flex items-center gap-2 text-[10px] text-slate-300 mt-0.5">
                   <span><i class="fa-solid fa-database text-amber-400"></i> 61,420 registros</span>
-                  <span>â€¢</span>
-                  <span>CatÃ¡logo de Referencia</span>
-                  <span>â€¢</span>
+                  <span>•</span>
+                  <span>Catálogo de Referencia</span>
+                  <span>•</span>
                   <span class="text-blue-300">Tabulador Gobierno</span>
                 </div>
               </div>
@@ -1233,17 +1233,17 @@ case 7: { // CatÃ¡logos Maestros y Biblioteca de Referencia (Modal: master-cat
             <button class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
           </div>
 
-          <!-- PestaÃ±a de NavegaciÃ³n -->
+          <!-- Pestaña de Navegación -->
           <div class="bg-slate-100 border-b border-slate-200 px-4 py-1.5 flex justify-between items-center text-xs shrink-0">
             <div class="flex gap-1.5">
               <button class="px-3 py-1 rounded-lg text-xs font-bold bg-white text-blue-700 shadow-xs border border-slate-200">
-                <i class="fa-solid fa-magnifying-glass mr-1"></i> BÃºsqueda de Conceptos
+                <i class="fa-solid fa-magnifying-glass mr-1"></i> Búsqueda de Conceptos
               </button>
               <button class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900">
-                Administrar CatÃ¡logos
+                Administrar Catálogos
               </button>
             </div>
-            <span class="text-[10px] text-slate-500 font-mono">CatÃ¡logo Oficial</span>
+            <span class="text-[10px] text-slate-500 font-mono">Catálogo Oficial</span>
           </div>
 
           <!-- Cuerpo: Buscador y Vista Dividida de Especialidades -->
@@ -1263,7 +1263,7 @@ case 7: { // CatÃ¡logos Maestros y Biblioteca de Referencia (Modal: master-cat
               <!-- Especialidades a la izquierda -->
               <div id="mock-step7-specialties" class="w-36 bg-slate-50 border-r border-slate-200 p-2 space-y-1 text-[10px] shrink-0 font-medium">
                 <div class="p-1.5 rounded bg-blue-600 text-white font-bold flex justify-between cursor-pointer">
-                  <span>EdificaciÃ³n</span><span class="font-mono text-[9px] opacity-80">18.4k</span>
+                  <span>Edificación</span><span class="font-mono text-[9px] opacity-80">18.4k</span>
                 </div>
                 <div class="p-1.5 rounded hover:bg-slate-200 text-slate-700 flex justify-between cursor-pointer">
                   <span>Instalaciones</span><span class="font-mono text-[9px] opacity-60">14.1k</span>
@@ -1281,7 +1281,7 @@ case 7: { // CatÃ¡logos Maestros y Biblioteca de Referencia (Modal: master-cat
                     <span class="text-emerald-700 font-extrabold text-xs">$3,980.50 / m3</span>
                   </div>
                   <p class="font-sans font-medium text-slate-800 leading-snug">
-                    Zapata corrida de concreto premezclado f'c=250 kg/cm2, incluye cimbra acabado comÃºn, habilitado de acero, vibrado y curado.
+                    Zapata corrida de concreto premezclado f'c=250 kg/cm2, incluye cimbra acabado común, habilitado de acero, vibrado y curado.
                   </p>
                   <div class="grid grid-cols-3 gap-1.5 text-[9px] text-slate-600 font-mono pt-1.5 border-t border-blue-200/60">
                     <div class="bg-white p-1 rounded border border-blue-100">Materiales: $2,420</div>
@@ -1307,16 +1307,16 @@ case 7: { // CatÃ¡logos Maestros y Biblioteca de Referencia (Modal: master-cat
       break;
     }
 
-case 8: { // ExplosiÃ³n y Consolidado de Insumos Generales
+case 8: { // Explosión y Consolidado de Insumos Generales
       const insumosContentHtml = `
         <div class="flex-1 bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col overflow-hidden m-2 text-slate-800 text-[11px]">
           <div class="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 shrink-0">
             <div class="flex items-center gap-1.5 bg-slate-200/80 p-0.5 rounded-md border border-slate-300">
               <button type="button" class="px-2.5 py-0.5 rounded text-[10px] font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1">
-                <i class="fa-solid fa-list-check"></i> CatÃ¡logo Base
+                <i class="fa-solid fa-list-check"></i> Catálogo Base
               </button>
               <button type="button" id="mock-step8-tab-insumos" class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white shadow-2xs flex items-center gap-1">
-                <i class="fa-solid fa-boxes-stacked"></i> ExplosiÃ³n de Insumos (6 CategorÃ­as)
+                <i class="fa-solid fa-boxes-stacked"></i> Explosión de Insumos (6 Categorías)
               </button>
             </div>
 
@@ -1325,7 +1325,7 @@ case 8: { // ExplosiÃ³n y Consolidado de Insumos Generales
             </button>
           </div>
 
-          <!-- Filtros por categorÃ­a -->
+          <!-- Filtros por categoría -->
           <div id="mock-step8-filters" class="p-2 bg-slate-100 border-b border-slate-200 flex items-center gap-1.5 shrink-0 text-[10px]">
             <span class="px-2.5 py-0.5 rounded-full bg-blue-600 text-white font-bold cursor-pointer">Materiales (48)</span>
             <span class="px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300 font-medium cursor-pointer">Mano de Obra (8)</span>
@@ -1335,7 +1335,7 @@ case 8: { // ExplosiÃ³n y Consolidado de Insumos Generales
 
           <!-- Alerta de Cascada -->
           <div id="mock-step8-cascade" class="px-3 py-1 bg-amber-50 border-b border-amber-200 text-amber-900 text-[10px] flex items-center justify-between font-medium">
-            <span><i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> RecÃ¡lculo en cascada activo: cambiar el costo unitario actualiza todas las matrices del presupuesto.</span>
+            <span><i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Recálculo en cascada activo: cambiar el costo unitario actualiza todas las matrices del presupuesto.</span>
             <span class="text-amber-800 font-bold font-mono">6 Matrices Vinculadas</span>
           </div>
 
@@ -1345,7 +1345,7 @@ case 8: { // ExplosiÃ³n y Consolidado de Insumos Generales
               <thead class="bg-slate-100 text-slate-700 uppercase font-bold sticky top-0 border-b border-slate-200 text-[9px]">
                 <tr>
                   <th class="p-1.5 w-20">Clave</th>
-                  <th class="p-1.5">DescripciÃ³n del Insumo Consolidado</th>
+                  <th class="p-1.5">Descripción del Insumo Consolidado</th>
                   <th class="p-1.5 w-16 text-center">Unidad</th>
                   <th class="p-1.5 w-20 text-right">Cantidad Total</th>
                   <th class="p-1.5 w-28 text-right">Costo Unitario</th>
@@ -1388,7 +1388,7 @@ case 8: { // ExplosiÃ³n y Consolidado de Insumos Generales
       break;
     }
 
-case 9: { // Reportes e ImpresiÃ³n Oficial en PDF (Modal: modal-presupuesto-firmas)
+case 9: { // Reportes e Impresión Oficial en PDF (Modal: modal-presupuesto-firmas)
       const printModalHtml = `
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Encabezado Real de index.html -->
@@ -1399,7 +1399,7 @@ case 9: { // Reportes e ImpresiÃ³n Oficial en PDF (Modal: modal-presupuesto-fi
               </div>
               <div>
                 <h3 class="font-bold text-xs sm:text-sm text-white">Responsables y Firmas del Presupuesto</h3>
-                <p class="text-[10px] text-slate-300">AparecerÃ¡n al pie del formato impreso oficial y reporte PDF</p>
+                <p class="text-[10px] text-slate-300">Aparecerán al pie del formato impreso oficial y reporte PDF</p>
               </div>
             </div>
             <button class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
@@ -1419,7 +1419,7 @@ case 9: { // Reportes e ImpresiÃ³n Oficial en PDF (Modal: modal-presupuesto-fi
               </div>
               <div class="p-2 rounded-xl bg-slate-50 border border-slate-200 text-center cursor-pointer hover:bg-slate-100">
                 <strong class="text-slate-800 block text-[10.5px]">Insumos</strong>
-                <span class="text-[8.5px] text-slate-500">ExplosiÃ³n General</span>
+                <span class="text-[8.5px] text-slate-500">Explosión General</span>
               </div>
             </div>
 
@@ -1428,19 +1428,19 @@ case 9: { // Reportes e ImpresiÃ³n Oficial en PDF (Modal: modal-presupuesto-fi
               <span class="text-slate-700 font-bold block text-[10.5px]">Firmas Oficiales Configuradas (Membrete 1:1):</span>
               <div class="grid grid-cols-2 gap-2 text-[9.5px]">
                 <div class="p-1.5 rounded bg-white border border-slate-200">
-                  <strong class="text-slate-500 block text-[8.5px]">ElaborÃ³:</strong>
+                  <strong class="text-slate-500 block text-[8.5px]">Elaboró:</strong>
                   <span class="font-bold text-slate-800">Ing. Residente de Obra</span>
                 </div>
                 <div class="p-1.5 rounded bg-white border border-slate-200">
-                  <strong class="text-slate-500 block text-[8.5px]">RevisÃ³:</strong>
+                  <strong class="text-slate-500 block text-[8.5px]">Revisó:</strong>
                   <span class="font-bold text-slate-800">Superintendente General</span>
                 </div>
                 <div class="p-1.5 rounded bg-white border border-slate-200">
-                  <strong class="text-slate-500 block text-[8.5px]">AprobÃ³:</strong>
+                  <strong class="text-slate-500 block text-[8.5px]">Aprobó:</strong>
                   <span class="font-bold text-slate-800">Director DRO</span>
                 </div>
                 <div class="p-1.5 rounded bg-white border border-slate-200">
-                  <strong class="text-slate-500 block text-[8.5px]">AutorizÃ³:</strong>
+                  <strong class="text-slate-500 block text-[8.5px]">Autorizó:</strong>
                   <span class="font-bold text-slate-800">Cliente / Dependencia</span>
                 </div>
               </div>
@@ -1475,13 +1475,13 @@ case 10: { // Calendario de Obra y Diagrama de Gantt
           <div class="flex items-center justify-between pb-1 shrink-0 flex-wrap gap-2">
             <div class="flex items-center gap-2">
               <button id="mock-step11-btn-jornada" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-xs shadow-sm flex items-center gap-1.5">
-                <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-[10px]"></i> Configurar Jornada & DÃ­as InhÃ¡biles
+                <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-[10px]"></i> Configurar Jornada & Días Inhábiles
               </button>
               <button id="mock-step10-critical" class="px-3 py-1.5 rounded-xl bg-rose-600/20 text-rose-300 border border-rose-500/40 font-bold text-xs flex items-center gap-1.5">
-                <i class="fa-solid fa-route text-rose-400 text-[10px]"></i> Ruta CrÃ­tica Activa
+                <i class="fa-solid fa-route text-rose-400 text-[10px]"></i> Ruta Crítica Activa
               </button>
             </div>
-            <span class="text-[10px] text-slate-400 font-mono">DuraciÃ³n Total: 180 DÃ­as Calendario</span>
+            <span class="text-[10px] text-slate-400 font-mono">Duración Total: 180 Días Calendario</span>
           </div>
 
           <!-- Gantt Chart Bars -->
@@ -1494,19 +1494,19 @@ case 10: { // Calendario de Obra y Diagrama de Gantt
               <div class="flex items-center gap-2">
                 <span class="w-36 font-bold text-white truncate">01 Preliminares</span>
                 <div class="flex-1 bg-slate-800 h-5 rounded-lg relative overflow-hidden">
-                  <div class="absolute left-0 w-1/4 h-full bg-blue-500 rounded-lg flex items-center px-2 text-[9px] font-bold text-white">15 DÃ­as</div>
+                  <div class="absolute left-0 w-1/4 h-full bg-blue-500 rounded-lg flex items-center px-2 text-[9px] font-bold text-white">15 Días</div>
                 </div>
               </div>
               <div class="flex items-center gap-2">
-                <span class="w-36 font-bold text-rose-300 truncate">02 CimentaciÃ³n (CrÃ­tica)</span>
+                <span class="w-36 font-bold text-rose-300 truncate">02 Cimentación (Crítica)</span>
                 <div class="flex-1 bg-slate-800 h-5 rounded-lg relative overflow-hidden">
-                  <div class="absolute left-[20%] w-[35%] h-full bg-rose-600 rounded-lg flex items-center px-2 text-[9px] font-bold text-white shadow-sm ring-1 ring-rose-400">30 DÃ­as (CrÃ­tica)</div>
+                  <div class="absolute left-[20%] w-[35%] h-full bg-rose-600 rounded-lg flex items-center px-2 text-[9px] font-bold text-white shadow-sm ring-1 ring-rose-400">30 Días (Crítica)</div>
                 </div>
               </div>
               <div class="flex items-center gap-2">
                 <span class="w-36 font-bold text-white truncate">03 Estructura Concreto</span>
                 <div class="flex-1 bg-slate-800 h-5 rounded-lg relative overflow-hidden">
-                  <div class="absolute left-[50%] w-[45%] h-full bg-emerald-600 rounded-lg flex items-center px-2 text-[9px] font-bold text-white">45 DÃ­as</div>
+                  <div class="absolute left-[50%] w-[45%] h-full bg-emerald-600 rounded-lg flex items-center px-2 text-[9px] font-bold text-white">45 Días</div>
                 </div>
               </div>
             </div>
@@ -1521,21 +1521,21 @@ case 10: { // Calendario de Obra y Diagrama de Gantt
       break;
     }
 
-case 11: { // Estimaciones y NÃºmeros Generadores de Cobro
+case 11: { // Estimaciones y Números Generadores de Cobro
       const estContentHtml = `
         <div class="flex-1 bg-slate-900 text-slate-100 flex flex-col overflow-hidden p-3 gap-2.5 text-xs">
           <div class="flex items-center justify-between pb-1 shrink-0">
             <div class="flex items-center gap-2">
               <button id="mock-step12-btn-generate" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/30 flex items-center gap-1.5">
-                <i class="fa-solid fa-plus text-[10px]"></i> + Generar EstimaciÃ³n #01
+                <i class="fa-solid fa-plus text-[10px]"></i> + Generar Estimación #01
               </button>
             </div>
-            <span class="text-[10px] text-slate-400 font-mono">Corte: Quincena 01 â€¢ PerÃ­odo 01/Nov al 15/Nov</span>
+            <span class="text-[10px] text-slate-400 font-mono">Corte: Quincena 01 • Período 01/Nov al 15/Nov</span>
           </div>
 
           <div class="flex-1 flex gap-3 overflow-hidden">
             <div id="mock-step12-volumes" class="flex-1 bg-slate-850 border border-slate-750 rounded-xl p-3 flex flex-col">
-              <span class="font-bold text-white text-xs mb-2">Conceptos Estimados en el PerÃ­odo</span>
+              <span class="font-bold text-white text-xs mb-2">Conceptos Estimados en el Período</span>
               <div class="flex-1 overflow-auto">
                 <table class="w-full text-left text-[10px] font-mono">
                   <thead class="bg-slate-900 text-slate-400 font-bold border-b border-slate-750">
@@ -1551,15 +1551,15 @@ case 11: { // Estimaciones y NÃºmeros Generadores de Cobro
 
             <div id="mock-step12-finiquito" class="w-72 bg-slate-850 border border-slate-750 rounded-xl p-3 flex flex-col justify-between">
               <div class="space-y-2">
-                <span class="font-bold text-xs text-white block border-b border-slate-750 pb-1">CarÃ¡tula de EstimaciÃ³n</span>
+                <span class="font-bold text-xs text-white block border-b border-slate-750 pb-1">Carátula de Estimación</span>
                 <div class="flex justify-between text-slate-300 font-mono text-[10px]"><span>Subtotal Estimado:</span><span>$48,612.54</span></div>
-                <div class="flex justify-between text-amber-400 font-mono text-[10px]"><span>(-) Fondo GarantÃ­a (5%):</span><span>-$2,430.63</span></div>
+                <div class="flex justify-between text-amber-400 font-mono text-[10px]"><span>(-) Fondo Garantía (5%):</span><span>-$2,430.63</span></div>
                 <div class="flex justify-between text-emerald-400 font-mono text-xs font-bold border-t border-slate-750 pt-1">
-                  <span>LÃQUIDO A PAGAR:</span><span>$46,181.91</span>
+                  <span>LÍQUIDO A PAGAR:</span><span>$46,181.91</span>
                 </div>
               </div>
               <button id="mock-step12-btn-download" class="w-full py-1.5 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-1.5">
-                <i class="fa-solid fa-file-pdf"></i> Descargar CarÃ¡tula PDF
+                <i class="fa-solid fa-file-pdf"></i> Descargar Carátula PDF
               </button>
             </div>
           </div>
@@ -1580,7 +1580,7 @@ case 12: { // Compras, Gastos y ERP Financiero (Modal: modal-nueva-compra)
               </div>
               <div>
                 <h3 class="font-extrabold text-xs sm:text-sm leading-tight text-white">Nueva Compra / Registro de Gasto</h3>
-                <p class="text-[10px] text-blue-200/80">Control de egresos, orden de compra y cruce con explosiÃ³n de insumos</p>
+                <p class="text-[10px] text-blue-200/80">Control de egresos, orden de compra y cruce con explosión de insumos</p>
               </div>
             </div>
             <button class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
@@ -1588,16 +1588,16 @@ case 12: { // Compras, Gastos y ERP Financiero (Modal: modal-nueva-compra)
 
           <!-- Cuerpo del Modal -->
           <div class="p-4 space-y-3 overflow-y-auto max-h-[60vh] bg-white text-slate-800">
-            <!-- VinculaciÃ³n con Insumo (idÃ©ntico a index.html) -->
+            <!-- Vinculación con Insumo (idéntico a index.html) -->
             <div class="p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1">
               <div class="flex items-center justify-between">
                 <label class="text-[10.5px] font-bold text-slate-800 flex items-center gap-1.5">
-                  <i class="fa-solid fa-link text-blue-600"></i> Vincular a Insumo del CatÃ¡logo Base:
+                  <i class="fa-solid fa-link text-blue-600"></i> Vincular a Insumo del Catálogo Base:
                 </label>
-                <span class="text-[9.5px] text-blue-700 font-semibold">Cruce automÃ¡tico vs Presupuesto</span>
+                <span class="text-[9.5px] text-blue-700 font-semibold">Cruce automático vs Presupuesto</span>
               </div>
               <div class="bg-white border border-blue-200 rounded-lg p-1.5 text-xs text-slate-800 font-medium">
-                MAT-001 â€¢ Concreto premezclado f'c=250 kg/cm2
+                MAT-001 • Concreto premezclado f'c=250 kg/cm2
               </div>
             </div>
 
@@ -1609,19 +1609,19 @@ case 12: { // Compras, Gastos y ERP Financiero (Modal: modal-nueva-compra)
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-0.5 text-[10px]">Tipo de Gasto:</label>
-                <div class="w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-medium">ðŸ“¦ Materiales</div>
+                <div class="w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs font-medium">📦 Materiales</div>
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-0.5 text-[10px]">Partida:</label>
-                <input type="text" value="CimentaciÃ³n" readonly class="w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs">
+                <input type="text" value="Cimentación" readonly class="w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-xs">
               </div>
             </div>
 
-            <!-- DescripciÃ³n de Gasto -->
+            <!-- Descripción de Gasto -->
             <div>
-              <label class="block font-bold text-slate-700 mb-0.5 text-[10.5px]">DescripciÃ³n del Insumo / Factura: *</label>
+              <label class="block font-bold text-slate-700 mb-0.5 text-[10.5px]">Descripción del Insumo / Factura: *</label>
               <div id="mock-step12-form" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-medium text-slate-900 shadow-2xs">
-                <span class="mock-type-value">Factura F-4892 â€¢ Concreto premezclado f'c=250 kg/cm2</span>
+                <span class="mock-type-value">Factura F-4892 • Concreto premezclado f'c=250 kg/cm2</span>
               </div>
             </div>
 
@@ -1639,10 +1639,10 @@ case 12: { // Compras, Gastos y ERP Financiero (Modal: modal-nueva-compra)
 
             <!-- Estatus -->
             <div class="flex items-center justify-between pt-1">
-              <label class="font-bold text-slate-700 text-[10.5px]">Estatus de TesorerÃ­a:</label>
+              <label class="font-bold text-slate-700 text-[10.5px]">Estatus de Tesorería:</label>
               <div id="mock-step12-status" class="flex gap-1.5">
-                <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[10px] cursor-pointer">Pagado âœ“</span>
-                <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-medium text-[10px]">Pendiente â³</span>
+                <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[10px] cursor-pointer">Pagado ✓</span>
+                <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-medium text-[10px]">Pendiente ⏳</span>
               </div>
             </div>
           </div>
@@ -1692,7 +1692,7 @@ case 12: { // Compras, Gastos y ERP Financiero (Modal: modal-nueva-compra)
 
           <!-- Historial -->
           <div class="flex-1 bg-slate-850 border border-slate-750 rounded-xl overflow-hidden flex flex-col">
-            <div class="p-2 border-b border-slate-750 bg-slate-900/60 font-bold text-white text-xs">Historial de Ã“rdenes y Facturas</div>
+            <div class="p-2 border-b border-slate-750 bg-slate-900/60 font-bold text-white text-xs">Historial de Órdenes y Facturas</div>
             <div class="flex-1 overflow-auto">
               <table class="w-full text-left text-[10px] font-mono">
                 <thead class="bg-slate-900 text-slate-400 uppercase font-bold sticky top-0 border-b border-slate-750 text-[9px]">
@@ -1710,7 +1710,7 @@ case 12: { // Compras, Gastos y ERP Financiero (Modal: modal-nueva-compra)
       break;
     }
 
-case 13: { // BitÃ¡cora ElectrÃ³nica y Legal de Obra (Modal: modal-nueva-nota-bitacora)
+case 13: { // Bitácora Electrónica y Legal de Obra (Modal: modal-nueva-nota-bitacora)
       const bitacoraModalHtml = `
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden text-slate-800 text-xs animate-in zoom-in-95 duration-150">
           <!-- Encabezado Legal Real -->
@@ -1720,8 +1720,8 @@ case 13: { // BitÃ¡cora ElectrÃ³nica y Legal de Obra (Modal: modal-nueva-not
                 <i class="fa-solid fa-book-bookmark"></i>
               </div>
               <div>
-                <h3 class="font-bold text-xs sm:text-sm text-white">Nueva Nota de BitÃ¡cora ElectrÃ³nica</h3>
-                <p class="text-[10px] text-slate-300">Reglamento LOPSRM â€¢ Folio Inmutable Cifrado</p>
+                <h3 class="font-bold text-xs sm:text-sm text-white">Nueva Nota de Bitácora Electrónica</h3>
+                <p class="text-[10px] text-slate-300">Reglamento LOPSRM • Folio Inmutable Cifrado</p>
               </div>
             </div>
             <button class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
@@ -1735,19 +1735,19 @@ case 13: { // BitÃ¡cora ElectrÃ³nica y Legal de Obra (Modal: modal-nueva-not
                 <span class="font-bold text-slate-800 text-xs">Colado de Zapatas Aisladas Ejes A-F</span>
               </div>
               <div id="mock-step13-clima" class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-[10px]">
-                <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold border border-amber-300">â˜€ï¸ Soleado 24Â°C</span>
-                <span class="px-2 py-0.5 text-slate-500">ðŸŒ§ï¸ Lluvia</span>
+                <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold border border-amber-300">☀️ Soleado 24°C</span>
+                <span class="px-2 py-0.5 text-slate-500">🌧️ Lluvia</span>
               </div>
             </div>
 
             <!-- Contenido redactado -->
             <div id="mock-step10-editor" class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 leading-relaxed font-sans text-[11px]">
-              <span class="mock-type-value">Siendo las 08:00 hrs se da inicio al suministro y colocaciÃ³n de concreto premezclado f'c=250 kg/cm2 en zapatas aisladas. Se tomaron 4 cilindros de muestra para prueba de laboratorio.</span>
+              <span class="mock-type-value">Siendo las 08:00 hrs se da inicio al suministro y colocación de concreto premezclado f'c=250 kg/cm2 en zapatas aisladas. Se tomaron 4 cilindros de muestra para prueba de laboratorio.</span>
             </div>
 
             <!-- Sello Digital Manuscrito -->
             <div>
-              <label class="text-[10px] text-slate-600 font-bold block mb-1">Firma Digital Manuscrita (TÃ¡ctil / Cifrado LOPSRM)</label>
+              <label class="text-[10px] text-slate-600 font-bold block mb-1">Firma Digital Manuscrita (Táctil / Cifrado LOPSRM)</label>
               <div id="mock-step10-stamp" class="h-14 rounded-xl bg-slate-50 border border-slate-300 p-2 flex items-center justify-center relative">
                 <span class="font-serif italic text-blue-800 text-lg font-bold tracking-widest select-none">Ing. Carlos Mendoza Residente</span>
                 <span class="absolute bottom-1 right-2 text-[8px] text-slate-400 font-mono">Hash SHA-256 Validado</span>
@@ -1773,16 +1773,16 @@ case 13: { // BitÃ¡cora ElectrÃ³nica y Legal de Obra (Modal: modal-nueva-not
                 <i class="fa-solid fa-book-bookmark text-xs"></i>
               </span>
               <div>
-                <h3 class="font-bold text-white text-xs">BitÃ¡cora Oficial de Obra â€¢ Libro Digital LOPSRM</h3>
-                <span class="text-[9px] text-slate-400 font-mono">Folio Legal Inmutable #001 â€¢ Cifrado SHA-256</span>
+                <h3 class="font-bold text-white text-xs">Bitácora Oficial de Obra • Libro Digital LOPSRM</h3>
+                <span class="text-[9px] text-slate-400 font-mono">Folio Legal Inmutable #001 • Cifrado SHA-256</span>
               </div>
             </div>
             <button id="mock-step10-btn-note" class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/30 flex items-center gap-1.5">
-              <i class="fa-solid fa-plus text-[10px]"></i> + Nueva Nota de BitÃ¡cora
+              <i class="fa-solid fa-plus text-[10px]"></i> + Nueva Nota de Bitácora
             </button>
           </div>
           <div id="mock-step10-timeline" class="flex-1 bg-slate-850 border border-slate-750 rounded-xl p-3">
-            <span class="text-slate-400 text-[10px]">LÃ­nea de tiempo cronolÃ³gica inmutable</span>
+            <span class="text-slate-400 text-[10px]">Línea de tiempo cronológica inmutable</span>
           </div>
         </div>
       `;
@@ -1829,7 +1829,7 @@ case 15: { // Importador Universal (Modal: universal-import-modal)
               </div>
             </div>
 
-            <!-- Vista Previa de DetecciÃ³n -->
+            <!-- Vista Previa de Detección -->
             <div id="mock-step15-preview" class="p-2.5 rounded-lg bg-blue-50/70 border border-blue-200 text-[10px] flex justify-between items-center">
               <span class="text-blue-900 font-bold flex items-center gap-1.5">
                 <i class="fa-solid fa-check-double text-blue-600"></i> Vista Previa: 2,450 Renglones y 12 Partidas Detectadas
@@ -1842,7 +1842,7 @@ case 15: { // Importador Universal (Modal: universal-import-modal)
           <div class="bg-slate-100 px-4 py-2 border-t border-slate-200 flex justify-end gap-2 shrink-0">
             <button class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold">Cancelar</button>
             <button id="mock-step13-btn-process" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow flex items-center gap-1.5">
-              <i class="fa-solid fa-play text-[10px]"></i> Iniciar ImportaciÃ³n al CatÃ¡logo
+              <i class="fa-solid fa-play text-[10px]"></i> Iniciar Importación al Catálogo
             </button>
           </div>
         </div>
@@ -1867,11 +1867,11 @@ case 16: { // Seguridad, Respaldos y Perfil Profesional (Modal: modal-perfil-usu
             <!-- Foto y Perfil -->
             <div id="mock-step16-profile" class="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
               <div class="w-12 h-12 rounded-full border-2 border-blue-500 bg-white flex items-center justify-center text-xl shadow-xs shrink-0">
-                ðŸ‘·â€â™‚ï¸
+                👷‍♂️
               </div>
               <div class="space-y-0.5">
                 <strong class="font-bold text-slate-900 text-xs block">Ing. Carlos Mendoza</strong>
-                <span class="text-[10px] text-slate-500 font-mono block">admin@constructora.com â€¢ Plan Pro</span>
+                <span class="text-[10px] text-slate-500 font-mono block">admin@constructora.com • Plan Pro</span>
               </div>
             </div>
 
@@ -1892,14 +1892,14 @@ case 16: { // Seguridad, Respaldos y Perfil Profesional (Modal: modal-perfil-usu
                 <i class="fa-solid fa-lock text-amber-500 text-sm"></i>
                 <div>
                   <span class="font-bold text-slate-800 text-[10.5px] block">Candado Tab Lock Activo</span>
-                  <span class="text-[9.5px] text-slate-500">ProtecciÃ³n contra ediciÃ³n accidental</span>
+                  <span class="text-[9.5px] text-slate-500">Protección contra edición accidental</span>
                 </div>
               </div>
-              <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[9px]">Bloqueado âœ“</span>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[9px]">Bloqueado ✓</span>
             </div>
           </div>
 
-          <!-- Footer: BotÃ³n Respaldo .JSON -->
+          <!-- Footer: Botón Respaldo .JSON -->
           <div class="bg-slate-100 px-4 py-2 border-t border-slate-200 flex justify-between items-center shrink-0">
             <button id="mock-step16-btn-backup" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
               <i class="fa-solid fa-cloud-arrow-down text-blue-600"></i> Descargar Respaldo .JSON

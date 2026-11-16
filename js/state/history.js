@@ -1,6 +1,7 @@
 import { state, persistLocalData } from './store.js';
 import { showToast } from '../ui/notifications.js';
 import { isTabLocked, guardTabUnlocked } from '../ui/tabLockController.js';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js';
 
 export let undoStack = [];
 export let redoStack = [];
@@ -11,6 +12,7 @@ export function setHistoryRenderCallback(cb) {
 }
 
 export function saveState() {
+  if (!canCurrentUserEditProject()) return;
   undoStack.push(JSON.stringify(state.treeData));
   if (undoStack.length > 20) undoStack.shift();
   redoStack = [];
@@ -19,8 +21,9 @@ export function saveState() {
 }
 
 export function updateUndoRedoButtons() {
-  const canUndo = undoStack.length > 0;
-  const canRedo = redoStack.length > 0;
+  const canEdit = canCurrentUserEditProject();
+  const canUndo = canEdit && undoStack.length > 0;
+  const canRedo = canEdit && redoStack.length > 0;
   const catLocked = isTabLocked('cat');
   const insLocked = isTabLocked('insumos');
 
@@ -38,6 +41,10 @@ export function updateUndoRedoButtons() {
 }
 
 export function undoAction() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: tu rol no permite deshacer cambios.', 'warning');
+    return;
+  }
   const viewInsumos = typeof document !== 'undefined' ? document.getElementById('view-insumos') : null;
   const activeTabKey = (viewInsumos && !viewInsumos.classList.contains('hidden')) ? 'insumos' : 'cat';
   if (!guardTabUnlocked(activeTabKey)) return;
@@ -52,6 +59,10 @@ export function undoAction() {
 }
 
 export function redoAction() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: tu rol no permite rehacer cambios.', 'warning');
+    return;
+  }
   const viewInsumos = typeof document !== 'undefined' ? document.getElementById('view-insumos') : null;
   const activeTabKey = (viewInsumos && !viewInsumos.classList.contains('hidden')) ? 'insumos' : 'cat';
   if (!guardTabUnlocked(activeTabKey)) return;

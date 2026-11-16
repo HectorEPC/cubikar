@@ -161,7 +161,7 @@ export function renderModalMatriz(node) {
     else if (ins.tipo === 'Herramienta') sumHerr = round2(sumHerr + total);
     else if (ins.tipo === 'Equipo') sumEq = round2(sumEq + total);
     else if (ins.tipo === 'Maquinaria') sumMaq = round2(sumMaq + total);
-    else if (ins.tipo === 'Subcontrato') sumSub = round2(sumSub + total);
+    else if (ins.tipo === 'Subcontrato' || ins.tipo === 'Flete' || ins.tipo === 'Auxiliar') sumSub = round2(sumSub + total);
   });
 
   // Actualizar tarjetas de desglose
@@ -223,6 +223,8 @@ export function renderModalMatriz(node) {
             <option value="Equipo" ${ins.tipo === 'Equipo' ? 'selected' : ''}>Equipo</option>
             <option value="Maquinaria" ${ins.tipo === 'Maquinaria' ? 'selected' : ''}>Maquinaria</option>
             <option value="Subcontrato" ${ins.tipo === 'Subcontrato' ? 'selected' : ''}>Subcontrato</option>
+            <option value="Flete" ${ins.tipo === 'Flete' ? 'selected' : ''}>Flete</option>
+            <option value="Auxiliar" ${ins.tipo === 'Auxiliar' ? 'selected' : ''}>Auxiliar</option>
           </select>
         </td>
         <td class="p-2 align-top min-w-[260px]">

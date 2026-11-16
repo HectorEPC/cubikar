@@ -13,7 +13,7 @@ if %ERRORLEVEL% equ 0 (
     echo ====================================================
     echo    EXITO: El proyecto se subio correctamente.
     echo ====================================================
-    echo Vercel actualizara https://cubikar-jj8j.vercel.app/
+    echo Cloudflare Pages actualizara automaticamente el despliegue en produccion.
 ) else (
     echo.
     echo ====================================================

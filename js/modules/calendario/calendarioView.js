@@ -1,6 +1,7 @@
 import { printCalendarioObraFormat } from '../io/printService.js';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261115_v14';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js';
+import { renderTabAssignedAvatars } from '../portal/portalController.js';
+import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js';
+import { getActiveProjectId } from '../../config/constants.js';
 // js/modules/calendario/calendarioView.js
 // Renderizador y controlador de la pestaña CALENDARIO DE OBRA
 // Diseño ejecutivo de alta fidelidad, interactivo y sincronizado 100% con Catálogo Base
@@ -1910,7 +1911,7 @@ export function syncGanttScroll() {
 // ARRASTRE Y REDIMENSIONAMIENTO DE BARRAS DE GANTT (MOVER, ESTIRAR Y REDUCIR)
 // ------------------------------------------
 export function initGanttBarDrag() {
-  if (isTabLocked('calendario')) return;
+  if (isTabLocked('calendario') || !canCurrentUserEditProject(getActiveProjectId())) return;
   const timelinePanel = document.getElementById('gantt-timeline-panel');
   if (!timelinePanel || !timelinePanel.querySelectorAll) return;
 
@@ -2939,7 +2940,7 @@ export function openCalendarioJornadaModal() {
   currentJornadaActiveTab = 'semanal';
 
   // Info del proyecto
-  const prjName = state.projectInfo?.nombre || state.projectName || 'Proyecto Principal';
+  const prjName = state.settings?.projectName || state.projectInfo?.nombre || state.projectName || 'Proyecto Principal';
   const prjNameEl = document.getElementById('modal-jornada-project-name');
   if (prjNameEl) prjNameEl.textContent = prjName;
 

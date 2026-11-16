@@ -44,10 +44,37 @@ function extractJsonFromText(text) {
   }
 }
 
+function isAllowedOrigin(rawOrigin) {
+  if (!rawOrigin) return true;
+  try {
+    const parsed = new URL(rawOrigin);
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host === 'cubikar.app' ||
+      host.endsWith('.cubikar.app') ||
+      host.endsWith('.pages.dev') ||
+      host === 'cubikar-jj8j.vercel.app' ||
+      host.endsWith('.vercel.app') ||
+      host === 'localhost' ||
+      host === '127.0.0.1'
+    );
+  } catch {
+    return false;
+  }
+}
+
 export default async function handler(req, res) {
+  const reqOrigin = req.headers.origin || req.headers.referer || '';
+  const originAllowed = isAllowedOrigin(reqOrigin);
+
   // Solo admitir método POST y preflight OPTIONS
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (req.headers.origin && originAllowed) {
+      res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', 'https://const.cubikar.app');
+    }
+    res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Gemini-Key');
     return res.status(200).end();
@@ -59,23 +86,17 @@ export default async function handler(req, res) {
   }
 
   // 1. Verificación de Origen (CORS / Anti-Leeching)
-  const origin = req.headers.origin || req.headers.referer || '';
-  const isAllowedOrigin = !origin ||
-    origin.includes('cubikar-jj8j.vercel.app') ||
-    origin.includes('vercel.app') ||
-    origin.includes('localhost') ||
-    origin.includes('127.0.0.1');
-
-  if (!isAllowedOrigin) {
+  if (!originAllowed) {
     return res.status(403).json({ success: false, error: 'Acceso no autorizado desde este origen.' });
   }
 
-  res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || 'https://const.cubikar.app');
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Gemini-Key');
 
   // 2. Control de Frecuencia (Rate Limiting)
-  const clientIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').split(',')[0].trim();
+  const clientIp = (req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1').split(',')[0].trim();
   if (isRateLimited(clientIp)) {
     return res.status(429).json({
       success: false,
@@ -126,6 +147,7 @@ export default async function handler(req, res) {
   let quotaSnapshot = null;
   let quotaUserId = null;
   let resolvedQuotaPlanId = 'free';
+  let preReservedQuota = null;
 
   const normalizePlan = (raw) => {
     const k = String(raw || 'free').toLowerCase().trim();
@@ -177,16 +199,18 @@ export default async function handler(req, res) {
 
     quotaUserId = verifiedUserId;
 
-    // Resolver plan autoritativo desde PostgreSQL (empresas.plan) y validar si colabora en cuenta de anfitrión
+    // Resolver plan autoritativo desde PostgreSQL (empresas.plan_const / empresas.plan) y validar si colabora en cuenta de anfitrión
+    preReservedQuota = null;
     if (verifiedUserId && sbUrl && serviceRoleKey) {
       try {
         const perfRes = await fetch(
-          `${sbUrl}/rest/v1/perfiles?id=eq.${encodeURIComponent(verifiedUserId)}&select=id,email,empresa_id,empresas(id,plan,estado_suscripcion)&limit=1`,
+          `${sbUrl}/rest/v1/perfiles?id=eq.${encodeURIComponent(verifiedUserId)}&select=id,email,empresa_id,empresas(id,plan,plan_const,acceso_const,estado_suscripcion)&limit=1`,
           { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } }
         );
         if (perfRes.ok) {
           const perfRows = await perfRes.json();
-          const dbPlan = perfRows?.[0]?.empresas?.plan ? normalizePlan(perfRows[0].empresas.plan) : '';
+          const emp = perfRows?.[0]?.empresas;
+          const dbPlan = emp?.plan_const ? normalizePlan(emp.plan_const) : (emp?.plan ? normalizePlan(emp.plan) : '');
           // No degradar a 'free' si user_metadata ya registra una suscripción pagada (plus/pro) aún no sincronizada en empresas.plan
           if (dbPlan && (dbPlan !== 'free' || verifiedPlanId === 'free')) {
             verifiedPlanId = dbPlan;
@@ -195,23 +219,39 @@ export default async function handler(req, res) {
 
         const reqOwnerEmail = String(body.ownerEmail || '').toLowerCase().trim();
         const reqProjectId = String(body.projectId || '').trim();
+        const isUuidProj = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reqProjectId);
         if (reqOwnerEmail && verifiedUserEmail && reqOwnerEmail !== verifiedUserEmail) {
-          const invQuery = reqProjectId
-            ? `owner_email=ilike.${encodeURIComponent(reqOwnerEmail)}&invitee_email=ilike.${encodeURIComponent(verifiedUserEmail)}&proyecto_id=eq.${encodeURIComponent(reqProjectId)}&estado=in.(accepted,active)&select=owner_email,proyecto_id&limit=1`
-            : `owner_email=ilike.${encodeURIComponent(reqOwnerEmail)}&invitee_email=ilike.${encodeURIComponent(verifiedUserEmail)}&estado=in.(accepted,active)&select=owner_email&limit=1`;
-          const invRes = await fetch(`${sbUrl}/rest/v1/invitaciones?${invQuery}`, {
-            headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` }
-          });
-          const invRows = invRes.ok ? await invRes.json() : [];
-          if (Array.isArray(invRows) && invRows.length > 0) {
+          let isAcceptedCollaborator = false;
+          if (isUuidProj) {
+            const pRes = await fetch(
+              `${sbUrl}/rest/v1/proyectos?id=eq.${encodeURIComponent(reqProjectId)}&select=id,owner_email,proyecto_colaboradores!inner(email_colaborador,estado_invitacion)&proyecto_colaboradores.email_colaborador=ilike.${encodeURIComponent(verifiedUserEmail)}&proyecto_colaboradores.estado_invitacion=eq.accepted&limit=1`,
+              { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } }
+            );
+            const pRows = pRes.ok ? await pRes.json() : [];
+            if (Array.isArray(pRows) && pRows.length > 0 && String(pRows[0].owner_email || '').toLowerCase().trim() === reqOwnerEmail) {
+              isAcceptedCollaborator = true;
+            }
+          } else {
+            const cRes = await fetch(
+              `${sbUrl}/rest/v1/proyecto_colaboradores?email_colaborador=ilike.${encodeURIComponent(verifiedUserEmail)}&estado_invitacion=eq.accepted&select=proyecto_id,proyectos!inner(owner_email)&proyectos.owner_email=ilike.${encodeURIComponent(reqOwnerEmail)}&limit=1`,
+              { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } }
+            );
+            const cRows = cRes.ok ? await cRes.json() : [];
+            if (Array.isArray(cRows) && cRows.length > 0) {
+              isAcceptedCollaborator = true;
+            }
+          }
+
+          if (isAcceptedCollaborator) {
             const ownerPerfRes = await fetch(
-              `${sbUrl}/rest/v1/perfiles?email=ilike.${encodeURIComponent(reqOwnerEmail)}&select=id,email,empresas(plan)&limit=1`,
+              `${sbUrl}/rest/v1/perfiles?email=ilike.${encodeURIComponent(reqOwnerEmail)}&select=id,email,empresas(plan,plan_const)&limit=1`,
               { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } }
             );
             const ownerRows = ownerPerfRes.ok ? await ownerPerfRes.json() : [];
             if (ownerRows?.[0]?.id) {
               quotaUserId = ownerRows[0].id;
-              let ownerPlan = ownerRows[0]?.empresas?.plan ? normalizePlan(ownerRows[0].empresas.plan) : 'free';
+              const ownerEmp = ownerRows[0]?.empresas;
+              let ownerPlan = ownerEmp?.plan_const ? normalizePlan(ownerEmp.plan_const) : (ownerEmp?.plan ? normalizePlan(ownerEmp.plan) : 'free');
               if (ownerPlan === 'free') {
                 try {
                   const admRes = await fetch(`${sbUrl}/auth/v1/admin/users/${encodeURIComponent(ownerRows[0].id)}`, {
@@ -270,6 +310,14 @@ export default async function handler(req, res) {
               error: quotaOut.reason || 'Has alcanzado tu cuota mensual de IA para este plan.',
               quotaSnapshot
             });
+          }
+          if (quotaOut?.allowed === true && quotaOut?.month_key) {
+            preReservedQuota = {
+              userId: quotaUserId,
+              monthKey: quotaOut.month_key,
+              stdDelta: preStdDelta,
+              searchDelta: preSearchDelta
+            };
           }
         }
       } catch (_) {}
@@ -579,9 +627,102 @@ Instrucciones de análisis:
     }
   }
 
+  // Compensar/revertir cuota pre-reservada si todas las llamadas a Gemini fallaron
+  if (preReservedQuota && sbUrl && serviceRoleKey) {
+    try {
+      const qFilter = `user_id=eq.${encodeURIComponent(preReservedQuota.userId)}&month_key=eq.${encodeURIComponent(preReservedQuota.monthKey)}`;
+      const curResp = await fetch(`${sbUrl}/rest/v1/consumo_mensual_ia?${qFilter}&select=standard_calls,search_grounding_calls`, {
+        headers: {
+          'apikey': serviceRoleKey,
+          'Authorization': `Bearer ${serviceRoleKey}`
+        }
+      });
+      if (curResp.ok) {
+        const rows = await curResp.json();
+        const cur = Array.isArray(rows) ? rows[0] : null;
+        if (cur) {
+          const nextStd = Math.max(0, Number(cur.standard_calls || 0) - Number(preReservedQuota.stdDelta || 0));
+          const nextSearch = Math.max(0, Number(cur.search_grounding_calls || 0) - Number(preReservedQuota.searchDelta || 0));
+          await fetch(`${sbUrl}/rest/v1/consumo_mensual_ia?${qFilter}`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': serviceRoleKey,
+              'Authorization': `Bearer ${serviceRoleKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              standard_calls: nextStd,
+              search_grounding_calls: nextSearch,
+              updated_at: new Date().toISOString()
+            })
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
   return res.status(502).json({
     success: false,
     error: `No se pudo generar con Google IA: ${lastError}`,
     debugErrors
+  });
+}
+
+export async function onRequest(context) {
+  const { request, env } = context;
+  globalThis.process = globalThis.process || { env: {} };
+  globalThis.process.env = { ...(globalThis.process.env || {}), ...(env || {}) };
+
+  const headersObj = {};
+  request.headers.forEach((value, key) => {
+    headersObj[key.toLowerCase()] = value;
+  });
+
+  let body = {};
+  if (request.method !== 'GET' && request.method !== 'HEAD' && request.method !== 'OPTIONS') {
+    const rawText = await request.text().catch(() => '');
+    if (rawText) {
+      try {
+        body = JSON.parse(rawText);
+      } catch {
+        body = {};
+      }
+    }
+  }
+
+  let statusCode = 200;
+  const resHeaders = new Headers({ 'Content-Type': 'application/json; charset=utf-8' });
+  let responseBody = '';
+
+  const req = {
+    method: request.method,
+    url: request.url,
+    headers: headersObj,
+    body,
+    socket: { remoteAddress: headersObj['cf-connecting-ip'] || '127.0.0.1' }
+  };
+
+  const res = {
+    setHeader(k, v) {
+      resHeaders.set(k, String(v));
+    },
+    status(code) {
+      statusCode = code;
+      return this;
+    },
+    json(data) {
+      responseBody = JSON.stringify(data);
+      return this;
+    },
+    end(txt = '') {
+      responseBody = txt || '';
+      return this;
+    }
+  };
+
+  await handler(req, res);
+  return new Response(statusCode === 204 || request.method === 'OPTIONS' ? null : responseBody, {
+    status: statusCode,
+    headers: resHeaders
   });
 }

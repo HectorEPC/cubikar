@@ -1,4 +1,4 @@
-import crypto from 'node:crypto';
+// Compatible con Cloudflare Pages Functions (Web Crypto API) y Node.js 18+
 
 const DEFAULT_SUPABASE_URL = 'https://hxyzvxueoqvvjyehfpym.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh4eXp2eHVlb3F2dmp5ZWhmcHltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQxMTYwODAsImV4cCI6MjEwOTY5MjA4MH0.q3P-_HZ11PP5dgCkAX7o5TZGqVAoqVv438W6coZiYeA';
@@ -58,19 +58,34 @@ const ALLOWED_EXTENSIONS = new Set([
   'pdf', 'xml', 'xlsx', 'xls', 'csv', 'json', 'gz'
 ]);
 
+function isAllowedOrigin(rawOrigin) {
+  if (!rawOrigin) return true;
+  try {
+    const parsed = new URL(rawOrigin);
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host === 'cubikar.app' ||
+      host.endsWith('.cubikar.app') ||
+      host.endsWith('.pages.dev') ||
+      host === 'cubikar-jj8j.vercel.app' ||
+      host.endsWith('.vercel.app') ||
+      host === 'localhost' ||
+      host === '127.0.0.1'
+    );
+  } catch {
+    return false;
+  }
+}
+
 function setCorsHeaders(req, res) {
   const origin = req.headers.origin || '';
-  const allowedOrigin =
-    !origin ||
-    origin.includes('localhost') ||
-    origin.includes('127.0.0.1') ||
-    origin.includes('cubikar-jj8j.vercel.app') ||
-    origin.includes('vercel.app');
+  const allowedOrigin = isAllowedOrigin(origin);
 
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin ? (origin || '*') : 'https://cubikar-jj8j.vercel.app');
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin ? (origin || 'https://cubikar.app') : 'https://const.cubikar.app');
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return allowedOrigin;
 }
 
 function getAwsConfig() {
@@ -106,12 +121,30 @@ export function encodeS3Key(key) {
     .join('/');
 }
 
-function hmacSha256(key, data) {
-  return crypto.createHmac('sha256', key).update(data, 'utf8').digest();
+const textEncoder = new TextEncoder();
+
+function bufferToHex(buf) {
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
-function sha256Hex(data) {
-  return crypto.createHash('sha256').update(data, 'utf8').digest('hex');
+async function hmacSha256(key, data) {
+  const keyBytes = typeof key === 'string' ? textEncoder.encode(key) : key;
+  const cryptoKey = await globalThis.crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await globalThis.crypto.subtle.sign('HMAC', cryptoKey, textEncoder.encode(data));
+  return new Uint8Array(sig);
+}
+
+async function sha256Hex(data) {
+  const hash = await globalThis.crypto.subtle.digest('SHA-256', textEncoder.encode(data));
+  return bufferToHex(hash);
 }
 
 function formatAmzDates(now = new Date()) {
@@ -123,9 +156,9 @@ function formatAmzDates(now = new Date()) {
 }
 
 /**
- * Genera una URL prefirmada compatible con AWS Signature Version 4 usando solo node:crypto.
+ * Genera una URL prefirmada compatible con AWS Signature Version 4 usando Web Crypto API (Cloudflare Pages & Node).
  */
-export function buildPresignedS3Url({
+export async function buildPresignedS3Url({
   method = 'GET',
   bucket,
   region,
@@ -194,22 +227,24 @@ export function buildPresignedS3Url({
     'UNSIGNED-PAYLOAD'
   ].join('\n');
 
+  const canonicalReqHash = await sha256Hex(canonicalRequest);
   const stringToSign = [
     'AWS4-HMAC-SHA256',
     amzDate,
     credentialScope,
-    sha256Hex(canonicalRequest)
+    canonicalReqHash
   ].join('\n');
 
-  const kDate = hmacSha256(`AWS4${secretAccessKey}`, dateStamp);
-  const kRegion = hmacSha256(kDate, region);
-  const kService = hmacSha256(kRegion, 's3');
-  const kSigning = hmacSha256(kService, 'aws4_request');
-  const signature = crypto.createHmac('sha256', kSigning).update(stringToSign, 'utf8').digest('hex');
+  const kDate = await hmacSha256(`AWS4${secretAccessKey}`, dateStamp);
+  const kRegion = await hmacSha256(kDate, region);
+  const kService = await hmacSha256(kRegion, 's3');
+  const kSigning = await hmacSha256(kService, 'aws4_request');
+  const signatureBytes = await hmacSha256(kSigning, stringToSign);
+  const signature = bufferToHex(signatureBytes);
 
   return {
     url: `${baseUrlPrefix}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`,
-    canonicalRequestHash: sha256Hex(canonicalRequest),
+    canonicalRequestHash: canonicalReqHash,
     credentialScope,
     expiresIn: safeExpires
   };
@@ -248,7 +283,7 @@ function buildS3ObjectKey({ ownerEmail, proyectoId, modulo, fileName }) {
   const moduleSlug = ALLOWED_MODULOS.has(modulo) ? modulo : 'otros';
   const now = new Date();
   const ym = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-  const uid = crypto.randomUUID().slice(0, 12);
+  const uid = globalThis.crypto.randomUUID().slice(0, 12);
   const safeName = sanitizeFileName(fileName);
   return `${ownerSlug}/${projectSlug}/${moduleSlug}/${ym}/${uid}-${safeName}`;
 }
@@ -359,7 +394,11 @@ export function validateUploadQuota({ spec, projectFilesBytes, masterCatalogByte
 }
 
 export default async function handler(req, res) {
-  setCorsHeaders(req, res);
+  const originAllowed = setCorsHeaders(req, res);
+
+  if (req.headers.origin && !originAllowed) {
+    return res.status(403).json({ error: 'Acceso no autorizado desde este origen.' });
+  }
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -444,7 +483,7 @@ export default async function handler(req, res) {
       }
 
       const s3Key = buildS3ObjectKey({ ownerEmail, proyectoId, modulo, fileName });
-      const signed = buildPresignedS3Url({
+      const signed = await buildPresignedS3Url({
         method: 'PUT',
         bucket: aws.bucket,
         region: aws.region,
@@ -490,7 +529,7 @@ export default async function handler(req, res) {
         ? `attachment; filename="${sanitizeFileName(record.nombre_original)}"`
         : '';
 
-      const signed = buildPresignedS3Url({
+      const signed = await buildPresignedS3Url({
         method: 'GET',
         bucket: aws.bucket,
         region: aws.region,
@@ -523,7 +562,7 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'No tienes permiso para eliminar este archivo de S3.' });
       }
 
-      const signedDelete = buildPresignedS3Url({
+      const signedDelete = await buildPresignedS3Url({
         method: 'DELETE',
         bucket: aws.bucket,
         region: aws.region,
@@ -553,4 +592,62 @@ export default async function handler(req, res) {
     console.error('[api/s3-presign]', err);
     return res.status(500).json({ error: err?.message || 'Error interno generando firma S3.' });
   }
+}
+
+export async function onRequest(context) {
+  const { request, env } = context;
+  globalThis.process = globalThis.process || { env: {} };
+  globalThis.process.env = { ...(globalThis.process.env || {}), ...(env || {}) };
+
+  const headersObj = {};
+  request.headers.forEach((value, key) => {
+    headersObj[key.toLowerCase()] = value;
+  });
+
+  let body = {};
+  if (request.method !== 'GET' && request.method !== 'HEAD' && request.method !== 'OPTIONS') {
+    const rawText = await request.text().catch(() => '');
+    if (rawText) {
+      try {
+        body = JSON.parse(rawText);
+      } catch {
+        body = rawText;
+      }
+    }
+  }
+
+  let statusCode = 200;
+  const resHeaders = new Headers({ 'Content-Type': 'application/json; charset=utf-8' });
+  let responseBody = '';
+
+  const req = {
+    method: request.method,
+    url: request.url,
+    headers: headersObj,
+    body
+  };
+
+  const res = {
+    setHeader(k, v) {
+      resHeaders.set(k, String(v));
+    },
+    status(code) {
+      statusCode = code;
+      return this;
+    },
+    json(data) {
+      responseBody = JSON.stringify(data);
+      return this;
+    },
+    end(txt = '') {
+      responseBody = txt || '';
+      return this;
+    }
+  };
+
+  await handler(req, res);
+  return new Response(statusCode === 204 || request.method === 'OPTIONS' ? null : responseBody, {
+    status: statusCode,
+    headers: resHeaders
+  });
 }

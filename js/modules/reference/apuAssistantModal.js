@@ -8,12 +8,19 @@ import { formatMoney, round2 } from '../../core/formatters.js';
 import { findNodeById } from '../catalog/treeService.js';
 import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from '../apu/apuView.js';
 import { searchReferenceItems, listReferenceCatalogs } from './referenceDb.js';
+import { canCurrentUserEditProject } from '../portal/projectService.js';
+import { guardTabUnlocked } from '../../ui/tabLockController.js';
 
 let apuSearchDebounce = null;
 let currentApuSearchResults = [];
 
 // Abrir modal de asistente de insumos para el concepto activo
 export async function openApuReferenceModal() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: tu rol no permite agregar insumos a matrices APU.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   if (!state.activeSelectedId) {
     showToast('Selecciona primero un concepto en la tabla para editar su matriz APU.', 'warning');
     return;
@@ -224,6 +231,11 @@ function renderApuAssistantResults(items) {
 
 // Agregar el insumo seleccionado directamente a la matriz del concepto activo
 export function addInsumoToApuMatrix(resultIndex) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: tu rol no permite agregar insumos a matrices APU.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   const item = currentApuSearchResults[resultIndex];
   if (!item || !state.activeSelectedId) return;
 

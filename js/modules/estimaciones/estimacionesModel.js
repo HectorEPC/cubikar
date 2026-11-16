@@ -197,6 +197,9 @@ export function saveEstimacionesData(data) {
         return next;
       });
     }
+    if (data && typeof data === 'object') {
+      data.updatedAt = new Date().toISOString();
+    }
     localStorage.setItem(getEstimacionesStorageKey(), JSON.stringify(data));
     scheduleEstimacionesCloudSync();
   } catch (e) {
@@ -634,8 +637,10 @@ export function getEstimacionesCalculatedData() {
       childrenRows.push(...rows);
     });
 
+    let descendantCount = 0;
     childrenRows.forEach(row => {
       if (!row.isParent) {
+        descendantCount += 1;
         partImporteBase += row.importeBase;
         partImporteAnt += row.importeAnt;
         partTotalEje += row.totalEje;
@@ -664,6 +669,7 @@ export function getEstimacionesCalculatedData() {
       level,
       color,
       expanded,
+      descendantCount,
       cantBase: 0,
       pu: 0,
       importeBase: partImporteBase,
@@ -713,6 +719,7 @@ export function getEstimacionesCalculatedData() {
   let amortizadoAnterior = 0;
   let amortizacionEsta = 0;
   let amortizadoTotalHistorico = 0;
+  const avanceCalcById = new Map();
 
   sortedAvanceEsts.forEach(est => {
     let estTotal = 0;
@@ -730,6 +737,7 @@ export function getEstimacionesCalculatedData() {
     const amortReal = Math.min(amortTeorica, saldoAnticipoDisponible);
     saldoAnticipoDisponible = Math.max(0, Math.round(((saldoAnticipoDisponible - amortReal) + Number.EPSILON) * 100) / 100);
     amortizadoTotalHistorico += amortReal;
+    avanceCalcById.set(est.id, { estTotal, amortReal });
 
     if (est.numero < activeEst.numero) {
       amortizadoAnterior += amortReal;
@@ -779,16 +787,10 @@ export function getEstimacionesCalculatedData() {
     if (est.numero === 0) {
       estNeto = totalAnticipoContratado;
     } else {
-      let estTotal = 0;
-      if (est.conceptos) {
-        Object.entries(est.conceptos).forEach(([cId, cant]) => {
-          const pu = puMap.get(cId) || 0;
-          estTotal += (Number(cant) || 0) * pu;
-        });
-      }
-      estTotal = Math.round((estTotal + Number.EPSILON) * 100) / 100;
-      const amortTeorica = Math.round(((estTotal * (anticipoPct / 100)) + Number.EPSILON) * 100) / 100;
-      estNeto = Math.max(0, estTotal - amortTeorica);
+      const calcEst = avanceCalcById.get(est.id);
+      const estTotal = calcEst ? calcEst.estTotal : 0;
+      const amortReal = calcEst ? calcEst.amortReal : 0;
+      estNeto = Math.max(0, Math.round(((estTotal - amortReal) + Number.EPSILON) * 100) / 100);
     }
 
     const estIva = Math.round(((estNeto * (ivaPct / 100)) + Number.EPSILON) * 100) / 100;

@@ -813,7 +813,7 @@ export function printApuMatrix() {
   // -----------------------------------------------------------
   let totalImporteObra = 0;
   const insumosUnitariosRows = insumos.map(ins => {
-    const cantUnit = round2(ins.cantidad || 0);
+    const cantUnit = round5(Number(ins.cantidad) || 0);
     const costoUnit = round2(ins.costoUnitario || 0);
     const cantidadTotalObra = round2(cantUnit * conceptoCantidad);
     const importeObra = round2(cantidadTotalObra * costoUnit);
@@ -1182,8 +1182,16 @@ export function printInsumosGenerales() {
           <span class="font-mono font-bold">${formatMoney(categoryTotals['Mano de Obra'] || 0)}</span>
         </div>
         <div class="summary-row">
-          <span style="color: #475569;">Subtotal Equipo / Maq.:</span>
+          <span style="color: #475569;">Subtotal Herramienta:</span>
+          <span class="font-mono font-bold">${formatMoney(categoryTotals['Herramienta'] || 0)}</span>
+        </div>
+        <div class="summary-row">
+          <span style="color: #475569;">Subtotal Equipo:</span>
           <span class="font-mono font-bold">${formatMoney(categoryTotals['Equipo'] || 0)}</span>
+        </div>
+        <div class="summary-row">
+          <span style="color: #475569;">Subtotal Maquinaria:</span>
+          <span class="font-mono font-bold">${formatMoney(categoryTotals['Maquinaria'] || 0)}</span>
         </div>
         <div class="summary-row">
           <span style="color: #475569;">Subtotal Subcontratos:</span>
@@ -2872,6 +2880,26 @@ export async function printEstimacionesFormat() {
   const projectName = (state.settings && state.settings.projectName) || 'Proyecto de Obra Base';
   const projectLocation = (state.settings && state.settings.projectLocation) || '';
 
+  if (activeEst.numero === 0 || activeEst.tipo === 'anticipo' || activeEst.id === 'est_0') {
+    const estZeroHtml = renderPrintEstimacionZeroHTML(
+      data,
+      companyLogo,
+      companyName,
+      projectName,
+      projectLocation,
+      currentDate,
+      currencyCode,
+      currencySymbol
+    );
+    openPrintWindow(
+      `Estimacion_0_Anticipo_${projectName.replace(/\s+/g, '_')}`,
+      estZeroHtml,
+      'landscape',
+      { autoPrint: false }
+    );
+    return;
+  }
+
   // =============================================================
   // A) CONSTRUIR "RESUMEN DE LA ESTIMACIÓN" (SOLO CANT EJE > 0)
   // =============================================================
@@ -3134,20 +3162,27 @@ export async function printEstimacionesFormat() {
         </div>
 
         <!-- Firmas al pie de cada hoja de concepto y reporte fotográfico -->
-        <div class="signatures-grid" style="margin-top: 14px;">
-          <div class="signature-box">
-            <strong>ELABORÓ / CONTRATISTA</strong>
-            <span>Superintendencia de Construcción</span>
-          </div>
-          <div class="signature-box">
-            <strong>REVISÓ / SUPERVISIÓN</strong>
-            <span>Supervisión Externa y Control de Calidad</span>
-          </div>
-          <div class="signature-box">
-            <strong>AUTORIZÓ / RESIDENCIA</strong>
-            <span>Dirección General de Obra y Supervisión</span>
-          </div>
-        </div>
+        ${(() => {
+          const customSigs = Array.isArray(state.settings?.budgetSignatures) && state.settings.budgetSignatures.length > 0
+            ? state.settings.budgetSignatures
+            : [
+                { rol: 'ELABORÓ / CONTRATISTA', nombre: '', cargo: 'Superintendencia de Construcción' },
+                { rol: 'REVISÓ / SUPERVISIÓN', nombre: '', cargo: 'Supervisión Externa y Control de Calidad' },
+                { rol: 'AUTORIZÓ / RESIDENCIA', nombre: '', cargo: 'Dirección General de Obra y Supervisión' }
+              ];
+          const sigCols = Math.min(Math.max(customSigs.length, 1), 5);
+          return `
+            <div class="signatures-grid" style="grid-template-columns: repeat(${sigCols}, 1fr); margin-top: 14px;">
+              ${customSigs.map(sig => `
+                <div class="signature-box">
+                  <strong>${escapeHtml(sig.rol || 'FIRMA')}</strong>
+                  ${sig.nombre ? `<div style="font-weight: 700; color: #0f172a; font-size: 8.5pt; margin: 3px 0 2px 0;">${escapeHtml(sig.nombre)}</div>` : ''}
+                  <span>${escapeHtml(sig.cargo || '')}</span>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        })()}
       </div>
     `;
   }).join('');
@@ -3321,14 +3356,14 @@ export async function printEstimacionesFormat() {
           <span style="font-size: 6.5pt; color: #64748b;">Saldo x amortizar: ${formatMoney(kpis.anticipo.saldoPendiente)}</span>
         </div>
         <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 10px;">
-          <span style="font-size: 7pt; font-weight: 700; color: #0f172a; text-transform: uppercase; display: block;">Subtotal Neto ${kpis.iva && kpis.iva.pct > 0 ? `+ IVA (${kpis.iva.pct}%)` : ''}</span>
+          <span style="font-size: 7pt; font-weight: 700; color: #0f172a; text-transform: uppercase; display: block;">Subtotal Neto (Sin IVA)</span>
           <div style="font-size: 10pt; font-weight: 900; color: #0f172a; font-family: monospace; margin-top: 2px;">${formatMoney(kpis.anticipo.netoEstaEstimacion)}</div>
-          <span style="font-size: 6.5pt; color: #64748b;">${kpis.iva && kpis.iva.pct > 0 ? `IVA: +${formatMoney(kpis.iva.estaEstimacion)}` : 'Sin IVA configurado'}</span>
+          <span style="font-size: 6.5pt; color: #64748b;">${kpis.iva && kpis.iva.pct > 0 ? `IVA (${kpis.iva.pct}%): +${formatMoney(kpis.iva.estaEstimacion)}` : 'Sin IVA configurado'}</span>
         </div>
         <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 7px 10px;">
-          <span style="font-size: 7pt; font-weight: 800; color: #047857; text-transform: uppercase; display: block;">Alcance Líquido a Cobrar</span>
+          <span style="font-size: 7pt; font-weight: 800; color: #047857; text-transform: uppercase; display: block;">Alcance Líquido ${kpis.iva && kpis.iva.pct > 0 ? '(Con IVA)' : 'a Cobrar'}</span>
           <div style="font-size: 10pt; font-weight: 900; color: #047857; font-family: monospace; margin-top: 2px;">${formatMoney(liquidoFinalCobrar)}</div>
-          <span style="font-size: 6.5pt; color: #059669;">Total neto de esta estimación</span>
+          <span style="font-size: 6.5pt; color: #059669;">${kpis.iva && kpis.iva.pct > 0 ? 'Neto + IVA incluido' : 'Total neto de esta estimación'}</span>
         </div>
       </div>
 
@@ -3551,8 +3586,14 @@ export async function printEstimacionesFormat() {
         </div>
         
         <div style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 12px; text-align: right;">
-          <span style="font-size: 7pt; font-weight: 700; color: #475569; text-transform: uppercase; display: block;">Alcance Líquido a Pagar:</span>
-          <span style="font-size: 10.5pt; font-weight: 900; color: #047857; font-family: monospace;">${formatMoney(kpis.anticipo.netoEstaEstimacion)}</span>
+          ${kpis.iva && kpis.iva.pct > 0 ? `
+            <span style="font-size: 6.5pt; font-weight: 700; color: #475569; text-transform: uppercase; display: block;">Subtotal Neto (Sin IVA): <strong style="font-family: monospace; color: #0f172a;">${formatMoney(kpis.anticipo.netoEstaEstimacion)}</strong></span>
+            <span style="font-size: 7pt; font-weight: 800; color: #047857; text-transform: uppercase; display: block; margin-top: 2px;">Alcance Líquido (+IVA ${kpis.iva.pct}%):</span>
+            <span style="font-size: 10.5pt; font-weight: 900; color: #047857; font-family: monospace;">${formatMoney(liquidoFinalCobrar)}</span>
+          ` : `
+            <span style="font-size: 7pt; font-weight: 700; color: #475569; text-transform: uppercase; display: block;">Alcance Líquido a Pagar:</span>
+            <span style="font-size: 10.5pt; font-weight: 900; color: #047857; font-family: monospace;">${formatMoney(kpis.anticipo.netoEstaEstimacion)}</span>
+          `}
         </div>
       </div>
 
@@ -3626,8 +3667,10 @@ export async function printEstimacionesFormat() {
             <td colspan="4" class="text-right font-mono" style="padding: 5px 8px; color: #b91c1c; border: 1px solid #cbd5e1; font-weight: 800;">
               Amortización en Esta Estimación: -${formatMoney(kpis.anticipo.amortizacionEsta)}
             </td>
-            <td colspan="5" class="text-right font-mono font-black" style="padding: 5px 8px; background-color: #ecfdf5; color: #047857; font-size: 7.5pt; border: 1px solid #cbd5e1;">
-              ALCANCE LÍQUIDO A COBRAR: ${formatMoney(kpis.anticipo.netoEstaEstimacion)}
+            <td colspan="5" class="text-right font-mono font-black" style="padding: 5px 8px; background-color: #ecfdf5; color: #047857; font-size: 7.2pt; border: 1px solid #cbd5e1;">
+              ${kpis.iva && kpis.iva.pct > 0
+                ? `SUBTOTAL NETO (SIN IVA): ${formatMoney(kpis.anticipo.netoEstaEstimacion)} | ALCANCE LÍQUIDO (+IVA ${kpis.iva.pct}%): ${formatMoney(liquidoFinalCobrar)}`
+                : `ALCANCE LÍQUIDO A COBRAR: ${formatMoney(kpis.anticipo.netoEstaEstimacion)}`}
             </td>
           </tr>
         </tfoot>

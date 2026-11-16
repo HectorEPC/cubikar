@@ -6,12 +6,14 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261115_v16';
+} from '../../config/constants.js';
 import {
   getCurrentUser,
   getLastKnownUser,
   getSavedUserProfile,
   saveCurrentUser,
+  setSimulatedUserView,
+  getSimulatedUserView,
   getProjectsList,
   saveProjectsList,
   getProjectById,
@@ -64,13 +66,13 @@ import {
   SAMPLE_LOGOS,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261116_v24_sync_fix';
+} from './projectService.js';
 import { showToast } from '../../ui/notifications.js';
 import { persistLocalData, state, initStore } from '../../state/store.js';
 import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js';
 import { renderTAB1 } from '../catalog/catalogView.js';
 import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261115_v10';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js';
 import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js';
 import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js';
 import {
@@ -82,8 +84,8 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js?v=20261114_08';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261114_08';
+} from '../../core/authService.js';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js';
 import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js';
 import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js';
 import { mountStorageMeter } from '../../services/storageQuotaService.js';
@@ -140,28 +142,25 @@ export function initPortal() {
     } catch (_) {}
   }
 
-  // Detectar retorno de pago exitoso desde Stripe Checkout
+  // Detectar retorno desde Stripe Checkout sin confiar en parámetros manipulables de URL (?plan=)
   const pagoStatus = urlParams.get('pago');
   if (pagoStatus === 'exitoso') {
-    const planParam = urlParams.get('plan') || 'plus';
-    const cicloParam = urlParams.get('ciclo') || 'monthly';
-    saveSubscription(planParam, cicloParam);
-    try { updateSubscriptionBadgesUI(); } catch (_) {}
-
-    // Sincronizar actualización de suscripción con Supabase en la tabla empresas
-    const sb = getSupabaseClient();
-    if (sb && user?.empresaId) {
-      sb.from('empresas').update({
-        plan: planParam,
-        estado_suscripcion: 'active',
-        periodo_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      }).eq('id', user.empresaId).then(() => {
-        console.info('[Stripe] Empresa actualizada con éxito en Supabase');
-      }).catch(err => console.warn('[Stripe] Aviso al actualizar empresa:', err));
-    }
-
-    showToast(`🎉 ¡Pago verificado con éxito por Stripe! Plan ${planParam.toUpperCase()} activado en tu empresa.`, 'success');
     window.history.replaceState({}, document.title, window.location.pathname);
+    showToast('🔄 Retorno desde Stripe recibido. Verificando suscripción activa desde el servidor...', 'info');
+    if (user?.id) {
+      Promise.resolve()
+        .then(async () => {
+          try { await fetchUserProfile(user.id, true); } catch (_) {}
+          try { await syncSubscriptionFromCloud(); } catch (_) {}
+          try { updateSubscriptionBadgesUI(); } catch (_) {}
+          try {
+            if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+              window.refreshProjectsGridUI();
+            }
+          } catch (_) {}
+        })
+        .catch(() => {});
+    }
   } else if (pagoStatus === 'cancelado') {
     showToast('Proceso de pago cancelado. No se realizó ningún cargo.', 'info');
     window.history.replaceState({}, document.title, window.location.pathname);
@@ -180,8 +179,35 @@ export function initPortal() {
       setActiveProjectId(proj.id);
       showWorkspaceView(user, proj);
       return true;
+    } else if (isSupabaseConfigured()) {
+      fetchCloudProjects().then((cloudList) => {
+        if (Array.isArray(cloudList) && cloudList.length > 0) {
+          const curList = getProjectsList();
+          cloudList.forEach(cp => {
+            const idx = curList.findIndex(lp => lp.id === cp.id || lp.cloudId === cp.id);
+            if (idx === -1) curList.unshift(cp);
+            else curList[idx] = { ...curList[idx], ...cp, isCloudSynced: true };
+          });
+          saveProjectsList(curList);
+        }
+        const downloadedProj = getProjectById(projIdFromUrl);
+        if (downloadedProj) {
+          setActiveProjectId(downloadedProj.id);
+          showWorkspaceView(user, downloadedProj);
+          if (typeof window !== 'undefined' && typeof window.openProjectInWorkspace === 'function') {
+            window.openProjectInWorkspace(downloadedProj.id);
+          }
+        } else {
+          showToast('No se encontró el proyecto especificado. Mostrando lista de proyectos.', 'error');
+          showPortalView('dashboard');
+        }
+      }).catch(() => {
+        showToast('No se encontró el proyecto especificado. Mostrando lista de proyectos.', 'error');
+        showPortalView('dashboard');
+      });
+      return false;
     } else {
-      showToast('No se encontró el proyecto especificado. Mostrando lista de proyectos.', false);
+      showToast('No se encontró el proyecto especificado. Mostrando lista de proyectos.', 'error');
       showPortalView('dashboard');
       return false;
     }
@@ -747,6 +773,9 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
   currentScopeFilter = 'owned';
   setActiveWorkspaceData(cleanEmail, name || cleanEmail);
   const initialFreeSub = userPlanSub;
+  const isVerifiedMaster = cleanEmail === 'hepc.90@gmail.com';
+  const defaultRole = isVerifiedMaster ? 'Admin General' : 'usuario';
+  const defaultRoleLabel = isVerifiedMaster ? 'Administrador' : 'Usuario';
   const localAccount = {
     subscription: initialFreeSub,
     name,
@@ -755,8 +784,8 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
     sexo,
     dob,
     avatar,
-    role: 'Admin General',
-    roleLabel: 'Administrador',
+    role: defaultRole,
+    roleLabel: defaultRoleLabel,
     registeredAt: new Date().toISOString()
   };
   saveRegisteredUserAccount(localAccount);
@@ -838,8 +867,8 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
     sexo,
     dob,
     avatar,
-    role: 'Admin General',
-    roleLabel: 'Administrador',
+    role: defaultRole,
+    roleLabel: defaultRoleLabel,
     registeredAt: new Date().toISOString()
   };
   const remember = document.getElementById('reg-remember-me')?.checked ?? false;
@@ -891,7 +920,8 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
         try { localStorage.setItem(`adm_const_subscription_${email}`, JSON.stringify(userSub)); } catch (_) {}
       }
 
-      const resolvedRole = perfil?.rol || 'Admin General';
+      const isMaster = email === 'hepc.90@gmail.com';
+      const resolvedRole = isMaster ? 'Admin General' : (perfil?.rol && perfil.rol !== 'Admin General' ? perfil.rol : 'usuario');
       const resolvedDisplayName = resolveUserDisplayName({ perfil, authUser: user }) || displayName;
       const loggedUser = {
         id: user.id,
@@ -952,7 +982,7 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
   if (savedUser && (savedUser.email || '').toLowerCase().trim() === cleanEmail) {
     currentScopeFilter = 'owned';
     setActiveWorkspaceData(cleanEmail, savedUser.name || cleanEmail);
-    showToast(`Â¡Hola de nuevo, ${savedUser.name}!`);
+    showToast(`¡Hola de nuevo, ${savedUser.name}!`);
     const proceedSaved = () => {
       if (returnProjectId) {
         openProjectInWorkspace(returnProjectId);
@@ -1086,7 +1116,11 @@ export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
   if (!user) {
     const preset = GOOGLE_PRESET_ACCOUNTS.find(a => (a.email || '').toLowerCase().trim() === cleanEmail);
     if (preset) {
-      user = Object.assign({}, preset, { role: 'Admin General', roleLabel: 'Administrador' });
+      const isMaster = cleanEmail === 'hepc.90@gmail.com';
+      user = Object.assign({}, preset, {
+        role: isMaster ? 'Admin General' : 'usuario',
+        roleLabel: isMaster ? 'Administrador' : 'Usuario'
+      });
     }
   }
 
@@ -1808,9 +1842,11 @@ export function renderPortalDashboard() {
     <!-- Empty State for Filters -->
     <div id="noResults" class="hidden text-center py-12 bg-slate-950/50 border border-dashed border-slate-800 rounded-2xl">
       <svg class="w-12 h-12 text-slate-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      <h4 class="text-white font-semibold text-base">No se encontraron proyectos</h4>
-      <p class="text-xs text-slate-400 mt-1">Prueba con otros términos de búsqueda o limpia los filtros seleccionados.</p>
-      <button onclick="resetProjectFilters()" class="mt-4 px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium transition cursor-pointer">Limpiar Filtros</button>
+      <h4 id="noResultsTitle" class="text-white font-semibold text-base">No se encontraron proyectos</h4>
+      <p id="noResultsText" class="text-xs text-slate-400 mt-1">Prueba con otros términos de búsqueda o limpia los filtros seleccionados.</p>
+      <div id="noResultsActions" class="mt-4">
+        <button onclick="resetProjectFilters()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium transition cursor-pointer">Limpiar Filtros</button>
+      </div>
     </div>
 
     <!-- Medidor de Cuota Unificada AWS S3 del Anfitrión -->
@@ -2624,7 +2660,7 @@ export function renderProjectTableRowsHTML(filteredProjects) {
 export function exportProjectToExcelAction(projectId) {
   const p = getProjectById(projectId);
   if (!p) {
-    showToast('No se encontró el proyecto para exportar', false);
+    showToast('No se encontró el proyecto para exportar', 'error');
     return;
   }
 
@@ -2635,7 +2671,7 @@ export function exportProjectToExcelAction(projectId) {
   } catch (e) {}
 
   if (!tree || tree.length === 0) {
-    showToast('El proyecto seleccionado no contiene conceptos cargados para exportar.', false);
+    showToast('El proyecto seleccionado no contiene conceptos cargados para exportar.', 'error');
     return;
   }
 
@@ -2680,7 +2716,7 @@ export function exportProjectToExcelAction(projectId) {
     }
   } catch (err) {
     console.error('Error exportando Excel:', err);
-    showToast('Ocurrió un error al exportar el archivo Excel', false);
+    showToast('Ocurrió un error al exportar el archivo Excel', 'error');
   }
 }
 
@@ -2714,7 +2750,11 @@ export function openProjectInNewTab(projectId) {
 }
 
 export function goToProjectsDashboard() {
+  setSimulatedUserView(null);
   persistLocalData(true);
+  try {
+    window.unsubscribeFromProjectRealtime?.();
+  } catch (_) {}
   const user = getCurrentUser();
 
   if (!user) {
@@ -2736,14 +2776,43 @@ export function goToProjectsDashboard() {
   showPortalView('dashboard');
 }
 
+export function exitProjectToPortal() {
+  setSimulatedUserView(null);
+  try {
+    window.unsubscribeFromProjectRealtime?.();
+  } catch (_) {}
+  setActiveProjectId(null);
+  const user = getCurrentUser();
+  if (!user) {
+    showPortalView('login');
+    return;
+  }
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('project');
+    window.history.replaceState({}, '', url.pathname + (url.search || ''));
+    if (currentScopeFilter && currentScopeFilter.startsWith('owner:')) {
+      const targetEmail = currentScopeFilter.replace('owner:', '').toLowerCase().trim();
+      setActiveWorkspaceData(targetEmail);
+    } else {
+      setActiveWorkspaceData(user.email, user.name || user.email);
+    }
+  } catch (_) {}
+  showPortalView('dashboard');
+  refreshProjectsGridUI();
+}
+
 export function duplicateProjectAction(projectId) {
   const p = getProjectById(projectId);
   if (!p) return;
   const user = getCurrentUser();
   const uEmail = (user?.email || '').toLowerCase().trim();
-  const isOwner = (p.ownerEmail || '').toLowerCase().trim() === uEmail;
-  const myMem = Array.isArray(p.members) ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail) : null;
-  const isEditor = isOwner || myMem?.role === 'editar' || user?.role === 'Admin General';
+  const pOwner = (p.ownerEmail || '').toLowerCase().trim();
+  const isOwner = !pOwner || pOwner === uEmail;
+  const myMem = Array.isArray(p.members)
+    ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending' && m.status !== 'rejected')
+    : null;
+  const isEditor = isOwner || myMem?.role === 'editar';
 
   if (!isEditor) {
     showToast('🔒 Solo el propietario o colaboradores con rol de Editor pueden duplicar proyectos.', 'warning');
@@ -2769,16 +2838,12 @@ export async function deleteProjectAction(projectId, event) {
   const uEmail = (user?.email || '').toLowerCase().trim();
   const pOwner = (p?.ownerEmail || '').toLowerCase().trim();
 
-  const isOwner = !p ||
-                  !pOwner ||
-                  pOwner === uEmail ||
-                  pOwner === 'admin.general@constructora.com' ||
-                  pOwner === 'admin@constructora.com' ||
-                  pOwner === 'local@cubikar.app' ||
-                  currentScopeFilter === 'owned';
+  const isOwner = !p || !pOwner || pOwner === uEmail;
 
-  const myMem = (p && Array.isArray(p.members)) ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail) : null;
-  const isEditor = isOwner || myMem?.role === 'editar' || user?.role === 'Admin General';
+  const myMem = (p && Array.isArray(p.members))
+    ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending' && m.status !== 'rejected')
+    : null;
+  const isEditor = isOwner || myMem?.role === 'editar';
 
   if (!isEditor) {
     showToast('🔒 Solo el propietario o colaboradores con rol de Editor pueden eliminar este proyecto.', 'warning');
@@ -2817,9 +2882,12 @@ export function openEditarProyectoModal(projectId) {
 
   const user = getCurrentUser();
   const uEmail = (user?.email || '').toLowerCase().trim();
-  const isOwner = (p.ownerEmail || '').toLowerCase().trim() === uEmail;
-  const myMem = Array.isArray(p.members) ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail) : null;
-  const isEditor = isOwner || myMem?.role === 'editar' || user?.role === 'Admin General';
+  const pOwner = (p.ownerEmail || '').toLowerCase().trim();
+  const isOwner = !pOwner || pOwner === uEmail;
+  const myMem = Array.isArray(p.members)
+    ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending' && m.status !== 'rejected')
+    : null;
+  const isEditor = isOwner || myMem?.role === 'editar';
 
   if (!isEditor) {
     showToast('🔒 Solo el propietario o colaboradores con rol de Editor pueden modificar este proyecto.', 'warning');
@@ -3414,6 +3482,21 @@ export function updateTemplateSelection() {
 }
 
 export async function finalizeCreateProject() {
+  const finishBtn = document.getElementById('btn-wiz-finish');
+  const origFinishHtml = finishBtn ? finishBtn.innerHTML : '✓ Crear Proyecto y Abrir';
+  if (finishBtn) {
+    if (finishBtn.disabled) return;
+    finishBtn.disabled = true;
+    finishBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Creando obra...`;
+  }
+
+  const restoreFinishBtn = () => {
+    if (finishBtn) {
+      finishBtn.disabled = false;
+      finishBtn.innerHTML = origFinishHtml;
+    }
+  };
+
   const company = document.getElementById('wiz-company-name').value.trim();
   const project = document.getElementById('wiz-project-name').value.trim();
   const location = document.getElementById('wiz-project-location').value.trim();
@@ -3438,6 +3521,7 @@ export async function finalizeCreateProject() {
 
   const check = canUserCreateProject(user, currentScopeFilter);
   if (!check.allowed) {
+    restoreFinishBtn();
     showToast(`🔒 ${check.reason || 'No es posible crear más proyectos.'}`, 'warning');
     if (!check.isHostContext) {
       openSubscriptionModal();
@@ -3496,6 +3580,13 @@ export async function finalizeCreateProject() {
   }
 
   const newProj = createNewProject(projPayload);
+  newProj.cloudId = newProj.cloudId || newProj.id;
+  const projects = getProjectsList();
+  const createdIdx = projects.findIndex(p => p.id === newProj.id);
+  if (createdIdx >= 0) {
+    projects[createdIdx].cloudId = newProj.cloudId;
+    saveProjectsList(projects);
+  }
 
   try {
     if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
@@ -3503,21 +3594,40 @@ export async function finalizeCreateProject() {
     }
   } catch (_) {}
 
-  // Sincronizar de inmediato a Supabase PostgreSQL
+  // Sincronizar a Supabase PostgreSQL con timeout máximo de 1200ms para entrada instantánea
   try {
     const rawTree = localStorage.getItem(getStorageKey(newProj.id));
     const rawSettings = localStorage.getItem(getSettingsKey(newProj.id));
-    const pTree = rawTree ? JSON.parse(rawTree) : (sampleTree || []);
-    const pSettings = rawSettings ? JSON.parse(rawSettings) : projPayload;
-    const res = await syncProjectToCloud(newProj, pSettings, pTree);
-    if (res && res.success) {
-      newProj.isCloudSynced = true;
-      console.info('[CloudSync] Nuevo proyecto respaldado en Supabase con ID:', res.projectId);
-    }
+    const treeToSave = rawTree ? JSON.parse(rawTree) : (sampleTree || []);
+    const settingsToSave = rawSettings ? JSON.parse(rawSettings) : projPayload;
+    const syncTask = syncProjectToCloud(newProj, settingsToSave, treeToSave).then((res) => {
+      if (res && res.success) {
+        newProj.isCloudSynced = true;
+        if (res.projectId) newProj.cloudId = res.projectId;
+        const latestProjs = getProjectsList();
+        const lIdx = latestProjs.findIndex(p => p.id === newProj.id || p.cloudId === newProj.cloudId);
+        if (lIdx >= 0) {
+          latestProjs[lIdx].isCloudSynced = true;
+          latestProjs[lIdx].cloudId = newProj.cloudId;
+          saveProjectsList(latestProjs);
+        }
+        console.info('[CloudSync] Nuevo proyecto respaldado en Supabase con ID:', res.projectId);
+      }
+      return res;
+    }).catch((err) => {
+      console.warn('[CloudSync] Aviso al respaldar nuevo proyecto:', err);
+      return null;
+    });
+
+    await Promise.race([
+      syncTask,
+      new Promise(resolve => setTimeout(resolve, 1200))
+    ]);
   } catch (err) {
     console.warn('[CloudSync] Aviso al respaldar nuevo proyecto:', err);
   }
 
+  restoreFinishBtn();
   closeNuevoProyectoModal();
   if (check.isHostContext) {
     showToast(`¡Proyecto "${newProj.projectName}" creado con éxito bajo la cuenta de ${check.hostName}!`);
@@ -3759,20 +3869,86 @@ export async function deleteCurrentUserAccountAction() {
   }
 }
 
-export async function logoutUser(skipConfirm = false) {
+function purgeLocalAuthSessionOnly() {
+  if (typeof localStorage !== 'undefined') {
+    const preservedKeys = new Set([
+      'cubikar_deleted_projects_v1',
+      'cubikar_dismissed_notifications_v1',
+      'control_obra_closed_sessions_v1',
+      'cubikar_last_signout_ts',
+      'cubikar_auth_session_version'
+    ]);
+    const exactSessionKeys = [
+      'control_obra_user_profile_v1',
+      'control_obra_user_profile_v1_last',
+      'control_obra_user_profile_dismissed',
+      'control_obra_active_workspace_v1',
+      'control_obra_clipboard_concept_v1',
+      'control_obra_featured_profiles_v1',
+      'cubikar_remember_device',
+      'cubikar_active_project_id'
+    ];
+    for (const k of exactSessionKeys) {
+      if (!preservedKeys.has(k)) {
+        try { localStorage.removeItem(k); } catch (_) {}
+      }
+    }
+    try {
+      const toRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || preservedKeys.has(k)) continue;
+        if (
+          k.startsWith('sb-') ||
+          k.includes('auth-token') ||
+          k.includes('supabase.auth.token') ||
+          k.startsWith('adm_const_subscription')
+        ) {
+          toRemove.push(k);
+        }
+      }
+      toRemove.forEach((k) => localStorage.removeItem(k));
+    } catch (_) {}
+  }
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      const sRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (
+          k &&
+          (k === 'control_obra_user_profile_v1' ||
+           k === 'cubikar_active_project_id' ||
+           k.startsWith('sb-') ||
+           k.includes('auth-token'))
+        ) {
+          sRemove.push(k);
+        }
+      }
+      sRemove.forEach((k) => sessionStorage.removeItem(k));
+    } catch (_) {}
+  }
+}
+
+export async function logoutUser(skipConfirm = false, options = {}) {
+  const { scope = 'local', skipSignOut = false } = options || {};
   if (!skipConfirm && !confirm('¿Deseas cerrar sesión en esta computadora? Tus proyectos se conservarán intactos.')) return;
 
   const current = getCurrentUser();
   const cleanEmail = (current?.email || '').toLowerCase().trim();
 
-  // 1. Cerrar sesión formalmente en Supabase Auth con alcance global
-  try {
-    const sb = getSupabaseClient();
-    if (sb) {
-      await sb.auth.signOut({ scope: 'global' });
+  // 1. Cerrar sesión en Supabase Auth (por defecto solo alcance local en esta PC)
+  if (!skipSignOut) {
+    try {
+      if (typeof signOut === 'function') {
+        await signOut({ scope });
+      } else {
+        const sb = getSupabaseClient();
+        if (sb) await sb.auth.signOut({ scope });
+      }
+    } catch (err) {
+      console.warn('[Logout] Aviso al cerrar sesión en Supabase:', err);
     }
-  } catch (err) {
-    console.warn('[Logout] Aviso al cerrar sesión en Supabase:', err);
   }
 
   // 2. Marcar la sesión cerrada para este correo en esta PC
@@ -3780,29 +3956,16 @@ export async function logoutUser(skipConfirm = false) {
     markSessionClosed(cleanEmail);
   }
 
-  // 3. Limpiar almacenamiento de usuario activo
+  // 3. Limpiar almacenamiento de usuario activo sin destruir proyectos offline ni lápidas
   saveCurrentUser(null);
-
-  // 4. Purga de sesión preservando lápidas de proyectos eliminados y notificaciones descartadas
   try {
-    if (typeof localStorage !== 'undefined') {
-      const preservedDeleted = localStorage.getItem('cubikar_deleted_projects_v1');
-      const preservedDismissedNotifs = localStorage.getItem('cubikar_dismissed_notifications_v1');
-      const preservedAuthVer = localStorage.getItem('cubikar_auth_session_version');
-      localStorage.clear();
-      if (preservedDeleted) localStorage.setItem('cubikar_deleted_projects_v1', preservedDeleted);
-      if (preservedDismissedNotifs) localStorage.setItem('cubikar_dismissed_notifications_v1', preservedDismissedNotifs);
-      if (preservedAuthVer) localStorage.setItem('cubikar_auth_session_version', preservedAuthVer);
-    }
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.clear();
-    }
+    purgeLocalAuthSessionOnly();
   } catch (_) {}
 
   currentScopeFilter = 'owned';
   updatePortalHeaderUserArea(null);
   renderSidebarNotificationsUI();
-  showToast('Has cerrado sesión y se limpió el caché local.');
+  showToast('Has cerrado sesión en esta computadora. Tus datos locales están a salvo.');
 
   const isLocalhost = typeof window !== 'undefined' && (
     window.location.hostname === 'localhost' || 
@@ -3816,26 +3979,21 @@ export async function logoutUser(skipConfirm = false) {
 // Cerrar sesión en absolutamente todas las computadoras y navegadores
 export async function logoutAllDevices(skipConfirm = false) {
   if (!skipConfirm && !confirm('¿Deseas cerrar sesión en TODAS las computadoras y dispositivos?')) return;
-  const current = getCurrentUser();
-  const cleanEmail = (current?.email || '').toLowerCase().trim();
 
   try {
-    const sb = getSupabaseClient();
-    if (sb) {
-      await sb.auth.signOut({ scope: 'global' });
+    if (typeof signOut === 'function') {
+      await signOut({ scope: 'global' });
+    } else {
+      const sb = getSupabaseClient();
+      if (sb) {
+        await sb.auth.signOut({ scope: 'global' });
+      }
     }
   } catch (err) {
     console.warn('[LogoutAll] Error revocando sesión global en Supabase:', err);
   }
 
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const nextRevokeVersion = `v2_global_revoke_${Date.now()}`;
-      localStorage.setItem('cubikar_auth_session_version', nextRevokeVersion);
-    }
-  } catch (_) {}
-
-  await logoutUser(true);
+  await logoutUser(true, { skipSignOut: true });
   showToast('🔒 Has cerrado la sesión en todas las computadoras.', 'info');
 }
 
@@ -4241,11 +4399,7 @@ export function closeInviteModal() {
   activeInviteProjectId = null;
 
   // Actualizar las tarjetas de proyectos para reflejar de inmediato los avatares
-  const grid = document.getElementById('projects-grid');
-  if (grid) {
-    const searchInput = document.getElementById('project-search');
-    grid.innerHTML = renderProjectCardsHTML(searchInput ? searchInput.value : '');
-  }
+  refreshProjectsGridUI();
 
   // Actualizar avatares en el encabezado
   renderHeaderCollaborators();
@@ -4843,7 +4997,8 @@ export function changeMemberRole(memberId, newRole) {
 export function removeMemberFromProject(memberId, memberName) {
   if (!activeInviteProjectId) return;
   const currentUser = getCurrentUser();
-  if (!canUserInviteToProject(activeInviteProjectId, currentUser)) {
+  const perm = canUserInviteToProject(activeInviteProjectId, currentUser);
+  if (!perm?.allowed) {
     showToast('🔒 Solo el dueño del proyecto o usuarios con rol de Editor pueden remover colaboradores.', 'warning');
     return;
   }
@@ -4880,13 +5035,13 @@ export function renderInviteModalMembersList() {
 
   // Actualizar selector de simulación de vista
   if (simulateSelect) {
-    const currentUser = getCurrentUser();
-    const currentEmail = currentUser ? currentUser.email : 'admin.general@constructora.com';
+    const simUser = getSimulatedUserView();
+    const simEmail = (simUser?.email || '').toLowerCase().trim();
     simulateSelect.innerHTML = `
-      <option value="admin" ${currentEmail === 'admin.general@constructora.com' ? 'selected' : ''}>👑 Tú (Administrador - Todas)</option>
+      <option value="admin" ${!simUser ? 'selected' : ''}>👑 Tú (Tu sesión real - Todas)</option>
       ${members.map(m => {
         const tabList = (m.allowedTabs || ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']).map(t => TAB_METADATA[t]?.name).filter(Boolean).join(', ');
-        return `<option value="${m.email}" ${currentEmail === m.email ? 'selected' : ''}>${m.name} (${tabList || 'Sin acceso'})</option>`;
+        return `<option value="${m.email}" ${simEmail && simEmail === (m.email || '').toLowerCase().trim() ? 'selected' : ''}>${m.name} (${tabList || 'Sin acceso'})</option>`;
       }).join('')}
     `;
   }
@@ -5046,24 +5201,24 @@ let activeConfiguringTabId = null;
 // Determinar si el usuario actual tiene acceso a la pestaña especificada
 export function canCurrentUserAccessTab(tabId) {
   const user = getCurrentUser();
-
-  if (!user || !user.email) return true;
-  const uEmail = user.email.toLowerCase().trim();
-  if (user.role === 'Admin General' || uEmail === 'admin.general@constructora.com') return true;
-
   const pId = getActiveOrFallbackProjectId();
   const proj = getProjectById(pId);
-  if (!proj) return true;
+
+  if (!user || !user.email) {
+    return !proj || !proj.ownerEmail;
+  }
+  const uEmail = user.email.toLowerCase().trim();
+
+  if (!proj) return false;
 
   // El propietario del proyecto SIEMPRE tiene acceso completo a todas las pestañas de su obra
-  if (proj.ownerEmail && proj.ownerEmail.toLowerCase().trim() === uEmail) return true;
+  const ownerEmail = (proj.ownerEmail || '').toLowerCase().trim();
+  if (ownerEmail && ownerEmail === uEmail) return true;
 
-  if (!Array.isArray(proj.members) || proj.members.length === 0) return true;
+  if (!Array.isArray(proj.members) || proj.members.length === 0) return false;
 
   const mem = proj.members.find(m => m.email && m.email.toLowerCase().trim() === uEmail);
-  if (!mem) return true;
-  // Todo usuario con rol 'editar' tiene acceso completo a todas las pestañas de la obra
-  if (mem.role === 'editar') return true;
+  if (!mem || mem.status === 'pending' || mem.status === 'rejected') return false;
 
   if (Array.isArray(mem.allowedTabs)) {
     if (tabId === 'presupuesto') {
@@ -5071,7 +5226,7 @@ export function canCurrentUserAccessTab(tabId) {
     }
     return mem.allowedTabs.includes(tabId);
   }
-  return true;
+  return mem.role === 'editar';
 }
 
 // Actualizar iconos de candado y estado visual de las pestañas en el encabezado
@@ -5279,20 +5434,14 @@ export function saveTabMembersAssignment() {
   updateNavigationTabsAccess();
 }
 
-// Simular vista como un colaborador específico para probar permisos de pestañas
+// Simular vista como un colaborador específico sin sobrescribir la sesión real en localStorage
 export function simulateUserView(emailOrRole) {
   if (emailOrRole === 'admin') {
-    const adminUser = {
-      name: 'Administrador de Obra',
-      email: 'admin.general@constructora.com',
-      avatar: '',
-      role: 'Admin General',
-      sexo: 'Masculino'
-    };
-    saveCurrentUser(adminUser);
-    updateWorkspaceHeaderUser(adminUser);
+    setSimulatedUserView(null);
+    const realUser = getCurrentUser(true);
+    updateWorkspaceHeaderUser(realUser);
     updateNavigationTabsAccess();
-    showToast('👁️ Vista restablecida como Administrador (Acceso total a todas las pestañas)', 'info');
+    showToast('👁️ Vista restablecida a tu usuario real (Acceso completo)', 'info');
     return;
   }
 
@@ -5306,19 +5455,22 @@ export function simulateUserView(emailOrRole) {
       avatar: mem.avatar || '',
       role: mem.role,
       roleLabel: PROJECT_ROLES[mem.role]?.label || mem.role,
+      allowedTabs: Array.isArray(mem.allowedTabs) ? [...mem.allowedTabs] : [],
       sexo: 'Masculino'
     };
-    saveCurrentUser(simUser);
+    setSimulatedUserView(simUser);
     updateWorkspaceHeaderUser(simUser);
     updateNavigationTabsAccess();
     const tabNames = (mem.allowedTabs || []).map(t => TAB_METADATA[t]?.name).join(', ') || 'Ninguna pestaña';
-    showToast(`🎭 Cambiado a vista de: ${mem.name} (Pestañas accesibles: ${tabNames})`, 'info');
+    showToast(`🎭 Simulación en memoria: ${mem.name} (Pestañas accesibles: ${tabNames})`, 'info');
   }
 }
 
 // Exponer utilidades del Portal a window para reactividad entre modales
 if (typeof window !== 'undefined') {
   window.refreshProjectsGridUI = refreshProjectsGridUI;
+  window.goToProjectsDashboard = goToProjectsDashboard;
+  window.exitProjectToPortal = exitProjectToPortal;
   window.renderModeStatusBadgeHTML = renderModeStatusBadgeHTML;
   window.renderHeaderCreateButtonHTML = renderHeaderCreateButtonHTML;
   window.openEditarProyectoModal = openEditarProyectoModal;

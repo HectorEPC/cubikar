@@ -12,7 +12,7 @@ function isLegalBitacoraAllowed() {
   const planId = resolveWorkspacePlanContext()?.planId || 'free';
   return planId === 'plus' || planId === 'pro';
 }
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261115_v14';
+import { renderTabAssignedAvatars } from '../portal/portalController.js';
 import { formatDate } from '../calendario/calendarioModel.js';
 import { mountStorageMeter } from '../../services/storageQuotaService.js';
 import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js';
@@ -917,7 +917,18 @@ export function openBitacoraNoteModal(noteId = null, options = {}) {
   renderTempEvidencesGrid();
 }
 
-export function closeBitacoraModal() {
+export function closeBitacoraModal(discardTempUploads = true) {
+  if (discardTempUploads && Array.isArray(tempEvidences)) {
+    tempEvidences.forEach((ev) => {
+      if (ev?.__isNewTempUpload) {
+        deleteManagedFile(ev).catch(() => {});
+      }
+    });
+  }
+  tempEvidences = [];
+  tempSelectedConcepts = [];
+  tempFeDeErratasSource = null;
+  activeDraftId = null;
   const root = document.getElementById('bitacora-modals-root');
   if (root) root.innerHTML = '';
   signingNoteId = null;
@@ -1117,6 +1128,7 @@ export function saveBitacoraNoteFormAction(proceedToSign = false) {
   }
 
   try {
+    const cleanEvidencias = tempEvidences.map(({ __isNewTempUpload, ...clean }) => clean);
     const saved = saveBitacoraDraftNote({
       id: activeDraftId,
       tipo,
@@ -1126,17 +1138,24 @@ export function saveBitacoraNoteFormAction(proceedToSign = false) {
       ubicacion,
       conceptosVinculados: tempSelectedConcepts,
       descripcion,
-      evidencias: tempEvidences,
+      evidencias: cleanEvidencias,
       notaReferenciaId: tempFeDeErratasSource?.id || null,
       notaReferenciaFolio: tempFeDeErratasSource?.folioCode || '',
       esFeDeErratas: Boolean(tempFeDeErratasSource)
     });
 
     if (proceedToSign) {
+      currentEditingNoteId = saved.id;
+      if (!isLegalBitacoraAllowed()) {
+        openSignBitacoraNoteModal(saved.id);
+        return;
+      }
+      tempEvidences = [];
       openSignBitacoraNoteModal(saved.id);
     } else {
+      tempEvidences = [];
       showToast('Borrador guardado correctamente en la Bitácora.', 'success');
-      closeBitacoraModal();
+      closeBitacoraModal(false);
       renderBitacoraView();
     }
   } catch (err) {

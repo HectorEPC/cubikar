@@ -10,6 +10,8 @@ import {
 } from '../utils/fileCompressor.js';
 import { validatePreCompressionFile } from '../services/storageQuotaService.js';
 import { uploadManagedFile } from '../services/s3StorageService.js';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js';
+import { guardTabUnlocked } from './tabLockController.js';
 
 // Dimensiones estándar del área de recorte para el logotipo (cuadrado 1:1)
 const CROP_WIDTH = 180;
@@ -145,8 +147,30 @@ export function renderBrandingUI() {
   }
 }
 
+function guardBrandingMutation() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo lectura: tu rol no permite editar la información o imagen del proyecto.', 'warning');
+    return false;
+  }
+  if (typeof document !== 'undefined') {
+    const viewInsumos = document.getElementById('view-insumos');
+    const viewCat = document.getElementById('view-cat');
+    if (viewInsumos && !viewInsumos.classList.contains('hidden')) {
+      return guardTabUnlocked('insumos');
+    }
+    if (viewCat && !viewCat.classList.contains('hidden')) {
+      return guardTabUnlocked('cat');
+    }
+  }
+  return true;
+}
+
 // Actualizar nombre de la empresa
 export function updateCompanyName(name) {
+  if (!guardBrandingMutation()) {
+    renderBrandingUI();
+    return;
+  }
   const cleanName = (name || '').trim() || 'Sistema de Control de Obra';
   if (!state.settings) state.settings = {};
   state.settings.companyName = cleanName;
@@ -157,6 +181,10 @@ export function updateCompanyName(name) {
 
 // Sincronización en vivo bidireccional entre pestaña INFORMACIÓN, CATÁLOGO BASE, INSUMOS GENERALES y Encabezado
 export function syncCompanyName(val) {
+  if (!guardBrandingMutation()) {
+    renderBrandingUI();
+    return;
+  }
   if (!state.settings) state.settings = {};
   state.settings.companyName = val || '';
   persistSettings();
@@ -168,6 +196,10 @@ export function syncCompanyName(val) {
 }
 
 export function syncProjectName(val) {
+  if (!guardBrandingMutation()) {
+    renderBrandingUI();
+    return;
+  }
   if (!state.settings) state.settings = {};
   state.settings.projectName = val || '';
   persistSettings();
@@ -181,6 +213,10 @@ export function syncProjectName(val) {
 }
 
 export function syncProjectLocation(val) {
+  if (!guardBrandingMutation()) {
+    renderBrandingUI();
+    return;
+  }
   if (!state.settings) state.settings = {};
   state.settings.projectLocation = val || '';
   persistSettings();
@@ -195,6 +231,10 @@ export function syncProjectLocation(val) {
 
 // Actualizar nombre del proyecto
 export function updateProjectName(name) {
+  if (!guardBrandingMutation()) {
+    renderBrandingUI();
+    return;
+  }
   const cleanProject = (name || '').trim() || 'Proyecto de Obra Base';
   if (!state.settings) state.settings = {};
   state.settings.projectName = cleanProject;
@@ -205,6 +245,10 @@ export function updateProjectName(name) {
 
 // Actualizar ubicación del proyecto
 export function updateProjectLocation(loc) {
+  if (!guardBrandingMutation()) {
+    renderBrandingUI();
+    return;
+  }
   const cleanLoc = (loc || '').trim() || 'Ciudad de México, CDMX';
   if (!state.settings) state.settings = {};
   state.settings.projectLocation = cleanLoc;
@@ -215,6 +259,10 @@ export function updateProjectLocation(loc) {
 
 // Actualizar subtítulo de la empresa
 export function updateCompanySubtitle(sub) {
+  if (!guardBrandingMutation()) {
+    renderBrandingUI();
+    return;
+  }
   const cleanSub = (sub || '').trim();
   state.settings.companySubtitle = cleanSub;
   persistSettings();
@@ -223,12 +271,17 @@ export function updateCompanySubtitle(sub) {
 
 // Disparador del selector de archivos de imagen
 export function triggerCompanyLogoUpload() {
+  if (!guardBrandingMutation()) return;
   const input = document.getElementById('company-logo-input');
   if (input) input.click();
 }
 
 // Manejar selección de imagen e iniciar el ajustador interactivo
 export async function handleCompanyLogoUpload(event) {
+  if (!guardBrandingMutation()) {
+    if (event?.target) event.target.value = '';
+    return;
+  }
   const file = event?.target?.files?.[0];
   if (!file) return;
 
@@ -277,6 +330,7 @@ export function removeCompanyLogo(event) {
     event.stopPropagation();
     event.preventDefault();
   }
+  if (!guardBrandingMutation()) return;
   state.settings.companyLogo = '';
   persistSettings();
   renderBrandingUI();
@@ -600,6 +654,7 @@ export function closeLogoAdjusterModal() {
 
 // Guardar logotipo ajustado en el sistema (con validación de cuota y respaldo S3)
 export async function applyAdjustedLogo() {
+  if (!guardBrandingMutation()) return;
   if (!adjusterState.image) return;
   try {
     const finalDataUrl = generateCroppedDataUrl();

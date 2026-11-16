@@ -9,6 +9,7 @@ import {
   getProjectById,
   getProjectsList,
   getCurrentUser,
+  saveCurrentUser,
   getLastKnownUser,
   AVATARS_BY_SEX,
   getPendingInvitationsForUser,
@@ -20,6 +21,7 @@ import {
   saveStoredPlanInvitations,
   getDeletedProjectsList
 } from '../portal/projectService.js';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js';
 import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js';
 import { getExpensesRecords } from '../compras/expensesModel.js';
 import { showToast } from '../../ui/notifications.js';
@@ -49,6 +51,7 @@ let pendingComposerTags = {
 
 let onExternalRefreshCallback = null;
 let isRefreshingFromChat = false;
+let lastSentChatGuard = { text: '', ts: 0 };
 
 export function setProjectChatRefreshCallback(cb) {
   onExternalRefreshCallback = cb;
@@ -64,6 +67,57 @@ function triggerExternalChatRefresh() {
   }
 }
 
+export function normalizeChatMsgId(rawId) {
+  return String(rawId || '').replace(/^.*?(?:__|::)/, '');
+}
+
+function getChatMsgTimestampMs(msg, cleanId = '') {
+  if (msg && msg.createdAt) {
+    const parsed = new Date(msg.createdAt).getTime();
+    if (!isNaN(parsed)) return parsed;
+  }
+  const idStr = cleanId || normalizeChatMsgId(msg?.id);
+  const match = idStr.match(/^msg_(\d+)_/);
+  if (match) return Number(match[1]);
+  return NaN;
+}
+
+export function dedupeChatMessages(list) {
+  if (!Array.isArray(list)) return [];
+  const seenIds = new Set();
+  const seenFingerprints = new Map();
+  const result = [];
+
+  for (const item of list) {
+    if (!item || typeof item !== 'object') continue;
+    const cleanId = normalizeChatMsgId(item.id) || `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    if (seenIds.has(cleanId)) continue;
+
+    const authorKey = String(item.authorEmail || item.authorHandle || '').toLowerCase().trim();
+    const textKey = String(item.text || '').trim();
+    const timeKey = String(item.time || '').trim();
+    const fp = `${authorKey}|${textKey}|${timeKey}`;
+    const itemTs = getChatMsgTimestampMs(item, cleanId);
+
+    if (textKey && seenFingerprints.has(fp)) {
+      const prevTs = seenFingerprints.get(fp);
+      if (!isNaN(itemTs) && !isNaN(prevTs) && Math.abs(itemTs - prevTs) < 2000) {
+        continue;
+      }
+    }
+
+    seenIds.add(cleanId);
+    if (textKey) {
+      seenFingerprints.set(fp, itemTs);
+    }
+    result.push({
+      ...item,
+      id: cleanId
+    });
+  }
+  return result;
+}
+
 export function getChatStorageKey(projectId = null) {
   const pid = projectId || getActiveProjectId() || 'proj-default-01';
   return `adm_const_project_chat_${pid}`;
@@ -74,17 +128,39 @@ export function loadProjectChatMessages(projectId = null) {
     const raw = localStorage.getItem(getChatStorageKey(projectId));
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) return dedupeChatMessages(parsed);
     }
   } catch (e) {}
   return [];
 }
 
-export function saveProjectChatMessages(messages, projectId = null) {
+export function saveProjectChatMessages(messages, projectId = null, opts = {}) {
   try {
-    localStorage.setItem(getChatStorageKey(projectId), JSON.stringify(messages || []));
-    scheduleChatCloudSync(projectId);
+    const deduped = dedupeChatMessages(messages || []);
+    localStorage.setItem(getChatStorageKey(projectId), JSON.stringify(deduped));
+    if (!opts?.skipCloudSync) {
+      scheduleChatCloudSync(projectId);
+    }
   } catch (e) {}
+}
+
+export function markActiveProjectChatMessagesAsRead(projectId = null) {
+  try {
+    const msgs = loadProjectChatMessages(projectId);
+    let changed = false;
+    msgs.forEach(m => {
+      if (m && !m.isRead) {
+        m.isRead = true;
+        changed = true;
+      }
+    });
+    if (changed) {
+      localStorage.setItem(getChatStorageKey(projectId), JSON.stringify(msgs));
+    }
+    return changed;
+  } catch (e) {
+    return false;
+  }
 }
 
 export function getPartidaChatCount(partidaId) {
@@ -425,6 +501,8 @@ function getAllNotificationsUsers(scope = 'all') {
 // NOTIFICACIONES DE MENCIONES (EN "MIS PROYECTOS DE OBRA" Y BARRA LATERAL IZQUIERDA)
 // =========================================================================
 const DISMISSED_NOTIFICATIONS_KEY = 'cubikar_dismissed_notifications_v1';
+const READ_MENTIONS_KEY = 'cubikar_read_mentions_v1';
+let notifCloudSyncTimer = null;
 
 export function getDismissedNotificationIds() {
   try {
@@ -439,6 +517,86 @@ export function getDismissedNotificationIds() {
   return [];
 }
 
+export function getReadMentionIds() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(READ_MENTIONS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    }
+  } catch (_) {}
+  return [];
+}
+
+export function syncNotificationStateToCloud() {
+  if (typeof window === 'undefined') return;
+  if (notifCloudSyncTimer) clearTimeout(notifCloudSyncTimer);
+  notifCloudSyncTimer = setTimeout(async () => {
+    notifCloudSyncTimer = null;
+    try {
+      const sb = getSupabaseClient();
+      if (!isSupabaseConfigured() || !sb || typeof sb.auth?.updateUser !== 'function') return;
+      const currentUser = getCurrentUser();
+      if (!currentUser || !currentUser.id) return;
+
+      const dismissed = getDismissedNotificationIds().slice(-400);
+      const readIds = getReadMentionIds().slice(-400);
+
+      if (!currentUser.user_metadata) currentUser.user_metadata = {};
+      currentUser.user_metadata.cubikar_dismissed_notifications = dismissed;
+      currentUser.user_metadata.cubikar_read_mentions = readIds;
+      if (typeof saveCurrentUser === 'function') saveCurrentUser(currentUser);
+
+      await sb.auth.updateUser({
+        data: {
+          cubikar_dismissed_notifications: dismissed,
+          cubikar_read_mentions: readIds
+        }
+      });
+    } catch (_) {}
+  }, 450);
+}
+
+export async function hydrateNotificationStateFromCloud(authUser = null) {
+  try {
+    let userMeta = authUser?.user_metadata || getCurrentUser()?.user_metadata || null;
+    if (!userMeta) {
+      const sb = getSupabaseClient();
+      if (isSupabaseConfigured() && sb && typeof sb.auth?.getUser === 'function') {
+        const { data } = await sb.auth.getUser();
+        userMeta = data?.user?.user_metadata || null;
+      }
+    }
+    if (!userMeta || typeof userMeta !== 'object') return false;
+
+    let changed = false;
+    if (Array.isArray(userMeta.cubikar_dismissed_notifications) && userMeta.cubikar_dismissed_notifications.length > 0) {
+      const curDismissed = getDismissedNotificationIds();
+      const mergedDismissed = Array.from(new Set([...curDismissed, ...userMeta.cubikar_dismissed_notifications])).slice(-500);
+      if (mergedDismissed.length !== curDismissed.length && typeof localStorage !== 'undefined') {
+        localStorage.setItem(DISMISSED_NOTIFICATIONS_KEY, JSON.stringify(mergedDismissed));
+        changed = true;
+      }
+    }
+    if (Array.isArray(userMeta.cubikar_read_mentions) && userMeta.cubikar_read_mentions.length > 0) {
+      const curRead = getReadMentionIds();
+      const mergedRead = Array.from(new Set([...curRead, ...userMeta.cubikar_read_mentions])).slice(-500);
+      if (mergedRead.length !== curRead.length && typeof localStorage !== 'undefined') {
+        localStorage.setItem(READ_MENTIONS_KEY, JSON.stringify(mergedRead));
+        changed = true;
+      }
+    }
+    if (changed) {
+      renderSidebarNotificationsUI();
+    }
+    return changed;
+  } catch (_) {
+    return false;
+  }
+}
+
 export function markNotificationDismissed(notifKey) {
   if (!notifKey) return;
   try {
@@ -448,7 +606,44 @@ export function markNotificationDismissed(notifKey) {
       if (list.length > 500) list.splice(0, list.length - 500);
       localStorage.setItem(DISMISSED_NOTIFICATIONS_KEY, JSON.stringify(list));
     }
+    syncNotificationStateToCloud();
   } catch (_) {}
+}
+
+export function markMentionReadKey(readKey) {
+  if (!readKey) return;
+  try {
+    const list = getReadMentionIds();
+    if (!list.includes(readKey)) {
+      list.push(readKey);
+      if (list.length > 500) list.splice(0, list.length - 500);
+      localStorage.setItem(READ_MENTIONS_KEY, JSON.stringify(list));
+    }
+    syncNotificationStateToCloud();
+  } catch (_) {}
+}
+
+function getSelfMentionTokens(users = []) {
+  const curUser = getCurrentUser() || getLastKnownUser();
+  if (!curUser) return [];
+  const tokens = new Set();
+  const myEmail = String(curUser.email || '').toLowerCase().trim();
+  const myName = String(curUser.name || '').trim();
+  if (myEmail) {
+    (users || []).filter(u => String(u?.email || '').toLowerCase().trim() === myEmail)
+      .forEach(u => { if (u.handle) tokens.add(String(u.handle).toLowerCase()); });
+    const prefix = myEmail.split('@')[0];
+    if (prefix) tokens.add('@' + prefix.toLowerCase());
+    tokens.add(myEmail);
+  }
+  if (myName) {
+    (users || []).filter(u => String(u?.name || '').toLowerCase().trim() === myName.toLowerCase())
+      .forEach(u => { if (u.handle) tokens.add(String(u.handle).toLowerCase()); });
+    tokens.add('@' + myName.replace(/\s+/g, '.').toLowerCase());
+    tokens.add('@' + myName.replace(/\s+/g, '').toLowerCase());
+  }
+  tokens.add('@todos');
+  return Array.from(tokens);
 }
 
 // scope = 'current' -> Solo notificaciones donde mencionaron usuarios en el proyecto activo (Barra lateral del proyecto)
@@ -456,8 +651,10 @@ export function markNotificationDismissed(notifKey) {
 export function getUserMentionsNotifications(targetHandle = null, scope = 'all') {
   const filterHandle = targetHandle || selectedNotificationsHandle || 'all';
   const isAllHandles = String(filterHandle).toLowerCase() === 'all';
+  const isSelfHandle = filterHandle === '__self__';
   const handleLower = String(filterHandle || '').toLowerCase();
   const dismissedSet = new Set(getDismissedNotificationIds());
+  const readMentionsSet = new Set(getReadMentionIds());
 
   const activePid = getActiveProjectId() || 'proj-default-01';
   const activeProjObj = getProjectById(activePid);
@@ -471,6 +668,7 @@ export function getUserMentionsNotifications(targetHandle = null, scope = 'all')
   const results = [];
   projects.forEach(proj => {
     const msgs = loadProjectChatMessages(proj.id);
+    const selfTokens = isSelfHandle ? getSelfMentionTokens(getAssignedProjectUsers(proj.id)) : [];
     msgs.forEach(m => {
       if (m.dismissed || dismissedSet.has(`${proj.id}:${m.id}`) || dismissedSet.has(String(m.id))) return;
       const mentionsList = extractMentionsFromMessage(m);
@@ -478,16 +676,25 @@ export function getUserMentionsNotifications(targetHandle = null, scope = 'all')
 
       const isMentioned = isAllHandles
         ? mentionsList.length > 0
-        : (mentionsList.some(tag => String(tag).toLowerCase() === handleLower)
-            || (m.text && String(m.text).toLowerCase().includes(handleLower)));
+        : (isSelfHandle
+            ? (selfTokens.length > 0 && (
+                mentionsList.some(tag => selfTokens.includes(String(tag).toLowerCase())) ||
+                (m.text && selfTokens.some(tok => String(m.text).toLowerCase().includes(tok)))
+              ))
+            : (mentionsList.some(tag => String(tag).toLowerCase() === handleLower)
+                || (m.text && String(m.text).toLowerCase().includes(handleLower))));
 
       if (isMentioned) {
         const readBy = Array.isArray(m.readBy) ? m.readBy : [];
         const isRead = Boolean(m.isRead)
           || readBy.includes('__all__')
+          || readMentionsSet.has(`${proj.id}:${m.id}`)
+          || readMentionsSet.has(String(m.id))
           || (isAllHandles
             ? mentionsList.every(tag => readBy.some(h => String(h).toLowerCase() === String(tag).toLowerCase()))
-            : readBy.some(h => String(h).toLowerCase() === handleLower));
+            : (isSelfHandle
+                ? selfTokens.some(tok => readBy.some(h => String(h).toLowerCase() === tok))
+                : readBy.some(h => String(h).toLowerCase() === handleLower)));
 
         results.push({
           projectId: proj.id,
@@ -527,6 +734,7 @@ export function onNotificationsUserFilterChange(handle) {
 export function markAllMentionsAsRead(scope = 'all') {
   const filterHandle = selectedNotificationsHandle || 'all';
   const isAllHandles = String(filterHandle).toLowerCase() === 'all';
+  const isSelfHandle = filterHandle === '__self__';
   const handleLower = String(filterHandle || '').toLowerCase();
 
   const activePid = getActiveProjectId() || 'proj-default-01';
@@ -536,6 +744,7 @@ export function markAllMentionsAsRead(scope = 'all') {
 
   projects.forEach(proj => {
     const msgs = loadProjectChatMessages(proj.id);
+    const selfTokens = isSelfHandle ? getSelfMentionTokens(getAssignedProjectUsers(proj.id)) : [];
     let changed = false;
     msgs.forEach(m => {
       const mentionsList = extractMentionsFromMessage(m);
@@ -543,12 +752,19 @@ export function markAllMentionsAsRead(scope = 'all') {
 
       const isMentioned = isAllHandles
         ? true
-        : (mentionsList.some(tag => String(tag).toLowerCase() === handleLower)
-            || (m.text && String(m.text).toLowerCase().includes(handleLower)));
+        : (isSelfHandle
+            ? (selfTokens.length > 0 && (
+                mentionsList.some(tag => selfTokens.includes(String(tag).toLowerCase())) ||
+                (m.text && selfTokens.some(tok => String(m.text).toLowerCase().includes(tok)))
+              ))
+            : (mentionsList.some(tag => String(tag).toLowerCase() === handleLower)
+                || (m.text && String(m.text).toLowerCase().includes(handleLower))));
 
       if (isMentioned) {
         if (!Array.isArray(m.readBy)) m.readBy = [];
-        if (isAllHandles) {
+        markMentionReadKey(`${proj.id}:${m.id}`);
+        markMentionReadKey(String(m.id));
+        if (isAllHandles || isSelfHandle) {
           m.isRead = true;
           if (!m.readBy.includes('__all__')) m.readBy.push('__all__');
           mentionsList.forEach(tag => {
@@ -566,6 +782,7 @@ export function markAllMentionsAsRead(scope = 'all') {
     if (changed) saveProjectChatMessages(msgs, proj.id);
   });
 
+  syncNotificationStateToCloud();
   renderSidebarNotificationsUI();
 }
 
@@ -579,6 +796,8 @@ export function dismissMentionNotification(projectId, msgId, event = null) {
   const pid = projectId || getActiveProjectId() || 'proj-default-01';
   markNotificationDismissed(`${pid}:${msgId}`);
   markNotificationDismissed(String(msgId));
+  markMentionReadKey(`${pid}:${msgId}`);
+  markMentionReadKey(String(msgId));
   const msgs = loadProjectChatMessages(pid);
   const target = msgs.find(m => String(m.id) === String(msgId));
   if (target) {
@@ -588,49 +807,46 @@ export function dismissMentionNotification(projectId, msgId, event = null) {
     if (!target.readBy.includes('__all__')) target.readBy.push('__all__');
     saveProjectChatMessages(msgs, pid);
   }
+  syncNotificationStateToCloud();
   renderSidebarNotificationsUI();
   showToast('Notificación eliminada', 'info');
 }
 
 /**
- * Purgar y limpiar todas las notificaciones e invitaciones obsoletas
+ * Purgar notificaciones respetando el scope ('current' = obra actual; 'all' = todas)
+ * SIN destruir ni rechazar las invitaciones reales en BD.
  */
 export function purgeAllNotifications(scope = 'all') {
   const user = getCurrentUser();
   const uEmail = (user?.email || '').toLowerCase().trim();
+  const isCurrentOnly = scope === 'current';
+  const activePid = getActiveProjectId() || 'proj-default-01';
 
-  // Registrar como descartadas todas las invitaciones actuales
-  try {
-    const pendingInvs = uEmail ? getPendingInvitationsForUser(uEmail) : [];
-    pendingInvs.forEach(inv => {
-      if (inv && inv.id) markNotificationDismissed(`inv:${inv.id}`);
-      if (inv && inv.projectId) markNotificationDismissed(`inv_proj:${inv.projectId}:${uEmail}`);
-    });
-  } catch (_) {}
+  // 1. Ocultar avisos de invitaciones únicamente en scope='all' (sin borrar ni rechazar invitaciones reales)
+  if (!isCurrentOnly) {
+    try {
+      const pendingInvs = uEmail ? getPendingInvitationsForUser(uEmail) : [];
+      pendingInvs.forEach(inv => {
+        if (inv && inv.id) markNotificationDismissed(`inv:${inv.id}`);
+        if (inv && inv.projectId) markNotificationDismissed(`inv_proj:${inv.projectId}:${uEmail}`);
+      });
+    } catch (_) {}
+  }
 
-  // 1. Purgar todas las invitaciones pendientes para este usuario
-  try {
-    if (typeof rejectProjectInvitation === 'function') {
-      rejectProjectInvitation('all');
-    }
-  } catch (_) {}
+  // 2. Marcar como leídos y descartados los mensajes de menciones del alcance seleccionado
+  const targetProjects = isCurrentOnly
+    ? [{ id: activePid }]
+    : getAllProjectsForNotifications();
 
-  try {
-    const invs = getStoredInvitations().filter(i => (i.email || '').toLowerCase().trim() !== uEmail);
-    saveStoredInvitations(invs);
-    const planInvs = getStoredPlanInvitations().filter(pi => (pi.email || '').toLowerCase().trim() !== uEmail);
-    saveStoredPlanInvitations(planInvs);
-  } catch (_) {}
-
-  // 2. Marcar como leídos y descartados todos los mensajes de menciones de chat
-  const projects = getAllProjectsForNotifications();
-  projects.forEach(proj => {
+  targetProjects.forEach(proj => {
     try {
       const msgs = loadProjectChatMessages(proj.id);
       let changed = false;
       msgs.forEach(m => {
         markNotificationDismissed(`${proj.id}:${m.id}`);
         markNotificationDismissed(String(m.id));
+        markMentionReadKey(`${proj.id}:${m.id}`);
+        markMentionReadKey(String(m.id));
         m.isRead = true;
         m.dismissed = true;
         if (!Array.isArray(m.readBy)) m.readBy = [];
@@ -641,52 +857,41 @@ export function purgeAllNotifications(scope = 'all') {
     } catch (_) {}
   });
 
-  // 3. Purgar claves de chat huérfanas de proyectos eliminados
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const validPids = new Set(getProjectsList().map(p => p.id));
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const k = localStorage.key(i);
-        if (k && (
-          k.startsWith('adm_const_project_chat_') ||
-          k.startsWith('adm_arq_project_chat_') ||
-          k.startsWith('adm_const_chat_') ||
-          k.startsWith('control_obra_chat_') ||
-          k.startsWith('adm_arq_chat_')
-        )) {
-          const pid = k
-            .replace('adm_const_project_chat_', '')
-            .replace('adm_arq_project_chat_', '')
-            .replace('adm_const_chat_', '')
-            .replace('control_obra_chat_', '')
-            .replace('adm_arq_chat_', '');
-          if (!validPids.has(pid)) {
-            localStorage.removeItem(k);
+  // 3. Purgar claves locales de chat huérfanas de proyectos eliminados (solo scope='all')
+  if (!isCurrentOnly) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const validPids = new Set(getProjectsList().flatMap(p => [p?.id, p?.cloudId]).filter(Boolean));
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (k && (
+            k.startsWith('adm_const_project_chat_') ||
+            k.startsWith('adm_arq_project_chat_') ||
+            k.startsWith('adm_const_chat_') ||
+            k.startsWith('control_obra_chat_') ||
+            k.startsWith('adm_arq_chat_')
+          )) {
+            const pid = k
+              .replace('adm_const_project_chat_', '')
+              .replace('adm_arq_project_chat_', '')
+              .replace('adm_const_chat_', '')
+              .replace('control_obra_chat_', '')
+              .replace('adm_arq_chat_', '');
+            if (!validPids.has(pid)) {
+              localStorage.removeItem(k);
+            }
           }
         }
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
+  }
 
-  // 4. Sincronizar estado limpio en user_metadata
-  try {
-    if (user && user.user_metadata?.cubikar_cloud_state_v2) {
-      const cs = user.user_metadata.cubikar_cloud_state_v2;
-      if (Array.isArray(cs.planInvitations)) {
-        cs.planInvitations = cs.planInvitations.filter(pi => (pi.email || '').toLowerCase().trim() !== uEmail);
-      }
-      if (Array.isArray(cs.acceptedInvitations)) {
-        cs.acceptedInvitations = cs.acceptedInvitations.filter(i => !((i.email || '').toLowerCase().trim() === uEmail && i.status === 'pending'));
-      }
-    }
-    if (typeof window !== 'undefined' && typeof window.triggerDebouncedCloudStateSync === 'function') {
-      window.triggerDebouncedCloudStateSync(user);
-    }
-  } catch (_) {}
+  // 4. Sincronizar estado de lectura/descartes en la nube
+  syncNotificationStateToCloud();
 
   // 5. Refrescar interfaz de la campana inmediatamente
   renderSidebarNotificationsUI();
-  showToast('Notificaciones eliminadas exitosamente', 'info');
+  showToast('Notificaciones limpiadas exitosamente', 'info');
 }
 
 export function openMentionNotification(projectId, msgId, partidaId = '', event = null) {
@@ -697,9 +902,11 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
   const activePid = getActiveProjectId() || 'proj-default-01';
   const targetPid = projectId || activePid;
 
-  // Marcar este mensaje como leído para que la campana actualice su contador inmediatamente
+  // Marcar este mensaje como leído para que la campana actualice su contador inmediatamente y persista en la nube
+  markMentionReadKey(`${targetPid}:${msgId}`);
+  markMentionReadKey(String(msgId));
   const msgs = loadProjectChatMessages(targetPid);
-  const targetMsg = msgs.find(m => m.id === msgId);
+  const targetMsg = msgs.find(m => String(m.id) === String(msgId));
   if (targetMsg) {
     targetMsg.isRead = true;
     if (!Array.isArray(targetMsg.readBy)) targetMsg.readBy = [];
@@ -711,6 +918,7 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
     });
     saveProjectChatMessages(msgs, targetPid);
   }
+  syncNotificationStateToCloud();
 
   isNotificationsPopoverOpen = false;
 
@@ -741,6 +949,7 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
 
   // En el área de proyectos activa: abrir inmediatamente el chat al frente y enfocar el mensaje donde mencionaron al usuario
   isChatDockExpanded = true;
+  markActiveProjectChatMessagesAsRead(targetPid);
   activeChatFilter = 'all';
   activePartidaFilterId = null;
   if (partidaId) {
@@ -825,15 +1034,16 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
     ? `${unreadCount} nueva(s) • ${mentionsList.length} en todos los proyectos`
     : `${unreadCount} nueva(s) • ${mentionsList.length} en esta obra`;
 
+  const safeFilterLabel = escapeChatHtml(filterHandle === '__self__' ? 'ti' : filterHandle);
   const emptyTitle = filterHandle === 'all'
     ? (isPortalScope ? 'Sin menciones en los proyectos' : 'Sin menciones en este proyecto')
-    : `Sin menciones para ${filterHandle}`;
+    : `Sin menciones para ${safeFilterLabel}`;
 
   const emptyDesc = filterHandle === 'all'
     ? (isPortalScope
         ? 'Cuando etiqueten a un <strong>@Usuario</strong> en el Chat de cualquier proyecto, se recopilará aquí.'
         : 'Cuando etiqueten a un <strong>@Usuario</strong> en el Chat del proyecto, aparecerá aquí y al darle clic te enviará al chat.')
-    : `Cuando alguien etiquete a <strong>${filterHandle}</strong> en el Chat de Obra, aparecerá aquí el aviso directo.`;
+    : `Cuando alguien etiquete a <strong>${safeFilterLabel}</strong> en el Chat de Obra, aparecerá aquí el aviso directo.`;
 
   return `
     <!-- Encabezado del centro de notificaciones de menciones -->
@@ -849,13 +1059,13 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
       </div>
 
       <div class="flex items-center gap-1.5 shrink-0">
-        <button type="button" onclick="event.stopPropagation(); purgeAllNotifications('${scope}')"
+        <button type="button" onclick="event.stopPropagation(); purgeAllNotifications('${escapeChatHtml(escapeChatJsArg(scope))}')"
                 class="px-2 py-1 rounded-lg bg-rose-600/20 hover:bg-rose-600/35 text-rose-300 border border-rose-500/35 text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
                 title="Eliminar todas las notificaciones de la campana">
           <i class="fa-solid fa-trash-can text-[9px]"></i> Eliminar todas
         </button>
         ${unreadCount > 0 ? `
-          <button type="button" onclick="event.stopPropagation(); markAllMentionsAsRead('${scope}')"
+          <button type="button" onclick="event.stopPropagation(); markAllMentionsAsRead('${escapeChatHtml(escapeChatJsArg(scope))}')"
                   class="px-2 py-1 rounded-lg bg-blue-600/25 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-[10px] font-bold cursor-pointer transition"
                   title="Marcar todas las menciones como leídas">
             ✓ Leídas
@@ -874,20 +1084,20 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
         <div class="flex items-center justify-between">
           <span class="text-[11px] font-extrabold text-amber-300 flex items-center gap-1.5 uppercase tracking-wider">
             <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
-            Aviso de Consumo del Plan (${consumptionAlert.pct}%)
+            Aviso de Consumo del Plan (${Number(consumptionAlert.pct) || 0}%)
           </span>
           <span class="text-[9.5px] bg-amber-500/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full font-bold">
-            ${consumptionAlert.planName}
+            ${escapeChatHtml(consumptionAlert.planName || '')}
           </span>
         </div>
         <p class="text-[11px] text-slate-200 leading-snug">
-          ${consumptionAlert.message}
+          ${escapeChatHtml(consumptionAlert.message || '')}
         </p>
         <div class="pt-1">
           <button type="button" onclick="closeMentionNotificationsPopover(); openSubscriptionModal()"
                   class="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
             <i class="fa-solid fa-crown text-[11px]"></i>
-            <span>${consumptionAlert.actionLabel}</span>
+            <span>${escapeChatHtml(consumptionAlert.actionLabel || 'Ver Planes')}</span>
           </button>
         </div>
       </div>
@@ -911,11 +1121,11 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
             <div class="p-2.5 bg-slate-950/90 border border-blue-500/40 rounded-xl space-y-2 shadow-lg">
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
-                  <h5 class="text-xs font-bold text-white truncate" title="${inv.projectName}">
-                    📁 ${inv.projectName}
+                  <h5 class="text-xs font-bold text-white truncate" title="${escapeChatHtml(inv.projectName || '')}">
+                    📁 ${escapeChatHtml(inv.projectName || 'Proyecto')}
                   </h5>
                   <span class="text-[10.5px] text-slate-300 block truncate">
-                    Invitado por: <strong class="text-amber-300">${inv.ownerName || 'Anfitrión'}</strong>
+                    Invitado por: <strong class="text-amber-300">${escapeChatHtml(inv.ownerName || 'Anfitrión')}</strong>
                   </span>
                 </div>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${inv.role === 'editar' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-purple-500/20 text-purple-300 border border-purple-500/40'}">
@@ -925,15 +1135,15 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
 
               <div class="flex items-center justify-between pt-1.5 border-t border-slate-800/80 gap-2 text-xs">
                 <span class="text-[10px] text-slate-400 truncate">
-                  Membresía: <b class="text-slate-200">${inv.ownerPlanId ? `Plan ${inv.ownerPlanId.toUpperCase()}` : 'Plan Anfitrión'}</b>
+                  Membresía: <b class="text-slate-200">${inv.ownerPlanId ? `Plan ${escapeChatHtml(String(inv.ownerPlanId).toUpperCase())}` : 'Plan Anfitrión'}</b>
                 </span>
                 <div class="flex items-center gap-1.5 shrink-0">
-                  <button type="button" onclick="event.stopPropagation(); handleRejectInvitationAction('${inv.id}')"
+                  <button type="button" onclick="event.stopPropagation(); handleRejectInvitationAction('${escapeChatHtml(escapeChatJsArg(inv.id))}')"
                           class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-[10.5px] font-semibold transition cursor-pointer flex items-center gap-1"
                           title="Eliminar y descartar esta notificación de invitación">
                     <i class="fa-solid fa-trash-can text-[9px]"></i> Eliminar
                   </button>
-                  <button type="button" onclick="handleAcceptInvitationAction('${inv.id}')"
+                  <button type="button" onclick="handleAcceptInvitationAction('${escapeChatHtml(escapeChatJsArg(inv.id))}')"
                           class="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10.5px] transition shadow shadow-blue-600/30 active:scale-95 cursor-pointer flex items-center gap-1">
                     <i class="fa-solid fa-check text-[10px]"></i> Aceptar y Entrar
                   </button>
@@ -951,8 +1161,9 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
       <select onchange="onNotificationsUserFilterChange(this.value)"
               class="bg-slate-800 border border-slate-700 text-amber-300 rounded-lg px-2 py-1 text-[11px] font-bold outline-none cursor-pointer max-w-[210px]">
         <option value="all" ${filterHandle === 'all' ? 'selected' : ''}>Todos los etiquetados (@)</option>
+        <option value="__self__" ${filterHandle === '__self__' ? 'selected' : ''}>Mis menciones (@)</option>
         ${users.map(u => `
-          <option value="${u.handle}" ${u.handle === filterHandle ? 'selected' : ''}>${u.handle} (${u.roleLabel || 'Asignado'})</option>
+          <option value="${escapeChatHtml(u.handle)}" ${u.handle === filterHandle ? 'selected' : ''}>${escapeChatHtml(u.handle)} (${escapeChatHtml(u.roleLabel || 'Asignado')})</option>
         `).join('')}
       </select>
     </div>
@@ -971,23 +1182,26 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
         const m = item.message;
         const pObj = m.partidaId ? partidas.find(p => String(p.id) === String(m.partidaId)) : null;
         const mentionedTags = item.mentions && item.mentions.length > 0 ? item.mentions : (m.mentions || []);
+        const safeProjArg = escapeChatHtml(escapeChatJsArg(item.projectId));
+        const safeMsgArg = escapeChatHtml(escapeChatJsArg(m.id));
+        const safePartArg = escapeChatHtml(escapeChatJsArg(m.partidaId || ''));
         return `
-          <div onclick="openMentionNotification('${item.projectId}', '${m.id}', '${m.partidaId || ''}', event)"
+          <div onclick="openMentionNotification('${safeProjArg}', '${safeMsgArg}', '${safePartArg}', event)"
                class="p-3 hover:bg-slate-800/90 transition cursor-pointer flex items-start gap-2.5 ${!item.isRead ? 'bg-blue-950/40' : ''}"
                title="Clic para abrir el chat en este mensaje">
             <div class="w-7 h-7 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5 relative">
-              ${m.authorInitials || 'US'}
+              ${escapeChatHtml(m.authorInitials || 'US')}
               ${!item.isRead ? `<span class="w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-slate-900 absolute -top-0.5 -right-0.5"></span>` : ''}
             </div>
             <div class="flex-1 min-w-0 space-y-1">
               <div class="flex items-center justify-between gap-1.5">
-                <span class="text-[11px] font-bold text-white truncate">${m.authorHandle || m.authorName || 'Usuario'}</span>
+                <span class="text-[11px] font-bold text-white truncate">${escapeChatHtml(m.authorHandle || m.authorName || 'Usuario')}</span>
                 <div class="flex items-center gap-1.5 shrink-0">
                   <span class="text-[10px] text-amber-400 font-semibold flex items-center gap-1">
-                    <span>${m.time || ''}</span>
+                    <span>${escapeChatHtml(m.time || '')}</span>
                     <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
                   </span>
-                  <button type="button" onclick="event.stopPropagation(); dismissMentionNotification('${item.projectId}', '${m.id}', event)"
+                  <button type="button" onclick="event.stopPropagation(); dismissMentionNotification('${safeProjArg}', '${safeMsgArg}', event)"
                           class="px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-slate-700/80 hover:border-rose-500/40 inline-flex items-center gap-1 text-[9.5px] font-semibold transition cursor-pointer"
                           title="Eliminar esta notificación">
                     <i class="fa-solid fa-trash-can text-[8.5px]"></i> Eliminar
@@ -997,26 +1211,26 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
 
               <div class="flex flex-wrap items-center gap-1">
                 <span class="px-1.5 py-0.2 rounded text-[9.5px] font-semibold bg-slate-800 text-slate-200 border border-slate-700 truncate max-w-[155px]">
-                  📁 ${item.projectName}
+                  📁 ${escapeChatHtml(item.projectName)}
                 </span>
                 ${mentionedTags.map(tag => `
                   <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-blue-500/25 text-blue-300 border border-blue-400/40">
-                    🔔 ${tag}
+                    🔔 ${escapeChatHtml(tag)}
                   </span>
                 `).join('')}
                 ${pObj ? `
                   <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 truncate max-w-[140px]">
-                    /${pObj.clave} ${pObj.descripcion}
+                    /${escapeChatHtml(pObj.clave)} ${escapeChatHtml(pObj.descripcion)}
                   </span>
                 ` : ''}
                 ${(m.estimaciones || []).map(est => `
                   <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    ${est}
+                    ${escapeChatHtml(est)}
                   </span>
                 `).join('')}
               </div>
 
-              <p class="text-xs text-slate-200 leading-snug line-clamp-2 break-words">${m.text}</p>
+              <p class="text-xs text-slate-200 leading-snug line-clamp-2 break-words">${escapeChatHtml(m.text)}</p>
             </div>
           </div>
         `;
@@ -1057,7 +1271,7 @@ export function renderSidebarNotificationsUI() {
   const consumptionAlert = (currentUser && currentUser.email) ? getActiveUserConsumptionAlert(currentUser.email) : null;
   const consumptionAlertCount = consumptionAlert ? 1 : 0;
 
-  // 1) Campana en el Ãrea de Proyectos (barra lateral izquierda): notificaciones donde mencionaron usuarios en el proyecto activo
+  // 1) Campana en el Área de Proyectos (barra lateral izquierda): notificaciones donde mencionaron usuarios en el proyecto activo
   const projectMentions = getUserMentionsNotifications(filterHandle, 'current');
   const projectUnreadCount = projectMentions.filter(item => !item.isRead).length + pendingInvsCount + consumptionAlertCount;
   const projectBadgeText = projectUnreadCount > 99 ? '99+' : String(projectUnreadCount);
@@ -1152,6 +1366,9 @@ export function toggleProjectChatDock(forceState = null) {
     isChatDockExpanded = forceState;
   } else {
     isChatDockExpanded = !isChatDockExpanded;
+  }
+  if (isChatDockExpanded) {
+    markActiveProjectChatMessagesAsRead();
   }
   renderProjectChatDock();
   if (isChatDockExpanded) {
@@ -1499,6 +1716,7 @@ export function openProjectChatForPartida(partidaId, event = null) {
     return;
   }
   isChatDockExpanded = true;
+  markActiveProjectChatMessagesAsRead();
   activePartidaFilterId = pidStr;
   pendingComposerTags.partidaId = pidStr;
   activeTagPickerKind = null;
@@ -1591,6 +1809,10 @@ export function sendProjectChatMessage() {
   if (!inp) return;
   const text = inp.value.trim();
   if (!text) return;
+  inp.value = '';
+
+  if (lastSentChatGuard.text === text && (Date.now() - lastSentChatGuard.ts) < 1500) return;
+  lastSentChatGuard = { text, ts: Date.now() };
 
   const users = getAssignedProjectUsers();
   const currentUser = getCurrentUser() || getLastKnownUser();
@@ -1623,19 +1845,20 @@ export function sendProjectChatMessage() {
     authorEmail: currentUser?.email || '',
     authorAvatar: authorObj.avatar || '',
     time: `${dateStr} • ${timeStr}`,
+    createdAt: now.toISOString(),
     partidaId: pendingComposerTags.partidaId || activePartidaFilterId || null,
     mentions: mergedMentions,
     estimaciones: [...pendingComposerTags.estimaciones],
     compras: [...(pendingComposerTags.compras || [])],
     reportes: [...pendingComposerTags.reportes],
+    isRead: true,
     readBy: [],
     text
   };
   messages.push(newMsg);
 
-  saveProjectChatMessages(messages);
+  saveProjectChatMessages(messages, null, { skipCloudSync: true });
   broadcastChatMessage(getActiveProjectId(), newMsg);
-  inp.value = '';
   pendingComposerTags = {
     partidaId: activePartidaFilterId || null,
     mentions: [],
@@ -1655,10 +1878,11 @@ export function sendProjectChatMessage() {
 }
 
 export function deleteProjectChatMessage(msgId) {
+  const cleanId = normalizeChatMsgId(msgId);
   const messages = loadProjectChatMessages();
-  const next = messages.filter(m => m.id !== msgId);
+  const next = messages.filter(m => normalizeChatMsgId(m.id) !== cleanId);
   saveProjectChatMessages(next);
-  broadcastChatDelete(getActiveProjectId(), msgId);
+  broadcastChatDelete(getActiveProjectId(), cleanId);
   renderProjectChatDock();
   triggerExternalChatRefresh();
 }
@@ -1731,6 +1955,10 @@ export function renderProjectChatDock() {
     }
   } catch (e) {}
 
+  if (isChatDockExpanded) {
+    markActiveProjectChatMessagesAsRead();
+  }
+
   renderSidebarNotificationsUI();
 
   const workspaceEl = document.getElementById('workspace-container');
@@ -1754,6 +1982,9 @@ export function renderProjectChatDock() {
   const compras = getProjectComprasTags();
   const reportes = getProjectReportesTags(activeChatSection);
   const allMessages = loadProjectChatMessages();
+  const currentUser = getCurrentUser() || getLastKnownUser();
+  const myEmail = (currentUser?.email || '').toLowerCase().trim();
+  const unreadCount = allMessages.filter(m => !m.isRead && (m.authorEmail || '').toLowerCase().trim() !== myEmail).length;
 
   // Conteo de mensajes por sección
   const countTecnico = allMessages.filter(m => getMessageSection(m) === 'tecnico').length;
@@ -1776,9 +2007,9 @@ export function renderProjectChatDock() {
       : 'fa-solid fa-comments text-lg group-hover:text-blue-400 transition';
   }
   if (sidebarChatBadge) {
-    if (allMessages.length > 0) {
+    if (!isChatDockExpanded && unreadCount > 0) {
       sidebarChatBadge.classList.remove('hidden');
-      sidebarChatBadge.textContent = allMessages.length > 99 ? '99+' : String(allMessages.length);
+      sidebarChatBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
     } else {
       sidebarChatBadge.classList.add('hidden');
       sidebarChatBadge.textContent = '0';
@@ -1798,7 +2029,6 @@ export function renderProjectChatDock() {
     ? 'no-print fixed bottom-0 right-5 z-50 w-[780px] max-w-[calc(100vw-1.5rem)] shadow-2xl rounded-t-2xl border border-b-0 border-slate-300 bg-white overflow-hidden transition-all duration-200 font-sans'
     : 'no-print fixed bottom-0 right-5 z-50 w-[380px] sm:w-[420px] max-w-[calc(100vw-1.5rem)] shadow-2xl rounded-t-xl border border-b-0 border-slate-300 bg-white overflow-hidden transition-all duration-200 font-sans';
 
-  const currentUser = getCurrentUser() || getLastKnownUser();
   if (!selectedAuthorHandle || !users.some(u => u.handle === selectedAuthorHandle)) {
     const matched = users.find(u => currentUser && u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase()) || users[0];
     selectedAuthorHandle = matched ? matched.handle : '@Admin';
@@ -1822,8 +2052,8 @@ export function renderProjectChatDock() {
   // Mini avatares de asignados en la barra superior de la ventana acoplada
   const miniAvatarsHtml = users.slice(0, 4).map(u => `
     <span class="w-5 h-5 rounded-full bg-blue-800 text-white text-[9px] font-bold inline-flex items-center justify-center border border-blue-400 shrink-0"
-          title="${u.name} (${u.handle} - ${u.roleLabel})">
-      ${u.initials}
+          title="${escapeChatHtml(u.name)} (${escapeChatHtml(u.handle)} - ${escapeChatHtml(u.roleLabel)})">
+      ${escapeChatHtml(u.initials)}
     </span>
   `).join('');
 
@@ -1833,9 +2063,9 @@ export function renderProjectChatDock() {
     tagPickerHtml = `
       <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
         ${users.map(u => `
-          <button type="button" onclick="addProjectChatPendingTag('user', '${u.handle.replace(/'/g, "\\'")}')"
+          <button type="button" onclick="addProjectChatPendingTag('user', '${escapeChatHtml(escapeChatJsArg(u.handle))}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer">
-            ${u.handle} <span class="text-[9.5px] opacity-75">(${u.roleLabel})</span>
+            ${escapeChatHtml(u.handle)} <span class="text-[9.5px] opacity-75">(${escapeChatHtml(u.roleLabel)})</span>
           </button>
         `).join('')}
       </div>
@@ -1844,9 +2074,9 @@ export function renderProjectChatDock() {
     tagPickerHtml = `
       <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
         ${partidas.length > 0 ? partidas.map(p => `
-          <button type="button" onclick="addProjectChatPendingTag('partida', '${escapeChatJsArg(p.id)}')"
+          <button type="button" onclick="addProjectChatPendingTag('partida', '${escapeChatHtml(escapeChatJsArg(p.id))}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 cursor-pointer truncate max-w-full">
-            <span class="opacity-65 mr-0.5">N${p.level}</span>/${escapeChatHtml(p.clave)} ${escapeChatHtml(p.descripcion)}
+            <span class="opacity-65 mr-0.5">N${Number(p.level) || 1}</span>/${escapeChatHtml(p.clave)} ${escapeChatHtml(p.descripcion)}
           </button>
         `).join('') : `<span class="text-[11px] text-slate-400">Sin conceptos en el catálogo</span>`}
       </div>
@@ -1855,9 +2085,9 @@ export function renderProjectChatDock() {
     tagPickerHtml = `
       <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
         ${estimaciones.map(e => `
-          <button type="button" onclick="addProjectChatPendingTag('estimacion', '${e.label}')"
+          <button type="button" onclick="addProjectChatPendingTag('estimacion', '${escapeChatHtml(escapeChatJsArg(e.label))}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 cursor-pointer">
-            ${e.label} ${e.locked ? '🔒' : ''}
+            ${escapeChatHtml(e.label)} ${e.locked ? '🔒' : ''}
           </button>
         `).join('')}
       </div>
@@ -1866,9 +2096,9 @@ export function renderProjectChatDock() {
     tagPickerHtml = `
       <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
         ${compras.map(c => `
-          <button type="button" onclick="addProjectChatPendingTag('compra', '${c.label.replace(/'/g, "\\'")}')"
+          <button type="button" onclick="addProjectChatPendingTag('compra', '${escapeChatHtml(escapeChatJsArg(c.label))}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100 cursor-pointer">
-            ${c.label} <span class="text-[9.5px] opacity-75">(${c.status})</span>
+            ${escapeChatHtml(c.label)} <span class="text-[9.5px] opacity-75">(${escapeChatHtml(c.status)})</span>
           </button>
         `).join('')}
       </div>
@@ -1877,9 +2107,9 @@ export function renderProjectChatDock() {
     tagPickerHtml = `
       <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 shadow-inner">
         ${reportes.map(r => `
-          <button type="button" onclick="addProjectChatPendingTag('reporte', '${r.label}')"
+          <button type="button" onclick="addProjectChatPendingTag('reporte', '${escapeChatHtml(escapeChatJsArg(r.label))}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
-            ${r.label}
+            ${escapeChatHtml(r.label)}
           </button>
         `).join('')}
       </div>
@@ -1893,8 +2123,8 @@ export function renderProjectChatDock() {
     if (p) {
       activeTagChips.push(`
         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-          /${p.clave} ${p.descripcion.slice(0, 22)}
-          <button type="button" onclick="removeProjectChatPendingTag('partida', '${p.id}')" class="hover:text-amber-950 cursor-pointer">✕</button>
+          /${escapeChatHtml(p.clave)} ${escapeChatHtml(String(p.descripcion || '').slice(0, 22))}
+          <button type="button" onclick="removeProjectChatPendingTag('partida', '${escapeChatHtml(escapeChatJsArg(p.id))}')" class="hover:text-amber-950 cursor-pointer">✕</button>
         </span>
       `);
     }
@@ -1902,32 +2132,32 @@ export function renderProjectChatDock() {
   pendingComposerTags.mentions.forEach(m => {
     activeTagChips.push(`
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
-        ${m}
-        <button type="button" onclick="removeProjectChatPendingTag('user', '${m.replace(/'/g, "\\'")}')" class="hover:text-blue-950 cursor-pointer">✕</button>
+        ${escapeChatHtml(m)}
+        <button type="button" onclick="removeProjectChatPendingTag('user', '${escapeChatHtml(escapeChatJsArg(m))}')" class="hover:text-blue-950 cursor-pointer">✕</button>
       </span>
     `);
   });
   pendingComposerTags.estimaciones.forEach(e => {
     activeTagChips.push(`
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-        ${e}
-        <button type="button" onclick="removeProjectChatPendingTag('estimacion', '${e}')" class="hover:text-emerald-950 cursor-pointer">✕</button>
+        ${escapeChatHtml(e)}
+        <button type="button" onclick="removeProjectChatPendingTag('estimacion', '${escapeChatHtml(escapeChatJsArg(e))}')" class="hover:text-emerald-950 cursor-pointer">✕</button>
       </span>
     `);
   });
   (pendingComposerTags.compras || []).forEach(c => {
     activeTagChips.push(`
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-teal-100 text-teal-800 border border-teal-300">
-        ${c.slice(0, 22)}
-        <button type="button" onclick="removeProjectChatPendingTag('compra', '${c.replace(/'/g, "\\'")}')" class="hover:text-teal-950 cursor-pointer">✕</button>
+        ${escapeChatHtml(String(c || '').slice(0, 22))}
+        <button type="button" onclick="removeProjectChatPendingTag('compra', '${escapeChatHtml(escapeChatJsArg(c))}')" class="hover:text-teal-950 cursor-pointer">✕</button>
       </span>
     `);
   });
   pendingComposerTags.reportes.forEach(r => {
     activeTagChips.push(`
       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
-        ${r}
-        <button type="button" onclick="removeProjectChatPendingTag('reporte', '${r}')" class="hover:text-purple-950 cursor-pointer">✕</button>
+        ${escapeChatHtml(r)}
+        <button type="button" onclick="removeProjectChatPendingTag('reporte', '${escapeChatHtml(escapeChatJsArg(r))}')" class="hover:text-purple-950 cursor-pointer">✕</button>
       </span>
     `);
   });
@@ -1940,8 +2170,8 @@ export function renderProjectChatDock() {
         <span class="w-6 h-6 rounded-lg bg-amber-400 text-slate-950 inline-flex items-center justify-center shadow-xs shrink-0">
           <i class="fa-solid fa-comments text-xs"></i>
         </span>
-        <span class="text-xs font-bold truncate" title="Chat y Bitácora: ${projectName}">
-          Bitácora • ${projectName}
+        <span class="text-xs font-bold truncate" title="Chat y Bitácora: ${escapeChatHtml(projectName)}">
+          Bitácora • ${escapeChatHtml(projectName)}
         </span>
         <span class="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400 text-slate-950 leading-none shrink-0"
               title="Notas en esta sección">
@@ -1953,7 +2183,7 @@ export function renderProjectChatDock() {
         <div class="hidden sm:flex items-center -space-x-1 mr-1">${miniAvatarsHtml}</div>
         <button type="button"
                 id="btn-project-chat-print"
-                onclick="event.stopPropagation(); printProjectChatReport('${activeChatSection}', event);"
+                onclick="event.stopPropagation(); printProjectChatReport('${escapeChatHtml(escapeChatJsArg(activeChatSection))}', event);"
                 title="Imprimir reporte de bitácora (${activeChatSection === 'tecnico' ? 'Técnica' : 'Financiera'})"
                 class="w-6 h-6 rounded bg-white/15 hover:bg-white/25 text-white inline-flex items-center justify-center cursor-pointer transition">
           <i class="fa-solid fa-print text-[11px]"></i>
@@ -2017,7 +2247,7 @@ export function renderProjectChatDock() {
             <select onchange="onProjectChatAuthorChange(this.value)"
                     class="bg-transparent text-[11px] font-bold text-slate-800 outline-none cursor-pointer">
               ${users.map(u => `
-                <option value="${u.handle}" ${u.handle === selectedAuthorHandle ? 'selected' : ''}>${u.handle}</option>
+                <option value="${escapeChatHtml(u.handle)}" ${u.handle === selectedAuthorHandle ? 'selected' : ''}>${escapeChatHtml(u.handle)}</option>
               `).join('')}
             </select>
           </div>
@@ -2072,19 +2302,20 @@ export function renderProjectChatDock() {
           const pObj = m.partidaId ? partidas.find(p => String(p.id) === String(m.partidaId)) : null;
           const isHighlighted = highlightedMessageId && m.id === highlightedMessageId;
           const msgSec = getMessageSection(m);
+          const safeMsgIdJs = escapeChatHtml(escapeChatJsArg(m.id));
           return `
-            <div id="chat-msg-item-${m.id}" class="p-2.5 rounded-lg border ${isHighlighted ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-300' : 'border-slate-200 bg-slate-50/70'} space-y-1.5 group transition">
+            <div id="chat-msg-item-${escapeChatHtml(m.id)}" class="p-2.5 rounded-lg border ${isHighlighted ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-300' : 'border-slate-200 bg-slate-50/70'} space-y-1.5 group transition">
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-1.5 min-w-0">
                   <span class="w-5 h-5 rounded-full ${msgSec === 'tecnico' ? 'bg-blue-700' : 'bg-emerald-700'} text-white text-[9px] font-bold inline-flex items-center justify-center shrink-0">
-                    ${m.authorInitials || 'US'}
+                    ${escapeChatHtml(m.authorInitials || 'US')}
                   </span>
-                  <span class="text-[11px] font-bold text-slate-800 truncate">${m.authorHandle || m.authorName}</span>
-                  <span class="px-1.5 py-0.2 rounded text-[9.5px] bg-white border border-slate-200 text-slate-500">${m.authorRole || 'Asignado'}</span>
+                  <span class="text-[11px] font-bold text-slate-800 truncate">${escapeChatHtml(m.authorHandle || m.authorName)}</span>
+                  <span class="px-1.5 py-0.2 rounded text-[9.5px] bg-white border border-slate-200 text-slate-500">${escapeChatHtml(m.authorRole || 'Asignado')}</span>
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
-                  <span class="text-[10px] text-slate-400">${m.time || ''}</span>
-                  <button type="button" onclick="deleteProjectChatMessage('${m.id}')"
+                  <span class="text-[10px] text-slate-400">${escapeChatHtml(m.time || '')}</span>
+                  <button type="button" onclick="deleteProjectChatMessage('${safeMsgIdJs}')"
                           title="Eliminar comentario"
                           class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 text-[10px] px-1 cursor-pointer transition">
                     <i class="fa-solid fa-trash-can"></i>
@@ -2096,38 +2327,38 @@ export function renderProjectChatDock() {
               ${(pObj || (m.mentions && m.mentions.length) || (m.estimaciones && m.estimaciones.length) || (m.compras && m.compras.length) || (m.reportes && m.reportes.length)) ? `
                 <div class="flex flex-wrap items-center gap-1">
                   ${pObj ? `
-                    <button type="button" onclick="jumpToProjectChatTag('partida', '${pObj.id}')"
+                    <button type="button" onclick="jumpToProjectChatTag('partida', '${escapeChatHtml(escapeChatJsArg(pObj.id))}')"
                             class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 cursor-pointer">
-                      /${pObj.clave} ${pObj.descripcion.slice(0, 24)}
+                      /${escapeChatHtml(pObj.clave)} ${escapeChatHtml(String(pObj.descripcion || '').slice(0, 24))}
                     </button>
                   ` : ''}
                   ${(m.mentions || []).map(u => `
                     <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
-                      ${u}
+                      ${escapeChatHtml(u)}
                     </span>
                   `).join('')}
                   ${(m.estimaciones || []).map(est => `
-                    <button type="button" onclick="jumpToProjectChatTag('estimacion', '${est}')"
+                    <button type="button" onclick="jumpToProjectChatTag('estimacion', '${escapeChatHtml(escapeChatJsArg(est))}')"
                             class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 cursor-pointer">
-                      ${est} ↗
+                      ${escapeChatHtml(est)} ↗
                     </button>
                   `).join('')}
                   ${(m.compras || []).map(comp => `
-                    <button type="button" onclick="jumpToProjectChatTag('compra', '${comp.replace(/'/g, "\\'")}')"
+                    <button type="button" onclick="jumpToProjectChatTag('compra', '${escapeChatHtml(escapeChatJsArg(comp))}')"
                             class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300 hover:bg-teal-200 cursor-pointer">
-                      ${comp.slice(0, 24)} ↗
+                      ${escapeChatHtml(String(comp || '').slice(0, 24))} ↗
                     </button>
                   `).join('')}
                   ${(m.reportes || []).map(rep => `
-                    <button type="button" onclick="jumpToProjectChatTag('reporte', '${rep}')"
+                    <button type="button" onclick="jumpToProjectChatTag('reporte', '${escapeChatHtml(escapeChatJsArg(rep))}')"
                             class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-200 cursor-pointer">
-                      ${rep} ↗
+                      ${escapeChatHtml(rep)} ↗
                     </button>
                   `).join('')}
                 </div>
               ` : ''}
 
-              <p class="text-xs text-slate-800 leading-snug break-words">${m.text}</p>
+              <p class="text-xs text-slate-800 leading-snug break-words">${escapeChatHtml(m.text)}</p>
             </div>
           `;
         }).join('')}
@@ -2183,7 +2414,7 @@ export function renderProjectChatDock() {
           <button type="button"
                   onclick="sendProjectChatMessage()"
                   class="px-3 py-1.5 rounded-lg text-xs font-bold ${activeChatSection === 'tecnico' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white cursor-pointer transition shrink-0 shadow-xs">
-            Asentar
+            Enviar
           </button>
         </div>
       </div>
@@ -2258,4 +2489,10 @@ if (typeof window !== 'undefined') {
   window.handleRejectInvitationAction = handleRejectInvitationAction;
   window.purgeAllNotifications = purgeAllNotifications;
   window.dismissMentionNotification = dismissMentionNotification;
+  window.hydrateNotificationStateFromCloud = hydrateNotificationStateFromCloud;
+  window.syncNotificationStateToCloud = syncNotificationStateToCloud;
+  setTimeout(() => { try { hydrateNotificationStateFromCloud(); } catch (_) {} }, 800);
+  window.addEventListener('cubikar:cloud-modules-hydrated', () => {
+    try { hydrateNotificationStateFromCloud(); } catch (_) {}
+  });
 }

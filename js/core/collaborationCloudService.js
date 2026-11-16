@@ -20,12 +20,14 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261116_v24_sync_fix';
+} from '../modules/portal/projectService.js';
 import { getSettingsKey, getStorageKey } from '../config/constants.js';
 import { getChatStorageKey } from '../modules/chat/projectChat.js';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
+let pendingCloudSync = false;
+let pendingCloudSyncUser = null;
 let lastCloudSyncSignature = '';
 let lastInternalCloudUpdateAt = 0;
 
@@ -44,17 +46,17 @@ export function isRecentInternalCloudAuthUpdate(windowMs = 6000) {
 }
 
 /**
- * Sincroniza hacia la nube de Supabase (user_metadata) todo el ecosistema de trabajo:
- * 1. Proyectos propios creados por el usuario
- * 2. Proyectos donde participa como colaborador invitado
- * 3. Invitaciones al plan de anfitriones (aceptadas y pendientes)
- * 4. Invitaciones emitidas hacia colaboradores
- * 5. Invitaciones formales a proyectos
- * 6. Suscripción activa del usuario
+ * Sincroniza hacia la nube de Supabase (user_metadata para perfil/suscripción/invitaciones/lápidas
+ * y public.proyectos como única fuente de verdad para los proyectos).
  */
 export async function syncUserCollaborationToCloud(user = null) {
   const sb = getSupabaseClient();
-  if (!sb || !isSupabaseConfigured() || isCloudSyncInFlight) return false;
+  if (!sb || !isSupabaseConfigured()) return false;
+  if (isCloudSyncInFlight) {
+    pendingCloudSync = true;
+    pendingCloudSyncUser = user || getCurrentUser();
+    return false;
+  }
 
   const currentUser = user || getCurrentUser();
   if (!currentUser || !currentUser.email) return false;
@@ -72,20 +74,11 @@ export async function syncUserCollaborationToCloud(user = null) {
     const allPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
     const allProjects = typeof getProjectsList === 'function' ? getProjectsList() : [];
 
-    // 1. Proyectos propios creados por el usuario (o bajo su propiedad)
-    const myOwnedProjects = allProjects.filter(p => {
+    // Solo usar public.proyectos como fuente de verdad; filtrar eliminados para el manifiesto
+    const myOwnedActiveProjects = allProjects.filter(p => {
       const oEmail = (p.ownerEmail || '').toLowerCase().trim();
-      return oEmail === myEmail;
-    }).map(mapProjectForCloudSync);
-
-    // 2. Proyectos en los que participa como colaborador de un anfitrión
-    const myCollaboratedProjects = allProjects.filter(p => {
-      const oEmail = (p.ownerEmail || '').toLowerCase().trim();
-      if (oEmail === myEmail) return false;
-      return Array.isArray(p.members) && p.members.some(m => 
-        (m.email || '').toLowerCase().trim() === myEmail && m.status === 'active'
-      );
-    }).map(mapProjectForCloudSync);
+      return oEmail === myEmail && !isProjectMarkedDeleted(p.id) && !isProjectMarkedDeleted(p.cloudId);
+    });
 
     // 3. Invitaciones al plan de anfitriones recibidas/aceptadas
     const myPlanInvs = allPlanInvs.filter(pi => 
@@ -121,8 +114,8 @@ export async function syncUserCollaborationToCloud(user = null) {
     const cloudPayload = {
       version: 2,
       subscription: currentSub,
-      ownedProjects: myOwnedProjects,
-      collaboratedProjects: myCollaboratedProjects,
+      ownedProjects: [],
+      collaboratedProjects: [],
       planInvitations: myPlanInvs,
       acceptedInvitations: myAcceptedInvs,
       sentPlanInvitations: mySentPlanInvs,
@@ -144,33 +137,31 @@ export async function syncUserCollaborationToCloud(user = null) {
           saveCurrentUser(currentUser);
         }
       }
-      return true;
-    }
+    } else {
+      lastInternalCloudUpdateAt = Date.now();
+      const { error } = await sb.auth.updateUser({
+        data: {
+          cubikar_cloud_state_v2: cloudPayload
+        }
+      });
 
-    lastInternalCloudUpdateAt = Date.now();
-    // Actualizar metadatos en Supabase Auth (persistencia nativa en auth.users)
-    const { data, error } = await sb.auth.updateUser({
-      data: {
-        cubikar_cloud_state_v2: cloudPayload
+      if (error) {
+        console.warn('[CloudSync] Aviso al guardar estado en Supabase:', error.message);
+        return false;
       }
-    });
 
-    if (error) {
-      console.warn('[CloudSync] Aviso al guardar estado en Supabase:', error.message);
-      return false;
+      lastCloudSyncSignature = nextSignature;
+
+      if (currentUser) {
+        if (!currentUser.user_metadata) currentUser.user_metadata = {};
+        currentUser.user_metadata.cubikar_cloud_state_v2 = cloudPayload;
+        saveCurrentUser(currentUser);
+      }
     }
 
-    lastCloudSyncSignature = nextSignature;
-
-    // Actualizar usuario en memoria local
-    if (currentUser) {
-      if (!currentUser.user_metadata) currentUser.user_metadata = {};
-      currentUser.user_metadata.cubikar_cloud_state_v2 = cloudPayload;
-      saveCurrentUser(currentUser);
-    }
-
-    // Persistir únicamente proyectos nuevos del propietario que aún no han sido sincronizados a PostgreSQL
+    // Persistir proyectos nuevos del propietario que aún no han sido sincronizados a PostgreSQL
     const rawProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail && !p.isCloudSynced && !isProjectMarkedDeleted(p.id) && !isProjectMarkedDeleted(p.cloudId));
+    let localProjectsUpdated = false;
     for (const p of rawProjects) {
       try {
         let tree = null;
@@ -182,26 +173,37 @@ export async function syncUserCollaborationToCloud(user = null) {
         const res = await syncProjectToCloud(p, setts, tree);
         if (res && res.success) {
           p.isCloudSynced = true;
+          if (res.projectId) p.cloudId = res.projectId;
+          localProjectsUpdated = true;
         }
       } catch (e) {
         console.warn('[CloudSync] Aviso al sincronizar proyecto individual con PostgreSQL:', e);
       }
     }
+    if (localProjectsUpdated && typeof saveProjectsList === 'function') {
+      saveProjectsList(allProjects);
+    }
 
     // Publicar manifiesto de proyectos activos del anfitrión en Supabase para sincronización inter-usuarios
     if (myEmail) {
       try {
-        await recordHostActiveManifest(myEmail, myOwnedProjects.map(p => p.id));
+        await recordHostActiveManifest(myEmail, myOwnedActiveProjects.map(p => p.cloudId || p.id));
       } catch (_) {}
     }
 
-    console.info(`[CloudSync] Estado respaldado en la nube con éxito (${myOwnedProjects.length} propias, ${myCollaboratedProjects.length} colaboradas, ${myPlanInvs.length} anfitriones).`);
+    console.info(`[CloudSync] Estado respaldado en la nube con éxito (${myOwnedActiveProjects.length} propias activas, ${myPlanInvs.length} anfitriones).`);
     return true;
   } catch (err) {
     console.warn('[CloudSync] Excepción al respaldar en la nube:', err);
     return false;
   } finally {
     isCloudSyncInFlight = false;
+    if (pendingCloudSync) {
+      const nextUser = pendingCloudSyncUser || getCurrentUser();
+      pendingCloudSync = false;
+      pendingCloudSyncUser = null;
+      setTimeout(() => { syncUserCollaborationToCloud(nextUser); }, 50);
+    }
   }
 }
 
@@ -268,6 +270,11 @@ export function restoreUserCollaborationFromCloud(user = null) {
 
   // Buscar payload v2 o v1 en user_metadata
   const state = currentUser.user_metadata?.cubikar_cloud_state_v2 || currentUser.user_metadata?.cubikar_collaboration_v1;
+  try {
+    if (typeof window !== 'undefined' && typeof window.hydrateNotificationStateFromCloud === 'function') {
+      window.hydrateNotificationStateFromCloud(currentUser);
+    }
+  } catch (_) {}
   if (!state || typeof state !== 'object') return false;
 
   let hasChanges = false;
@@ -284,84 +291,27 @@ export function restoreUserCollaborationFromCloud(user = null) {
     } catch (_) {}
   }
 
-  // 1B. Restaurar lista de IDs de proyectos eliminados desde user_metadata antes de restaurar proyectos
+  // 1B. Restaurar lista de IDs de proyectos eliminados desde user_metadata antes de reconciliar con Supabase
   if (Array.isArray(state.deletedProjectIds) && state.deletedProjectIds.length > 0 && typeof markProjectDeleted === 'function') {
     state.deletedProjectIds.forEach(delId => {
       if (delId) markProjectDeleted(delId);
     });
   }
 
-  // 2. Restaurar proyectos propios y colaborados en STORAGE_KEY_PROJECTS
+  // Usar únicamente public.proyectos + public.proyectos_eliminados como fuente de verdad
+  // (no reinyectar state.ownedProjects ni state.collaboratedProjects desde user_metadata).
   const deletedList = typeof getDeletedProjectsList === 'function' ? getDeletedProjectsList() : [];
   const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
 
-  const cloudProjectsToRestore = [];
-  if (Array.isArray(state.ownedProjects)) {
-    cloudProjectsToRestore.push(...state.ownedProjects.filter(p => !isDeleted(p.id) && !isDeleted(p.cloudId)));
-  }
-  if (Array.isArray(state.collaboratedProjects)) {
-    cloudProjectsToRestore.push(...state.collaboratedProjects.filter(p => !isDeleted(p.id) && !isDeleted(p.cloudId)));
-  }
-
-  if (cloudProjectsToRestore.length > 0) {
+  // Limpiar copias obsoletas en localStorage según lápidas conocidas
+  try {
     const localProjects = typeof getProjectsList === 'function' ? getProjectsList() : [];
-    let projChanged = false;
-
-    // Si el usuario tiene proyectos auténticos en la nube, remover las plantillas dummy iniciales
-    const hasRealCloudProjects = cloudProjectsToRestore.some(p => p.id !== 'proj-default-01' && p.id !== 'proj-default-02');
-    let filteredLocal = localProjects;
-    if (hasRealCloudProjects) {
-      filteredLocal = localProjects.filter(p => p.id !== 'proj-default-01' && p.id !== 'proj-default-02');
-      if (filteredLocal.length !== localProjects.length) {
-        projChanged = true;
-      }
-    }
-
-    cloudProjectsToRestore.forEach(cp => {
-      const idx = filteredLocal.findIndex(lp => lp.id === cp.id);
-      if (idx === -1) {
-        filteredLocal.unshift(cp);
-        projChanged = true;
-      } else {
-        // Respetar la lista de miembros de cp (incluso si está vacía, no restaurar miembros viejos)
-        if (Array.isArray(cp.members)) {
-          filteredLocal[idx].members = cp.members;
-          projChanged = true;
-        }
-        if (cp.ownerEmail && filteredLocal[idx].ownerEmail !== cp.ownerEmail) {
-          filteredLocal[idx].ownerEmail = cp.ownerEmail;
-          filteredLocal[idx].ownerName = cp.ownerName || filteredLocal[idx].ownerName;
-          filteredLocal[idx].ownerPlanId = cp.ownerPlanId || filteredLocal[idx].ownerPlanId;
-          projChanged = true;
-        }
-      }
-
-      // Restaurar árbol de catálogo, configuración y mensajes de chat en localStorage si vinieron incluidos
-      try {
-        if (cp.settings && !localStorage.getItem(getSettingsKey(cp.id))) {
-          localStorage.setItem(getSettingsKey(cp.id), JSON.stringify(cp.settings));
-        }
-        if (cp.treeData && !localStorage.getItem(getStorageKey(cp.id))) {
-          localStorage.setItem(getStorageKey(cp.id), JSON.stringify(cp.treeData));
-        }
-        if (Array.isArray(cp.chatMessages) && cp.chatMessages.length > 0) {
-          const chatKey = getChatStorageKey(cp.id);
-          const rawChat = localStorage.getItem(chatKey);
-          let curChat = rawChat ? JSON.parse(rawChat) : [];
-          if (!Array.isArray(curChat)) curChat = [];
-          const map = new Map();
-          curChat.forEach(m => map.set(m.id, m));
-          cp.chatMessages.forEach(m => map.set(m.id, m));
-          localStorage.setItem(chatKey, JSON.stringify(Array.from(map.values())));
-        }
-      } catch (_) {}
-    });
-
-    if (projChanged && typeof saveProjectsList === 'function') {
-      saveProjectsList(filteredLocal);
+    const surviving = localProjects.filter(lp => lp && !isDeleted(lp.id) && !(lp.cloudId && isDeleted(lp.cloudId)));
+    if (surviving.length !== localProjects.length && typeof saveProjectsList === 'function') {
+      saveProjectsList(surviving);
       hasChanges = true;
     }
-  }
+  } catch (_) {}
 
   // 3. Restaurar invitaciones al plan (tanto recibidas como emitidas)
   const cloudPlanInvs = [];
@@ -436,6 +386,28 @@ export function restoreUserCollaborationFromCloud(user = null) {
       let updated = false;
 
       // 1. Agregar o actualizar proyectos vigentes devueltos por Supabase
+      const migrateLocalProjectKeys = (oldId, newId) => {
+        if (!oldId || !newId || oldId === newId || typeof localStorage === 'undefined') return;
+        const keyPairs = [
+          [getStorageKey(oldId), getStorageKey(newId)],
+          [getSettingsKey(oldId), getSettingsKey(newId)],
+          [getChatStorageKey(oldId), getChatStorageKey(newId)],
+          [`estimaciones_data_${oldId}`, `estimaciones_data_${newId}`],
+          [`adm_const_bitacora_${oldId}`, `adm_const_bitacora_${newId}`],
+          [`expenses_control_${oldId}`, `expenses_control_${newId}`],
+          [`calendario_cfg_${oldId}`, `calendario_cfg_${newId}`],
+          [`calendario_workdays_${oldId}`, `calendario_workdays_${newId}`]
+        ];
+        keyPairs.forEach(([fromKey, toKey]) => {
+          try {
+            const oldVal = localStorage.getItem(fromKey);
+            if (oldVal !== null && localStorage.getItem(toKey) === null) {
+              localStorage.setItem(toKey, oldVal);
+            }
+          } catch (_) {}
+        });
+      };
+
       activeCloud.forEach(cp => {
         if (isDeleted(cp.id) || isDeleted(cp.cloudId)) return;
         const idx = curList.findIndex(lp => lp.id === cp.id || lp.cloudId === cp.id);
@@ -443,6 +415,9 @@ export function restoreUserCollaborationFromCloud(user = null) {
           curList.unshift(cp);
           updated = true;
         } else {
+          if (curList[idx].id && cp.id && curList[idx].id !== cp.id) {
+            migrateLocalProjectKeys(curList[idx].id, cp.id);
+          }
           curList[idx] = { ...curList[idx], ...cp, isCloudSynced: true };
           updated = true;
         }
@@ -511,28 +486,47 @@ export function restoreUserCollaborationFromCloud(user = null) {
  * Registrar lápida (tombstone) de proyecto eliminado en Supabase (tabla chat_mensajes)
  * para asegurar que usuarios desconectados o en otros navegadores lo eliminen al reconectar.
  */
-export async function recordDeletedProjectTombstone(projectId, ownerEmail = null) {
+export async function recordDeletedProjectTombstone(projectId, ownerEmail = null, opts = {}) {
   if (!projectId) return false;
   const sb = getSupabaseClient();
   if (!sb || typeof sb.from !== 'function') return false;
 
   const user = getCurrentUser();
-  const oEmail = (ownerEmail || user?.email || '').toLowerCase().trim();
-  const rowId = `__tombstone__${projectId}`;
+  const deletedBy = String(opts?.deletedByEmail || user?.email || '').toLowerCase().trim();
+  const oEmail = String(ownerEmail || user?.email || '').toLowerCase().trim();
+  const pidStr = String(projectId).trim();
+  const rowId = `__tombstone__${pidStr}`;
+  const nowIso = new Date().toISOString();
 
   try {
+    const collabEmails = Array.isArray(opts?.collaboratorEmails)
+      ? Array.from(new Set(opts.collaboratorEmails.map(e => String(e || '').toLowerCase().trim()).filter(Boolean)))
+      : [];
+
+    const { error: peErr } = await sb.from('proyectos_eliminados').upsert({
+      proyecto_id: pidStr,
+      owner_email: oEmail || deletedBy || null,
+      deleted_by_email: deletedBy || oEmail || null,
+      collaborator_emails: collabEmails,
+      deleted_at: nowIso
+    }, { onConflict: 'proyecto_id' });
+    if (peErr) {
+      console.warn('[CloudSync] Aviso al registrar en proyectos_eliminados:', peErr.message || peErr);
+    }
+
     await sb.from('chat_mensajes').upsert({
       id: rowId,
       proyecto_id: '__cubikar_tombstones__',
       autor_nombre: user?.name || 'Sistema',
-      autor_email: user?.email || oEmail,
-      mensaje: projectId,
+      autor_email: user?.email || oEmail || deletedBy,
+      mensaje: pidStr,
       payload_json: {
-        projectId,
+        projectId: pidStr,
         ownerEmail: oEmail,
-        deletedAt: new Date().toISOString()
+        deletedByEmail: deletedBy,
+        deletedAt: nowIso
       },
-      created_at: new Date().toISOString()
+      created_at: nowIso
     }, { onConflict: 'id' });
     return true;
   } catch (err) {
@@ -674,6 +668,27 @@ export async function syncHostWorkspaceProjects(hostEmail) {
       return true;
     });
 
+    const remainingHostProjects = updatedList.filter(p => {
+      const pOwner = (p.ownerEmail || '').toLowerCase().trim();
+      return pOwner === targetHost && !isProjectMarkedDeleted(p.id) && !(p.cloudId && isProjectMarkedDeleted(p.cloudId));
+    });
+
+    if (activeIdsSet.size === 0 && remainingHostProjects.length === 0) {
+      try {
+        const planInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
+        const cleanedPlanInvs = planInvs.filter(pi => (pi.ownerEmail || '').toLowerCase().trim() !== targetHost);
+        if (cleanedPlanInvs.length !== planInvs.length && typeof saveStoredPlanInvitations === 'function') {
+          saveStoredPlanInvitations(cleanedPlanInvs);
+        }
+        if (user && user.user_metadata?.cubikar_cloud_state_v2 && Array.isArray(user.user_metadata.cubikar_cloud_state_v2.planInvitations)) {
+          user.user_metadata.cubikar_cloud_state_v2.planInvitations = user.user_metadata.cubikar_cloud_state_v2.planInvitations.filter(
+            pi => (pi.ownerEmail || '').toLowerCase().trim() !== targetHost
+          );
+          saveCurrentUser(user);
+        }
+      } catch (_) {}
+    }
+
     if (prunedCount > 0) {
       saveProjectsList(updatedList);
       if (user && user.user_metadata?.cubikar_cloud_state_v2) {
@@ -707,40 +722,71 @@ export async function reconcileDeletedProjectsWithCloud() {
   if (!sb || typeof sb.from !== 'function') return false;
 
   try {
-    const { data: tombstones, error: tErr } = await sb
-      .from('chat_mensajes')
-      .select('mensaje, payload_json')
-      .eq('proyecto_id', '__cubikar_tombstones__')
-      .limit(500);
+    const [{ data: cloudDeletedRows, error: cdErr }, { data: tombstones, error: tErr }] = await Promise.all([
+      sb.from('proyectos_eliminados').select('proyecto_id, owner_email, deleted_by_email, deleted_at').limit(500),
+      sb.from('chat_mensajes').select('mensaje, payload_json').eq('proyecto_id', '__cubikar_tombstones__').limit(500)
+    ]);
 
     let changed = false;
+    const newlyDeletedIds = [];
+    const registerDeletedId = (pid) => {
+      const cleanPid = pid ? String(pid).trim() : '';
+      if (!cleanPid) return;
+      if (!isProjectMarkedDeleted(cleanPid)) {
+        markProjectDeleted(cleanPid);
+        newlyDeletedIds.push(cleanPid);
+        changed = true;
+      }
+    };
+
+    if (!cdErr && Array.isArray(cloudDeletedRows)) {
+      cloudDeletedRows.forEach(r => registerDeletedId(r?.proyecto_id));
+    }
+
     if (!tErr && Array.isArray(tombstones) && tombstones.length > 0) {
       tombstones.forEach(t => {
         const pid = t.payload_json?.projectId || t.mensaje;
-        if (pid) {
-          if (!isProjectMarkedDeleted(pid)) {
-            markProjectDeleted(pid);
-            changed = true;
-          }
-        }
+        registerDeletedId(pid);
       });
     }
 
     if (changed) {
+      newlyDeletedIds.forEach(pid => {
+        try {
+          localStorage.removeItem(getSettingsKey(pid));
+          localStorage.removeItem(getStorageKey(pid));
+          localStorage.removeItem(`estimaciones_data_${pid}`);
+          localStorage.removeItem(`expenses_control_${pid}`);
+          localStorage.removeItem(`calendario_cfg_${pid}`);
+          localStorage.removeItem(`calendario_workdays_${pid}`);
+          localStorage.removeItem(`adm_const_project_chat_${pid}`);
+          localStorage.removeItem(`adm_const_bitacora_${pid}`);
+          localStorage.removeItem(`adm_const_signatures_${pid}`);
+          localStorage.removeItem(`adm_const_expenses_${pid}`);
+          localStorage.removeItem(`adm_const_suppliers_${pid}`);
+          localStorage.removeItem(`adm_arq_project_chat_${pid}`);
+        } catch (_) {}
+      });
+
       const current = getProjectsList();
       saveProjectsList(current);
 
       const user = getCurrentUser();
       if (user && user.user_metadata?.cubikar_cloud_state_v2) {
         const cs = user.user_metadata.cubikar_cloud_state_v2;
-        const isDel = (id) => isProjectMarkedDeleted(id);
-        if (Array.isArray(cs.collaboratedProjects)) {
-          cs.collaboratedProjects = cs.collaboratedProjects.filter(p => !isDel(p.id) && !isDel(p.cloudId));
-        }
-        if (Array.isArray(cs.ownedProjects)) {
-          cs.ownedProjects = cs.ownedProjects.filter(p => !isDel(p.id) && !isDel(p.cloudId));
-        }
+        const hadLegacyArrays = (Array.isArray(cs.collaboratedProjects) && cs.collaboratedProjects.length > 0) ||
+          (Array.isArray(cs.ownedProjects) && cs.ownedProjects.length > 0);
+        cs.collaboratedProjects = [];
+        cs.ownedProjects = [];
+        const deletedIds = typeof getDeletedProjectsList === 'function' ? getDeletedProjectsList() : [];
+        cs.deletedProjectIds = Array.isArray(deletedIds) ? deletedIds.slice(-500) : [];
         saveCurrentUser(user);
+        if (hadLegacyArrays) {
+          try {
+            lastInternalCloudUpdateAt = Date.now();
+            await sb.auth.updateUser({ data: { cubikar_cloud_state_v2: cs } });
+          } catch (_) {}
+        }
       }
 
       if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
@@ -756,9 +802,9 @@ export async function reconcileDeletedProjectsWithCloud() {
 
 /**
  * Sincronización automática de arranque:
- * 1. Restaura lo que haya en la nube a localStorage.
- * 2. Si localStorage contiene datos nuevos o más completos, los respalda a la nube.
- * 3. Reconcilia lápidas de proyectos eliminados.
+ * 1. Reconcilia lápidas de proyectos eliminados en la nube.
+ * 2. Restaura lo que haya en la nube desde public.proyectos + metadatos.
+ * 3. Si localStorage contiene obras no respaldadas aún o metadata legado por limpiar, sincroniza.
  */
 export async function autoSyncCollaborationOnStartup(user = null) {
   if (isCloudSyncInFlight || isRecentInternalCloudAuthUpdate(3000)) return;
@@ -770,31 +816,27 @@ export async function autoSyncCollaborationOnStartup(user = null) {
     await reconcileDeletedProjectsWithCloud();
   } catch (_) {}
 
-  // Paso 2: Restaurar de la nube si existen datos en user_metadata
-  const didRestore = restoreUserCollaborationFromCloud(currentUser);
+  // Paso 2: Restaurar de la nube (public.proyectos + invitaciones)
+  restoreUserCollaborationFromCloud(currentUser);
 
-  // Paso 3: Verificar si localStorage local contiene obras o invitaciones no respaldadas aún
+  // Paso 3: Verificar si localStorage local contiene obras no respaldadas o metadata legado por limpiar
   const myEmail = (currentUser.email || '').toLowerCase().trim();
   const allProjects = typeof getProjectsList === 'function' ? getProjectsList() : [];
   const localOwned = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail);
-  const localCollab = allProjects.filter(p => {
-    const oEmail = (p.ownerEmail || '').toLowerCase().trim();
-    return oEmail !== myEmail && Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === myEmail && m.status === 'active');
-  });
 
   const allPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
   const myPlanInvs = allPlanInvs.filter(pi => (pi.email || '').toLowerCase().trim() === myEmail);
 
   const cloudState = currentUser.user_metadata?.cubikar_cloud_state_v2;
-  const cloudOwnedCount = Array.isArray(cloudState?.ownedProjects) ? cloudState.ownedProjects.length : 0;
-  const cloudCollabCount = Array.isArray(cloudState?.collaboratedProjects) ? cloudState.collaboratedProjects.length : 0;
+  const hasLegacyArrays = (Array.isArray(cloudState?.ownedProjects) && cloudState.ownedProjects.length > 0) ||
+    (Array.isArray(cloudState?.collaboratedProjects) && cloudState.collaboratedProjects.length > 0);
+  const hasUnsyncedLocal = localOwned.some(p => !p.isCloudSynced && !isProjectMarkedDeleted(p.id) && !isProjectMarkedDeleted(p.cloudId));
   const cloudPlanCount = Array.isArray(cloudState?.planInvitations) ? cloudState.planInvitations.length : 0;
 
-  // Si local tiene items y la nube no los tiene, subirlos
   if (
     !cloudState ||
-    localOwned.length > cloudOwnedCount ||
-    localCollab.length > cloudCollabCount ||
+    hasLegacyArrays ||
+    hasUnsyncedLocal ||
     myPlanInvs.length > cloudPlanCount
   ) {
     await syncUserCollaborationToCloud(currentUser);

@@ -6,6 +6,7 @@ import { state, persistLocalData } from '../../state/store.js';
 import { getActiveProjectId, getStorageKey, STORAGE_KEY_PROJECTS } from '../../config/constants.js';
 import { getHierarchyColor } from '../../core/colors.js';
 import { scheduleCronogramaCloudSync } from '../../core/cloudModulesSyncService.js';
+import { canCurrentUserEditProject } from '../portal/projectService.js';
 
 // Colores modernos por partida para las barras del cronograma Gantt
 export const PARTIDA_COLORS = [
@@ -962,13 +963,13 @@ export function generateTimePeriods(items, scale = 'meses', customStart = null) 
 
       curr = addDays(curr, 7);
       weekIndex++;
-      if (weekIndex > 52) break; // Límite de seguridad
+      if (weekIndex > 520) break; // Límite de seguridad amplio (10 años)
     }
   } else {
-    // Escala por Días (muestra hasta 60 días o días de ejecución)
+    // Escala por Días (soporta horizontes largos de obra)
     let curr = new Date(minDate);
     let dayIndex = 1;
-    const totalDays = Math.min(90, Math.max(15, diffDays(minDate, maxDate) + 1));
+    const totalDays = Math.min(1825, Math.max(15, diffDays(minDate, maxDate) + 1));
 
     for (let i = 0; i < totalDays; i++) {
       const pStart = new Date(curr);
@@ -1407,6 +1408,7 @@ export function redoLastScheduleChange() {
 
 // 1. Edición desde el Gantt: Actualizar Fecha de Inicio o Duración con bloqueo por predecesoras y cascada
 export function updateConceptDatesInModel(conceptId, startDateStr, durationDays) {
+  if (!canCurrentUserEditProject(getActiveProjectId())) return false;
   let targetNode = null;
 
   function findNode(nodes) {
@@ -1700,6 +1702,7 @@ export function shiftProjectScheduleStart(newStartDateStr) {
 
 // 2. Edición desde la Tabla Financiera: Modificar cantidad o importe de un período
 export function updateConceptPeriodInModel(conceptId, periodKey, field, value, periods) {
+  if (!canCurrentUserEditProject(getActiveProjectId())) return false;
   let targetNode = null;
 
   function findNode(nodes) {
@@ -1796,4 +1799,9 @@ export function autoDistributeAllSchedule(projectStartDateStr = null, options = 
   });
 
   persistLocalData(true);
+}
+
+export function updateExecutionEntry(conceptId, periodKey, field, value, periods) {
+  if (!canCurrentUserEditProject(getActiveProjectId())) return false;
+  return updateConceptPeriodInModel(conceptId, periodKey, field, value, periods);
 }

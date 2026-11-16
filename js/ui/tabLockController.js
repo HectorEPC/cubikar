@@ -5,6 +5,7 @@
 
 import { getActiveProjectId } from '../config/constants.js';
 import { showToast } from './notifications.js';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js';
 import { isEstimacionLocked, toggleActiveEstimacionLockState, setEstimacionLocked } from '../modules/estimaciones/estimacionesModel.js';
 
 const STORAGE_KEY_TAB_LOCKS_PREFIX = 'adm_const_tab_locks_';
@@ -74,6 +75,12 @@ export function isTabLocked(tabKey) {
 }
 
 export function setTabLocked(tabKey, locked, { notify = true, rerender = true } = {}) {
+  if (!canCurrentUserEditProject()) {
+    if (notify) {
+      showToast('🔒 Modo solo lectura: no tienes permisos para bloquear o desbloquear pestañas.', 'warning');
+    }
+    return isTabLocked(tabKey);
+  }
   const isLocked = Boolean(locked);
 
   if (tabKey === 'estimaciones') {
@@ -102,6 +109,10 @@ export function setTabLocked(tabKey, locked, { notify = true, rerender = true } 
 }
 
 export function toggleTabLock(tabKey) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: no tienes permisos para bloquear o desbloquear pestañas.', 'warning');
+    return isTabLocked(tabKey);
+  }
   if (tabKey === 'estimaciones') {
     const { locked, est } = toggleActiveEstimacionLockState();
     if (typeof lockRenderCallback === 'function') {
@@ -122,6 +133,10 @@ export function toggleTabLock(tabKey) {
 }
 
 export function guardTabUnlocked(tabKey, customMessage = null) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite modificar este proyecto.', 'warning');
+    return false;
+  }
   if (!isTabLocked(tabKey)) return true;
   const label = TAB_LABELS[tabKey] || tabKey;
   const msg = customMessage || (

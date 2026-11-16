@@ -92,7 +92,8 @@ export function saveExpensesData(data, projectId = null) {
     const clean = {
       config: data?.config || getDefaultExpensesData().config,
       suppliers: Array.isArray(data?.suppliers) ? data.suppliers : [],
-      records: cleanRecords
+      records: cleanRecords,
+      updatedAt: new Date().toISOString()
     };
     localStorage.setItem(getExpensesStorageKey(projectId), JSON.stringify(clean));
     scheduleExpensesCloudSync(projectId);

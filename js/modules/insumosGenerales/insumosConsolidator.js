@@ -69,8 +69,8 @@ export function getConsolidatedDataMap() {
         // FILTRADO ESTRICTO: Solo incluir conceptos que estén explícitamente marcados con el checkbox en TAB1-CAT-BASE
         if (Boolean(node.selected)) {
           selectedConceptsCount++;
-          const rawCant = round2(node.cantidad);
-          const cantConcepto = (!isNaN(rawCant) && rawCant > 0) ? rawCant : 1.00;
+          const hasExplicitCant = node.cantidad !== undefined && node.cantidad !== null && String(node.cantidad).trim() !== '' && Number.isFinite(Number(node.cantidad));
+          const cantConcepto = hasExplicitCant ? Math.max(0, round2(Number(node.cantidad))) : 1.00;
 
           // Si el concepto tiene costo pero aún no tiene matriz asignada, generar su matriz integrada
           if (!node.insumos || node.insumos.length === 0) {

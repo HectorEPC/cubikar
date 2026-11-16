@@ -727,7 +727,11 @@ Reglas obligatorias:
     } else if (proxyRes.status === 401 || proxyRes.status === 403 || proxyRes.status === 429) {
       const errJson = await proxyRes.json().catch(() => ({}));
       if (errJson?.quotaSnapshot) applyServerQuotaSnapshot(quotaCheck.ctx?.ownerEmail, errJson.quotaSnapshot);
-      throw new Error(errJson?.error || 'Cuota mensual de IA agotada o sesión requerida.');
+      if (apiKey && (proxyRes.status === 401 || proxyRes.status === 403)) {
+        console.warn(`[Calendario IA] Proxy respondió HTTP ${proxyRes.status}; usando API Key propia en cliente.`);
+      } else {
+        throw new Error(errJson?.error || 'Cuota mensual de IA agotada o sesión requerida.');
+      }
     }
   } catch (proxyErr) {
     if (proxyErr && /cuota|sesi[oó]n|api key|401|403|429/i.test(proxyErr.message || '')) {

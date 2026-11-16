@@ -14,7 +14,7 @@ import {
   scrubSsoHashParams,
   hasPendingIncomingSso,
   getLastSignOutTimestamp
-} from './ssoHelper.js?v=20261114_11';
+} from './ssoHelper.js';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -561,7 +561,8 @@ export async function mountGoogleSignInButton({
 /**
  * Cierre de sesión seguro
  */
-export async function signOut() {
+export async function signOut(options = {}) {
+  const scope = options?.scope === 'global' ? 'global' : 'local';
   activeGoogleNoncePair = null;
   clearCachedUserProfiles();
   const current = getCurrentUser();
@@ -569,8 +570,6 @@ export async function signOut() {
     markSessionClosed(current.email);
   }
   clearSharedSsoCookie({ markSignOut: true });
-  clearLocalSupabaseTokens();
-  saveCurrentUser(null);
   try {
     if (typeof window !== 'undefined' && window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
@@ -578,14 +577,21 @@ export async function signOut() {
   } catch (_) {}
   const sb = getSupabaseClient();
   if (sb) {
+    if (scope === 'global') {
+      // Ejecutar scope global ANTES de limpiar tokens o hacer signOut local para enviar JWT válido
+      try {
+        await sb.auth.signOut({ scope: 'global' });
+      } catch (_) {}
+    }
     try {
       await sb.auth.signOut({ scope: 'local' });
     } catch (_) {}
-    try {
-      await sb.auth.signOut({ scope: 'global' });
-    } catch (_) {}
   }
+  clearLocalSupabaseTokens();
+  saveCurrentUser(null);
 }
+
+export const signOutUser = signOut;
 
 /**
  * Recuperación de contraseña por Email
@@ -634,6 +640,12 @@ export async function fetchUserProfile(userId, forceRefresh = false) {
             id,
             nombre,
             plan,
+            plan_const,
+            acceso_const,
+            periodo_fin_const,
+            plan_arq,
+            acceso_arq,
+            periodo_fin_arq,
             estado_suscripcion,
             logo_url
           )
@@ -677,27 +689,34 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
   const fallbackAvatar = buildFallbackAvatarSvg(resolvedName, user.email);
 
   let userSub = null;
-
-  // 1. Prioridad: Metadatos en la nube de Supabase Auth (guardados en la cuenta del usuario)
   const metaSub = user.user_metadata?.subscription;
-  if (metaSub && typeof metaSub === 'object' && metaSub.planId) {
+  const existingCycle = metaSub?.billingCycle === 'annual' ? 'annual' : 'monthly';
+
+  // 1. Prioridad máxima: Plan autoritativo en tabla empresas de Supabase
+  if (perfil?.empresas) {
+    const emp = perfil.empresas;
+    const dbPlan = emp.plan_const || emp.plan || 'free';
+    const statusOk = !emp.estado_suscripcion || emp.estado_suscripcion === 'active' || emp.estado_suscripcion === 'trialing';
+    const effectiveDbPlan = (dbPlan !== 'free' && !statusOk) ? 'free' : dbPlan;
+    if (effectiveDbPlan !== 'free' || emp.estado_suscripcion === 'canceled' || emp.estado_suscripcion === 'inactive') {
+      userSub = {
+        planId: effectiveDbPlan,
+        billingCycle: existingCycle,
+        updatedAt: new Date().toISOString()
+      };
+    }
+  }
+
+  // 2. Fallback: metadatos en Supabase Auth si aún no había empresa resuelta
+  if ((!userSub || userSub.planId === 'free') && metaSub && typeof metaSub === 'object' && metaSub.planId && metaSub.planId !== 'free') {
     userSub = {
       planId: metaSub.planId,
-      billingCycle: metaSub.billingCycle === 'annual' ? 'annual' : 'monthly',
+      billingCycle: existingCycle,
       updatedAt: metaSub.updatedAt || new Date().toISOString()
     };
   }
 
-  // 2. Si la empresa remota en Supabase tiene plan 'plus' o 'pro'
-  if ((!userSub || userSub.planId === 'free') && perfil?.empresas?.plan && perfil.empresas.plan !== 'free') {
-    userSub = {
-      planId: perfil.empresas.plan,
-      billingCycle: 'monthly',
-      updatedAt: new Date().toISOString()
-    };
-  }
-
-  // 3. Si en localStorage local ya existía un plan registrado para este usuario
+  // 3. Fallback local en este navegador
   if ((!userSub || userSub.planId === 'free') && typeof localStorage !== 'undefined') {
     const userSubRaw = localStorage.getItem(`adm_const_subscription_${cleanEmail}`);
     if (userSubRaw) {
@@ -710,7 +729,7 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
     }
   }
 
-  // 4. Si es la cuenta del Administrador Maestro oficial, garantizar Plan Pro
+  // 4. Administrador Maestro oficial
   if ((!userSub || userSub.planId === 'free') && (cleanEmail === 'hepc.90@gmail.com' || cleanEmail === 'admin.general@constructora.com')) {
     userSub = {
       planId: 'pro',
@@ -719,20 +738,16 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
     };
   }
 
-  // 5. Fallback a Gratuito si es un usuario recién registrado sin suscripción
+  // 5. Fallback final a Gratuito
   if (!userSub) {
     userSub = { planId: 'free', billingCycle: 'monthly', updatedAt: null };
   }
 
-  // Guardar en el almacenamiento local de esta PC para que toda la interfaz respete el plan
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(userSub));
     }
   } catch (_) {}
-
-  // Si la suscripción es de pago y no estaba en Supabase Auth, sincronizarla fuera de locks de Auth
-  const shouldSyncSubToCloud = !!(userSub && userSub.planId !== 'free' && (!metaSub || metaSub.planId !== userSub.planId));
 
   const resolvedRole = perfil?.rol || existingSameUser?.role || 'admin';
   const localUser = {
@@ -744,7 +759,7 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
     role: resolvedRole,
     roleLabel: resolveUserRoleLabel({ roleLabel: existingSameUser?.roleLabel, role: resolvedRole, isAuthenticated: true }),
     empresaId: perfil?.empresa_id || existingSameUser?.empresaId || null,
-    plan: userSub?.planId || perfil?.empresas?.plan || 'free',
+    plan: userSub?.planId || perfil?.empresas?.plan_const || perfil?.empresas?.plan || 'free',
     estadoSuscripcion: perfil?.empresas?.estado_suscripcion || 'trialing',
     user_metadata: user.user_metadata ? { ...user.user_metadata } : (existingSameUser?.user_metadata || {})
   };
@@ -759,16 +774,6 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
       refreshProjectsGridUI();
     }
     setTimeout(() => {
-      if (shouldSyncSubToCloud) {
-        try {
-          const sbClient = getSupabaseClient();
-          if (sbClient) {
-            sbClient.auth.updateUser({
-              data: { subscription: userSub }
-            }).catch(() => {});
-          }
-        } catch (_) {}
-      }
       try {
         restoreUserCollaborationFromCloud(user);
       } catch (_) {}

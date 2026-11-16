@@ -10,17 +10,73 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
   httpClient: Stripe.createFetchHttpClient(),
 });
 
-// Configuración de IDs de precio en Stripe o montos en centavos MXN
-const PLAN_PRICES: Record<string, { monthly: { amount: number; name: string }; annual: { amount: number; name: string } }> = {
-  plus: {
-    monthly: { amount: 35000, name: "Plan Plus (Mensual)" }, // $350.00 MXN
-    annual: { amount: 336000, name: "Plan Plus (Anual - 20% Descuento)" } // $3,360.00 MXN
+// Configuración de IDs de precio en Stripe o montos en centavos MXN por producto
+const PRODUCT_PRICES: Record<
+  "const" | "arq" | "combo",
+  Record<string, { monthly: { amount: number; name: string }; annual: { amount: number; name: string } }>
+> = {
+  const: {
+    plus: {
+      monthly: { amount: 35000, name: "Plan Plus (Mensual)" }, // $350.00 MXN
+      annual: { amount: 336000, name: "Plan Plus (Anual - 20% Descuento)" }, // $3,360.00 MXN
+    },
+    pro: {
+      monthly: { amount: 95000, name: "Plan Pro (Mensual)" }, // $950.00 MXN
+      annual: { amount: 912000, name: "Plan Pro (Anual - 20% Descuento)" }, // $9,120.00 MXN
+    },
   },
-  pro: {
-    monthly: { amount: 95000, name: "Plan Pro (Mensual)" }, // $950.00 MXN
-    annual: { amount: 912000, name: "Plan Pro (Anual - 20% Descuento)" } // $9,120.00 MXN
-  }
+  arq: {
+    plus: {
+      monthly: { amount: 19900, name: "Plan Plus (Mensual)" }, // $199.00 MXN
+      annual: { amount: 190800, name: "Plan Plus (Anual - 20% Descuento)" }, // $1,908.00 MXN
+    },
+    pro: {
+      monthly: { amount: 49900, name: "Plan Pro (Mensual)" }, // $499.00 MXN
+      annual: { amount: 478800, name: "Plan Pro (Anual - 20% Descuento)" }, // $4,788.00 MXN
+    },
+  },
+  combo: {
+    plus: {
+      monthly: { amount: 44900, name: "Plan Plus Combo (Mensual)" }, // $449.00 MXN
+      annual: { amount: 430800, name: "Plan Plus Combo (Anual - 20% Descuento)" }, // $4,308.00 MXN
+    },
+    pro: {
+      monthly: { amount: 119000, name: "Plan Pro Combo (Mensual)" }, // $1,190.00 MXN
+      annual: { amount: 1140000, name: "Plan Pro Combo (Anual - 20% Descuento)" }, // $11,400.00 MXN
+    },
+  },
 };
+
+function normalizeProducto(rawProducto: unknown, defaultProd: "const" | "arq" = "const"): "const" | "arq" | "combo" {
+  const v = String(rawProducto ?? "").toLowerCase().trim();
+  if (v === "arq" || v === "arquitectura") return "arq";
+  if (v === "const" || v === "construccion" || v === "construcción") return "const";
+  if (v === "combo" || v === "ambos" || v === "all") return "combo";
+  return defaultProd;
+}
+
+function resolveStripePriceId(plan: string, ciclo: "monthly" | "annual", producto: "const" | "arq" | "combo"): string {
+  const planUpper = plan.toUpperCase();
+  const cicloUpper = ciclo.toUpperCase();
+  const prodUpper = producto.toUpperCase();
+
+  if (producto === "combo") {
+    return (
+      Deno.env.get(`STRIPE_PRICE_${planUpper}_${cicloUpper}_COMBO`) ||
+      Deno.env.get(`STRIPE_PRICE_COMBO_${planUpper}_${cicloUpper}`) ||
+      Deno.env.get(`STRIPE_PRICE_${planUpper}_${cicloUpper}_${prodUpper}`) ||
+      Deno.env.get(`STRIPE_PRICE_${planUpper}_${cicloUpper}`) ||
+      ""
+    );
+  }
+
+  return (
+    Deno.env.get(`STRIPE_PRICE_${planUpper}_${cicloUpper}_${prodUpper}`) ||
+    Deno.env.get(`STRIPE_PRICE_${prodUpper}_${planUpper}_${cicloUpper}`) ||
+    Deno.env.get(`STRIPE_PRICE_${planUpper}_${cicloUpper}`) ||
+    ""
+  );
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,12 +106,31 @@ serve(async (req) => {
       });
     }
 
-    const { planId, billingCycle = "monthly", successUrl, cancelUrl } = await req.json();
+    const {
+      plan: rawPlan,
+      planId: rawPlanId,
+      ciclo = "monthly",
+      billingCycle,
+      producto: rawProducto,
+      returnUrl,
+      successUrl,
+      cancelUrl,
+    } = await req.json();
 
-    if (!PLAN_PRICES[planId]) {
-      return new Response(JSON.stringify({ error: `Plan inválido: ${planId}` }), {
+    const plan = String(rawPlan || rawPlanId || "").toLowerCase().trim();
+    const rawCycle = String(billingCycle || ciclo || "monthly").toLowerCase().trim();
+    const normalizedCycle: "monthly" | "annual" | null =
+      rawCycle === "annual" || rawCycle === "anual" || rawCycle === "yearly"
+        ? "annual"
+        : rawCycle === "monthly" || rawCycle === "mensual"
+        ? "monthly"
+        : null;
+    const producto = normalizeProducto(rawProducto, "const");
+
+    if (!PRODUCT_PRICES[producto]?.[plan] || !normalizedCycle) {
+      return new Response(JSON.stringify({ error: `Plan o ciclo inválido: ${plan} / ${rawCycle}` }), {
         status: 400,
-        headers: corsHeaders,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -66,6 +141,14 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
 
+    const empresaId = (perfil as any)?.empresa_id;
+    if (!empresaId) {
+      return new Response(JSON.stringify({ error: "No se encontró empresa asociada al usuario." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     let customerId = (perfil as any)?.empresas?.stripe_customer_id;
 
     // Crear cliente en Stripe si aún no existe
@@ -74,7 +157,7 @@ serve(async (req) => {
         email: user.email,
         name: (perfil as any)?.empresas?.nombre || user.user_metadata?.full_name || user.email,
         metadata: {
-          empresa_id: (perfil as any)?.empresa_id || "",
+          empresa_id: empresaId,
           user_id: user.id,
         },
       });
@@ -86,44 +169,69 @@ serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
       );
 
-      await adminClient
+      const { error: custUpdateErr } = await adminClient
         .from("empresas")
         .update({ stripe_customer_id: customerId })
-        .eq("id", (perfil as any)?.empresa_id);
+        .eq("id", empresaId);
+      if (custUpdateErr) {
+        throw new Error(`No se pudo vincular el cliente Stripe: ${custUpdateErr.message}`);
+      }
     }
 
-    const planConfig = PLAN_PRICES[planId][billingCycle as "monthly" | "annual"];
-    const interval = billingCycle === "annual" ? "year" : "month";
+    const planConfig = PRODUCT_PRICES[producto][plan][normalizedCycle];
+    const interval = normalizedCycle === "annual" ? "year" : "month";
+    const priceId = resolveStripePriceId(plan, normalizedCycle, producto);
+    const productTitle =
+      producto === "combo"
+        ? "Cubikar Suite Combo"
+        : producto === "arq"
+        ? "Cubikar Arquitectura"
+        : "Cubikar Construcción";
+
+    const lineItems = priceId
+      ? [{ price: priceId, quantity: 1 }]
+      : [
+          {
+            price_data: {
+              currency: "mxn",
+              product_data: {
+                name: `${productTitle} - ${planConfig.name}`,
+                description: `Suscripción ${interval === "year" ? "Anual" : "Mensual"} para ${productTitle}`,
+              },
+              unit_amount: planConfig.amount,
+              recurring: { interval: interval },
+            },
+            quantity: 1,
+          },
+        ];
+
+    const baseReturn = returnUrl || req.headers.get("origin") || "";
+    const sep = baseReturn.includes("?") ? "&" : "?";
 
     // 3. Crear sesión de Stripe Checkout
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_update: { address: "auto" },
       payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "mxn",
-            product_data: {
-              name: `Sistema Control de Obra - ${planConfig.name}`,
-              description: `Suscripción ${interval === 'year' ? 'Anual' : 'Mensual'} para la empresa`,
-            },
-            unit_amount: planConfig.amount,
-            recurring: { interval: interval },
-          },
-          quantity: 1,
-        },
-      ],
+      line_items: lineItems,
       mode: "subscription",
       allow_promotion_codes: true,
+      metadata: {
+        empresa_id: empresaId,
+        plan: plan,
+        producto: producto,
+        billing_cycle: normalizedCycle,
+      },
       subscription_data: {
         metadata: {
-          empresa_id: (perfil as any)?.empresa_id,
-          plan: planId,
+          empresa_id: empresaId,
+          plan: plan,
+          producto: producto,
+          billing_cycle: normalizedCycle,
         },
       },
-      success_url: successUrl || `${req.headers.get("origin")}/?pago=exitoso`,
-      cancel_url: cancelUrl || `${req.headers.get("origin")}/?pago=cancelado`,
+      success_url: successUrl || `${baseReturn}${sep}pago=exitoso`,
+      cancel_url: cancelUrl || `${baseReturn}${sep}pago=cancelado`,
     });
 
     return new Response(JSON.stringify({ url: session.url }), {

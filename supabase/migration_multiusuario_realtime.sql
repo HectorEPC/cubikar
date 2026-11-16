@@ -124,13 +124,28 @@ DO $$
 BEGIN
     ALTER TABLE public.chat_mensajes ALTER COLUMN proyecto_id TYPE VARCHAR(255);
     ALTER TABLE public.chat_mensajes DROP CONSTRAINT IF EXISTS chat_mensajes_proyecto_id_fkey;
+    ALTER TABLE public.chat_mensajes ADD COLUMN IF NOT EXISTS autor_avatar TEXT DEFAULT '';
     ALTER TABLE public.chat_mensajes ADD COLUMN IF NOT EXISTS autor_avatar_url TEXT DEFAULT '';
+    ALTER TABLE public.chat_mensajes ADD COLUMN IF NOT EXISTS partida_id VARCHAR(100) DEFAULT NULL;
+    ALTER TABLE public.chat_mensajes ADD COLUMN IF NOT EXISTS etiquetas JSONB DEFAULT '[]'::jsonb;
     ALTER TABLE public.chat_mensajes ADD COLUMN IF NOT EXISTS payload_json JSONB DEFAULT '{}'::jsonb;
 EXCEPTION
     WHEN others THEN NULL;
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_chat_proyecto ON public.chat_mensajes(proyecto_id, created_at DESC);
+
+-- 5B. TABLA CENTRAL DE LÁPIDAS DE ELIMINACIÓN MULTI-PC
+CREATE TABLE IF NOT EXISTS public.proyectos_eliminados (
+    proyecto_id TEXT PRIMARY KEY,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    deleted_by_email VARCHAR(255) NOT NULL DEFAULT '',
+    collaborator_emails TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    deleted_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_proyectos_eliminados_owner ON public.proyectos_eliminados(LOWER(owner_email));
+CREATE INDEX IF NOT EXISTS idx_proyectos_eliminados_deleted_by ON public.proyectos_eliminados(LOWER(deleted_by_email));
 
 -- ==============================================================================
 -- 6. FUNCIONES DE SEGURIDAD Y ACCESO MULTIUSUARIO (ANTI-RECURSIÓN Y POLIMÓRFICAS)
@@ -161,22 +176,29 @@ BEGIN
         RETURN TRUE;
     END IF;
 
-    -- Acceso directo si es el propietario
+    -- Acceso directo si es el propietario (o proyecto legado si owner_email está vacío)
     IF EXISTS (
         SELECT 1 FROM public.proyectos p
         WHERE p.id::text = proj_id
-        AND LOWER(p.owner_email) = u_email
+          AND (
+              LOWER(TRIM(COALESCE(p.owner_email, ''))) = u_email
+              OR (
+                  COALESCE(TRIM(p.owner_email), '') = ''
+                  AND p.empresa_id IS NOT NULL
+                  AND p.empresa_id = (SELECT pf.empresa_id FROM public.perfiles pf WHERE pf.id = auth.uid() LIMIT 1)
+              )
+          )
     ) THEN
         RETURN TRUE;
     END IF;
 
-    -- Acceso si es colaborador invitado con rol permitido
+    -- Acceso si es colaborador invitado con rol permitido e invitación ACEPTADA
     RETURN EXISTS (
         SELECT 1 FROM public.proyecto_colaboradores pc
         WHERE pc.proyecto_id::text = proj_id
         AND LOWER(pc.email_colaborador) = u_email
         AND pc.rol = ANY(req_roles)
-        AND pc.estado_invitacion IN ('accepted', 'pending')
+        AND pc.estado_invitacion = 'accepted'
     );
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
@@ -241,9 +263,8 @@ CREATE POLICY "proyectos_update_colaboracion" ON public.proyectos
 
 CREATE POLICY "proyectos_delete_colaboracion" ON public.proyectos
     FOR DELETE USING (
-        LOWER(owner_email) = public.current_user_email()
+        LOWER(TRIM(COALESCE(owner_email, ''))) = public.current_user_email()
         OR public.current_user_email() = 'hepc.90@gmail.com'
-        OR public.check_user_project_access(id::text, ARRAY['owner', 'admin', 'editar'])
     );
 
 -- 7.2 Políticas para public.proyecto_colaboradores
@@ -260,19 +281,26 @@ CREATE POLICY "colaboradores_select" ON public.proyecto_colaboradores
 
 CREATE POLICY "colaboradores_insert" ON public.proyecto_colaboradores
     FOR INSERT WITH CHECK (
-        public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar'])
-        OR auth.role() = 'authenticated'
+        public.current_user_email() = 'hepc.90@gmail.com'
+        OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin'])
+        OR (
+            LOWER(TRIM(email_colaborador)) = public.current_user_email()
+            AND estado_invitacion = 'accepted'
+            AND rol IN ('editar', 'escribir', 'leer')
+        )
     );
 
 CREATE POLICY "colaboradores_update" ON public.proyecto_colaboradores
     FOR UPDATE USING (
-        public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar'])
+        public.current_user_email() = 'hepc.90@gmail.com'
+        OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin'])
         OR LOWER(email_colaborador) = public.current_user_email()
     );
 
 CREATE POLICY "colaboradores_delete" ON public.proyecto_colaboradores
     FOR DELETE USING (
-        public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar'])
+        public.current_user_email() = 'hepc.90@gmail.com'
+        OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin'])
         OR LOWER(email_colaborador) = public.current_user_email()
     );
 
@@ -293,7 +321,83 @@ CREATE POLICY "conceptos_update" ON public.catalogo_conceptos
     FOR UPDATE USING (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']));
 
 CREATE POLICY "conceptos_delete" ON public.catalogo_conceptos
-    FOR DELETE USING (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar']));
+    FOR DELETE USING (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']));
+
+-- 7.3B Políticas para insumos_apu, estimaciones, estimacion_detalles y cronograma_actividades (si existen)
+DO $$
+BEGIN
+    IF to_regclass('public.insumos_apu') IS NOT NULL THEN
+        ALTER TABLE public.insumos_apu ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Acceso a insumos si perteneces al concepto del proyecto" ON public.insumos_apu;
+        DROP POLICY IF EXISTS "insumos_apu_select" ON public.insumos_apu;
+        DROP POLICY IF EXISTS "insumos_apu_write" ON public.insumos_apu;
+        DROP POLICY IF EXISTS "insumos_apu_update" ON public.insumos_apu;
+        DROP POLICY IF EXISTS "insumos_apu_delete" ON public.insumos_apu;
+
+        CREATE POLICY "insumos_apu_select" ON public.insumos_apu FOR SELECT USING (
+            EXISTS (SELECT 1 FROM public.catalogo_conceptos c WHERE c.id = insumos_apu.concepto_id AND public.check_user_project_access(c.proyecto_id::text))
+        );
+        CREATE POLICY "insumos_apu_write" ON public.insumos_apu FOR INSERT WITH CHECK (
+            EXISTS (SELECT 1 FROM public.catalogo_conceptos c WHERE c.id = insumos_apu.concepto_id AND public.check_user_project_access(c.proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']))
+        );
+        CREATE POLICY "insumos_apu_update" ON public.insumos_apu FOR UPDATE USING (
+            EXISTS (SELECT 1 FROM public.catalogo_conceptos c WHERE c.id = insumos_apu.concepto_id AND public.check_user_project_access(c.proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']))
+        );
+        CREATE POLICY "insumos_apu_delete" ON public.insumos_apu FOR DELETE USING (
+            EXISTS (SELECT 1 FROM public.catalogo_conceptos c WHERE c.id = insumos_apu.concepto_id AND public.check_user_project_access(c.proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']))
+        );
+    END IF;
+
+    IF to_regclass('public.estimaciones') IS NOT NULL THEN
+        ALTER TABLE public.estimaciones ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Acceso a estimaciones de mi empresa" ON public.estimaciones;
+        DROP POLICY IF EXISTS "estimaciones_select" ON public.estimaciones;
+        DROP POLICY IF EXISTS "estimaciones_write" ON public.estimaciones;
+        DROP POLICY IF EXISTS "estimaciones_update" ON public.estimaciones;
+        DROP POLICY IF EXISTS "estimaciones_delete" ON public.estimaciones;
+
+        CREATE POLICY "estimaciones_select" ON public.estimaciones FOR SELECT USING (public.check_user_project_access(proyecto_id::text));
+        CREATE POLICY "estimaciones_write" ON public.estimaciones FOR INSERT WITH CHECK (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']));
+        CREATE POLICY "estimaciones_update" ON public.estimaciones FOR UPDATE USING (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']));
+        CREATE POLICY "estimaciones_delete" ON public.estimaciones FOR DELETE USING (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']));
+    END IF;
+
+    IF to_regclass('public.estimacion_detalles') IS NOT NULL THEN
+        ALTER TABLE public.estimacion_detalles ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Acceso a detalles de estimaciones" ON public.estimacion_detalles;
+        DROP POLICY IF EXISTS "estimacion_detalles_select" ON public.estimacion_detalles;
+        DROP POLICY IF EXISTS "estimacion_detalles_write" ON public.estimacion_detalles;
+        DROP POLICY IF EXISTS "estimacion_detalles_update" ON public.estimacion_detalles;
+        DROP POLICY IF EXISTS "estimacion_detalles_delete" ON public.estimacion_detalles;
+
+        CREATE POLICY "estimacion_detalles_select" ON public.estimacion_detalles FOR SELECT USING (
+            EXISTS (SELECT 1 FROM public.estimaciones e WHERE e.id = estimacion_detalles.estimacion_id AND public.check_user_project_access(e.proyecto_id::text))
+        );
+        CREATE POLICY "estimacion_detalles_write" ON public.estimacion_detalles FOR INSERT WITH CHECK (
+            EXISTS (SELECT 1 FROM public.estimaciones e WHERE e.id = estimacion_detalles.estimacion_id AND public.check_user_project_access(e.proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']))
+        );
+        CREATE POLICY "estimacion_detalles_update" ON public.estimacion_detalles FOR UPDATE USING (
+            EXISTS (SELECT 1 FROM public.estimaciones e WHERE e.id = estimacion_detalles.estimacion_id AND public.check_user_project_access(e.proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']))
+        );
+        CREATE POLICY "estimacion_detalles_delete" ON public.estimacion_detalles FOR DELETE USING (
+            EXISTS (SELECT 1 FROM public.estimaciones e WHERE e.id = estimacion_detalles.estimacion_id AND public.check_user_project_access(e.proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']))
+        );
+    END IF;
+
+    IF to_regclass('public.cronograma_actividades') IS NOT NULL THEN
+        ALTER TABLE public.cronograma_actividades ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Acceso a cronograma de mi empresa" ON public.cronograma_actividades;
+        DROP POLICY IF EXISTS "cronograma_select" ON public.cronograma_actividades;
+        DROP POLICY IF EXISTS "cronograma_write" ON public.cronograma_actividades;
+        DROP POLICY IF EXISTS "cronograma_update" ON public.cronograma_actividades;
+        DROP POLICY IF EXISTS "cronograma_delete" ON public.cronograma_actividades;
+
+        CREATE POLICY "cronograma_select" ON public.cronograma_actividades FOR SELECT USING (public.check_user_project_access(proyecto_id::text));
+        CREATE POLICY "cronograma_write" ON public.cronograma_actividades FOR INSERT WITH CHECK (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']));
+        CREATE POLICY "cronograma_update" ON public.cronograma_actividades FOR UPDATE USING (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']));
+        CREATE POLICY "cronograma_delete" ON public.cronograma_actividades FOR DELETE USING (public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']));
+    END IF;
+END $$;
 
 -- 7.4 Políticas para public.chat_mensajes
 DROP POLICY IF EXISTS "chat_select" ON public.chat_mensajes;
@@ -303,29 +407,86 @@ DROP POLICY IF EXISTS "chat_delete" ON public.chat_mensajes;
 
 CREATE POLICY "chat_select" ON public.chat_mensajes
     FOR SELECT USING (
-        proyecto_id LIKE '__cubikar_%'
-        OR public.check_user_project_access(proyecto_id::text)
+        (proyecto_id IN ('__cubikar_tombstones__', '__cubikar_host_manifest__') AND auth.role() = 'authenticated')
+        OR (proyecto_id NOT LIKE '__cubikar_%' AND public.check_user_project_access(proyecto_id::text))
     );
 
 CREATE POLICY "chat_insert" ON public.chat_mensajes
     FOR INSERT WITH CHECK (
-        proyecto_id LIKE '__cubikar_%'
-        OR public.check_user_project_access(proyecto_id::text)
-        OR auth.role() = 'authenticated'
+        (
+            proyecto_id IN ('__cubikar_tombstones__', '__cubikar_host_manifest__')
+            AND auth.role() = 'authenticated'
+            AND (LOWER(TRIM(autor_email)) = public.current_user_email() OR public.current_user_email() = 'hepc.90@gmail.com')
+        )
+        OR (
+            proyecto_id NOT LIKE '__cubikar_%'
+            AND public.check_user_project_access(proyecto_id::text)
+            AND (COALESCE(TRIM(autor_email), '') = '' OR LOWER(TRIM(autor_email)) = public.current_user_email() OR public.current_user_email() = 'hepc.90@gmail.com')
+        )
     );
 
 CREATE POLICY "chat_update" ON public.chat_mensajes
     FOR UPDATE USING (
-        proyecto_id LIKE '__cubikar_%'
-        OR LOWER(autor_email) = public.current_user_email()
-        OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin', 'editar'])
+        (
+            proyecto_id IN ('__cubikar_tombstones__', '__cubikar_host_manifest__')
+            AND auth.role() = 'authenticated'
+            AND (LOWER(TRIM(autor_email)) = public.current_user_email() OR public.current_user_email() = 'hepc.90@gmail.com')
+        )
+        OR (
+            proyecto_id NOT LIKE '__cubikar_%'
+            AND (
+                LOWER(autor_email) = public.current_user_email()
+                OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin'])
+                OR public.current_user_email() = 'hepc.90@gmail.com'
+            )
+        )
     );
 
 CREATE POLICY "chat_delete" ON public.chat_mensajes
     FOR DELETE USING (
-        proyecto_id LIKE '__cubikar_%'
-        OR LOWER(autor_email) = public.current_user_email()
-        OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin'])
+        (
+            proyecto_id IN ('__cubikar_tombstones__', '__cubikar_host_manifest__')
+            AND auth.role() = 'authenticated'
+            AND (LOWER(TRIM(autor_email)) = public.current_user_email() OR public.current_user_email() = 'hepc.90@gmail.com')
+        )
+        OR (
+            proyecto_id NOT LIKE '__cubikar_%'
+            AND (
+                LOWER(autor_email) = public.current_user_email()
+                OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin'])
+                OR public.current_user_email() = 'hepc.90@gmail.com'
+            )
+        )
+    );
+
+ALTER TABLE public.proyectos_eliminados ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "tombstones_select_own" ON public.proyectos_eliminados;
+DROP POLICY IF EXISTS "tombstones_insert_owner" ON public.proyectos_eliminados;
+DROP POLICY IF EXISTS "tombstones_delete_owner" ON public.proyectos_eliminados;
+
+CREATE POLICY "tombstones_select_own" ON public.proyectos_eliminados
+    FOR SELECT USING (
+        auth.role() = 'authenticated' AND (
+            public.current_user_email() = 'hepc.90@gmail.com'
+            OR LOWER(TRIM(owner_email)) = public.current_user_email()
+            OR LOWER(TRIM(deleted_by_email)) = public.current_user_email()
+            OR public.current_user_email() = ANY(collaborator_emails)
+        )
+    );
+
+CREATE POLICY "tombstones_insert_owner" ON public.proyectos_eliminados
+    FOR INSERT WITH CHECK (
+        auth.role() = 'authenticated' AND (
+            public.current_user_email() = 'hepc.90@gmail.com'
+            OR public.check_user_project_access(proyecto_id, ARRAY['owner'])
+            OR LOWER(TRIM(owner_email)) = public.current_user_email()
+        )
+    );
+
+CREATE POLICY "tombstones_delete_owner" ON public.proyectos_eliminados
+    FOR DELETE USING (
+        public.current_user_email() = 'hepc.90@gmail.com'
+        OR LOWER(TRIM(owner_email)) = public.current_user_email()
     );
 
 -- ==============================================================================
@@ -333,6 +494,7 @@ CREATE POLICY "chat_delete" ON public.chat_mensajes
 -- ==============================================================================
 
 ALTER TABLE public.proyectos REPLICA IDENTITY FULL;
+ALTER TABLE public.proyectos_eliminados REPLICA IDENTITY FULL;
 ALTER TABLE public.proyecto_colaboradores REPLICA IDENTITY FULL;
 ALTER TABLE public.catalogo_conceptos REPLICA IDENTITY FULL;
 ALTER TABLE public.chat_mensajes REPLICA IDENTITY FULL;
@@ -341,6 +503,11 @@ DO $$
 BEGIN
     BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.proyectos;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.proyectos_eliminados;
     EXCEPTION WHEN duplicate_object THEN NULL;
     END;
 

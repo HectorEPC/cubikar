@@ -64,27 +64,72 @@ function pdfText(str) {
 }
 
 /**
- * Cargar dimensiones reales y formato de imagen DataURL para mantener proporción exacta en PDF
+ * Convertir DataURL (p. ej. WEBP o JPEG cuando se requiere PNG) usando canvas para compatibilidad garantizada en jsPDF
  */
-function loadImageDimensions(dataUrl) {
+function convertDataUrlViaCanvas(dataUrl, targetMime = 'image/png', quality = 0.92) {
   return new Promise((resolve) => {
-    if (!dataUrl || typeof Image === 'undefined') {
-      resolve({ width: 800, height: 600, format: 'JPEG' });
+    if (!dataUrl || typeof document === 'undefined' || typeof Image === 'undefined') {
+      resolve(null);
+      return;
+    }
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || 800;
+          canvas.height = img.naturalHeight || 600;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(null);
+          if (targetMime === 'image/jpeg') {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL(targetMime, quality));
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Cargar dimensiones reales y asegurar formato de imagen compatible con jsPDF (PNG o JPEG; convierte WEBP)
+ */
+async function loadImageDimensions(dataUrl) {
+  let normalizedUrl = dataUrl;
+  let isWebp = typeof dataUrl === 'string' && /^data:image\/webp/i.test(dataUrl);
+  if (isWebp) {
+    const converted = await convertDataUrlViaCanvas(dataUrl, 'image/jpeg', 0.88);
+    if (converted) normalizedUrl = converted;
+  }
+
+  return await new Promise((resolve) => {
+    if (!normalizedUrl || typeof Image === 'undefined') {
+      resolve({ width: 800, height: 600, format: 'JPEG', dataUrl: normalizedUrl });
       return;
     }
     const img = new Image();
     img.onload = () => {
-      const format = dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      const format = /^data:image\/png/i.test(normalizedUrl) ? 'PNG' : 'JPEG';
       resolve({
         width: img.naturalWidth || 800,
         height: img.naturalHeight || 600,
-        format
+        format,
+        dataUrl: normalizedUrl
       });
     };
     img.onerror = () => {
-      resolve({ width: 800, height: 600, format: 'JPEG' });
+      resolve({ width: 800, height: 600, format: 'JPEG', dataUrl: normalizedUrl });
     };
-    img.src = dataUrl;
+    img.src = normalizedUrl;
   });
 }
 
@@ -128,35 +173,10 @@ async function resolveBrandingPngForPdf(ctx) {
   }
   const logo = String(ctx?.companyLogo || '').trim();
   if (!logo) return null;
-  if (/^data:image\/(png|jpe?g|webp);base64,/i.test(logo)) {
+  if (/^data:image\/png;base64,/i.test(logo)) {
     return logo;
   }
-  if (typeof document !== 'undefined' && typeof Image !== 'undefined') {
-    return await new Promise((resolve) => {
-      try {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          try {
-            const c = document.createElement('canvas');
-            c.width = img.naturalWidth || 192;
-            c.height = img.naturalHeight || 192;
-            const g = c.getContext('2d');
-            if (!g) return resolve(null);
-            g.drawImage(img, 0, 0);
-            resolve(c.toDataURL('image/png'));
-          } catch {
-            resolve(null);
-          }
-        };
-        img.onerror = () => resolve(null);
-        img.src = logo;
-      } catch {
-        resolve(null);
-      }
-    });
-  }
-  return null;
+  return await convertDataUrlViaCanvas(logo, 'image/png', 0.92);
 }
 
 /**
@@ -440,7 +460,7 @@ async function renderSingleNoteIntoPdfDoc(doc, note, ctx) {
         const imgY = y + 3 + (maxImgH - item.imgH) / 2;
 
         try {
-          doc.addImage(item.ev._pdfDataUrl, item.dims.format, imgX, imgY, item.imgW, item.imgH, undefined, 'MEDIUM');
+          doc.addImage(item.dims.dataUrl || item.ev._pdfDataUrl, item.dims.format, imgX, imgY, item.imgW, item.imgH, undefined, 'MEDIUM');
         } catch (imgErr) {
           doc.setFontSize(7.5);
           doc.setTextColor(148, 163, 184);

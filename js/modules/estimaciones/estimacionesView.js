@@ -1,5 +1,5 @@
 import { printEstimacionesFormat } from '../io/printService.js';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261115_v14';
+import { renderTabAssignedAvatars } from '../portal/portalController.js';
 // js/modules/estimaciones/estimacionesView.js
 // Renderizador y controlador de eventos para la pestaña ESTIMACIONES DE OBRA
 // Sincronizado reactivamente con Catálogo Base, con soporte multiestimaciones,
@@ -533,7 +533,11 @@ export function toggleEstimacionCobroStatus(estId) {
 }
 
 export function toggleEstimacionFacturaCard(estId) {
-  toggleEstimacionCobroStatus(estId);
+  const data = loadEstimacionesData();
+  const targetId = estId || data.activeEstimacionId;
+  if (!targetId) return;
+  estimacionesFacturaExpandedMap[targetId] = !estimacionesFacturaExpandedMap[targetId];
+  renderEstimacionesView();
 }
 
 function renderFacturaCardHTML(est, isLocked) {
@@ -577,7 +581,7 @@ function renderFacturaCardHTML(est, isLocked) {
 
         <div class="flex items-center gap-2 shrink-0">
           <!-- Botón cerrar colapsar -->
-          <button type="button" onclick="toggleEstimacionFacturaCard('${est.id}')" class="text-slate-400 hover:text-slate-700 text-xs p-1" title="Cerrar detalles fiscales">
+          <button type="button" onclick="event.stopPropagation(); toggleEstimacionFacturaCard('${est.id}')" class="text-slate-400 hover:text-slate-700 text-xs p-1" title="Cerrar detalles fiscales">
             <i class="fa-solid fa-chevron-up"></i>
           </button>
         </div>
@@ -1655,7 +1659,10 @@ export function onSwitchActiveEstimacion(estimacionId) {
 
 export function promptCreateNewEstimacion() {
   const data = getEstimacionesCalculatedData();
-  const nextNum = data.estimacionesList.length + 1;
+  const avanceCount = Array.isArray(data.estimacionesAvance)
+    ? data.estimacionesAvance.length
+    : (data.estimacionesList || []).filter(e => e.id !== 'est_0' && e.numero !== 0).length;
+  const nextNum = avanceCount + 1;
   const nombre = prompt(`Nombre de la nueva estimación:`, `Estimación No. ${nextNum}`);
   if (!nombre) return;
 
@@ -1690,7 +1697,7 @@ export function onChangeEstimacionDate(estId, field, val) {
     return;
   }
   if (!val) return;
-  updateEstimacionMeta(estId, { [field]: val, fechaCorte: val });
+  updateEstimacionMeta(estId, { [field]: val });
   renderEstimacionesView();
   showToast('Período de estimación actualizado');
 }

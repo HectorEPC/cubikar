@@ -888,7 +888,9 @@
               <button onclick="filterInsumos('Todos')" id="filter-Todos" class="px-1.5 py-0.5 rounded bg-blue-600 text-white border border-blue-600">Todos</button>
               <button onclick="filterInsumos('Material')" id="filter-Material" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Materiales</button>
               <button onclick="filterInsumos('Mano de Obra')" id="filter-Mano-de-Obra" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Mano Obra</button>
-              <button onclick="filterInsumos('Equipo')" id="filter-Equipo" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Equipo/Herr</button>
+              <button onclick="filterInsumos('Herramienta')" id="filter-Herramienta" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Herramienta</button>
+              <button onclick="filterInsumos('Equipo')" id="filter-Equipo" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Equipo</button>
+              <button onclick="filterInsumos('Maquinaria')" id="filter-Maquinaria" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Maquinaria</button>
               <button onclick="filterInsumos('Subcontrato')" id="filter-Subcontrato" class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">Subcontrato</button>
             </div>
 
@@ -5865,10 +5867,10 @@
       setInterval(purgeInvalidScopeOptions, 300);
     })();
   </script>
-  <script type="module" src="js/app.js?v=20261116_v24_sync_fix"></script>
+  <script type="module" src="js/app.js"></script>
   <script type="module">
-    import { switchTab } from './js/ui/modalController.js?v=20261116_v24_sync_fix';
-    import { renderBitacoraView } from './js/modules/bitacora/bitacoraView.js?v=20261116_v24_sync_fix';
+    import { switchTab } from './js/ui/modalController.js';
+    import { renderBitacoraView } from './js/modules/bitacora/bitacoraView.js';
 
     try {
       const p = new URLSearchParams(window.location.search);

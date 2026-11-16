@@ -111,6 +111,22 @@ export function readSharedSsoCookie() {
   return null;
 }
 
+function extractJwtIssuedAtMs(token) {
+  if (!token || typeof token !== 'string') return 0;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return 0;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4 ? b64 + '='.repeat(4 - (b64.length % 4)) : b64;
+    const jsonStr = typeof atob === 'function' ? atob(pad) : '';
+    const payload = JSON.parse(jsonStr);
+    const iat = Number(payload?.iat || 0);
+    return iat > 0 ? iat * 1000 : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
 export function readLocalSupabaseTokens() {
   if (typeof localStorage === 'undefined') return null;
   try {
@@ -124,7 +140,11 @@ export function readLocalSupabaseTokens() {
       const at = sessionObj?.access_token || '';
       const rt = sessionObj?.refresh_token || '';
       if (at && rt) {
-        return { accessToken: at, refreshToken: rt, email: (sessionObj?.user?.email || '').toLowerCase().trim() };
+        const rawTs = Number(sessionObj?.ts || parsed?.ts || 0) || 0;
+        const jwtTs = extractJwtIssuedAtMs(at);
+        const expSec = Number(sessionObj?.expires_at || parsed?.expires_at || 0) || 0;
+        const ts = rawTs || jwtTs || (expSec > 3600 ? (expSec - 3600) * 1000 : 0);
+        return { accessToken: at, refreshToken: rt, ts, email: (sessionObj?.user?.email || '').toLowerCase().trim() };
       }
     }
   } catch (_) {}

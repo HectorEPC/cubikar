@@ -7,7 +7,7 @@ import { getFactorSobrecosto } from '../../core/calculations.js';
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js';
 import { getExactOpusInsumosForClave } from '../io/casaLauraData.js';
 import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js';
-import { loadEstimacionesData } from '../estimaciones/estimacionesModel.js';
+import { loadEstimacionesData, getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js';
 import { getExpensesRecords, getExpensesConfig } from './expensesModel.js';
 
 /**
@@ -17,6 +17,7 @@ export function getContractedBudgetTotal() {
   let totalDirecto = 0;
   let totalVenta = 0;
   const factor = getFactorSobrecosto();
+  const applySobrecosto = Boolean(state.settings?.applySobrecosto);
 
   function walk(nodes) {
     if (!Array.isArray(nodes)) return;
@@ -25,10 +26,17 @@ export function getContractedBudgetTotal() {
       if (!isParent) {
         const cant = parseFloat(node.cantidad) || 0;
         const pu = parseFloat(node.precioUnitario) || 0;
-        const cd = parseFloat(node.costoDirecto) || pu;
-        
+        const rawCd = parseFloat(node.costoDirecto);
+        const hasCd = Number.isFinite(rawCd) && rawCd > 0;
+        const cd = hasCd
+          ? rawCd
+          : (applySobrecosto && factor > 0 && pu > 0 ? round2(pu / factor) : pu);
+        const effectivePu = pu > 0
+          ? pu
+          : (hasCd ? round2(rawCd * (applySobrecosto && factor > 0 ? factor : 1)) : 0);
+
         totalDirecto += (cant * cd);
-        totalVenta += (cant * pu);
+        totalVenta += (cant * effectivePu);
       } else {
         walk(node.children);
       }
@@ -37,8 +45,9 @@ export function getContractedBudgetTotal() {
 
   walk(state.treeData);
 
-  const applySobrecosto = Boolean(state.settings?.applySobrecosto);
-  const presupuestoFinal = applySobrecosto && factor > 0 ? (totalDirecto * factor) : totalVenta;
+  const presupuestoFinal = totalVenta > 0
+    ? totalVenta
+    : (applySobrecosto && factor > 0 ? (totalDirecto * factor) : totalDirecto);
 
   return {
     totalDirecto: round2(totalDirecto),
@@ -48,50 +57,12 @@ export function getContractedBudgetTotal() {
 }
 
 /**
- * Obtener Total Facturado / Estimado (Cobrado o en proceso) desde Estimaciones
+ * Obtener Total Cobrado de Estimaciones (exclusivamente factura.status === 'cobrada', con anticipo e IVA)
  */
 export function getTotalEstimacionesCobrado() {
   try {
-    const estData = loadEstimacionesData();
-    if (!estData || !Array.isArray(estData.estimaciones)) {
-      return 0;
-    }
-
-    const anticipoPct = (typeof estData.anticipoPct === 'number') ? estData.anticipoPct : 30;
-    const ivaPct = (typeof estData.ivaPct === 'number') ? estData.ivaPct : 16;
-    let totalAcumuladoEstimado = 0;
-
-    // Mapa de precios unitarios de conceptos
-    const priceMap = new Map();
-    function mapPrices(nodes) {
-      if (!Array.isArray(nodes)) return;
-      nodes.forEach(n => {
-        if (!n.children || n.children.length === 0) {
-          priceMap.set(String(n.id), parseFloat(n.precioUnitario) || 0);
-        } else {
-          mapPrices(n.children);
-        }
-      });
-    }
-    mapPrices(state.treeData);
-
-    estData.estimaciones.forEach(est => {
-      let subtotalEst = 0;
-      if (est.conceptos && typeof est.conceptos === 'object') {
-        Object.entries(est.conceptos).forEach(([cId, cantEjec]) => {
-          const pu = priceMap.get(String(cId)) || 0;
-          subtotalEst += ((parseFloat(cantEjec) || 0) * pu);
-        });
-      }
-      
-      const amort = subtotalEst * (anticipoPct / 100);
-      const subNeto = subtotalEst - amort;
-      const iva = subNeto * (ivaPct / 100);
-      const totalEst = subNeto + iva;
-      totalAcumuladoEstimado += totalEst;
-    });
-
-    return round2(totalAcumuladoEstimado);
+    const calc = getEstimacionesCalculatedData();
+    return round2(calc?.kpis?.ingresos?.totalesCobrados || 0);
   } catch (err) {
     console.warn('[ExpensesCalculations] Error al leer estimaciones:', err);
     return 0;
@@ -256,8 +227,8 @@ export function getAllBudgetInsumosExplosion() {
     nodes.forEach(node => {
       const isParent = Boolean(node.children && node.children.length > 0);
       if (!isParent) {
-        const rawCant = round2(node.cantidad);
-        const cantConcepto = (!isNaN(rawCant) && rawCant > 0) ? rawCant : 1.00;
+        const hasExplicitCant = node.cantidad !== undefined && node.cantidad !== null && String(node.cantidad).trim() !== '' && Number.isFinite(Number(node.cantidad));
+        const cantConcepto = hasExplicitCant ? Math.max(0, round2(Number(node.cantidad))) : 1.00;
 
         // Si el concepto tiene costo pero carece de insumos en matriz, generar o consultar Opus
         if (!node.insumos || node.insumos.length === 0) {

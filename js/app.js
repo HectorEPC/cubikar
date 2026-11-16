@@ -61,13 +61,13 @@ import { undoAction, redoAction, updateUndoRedoButtons, setHistoryRenderCallback
 import { showToast } from './ui/notifications.js';
 import { formatMoney, formatQty } from './core/formatters.js';
 import { getFactorSobrecosto, updateSobrecostoBadge, updateGrandTotal } from './core/calculations.js';
-import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalRealtimeSync, requestPeerSync } from './core/realtimeSync.js?v=20261116_v24_sync_fix';
+import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalRealtimeSync, requestPeerSync } from './core/realtimeSync.js';
 import { hydrateProjectModulesFromCloud } from './core/cloudModulesSyncService.js';
 import { syncPendingMediaUploads } from './services/s3StorageService.js';
-import { initAuthListener, hasPendingIncomingSsoSession, hydrateIncomingSsoSession, isSsoHydrationPending, syncLocalUserSession } from './core/authService.js?v=20261115_v10';
-import { isRecentInternalCloudAuthUpdate, syncHostWorkspaceProjects } from './core/collaborationCloudService.js?v=20261116_v24_sync_fix';
-import { getCurrentUser } from './modules/portal/projectService.js?v=20261116_v24_sync_fix';
-import { initAppSwitcher } from './ui/appSwitcher.js?v=20261115_v10';
+import { initAuthListener, hasPendingIncomingSsoSession, hydrateIncomingSsoSession, isSsoHydrationPending, syncLocalUserSession } from './core/authService.js';
+import { isRecentInternalCloudAuthUpdate, syncHostWorkspaceProjects } from './core/collaborationCloudService.js';
+import { getCurrentUser } from './modules/portal/projectService.js';
+import { initAppSwitcher } from './ui/appSwitcher.js';
 
 import {
   renderExpensesView,
@@ -115,12 +115,12 @@ import {
   updateDraftExpensesSignature,
   resetDefaultExpensesSignatures,
   saveExpensesSignaturesModal
-} from './modules/compras/expensesView.js?v=20261114_18';
+} from './modules/compras/expensesView.js';
 import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
   printExpensesActiveReport
-} from './modules/compras/expensesExporter.js?v=20261114_18';
+} from './modules/compras/expensesExporter.js';
 import {
   openExpenseEvidence
 } from './modules/compras/driveExpenseService.js';
@@ -162,7 +162,7 @@ import {
   onBitacoraDownloadsSearchChange,
   onBitacoraDownloadsStatusFilterChange,
   onBitacoraDownloadsTypeFilterChange
-} from './modules/bitacora/bitacoraView.js?v=20261113_38';
+} from './modules/bitacora/bitacoraView.js';
 
 import {
   findNodeById,
@@ -333,7 +333,7 @@ import {
   switchMasterCatalogTab,
   handleDeleteCatalog,
   refreshMasterCatalogList
-} from './modules/reference/masterCatalogModal.js?v=20261114_01';
+} from './modules/reference/masterCatalogModal.js';
 
 import {
   openApuReferenceModal,
@@ -385,7 +385,7 @@ import {
   switchTab,
   switchPresupuestoSubTab,
   initFloatingWindowOutsideClose
-} from './ui/modalController.js?v=20261114_18';
+} from './ui/modalController.js';
 
 import {
   initBranding,
@@ -433,18 +433,18 @@ import {
   isTourDismissed,
   resetTourDismissedStatus,
   checkAndResumeTourOnLoad
-} from './ui/interactiveTour.js?v=20261113_23';
+} from './ui/interactiveTour.js';
 
 import {
   openVideoSimulatorModal,
   closeVideoSimulatorModal,
   toggleVoiceNarration
-} from './ui/videoSimulatorModal.js?v=20261115_01';
+} from './ui/videoSimulatorModal.js';
 
 import {
   openTutorialHubModal,
   closeTutorialHubModal
-} from './ui/tutorialHubModal.js?v=20261115_01';
+} from './ui/tutorialHubModal.js';
 
 import {
   toggleProjectChatDock,
@@ -597,7 +597,7 @@ import {
   resetFilters,
   exportProjectToExcelAction,
   logoutAllDevices
-} from './modules/portal/portalController.js?v=20261116_v24_sync_fix';
+} from './modules/portal/portalController.js';
 
 import {
   openCubikarAdminModal,
@@ -1200,7 +1200,7 @@ Object.assign(window, {
   resetDefaultExpensesSignatures,
   saveExpensesSignaturesModal,
 
-  // BitÃ¡cora de Obra
+  // Bitácora de Obra
   renderBitacoraView,
   openBitacoraConfigModal,
   saveBitacoraConfigModalAction,

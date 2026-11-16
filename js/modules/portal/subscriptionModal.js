@@ -230,13 +230,35 @@ export async function syncSubscriptionFromCloud(targetEmail = null) {
 
     const { data: { user: authUser } } = await sb.auth.getUser();
     if (authUser && (authUser.email || '').toLowerCase().trim() === email) {
-      const cloudSub = authUser.user_metadata?.subscription;
-      if (cloudSub?.planId) {
-        const validPlan = getPlanById(cloudSub.planId);
+      let resolvedPlanId = null;
+      const resolvedCycle = authUser.user_metadata?.subscription?.billingCycle === 'annual' ? 'annual' : 'monthly';
+      let resolvedUpdatedAt = new Date().toISOString();
+
+      try {
+        const { data: perfil } = await sb
+          .from('perfiles')
+          .select('empresa_id, empresas(id, plan, plan_const, acceso_const, estado_suscripcion, periodo_fin_const, periodo_fin)')
+          .eq('id', authUser.id)
+          .maybeSingle();
+        const emp = perfil?.empresas;
+        if (emp) {
+          const candidatePlan = emp.plan_const || emp.plan || 'free';
+          const statusOk = !emp.estado_suscripcion || emp.estado_suscripcion === 'active' || emp.estado_suscripcion === 'trialing';
+          resolvedPlanId = (candidatePlan !== 'free' && !statusOk) ? 'free' : candidatePlan;
+        }
+      } catch (_) {}
+
+      if (!resolvedPlanId && authUser.user_metadata?.subscription?.planId) {
+        resolvedPlanId = authUser.user_metadata.subscription.planId;
+        resolvedUpdatedAt = authUser.user_metadata.subscription.updatedAt || resolvedUpdatedAt;
+      }
+
+      if (resolvedPlanId) {
+        const validPlan = getPlanById(resolvedPlanId);
         const resolved = {
           planId: validPlan.id,
-          billingCycle: cloudSub.billingCycle === 'annual' ? 'annual' : 'monthly',
-          updatedAt: cloudSub.updatedAt || new Date().toISOString()
+          billingCycle: resolvedCycle,
+          updatedAt: resolvedUpdatedAt
         };
         localStorage.setItem(`adm_const_subscription_${email}`, JSON.stringify(resolved));
         if (user && (user.email || '').toLowerCase().trim() === email) {
@@ -270,37 +292,10 @@ export function saveSubscription(planId, billingCycle = activeBillingCycle) {
 
   try {
     if (typeof localStorage !== 'undefined' && cleanEmail) {
-      // Guardar de forma estricta y permanente para el usuario específico que compró el plan
+      // Guardar caché local por cuenta; la fuente autoritativa en la nube es Stripe Webhook -> empresas
       localStorage.setItem(`adm_const_subscription_${cleanEmail}`, JSON.stringify(payload));
     }
   } catch (e) {}
-
-  // Sincronizar en Supabase Auth en la nube para acceso entre múltiples computadoras y dispositivos
-  try {
-    const sb = getSupabaseClient();
-    if (sb && isSupabaseConfigured() && cleanEmail) {
-      sb.auth.getUser().then(({ data: { user: authUser } }) => {
-        if (authUser && (authUser.email || '').toLowerCase().trim() === cleanEmail) {
-          sb.auth.updateUser({
-            data: { subscription: payload }
-          }).then(() => {
-            console.info('[Subscription] Suscripción sincronizada en la nube de Supabase Auth.');
-          }).catch(err => {
-            console.warn('[Subscription] Aviso al sincronizar en Supabase Auth:', err?.message || err);
-          });
-        }
-      }).catch(() => {});
-
-      if (user?.empresaId) {
-        sb.from('empresas').update({
-          plan: validPlan.id,
-          updated_at: new Date().toISOString()
-        }).eq('id', user.empresaId).then(() => {}).catch(() => {});
-      }
-    }
-  } catch (err) {
-    console.warn('[Subscription] Error en sync cloud:', err);
-  }
 
   try {
     if (user) {
@@ -678,14 +673,51 @@ export function closeSubscriptionModal() {
 
 export function setSubscriptionBillingCycle(cycle) {
   activeBillingCycle = cycle === 'annual' ? 'annual' : 'monthly';
-  const current = getCurrentSubscription();
-  saveSubscription(current.planId, activeBillingCycle);
   renderSubscriptionCards();
 }
 
-export function selectSubscriptionPlan(planId) {
+export async function openStripeCustomerPortal() {
+  try {
+    const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+    if (!sb || !isSupabaseConfigured()) {
+      showToast('Configura Supabase para administrar tu suscripción en Stripe.', 'warning');
+      return;
+    }
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) {
+      showToast('Inicia sesión para acceder al portal de facturación.', 'warning');
+      return;
+    }
+    showToast('Abriendo portal seguro de facturación Stripe...', 'info');
+    const { data, error } = await sb.functions.invoke('create-portal-link', {
+      body: { returnUrl: typeof window !== 'undefined' ? window.location.href : '' }
+    });
+    if (!error && data?.url) {
+      window.location.href = data.url;
+      return;
+    }
+    showToast(data?.error || error?.message || 'No se encontró una suscripción de Stripe activa asociada a tu empresa.', 'warning');
+  } catch (err) {
+    showToast(err?.message || 'Error al abrir el portal de Stripe.', 'error');
+  }
+}
+
+export async function selectSubscriptionPlan(planId) {
+  const cycle = activeBillingCycle === 'annual' ? 'annual' : 'monthly';
+
   if (planId === 'free') {
-    saveSubscription('free', activeBillingCycle);
+    const current = getCurrentSubscription();
+    if (current.planId !== 'free') {
+      try {
+        const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+        const sessionResp = sb ? await sb.auth.getSession() : null;
+        if (sessionResp?.data?.session?.access_token) {
+          await openStripeCustomerPortal();
+          return;
+        }
+      } catch (_) {}
+    }
+    saveSubscription('free', cycle);
     renderSubscriptionCards();
     updateSubscriptionBadgesUI();
     try {
@@ -697,27 +729,44 @@ export function selectSubscriptionPlan(planId) {
     return;
   }
 
-  const cycle = activeBillingCycle === 'annual' ? 'annual' : 'monthly';
-  const checkoutUrl = STRIPE_PAYMENT_LINKS[planId]?.[cycle];
-
-  if (checkoutUrl) {
-    showToast('Redirigiendo a la pasarela de pago segura de Stripe...', 'info');
-    setTimeout(() => {
-      window.location.href = checkoutUrl;
-    }, 350);
-    return;
-  }
-
-  const plan = getPlanById(planId);
-  saveSubscription(plan.id, activeBillingCycle);
-  renderSubscriptionCards();
-  updateSubscriptionBadgesUI();
   try {
-    if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
-      window.refreshProjectsGridUI();
+    const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+    if (!sb || !isSupabaseConfigured()) {
+      showToast('Conecta tu sesión de Supabase para activar un plan de pago.', 'warning');
+      return;
     }
-  } catch (_) {}
-    showToast(`\u{2728} Suscripci\u{00F3}n actualizada al plan ${plan.name}`);
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) {
+      showToast('Inicia sesión con tu cuenta antes de contratar un plan.', 'warning');
+      return;
+    }
+
+    showToast('Redirigiendo a la pasarela de pago segura de Stripe...', 'info');
+    const cleanBase = typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}`
+      : '';
+    const { data, error } = await sb.functions.invoke('create-checkout', {
+      body: {
+        planId,
+        billingCycle: cycle,
+        producto: 'const',
+        successUrl: cleanBase ? `${cleanBase}?pago=exitoso` : undefined,
+        cancelUrl: cleanBase ? `${cleanBase}?pago=cancelado` : undefined
+      }
+    });
+
+    if (!error && data?.url) {
+      window.location.href = data.url;
+      return;
+    }
+
+    const msg = data?.error || error?.message || 'No se pudo iniciar Stripe Checkout.';
+    console.warn('[Stripe Checkout CONST]', msg);
+    showToast(`No se pudo iniciar el pago con Stripe: ${msg}`, 'error');
+  } catch (err) {
+    console.warn('[Stripe Checkout CONST Error]', err);
+    showToast(err?.message || 'Error al conectar con Stripe Checkout.', 'error');
+  }
 }
 
 // Exponer funciones globales para sincronización unificada entre módulos
@@ -727,4 +776,6 @@ if (typeof window !== 'undefined') {
   window.updateSubscriptionBadgesUI = updateSubscriptionBadgesUI;
   window.openSubscriptionModal = openSubscriptionModal;
   window.closeSubscriptionModal = closeSubscriptionModal;
+  window.openStripeCustomerPortal = openStripeCustomerPortal;
+  window.openCustomerPortal = openStripeCustomerPortal;
 }
