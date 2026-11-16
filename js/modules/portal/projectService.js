@@ -1667,6 +1667,27 @@ export async function deleteProject(projectId) {
     localStorage.removeItem(`adm_const_suppliers_${projectId}`);
   } catch (e) {}
 
+  // Purgar todas las invitaciones asociadas a este proyecto para que se limpien las notificaciones
+  try {
+    const currentInvs = getStoredInvitations();
+    const cleanedInvs = currentInvs.filter(i => i.projectId !== projectId);
+    if (cleanedInvs.length !== currentInvs.length) {
+      saveStoredInvitations(cleanedInvs);
+    }
+    const currentPlanInvs = getStoredPlanInvitations();
+    const cleanedPlanInvs = currentPlanInvs.filter(pi => pi.projectId !== projectId);
+    if (cleanedPlanInvs.length !== currentPlanInvs.length) {
+      saveStoredPlanInvitations(cleanedPlanInvs);
+    }
+  } catch (_) {}
+
+  // Refrescar campana de notificaciones
+  try {
+    if (typeof window !== 'undefined' && typeof window.renderSidebarNotificationsUI === 'function') {
+      window.renderSidebarNotificationsUI();
+    }
+  } catch (_) {}
+
   // 1. Limpiar proyecto de la lista en memoria y localStorage
   const currentList = getProjectsList();
   const list = currentList.filter(p => p.id !== projectId && p.cloudId !== projectId);
@@ -1789,6 +1810,8 @@ export function getPendingInvitationsForUser(userEmail) {
   const emailLower = userEmail.toLowerCase().trim();
   const allInvs = getStoredInvitations();
   const allProjects = getProjectsList();
+  const deletedList = getDeletedProjectsList();
+  const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
 
   const results = [];
   const seenKeys = new Set();
@@ -1797,6 +1820,22 @@ export function getPendingInvitationsForUser(userEmail) {
   allInvs.forEach(inv => {
     if (inv.status !== 'pending') return;
     if ((inv.email || '').toLowerCase().trim() !== emailLower) return;
+
+    // Si el proyecto fue eliminado o marcado como eliminado, NO MOSTRAR
+    if (isDeleted(inv.projectId)) return;
+
+    // Si el proyecto ya no existe en la lista de proyectos válidos, NO MOSTRAR
+    const targetProj = allProjects.find(p => p.id === inv.projectId || p.cloudId === inv.projectId);
+    if (!targetProj) return;
+
+    // Si el usuario ya es miembro activo y aceptado en el proyecto, la invitación ya no está pendiente
+    if (Array.isArray(targetProj.members)) {
+      const existingMember = targetProj.members.find(m => (m.email || '').toLowerCase().trim() === emailLower);
+      if (existingMember && (existingMember.status === 'active' || existingMember.status === 'accepted')) {
+        return;
+      }
+    }
+
     const key = (inv.projectId || '') + '|' + emailLower;
     if (seenKeys.has(key)) return;
     seenKeys.add(key);
@@ -1810,10 +1849,19 @@ export function getPendingInvitationsForUser(userEmail) {
     if ((pInv.email || '').toLowerCase().trim() !== emailLower) return;
 
     const hostEmail = (pInv.ownerEmail || '').toLowerCase().trim();
-    const hostProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === hostEmail);
+    // Proyectos activos no eliminados del anfitrión
+    const hostProjects = allProjects.filter(p => 
+      (p.ownerEmail || '').toLowerCase().trim() === hostEmail && 
+      !isDeleted(p.id) && !isDeleted(p.cloudId)
+    );
 
     if (hostProjects.length > 0) {
       hostProjects.forEach(hp => {
+        if (Array.isArray(hp.members)) {
+          const mem = hp.members.find(m => (m.email || '').toLowerCase().trim() === emailLower);
+          if (mem && (mem.status === 'active' || mem.status === 'accepted')) return;
+        }
+
         const key = hp.id + '|' + emailLower;
         if (!seenKeys.has(key)) {
           seenKeys.add(key);
@@ -1833,25 +1881,6 @@ export function getPendingInvitationsForUser(userEmail) {
           });
         }
       });
-    } else {
-      const key = 'plan|' + hostEmail;
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key);
-        results.push({
-          id: pInv.id,
-          projectId: 'plan-access',
-          projectName: `Espacio de ${pInv.ownerName || hostEmail}`,
-          companyName: pInv.ownerName || '',
-          ownerEmail: hostEmail,
-          ownerName: pInv.ownerName || 'Anfitrión',
-          ownerPlanId: pInv.ownerPlanId || 'free',
-          email: emailLower,
-          name: pInv.name,
-          role: pInv.role || 'editar',
-          status: 'pending',
-          createdAt: pInv.invitedAt || new Date().toISOString()
-        });
-      }
     }
   });
 
@@ -2187,55 +2216,78 @@ export function rejectProjectInvitation(invitationId) {
   const user = getCurrentUser();
   const userEmail = (user?.email || '').toLowerCase().trim();
 
-  const invs = getStoredInvitations();
-  const planInvs = getStoredPlanInvitations();
+  let invs = getStoredInvitations();
+  let planInvs = getStoredPlanInvitations();
   const list = getProjectsList();
+  const targetId = String(invitationId || '').trim();
 
   let rejected = false;
 
-  // 1. Buscar en invitaciones formales de proyectos
-  const invIdx = invs.findIndex(i => 
-    i.id === invitationId || 
-    (userEmail && (i.email || '').toLowerCase().trim() === userEmail && i.id === invitationId)
+  // 0. Si se solicitó purgar todas las invitaciones del usuario
+  if (targetId === 'all' || !targetId) {
+    if (userEmail) {
+      invs = invs.filter(i => (i.email || '').toLowerCase().trim() !== userEmail);
+      saveStoredInvitations(invs);
+      planInvs = planInvs.filter(pi => (pi.email || '').toLowerCase().trim() !== userEmail);
+      saveStoredPlanInvitations(planInvs);
+      list.forEach(p => {
+        if (Array.isArray(p.members)) {
+          p.members = p.members.filter(m => (m.email || '').toLowerCase().trim() !== userEmail || (m.status !== 'pending' && m.status !== 'rejected'));
+        }
+      });
+      saveProjectsList(list);
+      rejected = true;
+    }
+  }
+
+  // 1. Buscar en invitaciones formales de proyectos con coincidencia flexible
+  const initialLen = invs.length;
+  const matchedInvs = invs.filter(i => 
+    i.id === targetId ||
+    (userEmail && (i.email || '').toLowerCase().trim() === userEmail && i.id === targetId) ||
+    (i.projectId && (i.projectId === targetId || targetId.includes(i.projectId))) ||
+    (i.projectName && (i.projectName === targetId || targetId.includes(i.projectName)))
   );
-  if (invIdx >= 0) {
-    const inv = invs[invIdx];
-    invs.splice(invIdx, 1);
+
+  if (matchedInvs.length > 0) {
+    const matchedIds = new Set(matchedInvs.map(m => m.id));
+    invs = invs.filter(i => !matchedIds.has(i.id));
     saveStoredInvitations(invs);
     rejected = true;
 
-    if (inv.projectId) {
-      const proj = list.find(p => p.id === inv.projectId);
-      if (proj && Array.isArray(proj.members)) {
-        proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== (inv.email || '').toLowerCase().trim());
-        saveProjectsList(list);
+    matchedInvs.forEach(inv => {
+      if (inv.projectId) {
+        const proj = list.find(p => p.id === inv.projectId || p.cloudId === inv.projectId);
+        if (proj && Array.isArray(proj.members)) {
+          proj.members = proj.members.filter(m => (m.email || '').toLowerCase().trim() !== (inv.email || userEmail));
+          saveProjectsList(list);
+        }
+        try {
+          if (typeof window !== 'undefined' && typeof window.removeCollaboratorFromCloud === 'function') {
+            window.removeCollaboratorFromCloud(inv.projectId, inv.email || userEmail);
+          }
+        } catch (_) {}
+        try {
+          if (typeof window !== 'undefined' && typeof window.broadcastCollaboratorRemoved === 'function') {
+            window.broadcastCollaboratorRemoved(inv.projectId, inv.email || userEmail);
+          } else if (typeof window !== 'undefined' && window.CubikarRealtime?.broadcastCollaboratorRemoved) {
+            window.CubikarRealtime.broadcastCollaboratorRemoved(inv.projectId, inv.email || userEmail);
+          }
+        } catch (_) {}
       }
       try {
-        if (typeof window !== 'undefined' && typeof window.removeCollaboratorFromCloud === 'function') {
-          window.removeCollaboratorFromCloud(inv.projectId, inv.email);
+        if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationRejected === 'function') {
+          window.CubikarRealtime.broadcastInvitationRejected(inv, user);
         }
-      } catch (_) {}
-      try {
-        if (typeof window !== 'undefined' && typeof window.broadcastCollaboratorRemoved === 'function') {
-          window.broadcastCollaboratorRemoved(inv.projectId, inv.email);
-        } else if (typeof window !== 'undefined' && window.CubikarRealtime?.broadcastCollaboratorRemoved) {
-          window.CubikarRealtime.broadcastCollaboratorRemoved(inv.projectId, inv.email);
-        }
-      } catch (_) {}
-    }
-
-    try {
-      if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastInvitationRejected === 'function') {
-        window.CubikarRealtime.broadcastInvitationRejected(inv, user);
-      }
-    } catch (e) {}
+      } catch (e) {}
+    });
   }
 
   // 2. Buscar en invitaciones al plan
   const planIdx = planInvs.findIndex(pi => 
-    pi.id === invitationId || 
-    (typeof invitationId === 'string' && (invitationId.includes(pi.id) || invitationId.endsWith(`-${pi.id}`))) ||
-    (userEmail && (pi.email || '').toLowerCase().trim() === userEmail && (pi.id === invitationId || pi.status === 'pending'))
+    pi.id === targetId || 
+    (typeof targetId === 'string' && (targetId.includes(pi.id) || targetId.endsWith(`-${pi.id}`))) ||
+    (userEmail && (pi.email || '').toLowerCase().trim() === userEmail && (pi.id === targetId || targetId.includes(pi.ownerEmail || '')))
   );
   if (planIdx >= 0) {
     const pInv = planInvs[planIdx];
@@ -2262,7 +2314,7 @@ export function rejectProjectInvitation(invitationId) {
   if (!rejected && userEmail) {
     list.forEach(p => {
       if (Array.isArray(p.members)) {
-        const memIdx = p.members.findIndex(m => (m.email || '').toLowerCase().trim() === userEmail && (m.status === 'pending' || m.id === invitationId));
+        const memIdx = p.members.findIndex(m => (m.email || '').toLowerCase().trim() === userEmail && (m.status === 'pending' || m.id === targetId));
         if (memIdx >= 0) {
           p.members.splice(memIdx, 1);
           saveProjectsList(list);

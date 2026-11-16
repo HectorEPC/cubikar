@@ -1016,6 +1016,9 @@ function handleIncomingInvitationAccepted({ projectId, projectName, ownerEmail, 
     if (typeof window.refreshProjectsGridUI === 'function') {
       window.refreshProjectsGridUI();
     }
+    if (typeof window.renderSidebarNotificationsUI === 'function') {
+      window.renderSidebarNotificationsUI();
+    }
     if (typeof window.renderHeaderCollaborators === 'function') {
       window.renderHeaderCollaborators();
     }
@@ -1058,6 +1061,9 @@ function handleIncomingInvitationRejected({ projectId, email }) {
     if (typeof window.refreshProjectsGridUI === 'function') {
       window.refreshProjectsGridUI();
     }
+    if (typeof window.renderSidebarNotificationsUI === 'function') {
+      window.renderSidebarNotificationsUI();
+    }
     return;
   }
 
@@ -1070,6 +1076,9 @@ function handleIncomingInvitationRejected({ projectId, email }) {
 
     if (typeof window.refreshProjectsGridUI === 'function') {
       window.refreshProjectsGridUI();
+    }
+    if (typeof window.renderSidebarNotificationsUI === 'function') {
+      window.renderSidebarNotificationsUI();
     }
   }
 }
@@ -1226,6 +1235,26 @@ export function handleIncomingProjectDeleted(data) {
     localStorage.removeItem(`adm_const_suppliers_${projectId}`);
   } catch (_) {}
 
+  // Purgar invitaciones pendientes de este proyecto para que la campana se limpie de inmediato
+  try {
+    const rawInvs = localStorage.getItem('cubikar_project_invitations_v1');
+    if (rawInvs) {
+      const invList = JSON.parse(rawInvs);
+      if (Array.isArray(invList)) {
+        const cleanedInvs = invList.filter(i => i.projectId !== projectId);
+        localStorage.setItem('cubikar_project_invitations_v1', JSON.stringify(cleanedInvs));
+      }
+    }
+    const rawPlanInvs = localStorage.getItem('cubikar_plan_invitations_v1');
+    if (rawPlanInvs) {
+      const planList = JSON.parse(rawPlanInvs);
+      if (Array.isArray(planList)) {
+        const cleanedPlan = planList.filter(pi => pi.projectId !== projectId);
+        localStorage.setItem('cubikar_plan_invitations_v1', JSON.stringify(cleanedPlan));
+      }
+    }
+  } catch (_) {}
+
   // 4. Limpiar del cubikar_cloud_state_v2 del usuario
   if (currentUser.user_metadata?.cubikar_cloud_state_v2) {
     const cs = currentUser.user_metadata.cubikar_cloud_state_v2;
@@ -1337,6 +1366,20 @@ export function handleIncomingCollaboratorRemoved(data) {
     try {
       localStorage.removeItem(getSettingsKey(projectId));
       localStorage.removeItem(getStorageKey(projectId));
+      localStorage.removeItem(`adm_const_chat_${projectId}`);
+      localStorage.removeItem(`control_obra_chat_${projectId}`);
+    } catch (_) {}
+
+    // Purgar invitaciones pendientes de este proyecto para limpiar la campana
+    try {
+      const rawInvs = localStorage.getItem('cubikar_project_invitations_v1');
+      if (rawInvs) {
+        const invList = JSON.parse(rawInvs);
+        if (Array.isArray(invList)) {
+          const cleanedInvs = invList.filter(i => !(i.projectId === projectId && (i.email || '').toLowerCase().trim() === myEmail));
+          localStorage.setItem('cubikar_project_invitations_v1', JSON.stringify(cleanedInvs));
+        }
+      }
     } catch (_) {}
 
     const currentPId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
@@ -1355,6 +1398,9 @@ export function handleIncomingCollaboratorRemoved(data) {
 
     if (typeof window.refreshProjectsGridUI === 'function') {
       window.refreshProjectsGridUI();
+    }
+    if (typeof window.renderSidebarNotificationsUI === 'function') {
+      window.renderSidebarNotificationsUI();
     }
   } else if (proj && Array.isArray(proj.members)) {
     // Si otro colaborador fue removido: actualizar la lista de miembros de la obra
@@ -1558,6 +1604,9 @@ function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
     }
     if (typeof window.refreshProjectsGridUI === 'function') {
       window.refreshProjectsGridUI();
+    }
+    if (typeof window.renderSidebarNotificationsUI === 'function') {
+      window.renderSidebarNotificationsUI();
     }
   }
 }
