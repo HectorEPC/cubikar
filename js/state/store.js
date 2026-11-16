@@ -1,10 +1,10 @@
-import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261116_cf11';
-import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261116_cf11';
-import { syncActiveProjectSummary, getProjectById, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261116_cf11';
-import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261116_cf11';
-import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261116_cf11';
-import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261116_cf11';
-import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261116_cf11';
+import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261116_cf12';
+import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261116_cf12';
+import { syncActiveProjectSummary, getProjectById, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261116_cf12';
+import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261116_cf12';
+import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261116_cf12';
+import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261116_cf12';
+import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261116_cf12';
 
 // Estado global reactivo y centralizado de la aplicación
 export const state = {
@@ -220,6 +220,17 @@ export function initStore() {
 
 // Sincronización automática en segundo plano con Supabase PostgreSQL (Debounce 1.2s)
 let cloudSyncTimer = null;
+let pendingLargeTreeBroadcast = false;
+let pendingLargeTreeMeta = {};
+
+function checkIfLargeTree(tree) {
+  try {
+    return Array.isArray(tree) && JSON.stringify(tree).length >= 180000;
+  } catch (_) {
+    return false;
+  }
+}
+
 export function triggerDebouncedCloudSync() {
   if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
   cloudSyncTimer = setTimeout(async () => {
@@ -230,10 +241,29 @@ export function triggerDebouncedCloudSync() {
     const project = getProjectById(projectId);
     if (!project) return;
     if (typeof isProjectMarkedDeleted === 'function' && project.cloudId && isProjectMarkedDeleted(project.cloudId)) return;
+    let syncSuccess = false;
     try {
-      await syncProjectToCloud(project, state.settings, state.treeData);
+      const syncRes = await syncProjectToCloud(project, state.settings, state.treeData);
+      syncSuccess = Boolean(!syncRes || syncRes.success !== false);
     } catch (e) {
       console.warn('[CloudSync] Fallo silencioso en autosincronización:', e);
+    }
+    if (syncSuccess && pendingLargeTreeBroadcast) {
+      pendingLargeTreeBroadcast = false;
+      const committedMeta = pendingLargeTreeMeta || {};
+      pendingLargeTreeMeta = {};
+      if (typeof broadcastProjectMutation === 'function') {
+        broadcastProjectMutation({
+          projectId,
+          treeData: state.treeData,
+          settings: state.settings,
+          immediate: true,
+          changeType: committedMeta.changeType || 'cloud_tree_synced',
+          highlightId: committedMeta.highlightId || null,
+          changeDescription: committedMeta.changeDescription || 'cambios en el catálogo',
+          postCloudSync: true
+        });
+      }
     }
     try {
       if (typeof window !== 'undefined' && typeof window.triggerDebouncedCloudStateSync === 'function') {
@@ -271,51 +301,44 @@ export function persistSettings(meta = {}) {
 let persistTimer = null;
 export function persistLocalData(immediate = false, meta = {}) {
   const projectId = getActiveProjectId();
-  if (immediate) {
-    if (persistTimer) clearTimeout(persistTimer);
-    persistTimer = null;
+  const flushPersist = () => {
     try {
       localStorage.setItem(getStorageKey(), JSON.stringify(state.treeData));
       syncActiveProjectSummary(projectId, state.treeData, state.settings);
+      if (!meta?.patch && checkIfLargeTree(state.treeData)) {
+        pendingLargeTreeBroadcast = true;
+        pendingLargeTreeMeta = {
+          changeType: meta?.changeType || 'general',
+          highlightId: meta?.highlightId || null,
+          changeDescription: meta?.changeDescription || 'cambios en el catálogo'
+        };
+      }
       if (!meta?.skipFullCloudSync) {
         triggerDebouncedCloudSync();
       }
 
-      if (typeof broadcastProjectMutation === 'function') {
+      if (!meta?.skipBroadcast && typeof broadcastProjectMutation === 'function') {
         broadcastProjectMutation({
           projectId,
           treeData: state.treeData,
           settings: state.settings,
-          immediate: true,
+          immediate: Boolean(immediate),
           ...meta
         });
       }
     } catch (e) {
       console.error('Error guardando en localStorage:', e);
     }
+  };
+  if (immediate) {
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = null;
+    flushPersist();
     return;
   }
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(getStorageKey(), JSON.stringify(state.treeData));
-      syncActiveProjectSummary(projectId, state.treeData, state.settings);
-      if (!meta?.skipFullCloudSync) {
-        triggerDebouncedCloudSync();
-      }
-
-      if (typeof broadcastProjectMutation === 'function') {
-        broadcastProjectMutation({
-          projectId,
-          treeData: state.treeData,
-          settings: state.settings,
-          immediate: false,
-          ...meta
-        });
-      }
-    } catch (e) {
-      console.error('Error guardando en localStorage:', e);
-    }
+    flushPersist();
     persistTimer = null;
   }, 300);
 }

@@ -1,12 +1,12 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf11';
-import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261116_cf11';
-import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf11';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf11';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf11';
-import { updateModalIfOpen } from './matrizModal.js?v=20261116_cf11';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261116_cf11';
-import { isTabLocked } from '../../ui/tabLockController.js?v=20261116_cf11';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf11';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf12';
+import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261116_cf12';
+import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf12';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf12';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf12';
+import { updateModalIfOpen } from './matrizModal.js?v=20261116_cf12';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261116_cf12';
+import { isTabLocked } from '../../ui/tabLockController.js?v=20261116_cf12';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf12';
 
 // Renderizar tabla Matriz APU del concepto seleccionado
 let selectedApuInsumoIdx = null;
@@ -19,7 +19,7 @@ function highlightTableRowInTbody(tbody, targetTr) {
   targetTr.classList.add('selected-row');
 }
 
-export function renderAPUInsumos(node) {
+export function renderAPUInsumos(node, options = {}) {
   if (!node) return;
   if (lastApuSelectedNodeId !== node.id) {
     lastApuSelectedNodeId = node.id;
@@ -39,10 +39,10 @@ export function renderAPUInsumos(node) {
         ins.cantidad = round5(ins.cantidad);
         ins.costoUnitario = round2(ins.costoUnitario);
       });
-      persistLocalData();
+      if (!options?.skipPersist) persistLocalData();
     } else if (parseFloat(node.precioUnitario) > 0 || parseFloat(node.costoDirecto) > 0) {
       node.insumos = generateIntegratedMatrixForConcept(node);
-      persistLocalData();
+      if (!options?.skipPersist) persistLocalData();
     }
   }
 
@@ -257,7 +257,9 @@ export function renderAPUInsumos(node) {
   if (matrizBadge) {
     matrizBadge.innerText = `P.U.: ${formatMoney(totalPU)}`;
   }
-  persistLocalData();
+  if (!options?.skipPersist) {
+    persistLocalData();
+  }
   renderTAB1();
   updateModalIfOpen(node);
 }

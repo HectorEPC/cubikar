@@ -1,15 +1,15 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf11';
-import { saveState } from '../../state/history.js?v=20261116_cf11';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf11';
-import { formatMoney, formatQty, formatMatrixQty, getCurrencySymbol, round2, round5 } from '../../core/formatters.js?v=20261116_cf11';
-import { getFactorSobrecosto, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf11';
-import { getConsolidatedDataMap, normalizeInsumoText, getInsumoConsolidationKey } from './insumosConsolidator.js?v=20261116_cf11';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf11';
-import { findNodeById } from '../catalog/treeService.js?v=20261116_cf11';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf11';
-import { updateModalIfOpen } from '../apu/matrizModal.js?v=20261116_cf11';
-import { estimarCostoInsumoConIA, queryGeminiLoteInsumos } from '../ai/insumoAiPricing.js?v=20261116_cf11';
-import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf11';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf12';
+import { saveState } from '../../state/history.js?v=20261116_cf12';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf12';
+import { formatMoney, formatQty, formatMatrixQty, getCurrencySymbol, round2, round5 } from '../../core/formatters.js?v=20261116_cf12';
+import { getFactorSobrecosto, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf12';
+import { getConsolidatedDataMap, normalizeInsumoText, getInsumoConsolidationKey } from './insumosConsolidator.js?v=20261116_cf12';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf12';
+import { findNodeById } from '../catalog/treeService.js?v=20261116_cf12';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf12';
+import { updateModalIfOpen } from '../apu/matrizModal.js?v=20261116_cf12';
+import { estimarCostoInsumoConIA, queryGeminiLoteInsumos } from '../ai/insumoAiPricing.js?v=20261116_cf12';
+import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf12';
 
 let globalConsolidatedMap = {};
 let activeCombinarContext = null;

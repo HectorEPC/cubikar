@@ -1,7 +1,7 @@
-import { getActiveProjectId } from '../config/constants.js?v=20261116_cf11';
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf11';
-import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261116_cf11';
-import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261116_cf11';
+import { getActiveProjectId } from '../config/constants.js?v=20261116_cf12';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf12';
+import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261116_cf12';
+import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261116_cf12';
 
 const pendingTimers = new Map();
 

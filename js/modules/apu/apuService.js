@@ -1,13 +1,13 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf11';
-import { saveState } from '../../state/history.js?v=20261116_cf11';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf11';
-import { findNodeById, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf11';
-import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from './apuView.js?v=20261116_cf11';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf11';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf11';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf11';
-import { round2, round5 } from '../../core/formatters.js?v=20261116_cf11';
-import { updateGrandTotal } from '../../core/calculations.js?v=20261116_cf11';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf12';
+import { saveState } from '../../state/history.js?v=20261116_cf12';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf12';
+import { findNodeById, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf12';
+import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from './apuView.js?v=20261116_cf12';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf12';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf12';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf12';
+import { round2, round5 } from '../../core/formatters.js?v=20261116_cf12';
+import { updateGrandTotal } from '../../core/calculations.js?v=20261116_cf12';
 
 // Filtro de botones en la tabla Matriz APU
 export function filterMatriz(tipo) {
@@ -145,6 +145,19 @@ export function removeInsumo(index) {
   }
 }
 
+function clearNodeMatrixFields(node) {
+  if (!node || typeof node !== 'object') return;
+  node.insumos = [];
+  node.isMatrixCustomized = true;
+  node.userClearedMatrix = true;
+  node.costoDirecto = 0;
+  node.precioUnitario = 0;
+  node.aiTips = '';
+  node.googleSources = [];
+  node.googleSearchQueries = [];
+  node._generationMode = null;
+}
+
 // Limpiar todo el contenido de la matriz del concepto seleccionado
 export function limpiarMatrizConceptoSeleccionado() {
   if (!canCurrentUserEditProject()) {
@@ -180,19 +193,20 @@ export function limpiarMatrizConceptoSeleccionado() {
   }
 
   saveState();
+  clearNodeMatrixFields(node);
 
-  node.insumos = [];
-  node.isMatrixCustomized = true;
-  node.userClearedMatrix = true;
-  node.costoDirecto = 0;
-  node.precioUnitario = 0;
-  node.aiTips = '';
-  node.googleSources = [];
-  node.googleSearchQueries = [];
-  node._generationMode = null;
-
-  persistLocalData();
-  renderAPUInsumos(node);
+  persistLocalData(true, {
+    changeType: 'matrix_cleared',
+    highlightId: node.id,
+    changeDescription: `matriz de ${node.clave || 'concepto'}`,
+    patch: {
+      type: 'clear_matrix',
+      id: node.id,
+      uuid: node.uuid || null,
+      clave: node.clave || null
+    }
+  });
+  renderAPUInsumos(node, { skipPersist: true });
   renderInsumosUnitarios(node);
   renderTAB1();
 
@@ -213,7 +227,7 @@ export function limpiarMatricesCasillas() {
     if (active && (!active.children || active.children.length === 0)) {
       active.selected = true;
       targets = [active];
-      persistLocalData();
+      persistLocalData(true, { skipBroadcast: true });
       renderTAB1();
     }
   }
@@ -240,25 +254,31 @@ export function limpiarMatricesCasillas() {
 
   saveState();
 
+  const clearedRefs = targets.map(node => ({
+    id: node.id,
+    uuid: node.uuid || null,
+    clave: node.clave || null
+  }));
   for (const node of targets) {
-    node.insumos = [];
-    node.isMatrixCustomized = true;
-    node.userClearedMatrix = true;
-    node.costoDirecto = 0;
-    node.precioUnitario = 0;
-    node.aiTips = '';
-    node.googleSources = [];
-    node.googleSearchQueries = [];
-    node._generationMode = null;
+    clearNodeMatrixFields(node);
   }
 
-  persistLocalData();
+  persistLocalData(true, {
+    changeType: 'matrix_cleared',
+    changeDescription: `matrices de ${count} concepto(s)`,
+    patch: {
+      type: 'clear_matrices',
+      ids: clearedRefs.map(r => r.id),
+      uuids: clearedRefs.map(r => r.uuid).filter(Boolean),
+      targets: clearedRefs
+    }
+  });
   renderTAB1();
 
   if (state.activeSelectedId) {
     const activeNode = findNodeById(state.treeData, state.activeSelectedId);
     if (activeNode) {
-      renderAPUInsumos(activeNode);
+      renderAPUInsumos(activeNode, { skipPersist: true });
       renderInsumosUnitarios(activeNode);
     }
   }

@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf11';
-import { state } from '../state/store.js?v=20261116_cf11';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf12';
+import { state } from '../state/store.js?v=20261116_cf12';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -17,10 +17,10 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261116_cf11';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf11';
-import { findNodeById } from '../modules/catalog/treeService.js?v=20261116_cf11';
-import { showToast } from '../ui/notifications.js?v=20261116_cf11';
+} from '../modules/portal/projectService.js?v=20261116_cf12';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf12';
+import { findNodeById } from '../modules/catalog/treeService.js?v=20261116_cf12';
+import { showToast } from '../ui/notifications.js?v=20261116_cf12';
 
 let activeChannel = null;
 let currentSubscribedProjectId = null;
@@ -110,9 +110,36 @@ export function applyTreePatch(tree, patch) {
     return false;
   }
 
+function matchesPatchRef(node, ref) {
+  if (!node || !ref) return false;
+  if (ref.id && (node.id === ref.id || node.uuid === ref.id)) return true;
+  if (ref.uuid && (node.uuid === ref.uuid || node.id === ref.uuid)) return true;
+  if (ref.clave && node.clave === ref.clave) return true;
+  return false;
+}
+
+function findPatchTargetNode(tree, patch) {
+  return findNodeById(tree, patch.id)
+    || (patch.uuid ? findNodeById(tree, patch.uuid) : null)
+    || (patch.clave ? findNodeById(tree, patch.clave) : null);
+}
+
+function applyClearMatrixToNode(node) {
+  if (!node || typeof node !== 'object') return;
+  node.insumos = [];
+  node.isMatrixCustomized = true;
+  node.userClearedMatrix = true;
+  node.costoDirecto = 0;
+  node.precioUnitario = 0;
+  node.aiTips = '';
+  node.googleSources = [];
+  node.googleSearchQueries = [];
+  node._generationMode = null;
+}
+
   if (type === 'delete_node') {
     function removeRecursive(nodes) {
-      const idx = nodes.findIndex(n => n.id === patch.id || (patch.uuid && n.uuid === patch.uuid) || (patch.clave && n.clave === patch.clave));
+      const idx = nodes.findIndex(n => matchesPatchRef(n, patch));
       if (idx !== -1) {
         nodes.splice(idx, 1);
         return true;
@@ -126,20 +153,59 @@ export function applyTreePatch(tree, patch) {
   }
 
   if (type === 'delete_nodes') {
-    const idsSet = new Set(Array.isArray(patch.ids) ? patch.ids : []);
+    const refSet = new Set([
+      ...(Array.isArray(patch.ids) ? patch.ids : []),
+      ...(Array.isArray(patch.uuids) ? patch.uuids : [])
+    ].filter(Boolean));
+    const targets = Array.isArray(patch.targets) ? patch.targets : [];
     function removeMultiple(nodes) {
       let changed = false;
       for (let i = nodes.length - 1; i >= 0; i--) {
-        if (idsSet.has(nodes[i].id)) {
+        const cur = nodes[i];
+        const hit = refSet.has(cur.id)
+          || (cur.uuid && refSet.has(cur.uuid))
+          || targets.some(t => matchesPatchRef(cur, t));
+        if (hit) {
           nodes.splice(i, 1);
           changed = true;
-        } else if (Array.isArray(nodes[i].children)) {
-          if (removeMultiple(nodes[i].children)) changed = true;
+        } else if (Array.isArray(cur.children)) {
+          if (removeMultiple(cur.children)) changed = true;
         }
       }
       return changed;
     }
     return removeMultiple(tree);
+  }
+
+  if (type === 'clear_matrix') {
+    const node = findPatchTargetNode(tree, patch);
+    if (!node) return false;
+    applyClearMatrixToNode(node);
+    return true;
+  }
+
+  if (type === 'clear_matrices') {
+    const refSet = new Set([
+      ...(Array.isArray(patch.ids) ? patch.ids : []),
+      ...(Array.isArray(patch.uuids) ? patch.uuids : [])
+    ].filter(Boolean));
+    const targets = Array.isArray(patch.targets) ? patch.targets : [];
+    let changed = false;
+    function clearWalk(nodes) {
+      for (const n of nodes) {
+        if (!n) continue;
+        const hit = refSet.has(n.id)
+          || (n.uuid && refSet.has(n.uuid))
+          || targets.some(t => matchesPatchRef(n, t));
+        if (hit) {
+          applyClearMatrixToNode(n);
+          changed = true;
+        }
+        if (Array.isArray(n.children)) clearWalk(n.children);
+      }
+    }
+    clearWalk(tree);
+    return changed;
   }
 
   if (type === 'duplicate_node') {
@@ -216,9 +282,10 @@ export function applyTreePatch(tree, patch) {
   }
 
   if (type === 'update_color') {
-    const node = findNodeById(tree, patch.id);
+    const node = findPatchTargetNode(tree, patch);
     if (node) {
-      node.color = patch.color;
+      if (patch.color) node.color = patch.color;
+      else delete node.color;
       return true;
     }
   }
@@ -464,7 +531,8 @@ export function broadcastProjectMutation({
   changeType = 'general',
   highlightId = null,
   changeDescription = 'cambios en el catálogo',
-  patch = null
+  patch = null,
+  postCloudSync = false
 } = {}) {
   const pId = projectId || currentSubscribedProjectId || (typeof getActiveProjectId === 'function' ? getActiveProjectId() : null);
   if (!pId) return;
@@ -480,6 +548,7 @@ export function broadcastProjectMutation({
   const sendPayload = () => {
     let safeTreeData = null;
     let treeTooLarge = false;
+    let treePendingCloudSync = false;
     // Si viene un parche granular (edición de celda, cantidad, precio, etc.), NO enviamos el árbol completo por red
     // para evitar saturar el ancho de banda y congelar la UI de los demás usuarios.
     if (!patch && Array.isArray(treeData)) {
@@ -487,8 +556,10 @@ export function broadcastProjectMutation({
         const raw = JSON.stringify(treeData);
         if (raw.length < 180000) {
           safeTreeData = treeData;
-        } else {
+        } else if (postCloudSync) {
           treeTooLarge = true;
+        } else {
+          treePendingCloudSync = true;
         }
       } catch (_) {}
     }
@@ -497,6 +568,8 @@ export function broadcastProjectMutation({
       projectId: pId,
       treeData: safeTreeData,
       treeTooLarge,
+      treePendingCloudSync,
+      postCloudSync: Boolean(postCloudSync),
       patch: patch || null,
       settings: settings && typeof settings === 'object' ? settings : null,
       summary: {
@@ -580,6 +653,8 @@ export function broadcastProjectMutation({
   }, 300);
 }
 
+const recentlyHandledProjectMutations = new Map();
+
 /**
  * Procesar actualización entrante de proyecto emitida por otro usuario en tiempo real
  */
@@ -594,6 +669,21 @@ export function handleIncomingProjectUpdate(data) {
   // Si el cambio fue emitido por esta misma pestaña/sesión, ignorar para evitar bucles de actualización
   if (data.senderSessionId && data.senderSessionId === LOCAL_CLIENT_SESSION_ID) {
     return;
+  }
+
+  // Evitar doble ejecución del mismo evento cuando llega simultáneamente por canal de obra y canal global
+  if (data.senderSessionId && data.timestamp) {
+    const dedupeKey = `${data.senderSessionId}:${data.timestamp}:${data.changeType || ''}:${data.postCloudSync ? '1' : '0'}`;
+    const now = Date.now();
+    if (recentlyHandledProjectMutations.has(dedupeKey)) {
+      return;
+    }
+    recentlyHandledProjectMutations.set(dedupeKey, now);
+    if (recentlyHandledProjectMutations.size > 100) {
+      for (const [k, t] of recentlyHandledProjectMutations.entries()) {
+        if (now - t > 15000) recentlyHandledProjectMutations.delete(k);
+      }
+    }
   }
 
   const projectId = data.projectId;
@@ -673,7 +763,7 @@ export function handleIncomingProjectUpdate(data) {
       state.treeData = JSON.parse(JSON.stringify(data.treeData));
       treeMutated = true;
     }
-  } else if (data.treeTooLarge && typeof window !== 'undefined' && typeof window.loadProjectTreeFromCloud === 'function') {
+  } else if (data.treeTooLarge && !data.patch && data.postCloudSync !== false && typeof window !== 'undefined' && typeof window.loadProjectTreeFromCloud === 'function') {
     window.loadProjectTreeFromCloud(effectiveStorageId).then((cloudTree) => {
       if (Array.isArray(cloudTree)) {
         try {
@@ -686,6 +776,15 @@ export function handleIncomingProjectUpdate(data) {
           }
           if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
           if (typeof window.renderTAB1 === 'function') window.renderTAB1();
+          if (state.activeSelectedId) {
+            const sel = typeof findNodeById === 'function' ? findNodeById(state.treeData, state.activeSelectedId) : null;
+            if (sel) {
+              if (typeof window.renderAPUInsumos === 'function') window.renderAPUInsumos(sel, { skipPersist: true });
+              if (typeof window.renderInsumosUnitarios === 'function') window.renderInsumosUnitarios(sel);
+            } else if (typeof window.closeApuPanel === 'function') {
+              window.closeApuPanel();
+            }
+          }
         }
       }
     }).catch(() => {});
@@ -716,6 +815,7 @@ export function handleIncomingProjectUpdate(data) {
     if (state.activeSelectedId) {
       const stillExists = typeof findNodeById === 'function' ? findNodeById(state.treeData, state.activeSelectedId) : null;
       if (stillExists) {
+        if (typeof window.renderAPUInsumos === 'function') window.renderAPUInsumos(stillExists, { skipPersist: true });
         if (typeof window.renderInsumosUnitarios === 'function') window.renderInsumosUnitarios(stillExists);
       } else {
         if (typeof window.closeApuPanel === 'function') window.closeApuPanel();
@@ -2388,4 +2488,11 @@ if (typeof window !== 'undefined') {
   window.handleIncomingProjectUpdate = handleIncomingProjectUpdate;
   window.broadcastChatMessage = broadcastChatMessage;
   window.broadcastChatDelete = broadcastChatDelete;
+  window.markLocalConceptsPushed = (ids) => {
+    if (Array.isArray(ids)) {
+      ids.forEach((id) => markLocalConceptPush(id));
+    } else if (ids) {
+      markLocalConceptPush(ids);
+    }
+  };
 }

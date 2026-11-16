@@ -1,12 +1,12 @@
 // js/modules/reference/referenceDb.js
 // Gestor de base de datos local IndexedDB para Catálogos Maestros de Referencia
 
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf11';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf12';
 import {
   STORAGE_KEY_USER,
   STORAGE_KEY_ACTIVE_WORKSPACE,
   STORAGE_KEY_SUBSCRIPTION
-} from '../../config/constants.js?v=20261116_cf11';
+} from '../../config/constants.js?v=20261116_cf12';
 
 const DB_NAME = 'APU_REFERENCE_DB';
 const DB_VERSION = 1;
@@ -317,7 +317,7 @@ export async function saveReferenceCatalog(catalogMeta, itemsList, targetOwnerEm
   if (!isSystemOrPreset) {
     backupMasterCatalogToCloud(catalogRecord, itemsList).catch(() => {});
   }
-  import('../../services/storageQuotaService.js?v=20261116_cf11')
+  import('../../services/storageQuotaService.js?v=20261116_cf12')
     .then((m) => m.notifyStorageUsageChanged({ modulo: 'catalogos_maestros' }))
     .catch(() => {});
 
@@ -449,7 +449,7 @@ export async function deleteReferenceCatalog(catalogId) {
 
     tx.oncomplete = () => {
       deleteMasterCatalogFromCloud(catalogId, existingRecord).catch(() => {});
-      import('../../services/storageQuotaService.js?v=20261116_cf11')
+      import('../../services/storageQuotaService.js?v=20261116_cf12')
         .then((m) => m.notifyStorageUsageChanged({ modulo: 'catalogos_maestros', deleted: true }))
         .catch(() => {});
       resolve(true);
@@ -477,9 +477,9 @@ async function updateCatalogCloudMetadata(catalogId, patch) {
 async function backupMasterCatalogToCloud(catalogRecord, itemsList) {
   try {
     const [{ isSupabaseConfigured, getSupabaseClient }, { resolveUserEmpresaId }, { uploadManagedFile }] = await Promise.all([
-      import('../../core/supabaseClient.js?v=20261116_cf11'),
-      import('../../core/cloudProjectService.js?v=20261116_cf11'),
-      import('../../services/s3StorageService.js?v=20261116_cf11')
+      import('../../core/supabaseClient.js?v=20261116_cf12'),
+      import('../../core/cloudProjectService.js?v=20261116_cf12'),
+      import('../../services/s3StorageService.js?v=20261116_cf12')
     ]);
 
     const payloadJson = JSON.stringify({ meta: catalogRecord, items: itemsList });
@@ -540,8 +540,8 @@ async function backupMasterCatalogToCloud(catalogRecord, itemsList) {
 async function deleteMasterCatalogFromCloud(catalogId, existingRecord) {
   try {
     const [{ isSupabaseConfigured, getSupabaseClient }, { deleteManagedFile }] = await Promise.all([
-      import('../../core/supabaseClient.js?v=20261116_cf11'),
-      import('../../services/s3StorageService.js?v=20261116_cf11')
+      import('../../core/supabaseClient.js?v=20261116_cf12'),
+      import('../../services/s3StorageService.js?v=20261116_cf12')
     ]);
 
     if (existingRecord?.mediaId || existingRecord?.s3Key) {
@@ -570,8 +570,8 @@ async function deleteMasterCatalogFromCloud(catalogId, existingRecord) {
 export async function syncMasterCatalogsFromCloud(ownerEmail = null) {
   try {
     const [{ isSupabaseConfigured, getSupabaseClient }, { resolveManagedFileUrl }] = await Promise.all([
-      import('../../core/supabaseClient.js?v=20261116_cf11'),
-      import('../../services/s3StorageService.js?v=20261116_cf11')
+      import('../../core/supabaseClient.js?v=20261116_cf12'),
+      import('../../services/s3StorageService.js?v=20261116_cf12')
     ]);
 
     if (!isSupabaseConfigured()) return { restored: 0 };
