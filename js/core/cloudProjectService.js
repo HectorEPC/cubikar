@@ -1,6 +1,6 @@
 // js/core/cloudProjectService.js
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
-// Diseñado para operar en segundo plano con alta resiliencia y respaldo offline.
+// Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
 import { getCurrentUser, saveCurrentUser } from '../modules/portal/projectService.js';
@@ -45,7 +45,7 @@ export async function resolveUserEmpresaId(sb, user) {
       return perfil.empresa_id;
     }
 
-    // Si aún no tiene empresa asignada (ej. si el trigger se demoró), crear una por defecto
+    // Si aún no tiene empresa asignada, crear una por defecto
     const { data: newEmpresa, error: empErr } = await sb
       .from('empresas')
       .insert({
@@ -75,7 +75,7 @@ export async function resolveUserEmpresaId(sb, user) {
 }
 
 /**
- * Sincronizar un proyecto completo (datos generales y catálogo de conceptos) hacia Supabase
+ * Sincronizar un proyecto completo (datos generales, colaboradores y catálogo de conceptos) hacia Supabase PostgreSQL
  */
 export async function syncProjectToCloud(project, settings = {}, treeData = null) {
   const sb = getSupabaseClient();
@@ -117,22 +117,24 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
 
   try {
     const empresaId = await resolveUserEmpresaId(sb, user);
-    if (!empresaId) {
-      return { success: false, reason: 'No se pudo vincular la empresa en la base de datos' };
-    }
 
     // Asegurar UUID válido para PostgreSQL
     const projectId = isValidUUID(project.id) ? project.id : (project.cloudId && isValidUUID(project.cloudId) ? project.cloudId : generateUUID());
     project.cloudId = projectId;
 
+    const ownerEmail = (project.ownerEmail || user.email || '').toLowerCase().trim();
+
     // 1. Guardar / Actualizar en tabla 'public.proyectos'
     const projectRecord = {
       id: projectId,
-      empresa_id: empresaId,
+      empresa_id: empresaId || null,
+      owner_email: ownerEmail,
+      creado_por: user.id,
       clave: (project.clave || project.id || '').slice(0, 50),
       nombre: project.projectName || 'Proyecto sin título',
       cliente: project.client || '',
       ubicacion: project.projectLocation || '',
+      tipo_obra: project.tipoObra || 'Edificación',
       moneda: project.currency || settings?.currency || 'MXN',
       simbolo_moneda: project.currencySymbol || settings?.currencySymbol || '$',
       aplica_sobrecosto: Boolean(settings?.applySobrecosto ?? project.applySobrecosto),
@@ -144,7 +146,11 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
       pct_fasar: Number(settings?.pctFasar ?? project.pctFasar ?? 70.0) || 0,
       anticipo_pct: Number(settings?.anticipoPct ?? 30.0),
       iva_pct: Number(settings?.ivaPct ?? 16.0),
-      creado_por: user.id,
+      configuracion: {
+        ...(settings || {}),
+        companyName: project.companyName || '',
+        budgetSignatures: project.budgetSignatures || settings?.budgetSignatures || []
+      },
       updated_at: new Date().toISOString()
     };
 
@@ -157,7 +163,44 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
       return { success: false, error: projError };
     }
 
-    // 2. Si se proporcionó el árbol del catálogo, sincronizar partidas, conceptos e insumos
+    // 2. Registrar al propietario en 'public.proyecto_colaboradores' (garantiza acceso multiusuario)
+    const ownerColab = {
+      proyecto_id: projectId,
+      email_colaborador: ownerEmail,
+      nombre_colaborador: project.ownerName || user.name || 'Propietario',
+      rol: 'owner',
+      estado_invitacion: 'accepted',
+      updated_at: new Date().toISOString()
+    };
+    await sb
+      .from('proyecto_colaboradores')
+      .upsert(ownerColab, { onConflict: 'proyecto_id,email_colaborador' });
+
+    // 3. Sincronizar todos los colaboradores registrados en el proyecto
+    if (Array.isArray(project.members) && project.members.length > 0) {
+      for (const m of project.members) {
+        const mEmail = (m.email || '').toLowerCase().trim();
+        if (mEmail && mEmail !== ownerEmail) {
+          const mRecord = {
+            proyecto_id: projectId,
+            email_colaborador: mEmail,
+            nombre_colaborador: m.name || mEmail.split('@')[0],
+            rol: m.role || 'editar',
+            estado_invitacion: m.status === 'pending' ? 'pending' : 'accepted',
+            updated_at: new Date().toISOString()
+          };
+          try {
+            await sb
+              .from('proyecto_colaboradores')
+              .upsert(mRecord, { onConflict: 'proyecto_id,email_colaborador' });
+          } catch (cErr) {
+            console.warn('[CloudProjectService] Aviso upsert colaborador:', cErr);
+          }
+        }
+      }
+    }
+
+    // 4. Si se proporcionó el árbol del catálogo, sincronizar partidas, conceptos e insumos
     if (Array.isArray(treeData) && treeData.length > 0) {
       await syncCatalogTreeToCloud(sb, projectId, treeData);
     }
@@ -204,16 +247,16 @@ export async function syncCatalogTreeToCloud(sb, projectId, treeData) {
         orden: idx,
         expanded: n.expanded !== false,
         selected: n.selected !== false,
+        insumos: Array.isArray(n.insumos) ? n.insumos : [],
         updated_at: new Date().toISOString()
       });
 
-      // Procesar insumos de la matriz APU
+      // Procesar insumos de la matriz APU para compatibilidad relacional
       if (Array.isArray(n.insumos) && n.insumos.length > 0) {
         n.insumos.forEach((ins, insIdx) => {
           const insumoId = (ins.uuid && isValidUUID(ins.uuid)) ? ins.uuid : (isValidUUID(ins.id) ? ins.id : generateUUID());
           ins.uuid = insumoId;
 
-          // Mapear al constraint CHECK ('Material', 'Mano de Obra', 'Equipo', 'Subcontrato')
           let cleanTipo = ins.tipo || 'Material';
           if (cleanTipo === 'Herramienta' || cleanTipo === 'Maquinaria') {
             cleanTipo = 'Equipo';
@@ -270,7 +313,9 @@ export async function syncCatalogTreeToCloud(sb, projectId, treeData) {
 }
 
 /**
- * Consultar los proyectos disponibles en Supabase para la empresa del usuario
+ * Consultar los proyectos disponibles en Supabase para el usuario actual.
+ * Utiliza RLS en PostgreSQL: devuelve todos los proyectos donde el usuario es
+ * Propietario (owner_email) O Colaborador Invitado (proyecto_colaboradores).
  */
 export async function fetchCloudProjects() {
   const sb = getSupabaseClient();
@@ -281,13 +326,12 @@ export async function fetchCloudProjects() {
   }
 
   try {
-    const empresaId = await resolveUserEmpresaId(sb, user);
-    if (!empresaId) return [];
+    const myEmail = (user.email || '').toLowerCase().trim();
 
+    // Consulta con join a proyecto_colaboradores (sin filtro por empresa_id para permitir colaboración inter-cuentas)
     const { data: cloudList, error } = await sb
       .from('proyectos')
-      .select('*')
-      .eq('empresa_id', empresaId)
+      .select('*, proyecto_colaboradores(*)')
       .order('updated_at', { ascending: false });
 
     if (error) {
@@ -309,61 +353,67 @@ export async function fetchCloudProjects() {
     return cloudList
       .filter(cp => !isDeleted(cp.id))
       .map(cp => {
-      const ind = parseFloat(cp.pct_indirectos) || 0;
-      const fin = parseFloat(cp.pct_financiamiento) || 0;
-      const uti = parseFloat(cp.pct_utilidad) || 0;
-      const adi = parseFloat(cp.pct_adicionales) || 0;
-      const seg = parseFloat(cp.pct_seguros_fianzas ?? 1.0) || 0;
-      const f = cp.aplica_sobrecosto
-        ? (1 + ind / 100) * (1 + fin / 100) * (1 + uti / 100) * (1 + adi / 100) * (1 + seg / 100)
-        : 1.0;
+        const ind = parseFloat(cp.pct_indirectos) || 0;
+        const fin = parseFloat(cp.pct_financiamiento) || 0;
+        const uti = parseFloat(cp.pct_utilidad) || 0;
+        const adi = parseFloat(cp.pct_adicionales) || 0;
+        const seg = parseFloat(cp.pct_seguros_fianzas ?? 1.0) || 0;
+        const f = cp.aplica_sobrecosto
+          ? (1 + ind / 100) * (1 + fin / 100) * (1 + uti / 100) * (1 + adi / 100) * (1 + seg / 100)
+          : 1.0;
 
-      let existingProj = null;
-      try {
-        const rawList = localStorage.getItem('control_obra_projects_v1');
-        if (rawList) {
-          const parsed = JSON.parse(rawList);
-          existingProj = parsed.find(p => p.id === cp.id || p.cloudId === cp.id);
-        }
-      } catch (_) {}
+        const rawColabs = Array.isArray(cp.proyecto_colaboradores) ? cp.proyecto_colaboradores : [];
+        const reconstructedMembers = rawColabs.map(c => ({
+          id: c.id,
+          name: c.nombre_colaborador || c.email_colaborador.split('@')[0],
+          email: (c.email_colaborador || '').toLowerCase().trim(),
+          role: c.rol || 'editar',
+          status: c.estado_invitacion || 'accepted',
+          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
+        }));
 
-      const restoredMembers = (existingProj && Array.isArray(existingProj.members) && existingProj.members.length > 0)
-        ? existingProj.members
-        : [
+        const ownerColab = rawColabs.find(c => c.rol === 'owner');
+        const ownerEmail = (cp.owner_email || ownerColab?.email_colaborador || user.email || '').toLowerCase().trim();
+        const ownerName = ownerColab?.nombre_colaborador || (ownerEmail === myEmail ? (user.name || 'Propietario') : ownerEmail.split('@')[0]);
+
+        const cfg = (cp.configuracion && typeof cp.configuracion === 'object') ? cp.configuracion : {};
+
+        return {
+          id: cp.id,
+          cloudId: cp.id,
+          isCloudSynced: true,
+          projectName: cp.nombre,
+          companyName: cfg.companyName || cp.cliente || 'Constructora',
+          ownerEmail: ownerEmail,
+          ownerName: ownerName,
+          ownerPlanId: 'pro',
+          projectLocation: cp.ubicacion || '',
+          tipoObra: cp.tipo_obra || 'Edificación',
+          currency: cp.moneda || 'MXN',
+          currencySymbol: cp.simbolo_moneda || '$',
+          applySobrecosto: cp.aplica_sobrecosto,
+          pctIndirectos: ind,
+          pctFinanciamiento: fin,
+          pctUtilidad: uti,
+          pctAdicionales: adi,
+          pctSegurosFianzas: seg,
+          pctFasar: Number(cp.pct_fasar ?? 70.0),
+          factorSobrecosto: f,
+          budgetSignatures: cfg.budgetSignatures || [],
+          createdAt: cp.created_at ? cp.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+          updatedAt: cp.updated_at || new Date().toISOString(),
+          members: reconstructedMembers.length > 0 ? reconstructedMembers : [
             {
               id: 'mem-' + user.id,
               name: user.name || user.email,
-              email: user.email,
-              avatar: user.avatar || '',
-              role: 'editar',
+              email: myEmail,
+              role: ownerEmail === myEmail ? 'owner' : 'editar',
+              status: 'accepted',
               allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
             }
-          ];
-
-      return {
-        id: cp.id,
-        cloudId: cp.id,
-        isCloudSynced: true,
-        projectName: cp.nombre,
-        companyName: existingProj?.companyName || user.name || 'Mi Constructora',
-        ownerEmail: existingProj?.ownerEmail || (cp.creado_por === user.id ? user.email : user.email),
-        ownerName: existingProj?.ownerName || user.name || 'Anfitrión',
-        ownerPlanId: user.subscription?.planId || user.plan || existingProj?.ownerPlanId || 'free',
-        projectLocation: cp.ubicacion || '',
-        currency: cp.moneda || 'MXN',
-        currencySymbol: cp.simbolo_moneda || '$',
-        applySobrecosto: cp.aplica_sobrecosto,
-        pctIndirectos: ind,
-        pctFinanciamiento: fin,
-        pctUtilidad: uti,
-        pctAdicionales: adi,
-        pctSegurosFianzas: seg,
-        pctFasar: Number(cp.pct_fasar ?? 70.0),
-        factorSobrecosto: f,
-        createdAt: cp.created_at ? cp.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
-        members: restoredMembers
-      };
-    });
+          ]
+        };
+      });
   } catch (err) {
     console.error('[CloudProjectService] Excepción al consultar proyectos en la nube:', err);
     return [];
@@ -371,7 +421,7 @@ export async function fetchCloudProjects() {
 }
 
 /**
- * Descargar y reconstruir el árbol de catálogo desde Supabase
+ * Descargar y reconstruir el árbol de catálogo desde Supabase PostgreSQL
  */
 export async function loadProjectTreeFromCloud(projectId) {
   const sb = getSupabaseClient();
@@ -389,19 +439,44 @@ export async function loadProjectTreeFromCloud(projectId) {
       return null;
     }
 
-    // 2. Obtener insumos de todos los conceptos de esta obra
-    const conceptIds = concepts.map(c => c.id);
-    const { data: insumos } = await sb
-      .from('insumos_apu')
-      .select('*')
-      .in('concepto_id', conceptIds)
-      .order('orden', { ascending: true });
+    // 2. Si los conceptos no traen su insumos JSONB poblado, consultar insumos_apu relacional
+    let insumosMap = new Map();
+    const needsSeparateInsumos = concepts.some(c => !Array.isArray(c.insumos) || c.insumos.length === 0);
+
+    if (needsSeparateInsumos) {
+      const conceptIds = concepts.map(c => c.id);
+      const { data: insumos } = await sb
+        .from('insumos_apu')
+        .select('*')
+        .in('concepto_id', conceptIds)
+        .order('orden', { ascending: true });
+
+      if (Array.isArray(insumos)) {
+        insumos.forEach(ins => {
+          if (!insumosMap.has(ins.concepto_id)) insumosMap.set(ins.concepto_id, []);
+          insumosMap.get(ins.concepto_id).push({
+            id: ins.id,
+            uuid: ins.id,
+            tipo: ins.tipo,
+            clave: ins.clave,
+            descripcion: ins.descripcion,
+            unidad: ins.unidad,
+            cantidad: Number(ins.cantidad) || 0,
+            costoUnitario: Number(ins.costo_unitario) || 0
+          });
+        });
+      }
+    }
 
     // 3. Mapear conceptos
     const map = new Map();
     const roots = [];
 
     concepts.forEach(c => {
+      const cInsumos = (Array.isArray(c.insumos) && c.insumos.length > 0)
+        ? c.insumos
+        : (insumosMap.get(c.id) || []);
+
       const node = {
         id: c.id,
         uuid: c.id,
@@ -414,32 +489,13 @@ export async function loadProjectTreeFromCloud(projectId) {
         color: c.color || null,
         expanded: c.expanded !== false,
         selected: c.selected !== false,
-        insumos: [],
+        insumos: cInsumos,
         children: []
       };
       map.set(c.id, node);
     });
 
-    // 4. Adjuntar insumos a sus conceptos
-    if (Array.isArray(insumos)) {
-      insumos.forEach(ins => {
-        const parentNode = map.get(ins.concepto_id);
-        if (parentNode) {
-          parentNode.insumos.push({
-            id: ins.id,
-            uuid: ins.id,
-            tipo: ins.tipo,
-            clave: ins.clave,
-            descripcion: ins.descripcion,
-            unidad: ins.unidad,
-            cantidad: Number(ins.cantidad) || 0,
-            costoUnitario: Number(ins.costo_unitario) || 0
-          });
-        }
-      });
-    }
-
-    // 5. Reconstruir la jerarquía de árbol
+    // 4. Reconstruir la jerarquía de árbol
     concepts.forEach(c => {
       const node = map.get(c.id);
       if (c.parent_id && map.has(c.parent_id)) {
@@ -457,6 +513,108 @@ export async function loadProjectTreeFromCloud(projectId) {
 }
 
 /**
+ * Registrar o actualizar un colaborador en la nube
+ */
+export async function addCollaboratorToCloud(projectId, email, role = 'editar', status = 'accepted') {
+  const sb = getSupabaseClient();
+  if (!isSupabaseConfigured() || !sb || !projectId || !email) return { success: false };
+
+  try {
+    const cleanEmail = email.toLowerCase().trim();
+    const record = {
+      proyecto_id: projectId,
+      email_colaborador: cleanEmail,
+      nombre_colaborador: cleanEmail.split('@')[0],
+      rol: role,
+      estado_invitacion: status,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await sb
+      .from('proyecto_colaboradores')
+      .upsert(record, { onConflict: 'proyecto_id,email_colaborador' })
+      .select()
+      .single();
+
+    if (error) {
+      console.warn('[CloudProjectService] Error agregando colaborador en la nube:', error.message);
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (err) {
+    console.error('[CloudProjectService] Excepción agregando colaborador:', err);
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Eliminar un colaborador de un proyecto en la nube
+ */
+export async function removeCollaboratorFromCloud(projectId, email) {
+  const sb = getSupabaseClient();
+  if (!isSupabaseConfigured() || !sb || !projectId || !email) return;
+
+  try {
+    await sb
+      .from('proyecto_colaboradores')
+      .delete()
+      .eq('proyecto_id', projectId)
+      .eq('email_colaborador', email.toLowerCase().trim());
+  } catch (err) {
+    console.warn('[CloudProjectService] Error removiendo colaborador en la nube:', err);
+  }
+}
+
+/**
+ * Actualizar una celda o concepto específico en Supabase (Persistencia de edición granular en vivo)
+ */
+export async function updateCloudConcept(projectId, patchOrConcept) {
+  const sb = getSupabaseClient();
+  if (!isSupabaseConfigured() || !sb || !projectId || !patchOrConcept) return;
+
+  try {
+    if (patchOrConcept.type === 'update_field' && patchOrConcept.id) {
+      const fieldMap = {
+        cantidad: 'cantidad',
+        precioUnitario: 'precio_unitario',
+        costoDirecto: 'costo_directo',
+        descripcion: 'descripcion',
+        clave: 'clave',
+        unidad: 'unidad',
+        color: 'color'
+      };
+      const dbField = fieldMap[patchOrConcept.field];
+      if (dbField) {
+        await sb
+          .from('catalogo_conceptos')
+          .update({ [dbField]: patchOrConcept.value, updated_at: new Date().toISOString() })
+          .eq('id', patchOrConcept.id)
+          .eq('proyecto_id', projectId);
+      }
+    } else if (patchOrConcept.id) {
+      await sb
+        .from('catalogo_conceptos')
+        .upsert({
+          id: patchOrConcept.id,
+          proyecto_id: projectId,
+          clave: patchOrConcept.clave || '',
+          descripcion: patchOrConcept.descripcion || '',
+          unidad: patchOrConcept.unidad || 'pza',
+          cantidad: Number(patchOrConcept.cantidad) || 0,
+          precio_unitario: Number(patchOrConcept.precioUnitario) || 0,
+          costo_directo: Number(patchOrConcept.costoDirecto) || 0,
+          color: patchOrConcept.color || null,
+          insumos: Array.isArray(patchOrConcept.insumos) ? patchOrConcept.insumos : [],
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+    }
+  } catch (err) {
+    console.warn('[CloudProjectService] Error al actualizar concepto en Supabase:', err);
+  }
+}
+
+/**
  * Eliminar un proyecto en la nube
  */
 export async function deleteProjectFromCloud(projectId) {
@@ -468,4 +626,14 @@ export async function deleteProjectFromCloud(projectId) {
   } catch (err) {
     console.warn('[CloudProjectService] Error al eliminar proyecto en la nube:', err);
   }
+}
+
+if (typeof window !== 'undefined') {
+  window.syncProjectToCloud = syncProjectToCloud;
+  window.fetchCloudProjects = fetchCloudProjects;
+  window.loadProjectTreeFromCloud = loadProjectTreeFromCloud;
+  window.addCollaboratorToCloud = addCollaboratorToCloud;
+  window.removeCollaboratorFromCloud = removeCollaboratorFromCloud;
+  window.updateCloudConcept = updateCloudConcept;
+  window.deleteProjectFromCloud = deleteProjectFromCloud;
 }

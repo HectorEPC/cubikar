@@ -423,6 +423,15 @@ export function broadcastProjectMutation({
         console.warn('[Realtime] Aviso al emitir en canal global:', err);
       }
     }
+
+    // 3. Si el cambio incluye un patch granular, persistir en Supabase PostgreSQL
+    if (patch) {
+      try {
+        if (typeof window !== 'undefined' && typeof window.updateCloudConcept === 'function') {
+          window.updateCloudConcept(pId, patch);
+        }
+      } catch (_) {}
+    }
   };
 
   if (immediate) {

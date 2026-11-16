@@ -87,28 +87,37 @@ export function initStore() {
 
   // Cargar árbol de catálogo
   try {
+    const activePId = getActiveProjectId();
     const savedData = localStorage.getItem(getStorageKey());
     if (savedData) {
       state.treeData = JSON.parse(savedData);
-    } else {
+    } else if (!activePId) {
       state.treeData = JSON.parse(JSON.stringify(defaultTreeData));
-      // Si no existe localmente, intentar cargar desde la nube Supabase
-      const activePId = getActiveProjectId();
-      if (activePId) {
-        loadProjectTreeFromCloud(activePId).then(cloudTree => {
-          if (Array.isArray(cloudTree) && cloudTree.length > 0) {
+    } else {
+      state.treeData = [];
+    }
+
+    // Si el proyecto está activo, siempre sincronizar con la versión autoritativa más reciente de Supabase PostgreSQL
+    if (activePId) {
+      loadProjectTreeFromCloud(activePId).then(cloudTree => {
+        if (Array.isArray(cloudTree) && cloudTree.length > 0) {
+          const currentJson = JSON.stringify(state.treeData || []);
+          const incomingJson = JSON.stringify(cloudTree);
+          if (currentJson !== incomingJson) {
             state.treeData = cloudTree;
-            localStorage.setItem(getStorageKey(), JSON.stringify(cloudTree));
-            if (typeof window !== 'undefined' && typeof window.renderTAB1 === 'function') {
-              window.renderTAB1();
+            localStorage.setItem(getStorageKey(activePId), incomingJson);
+            if (typeof window !== 'undefined') {
+              if (typeof window.recalculateClaves === 'function') window.recalculateClaves(state.treeData);
+              if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
+              if (typeof window.renderTAB1 === 'function') window.renderTAB1();
             }
           }
-        }).catch(err => console.warn('[CloudSync] Fallo al cargar árbol de la nube:', err));
-      }
+        }
+      }).catch(err => console.warn('[CloudSync] Fallo al refrescar árbol desde la nube:', err));
     }
   } catch (e) {
     console.error('Error cargando treeData:', e);
-    state.treeData = JSON.parse(JSON.stringify(defaultTreeData));
+    state.treeData = [];
   }
 
   // Quitar sub-filas heredadas o almacenadas en insumos de matrices

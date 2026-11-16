@@ -4,6 +4,7 @@
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js';
+import { syncProjectToCloud, fetchCloudProjects } from './cloudProjectService.js';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -175,6 +176,22 @@ export async function syncUserCollaborationToCloud(user = null) {
       if (!currentUser.user_metadata) currentUser.user_metadata = {};
       currentUser.user_metadata.cubikar_cloud_state_v2 = cloudPayload;
       saveCurrentUser(currentUser);
+    }
+
+    // Persistir proyectos del usuario directamente a Supabase PostgreSQL (public.proyectos y public.proyecto_colaboradores)
+    const rawProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail);
+    for (const p of rawProjects) {
+      try {
+        let tree = null;
+        let setts = null;
+        const rawT = localStorage.getItem(getStorageKey(p.id));
+        const rawS = localStorage.getItem(getSettingsKey(p.id));
+        if (rawT) tree = JSON.parse(rawT);
+        if (rawS) setts = JSON.parse(rawS);
+        await syncProjectToCloud(p, setts, tree);
+      } catch (e) {
+        console.warn('[CloudSync] Aviso al sincronizar proyecto individual con PostgreSQL:', e);
+      }
     }
 
     // Publicar manifiesto de proyectos activos del anfitrión en Supabase para sincronización inter-usuarios
@@ -408,6 +425,33 @@ export function restoreUserCollaborationFromCloud(user = null) {
       saveStoredInvitations(localInvs);
       hasChanges = true;
     }
+  }
+
+  // Consultar proyectos en Supabase PostgreSQL (public.proyectos + public.proyecto_colaboradores)
+  if (isSupabaseConfigured()) {
+    fetchCloudProjects().then(cloudList => {
+      if (Array.isArray(cloudList) && cloudList.length > 0) {
+        const curList = typeof getProjectsList === 'function' ? getProjectsList() : [];
+        let updated = false;
+        cloudList.forEach(cp => {
+          if (isDeleted(cp.id) || isDeleted(cp.cloudId)) return;
+          const idx = curList.findIndex(lp => lp.id === cp.id || lp.cloudId === cp.id);
+          if (idx === -1) {
+            curList.unshift(cp);
+            updated = true;
+          } else {
+            curList[idx] = { ...curList[idx], ...cp, isCloudSynced: true };
+            updated = true;
+          }
+        });
+        if (updated && typeof saveProjectsList === 'function') {
+          saveProjectsList(curList);
+          if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+            window.refreshProjectsGridUI();
+          }
+        }
+      }
+    }).catch(() => {});
   }
 
   if (hasChanges) {

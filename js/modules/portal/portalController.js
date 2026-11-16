@@ -1451,8 +1451,8 @@ export function renderPortalDashboard() {
             changed = true;
           } else {
             const idx = localList.findIndex(lp => lp.id === cp.id || lp.cloudId === cp.id);
-            if (idx !== -1 && !localList[idx].isCloudSynced) {
-              localList[idx].isCloudSynced = true;
+            if (idx !== -1) {
+              localList[idx] = { ...localList[idx], ...cp, isCloudSynced: true };
               changed = true;
             }
           }
@@ -3357,19 +3357,20 @@ export async function finalizeCreateProject() {
     }
   } catch (_) {}
 
-  // Sincronizar en segundo plano a Supabase PostgreSQL
+  // Sincronizar de inmediato a Supabase PostgreSQL
   try {
     const rawTree = localStorage.getItem(getStorageKey(newProj.id));
     const rawSettings = localStorage.getItem(getSettingsKey(newProj.id));
     const pTree = rawTree ? JSON.parse(rawTree) : (sampleTree || []);
     const pSettings = rawSettings ? JSON.parse(rawSettings) : projPayload;
-    syncProjectToCloud(newProj, pSettings, pTree).then(res => {
-      if (res && res.success) {
-        newProj.isCloudSynced = true;
-        console.info('[CloudSync] Nuevo proyecto respaldado en Supabase con ID:', res.projectId);
-      }
-    }).catch(err => console.warn('[CloudSync] Aviso al respaldar nuevo proyecto:', err));
-  } catch (_) {}
+    const res = await syncProjectToCloud(newProj, pSettings, pTree);
+    if (res && res.success) {
+      newProj.isCloudSynced = true;
+      console.info('[CloudSync] Nuevo proyecto respaldado en Supabase con ID:', res.projectId);
+    }
+  } catch (err) {
+    console.warn('[CloudSync] Aviso al respaldar nuevo proyecto:', err);
+  }
 
   closeNuevoProyectoModal();
   if (check.isHostContext) {
