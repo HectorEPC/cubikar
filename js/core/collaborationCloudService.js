@@ -20,7 +20,7 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261115_v20_live_fix';
+} from '../modules/portal/projectService.js?v=20261116_v24_sync_fix';
 import { getSettingsKey, getStorageKey } from '../config/constants.js';
 import { getChatStorageKey } from '../modules/chat/projectChat.js';
 
@@ -117,6 +117,7 @@ export async function syncUserCollaborationToCloud(user = null) {
       currentSub = { planId: getUserPlanId(currentUser) || 'free', billingCycle: 'monthly' };
     }
 
+    const deletedList = typeof getDeletedProjectsList === 'function' ? getDeletedProjectsList() : [];
     const cloudPayload = {
       version: 2,
       subscription: currentSub,
@@ -126,6 +127,7 @@ export async function syncUserCollaborationToCloud(user = null) {
       acceptedInvitations: myAcceptedInvs,
       sentPlanInvitations: mySentPlanInvs,
       sentProjectInvitations: mySentProjectInvs,
+      deletedProjectIds: Array.isArray(deletedList) ? deletedList.slice(-500) : [],
       updatedAt: new Date().toISOString()
     };
 
@@ -167,8 +169,8 @@ export async function syncUserCollaborationToCloud(user = null) {
       saveCurrentUser(currentUser);
     }
 
-    // Persistir proyectos del usuario directamente a Supabase PostgreSQL (public.proyectos y public.proyecto_colaboradores)
-    const rawProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail);
+    // Persistir únicamente proyectos nuevos del propietario que aún no han sido sincronizados a PostgreSQL
+    const rawProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail && !p.isCloudSynced && !isProjectMarkedDeleted(p.id) && !isProjectMarkedDeleted(p.cloudId));
     for (const p of rawProjects) {
       try {
         let tree = null;
@@ -177,7 +179,10 @@ export async function syncUserCollaborationToCloud(user = null) {
         const rawS = localStorage.getItem(getSettingsKey(p.id));
         if (rawT) tree = JSON.parse(rawT);
         if (rawS) setts = JSON.parse(rawS);
-        await syncProjectToCloud(p, setts, tree);
+        const res = await syncProjectToCloud(p, setts, tree);
+        if (res && res.success) {
+          p.isCloudSynced = true;
+        }
       } catch (e) {
         console.warn('[CloudSync] Aviso al sincronizar proyecto individual con PostgreSQL:', e);
       }
@@ -277,6 +282,13 @@ export function restoreUserCollaborationFromCloud(user = null) {
         hasChanges = true;
       }
     } catch (_) {}
+  }
+
+  // 1B. Restaurar lista de IDs de proyectos eliminados desde user_metadata antes de restaurar proyectos
+  if (Array.isArray(state.deletedProjectIds) && state.deletedProjectIds.length > 0 && typeof markProjectDeleted === 'function') {
+    state.deletedProjectIds.forEach(delId => {
+      if (delId) markProjectDeleted(delId);
+    });
   }
 
   // 2. Restaurar proyectos propios y colaborados en STORAGE_KEY_PROJECTS
@@ -436,32 +448,31 @@ export function restoreUserCollaborationFromCloud(user = null) {
         }
       });
 
-      // 2. RECONCILIACIÓN ESTRICTA (Confirmación 1 y 2):
-      // Si un proyecto en localStorage pertenece a otro usuario (anfitrión) y NO vino en activeCloud
-      // (lo cual significa que el anfitrión lo eliminó o revocó la invitación), ¡PURGAR DE INMEDIATO!
+      // 2. RECONCILIACIÓN DE PROYECTOS COLABORADOS:
+      // No marcar como eliminado permanentemente (markProjectDeleted) un proyecto colaborado si no vino en esta consulta
+      // (podría estar recién creado o con invitación pendiente). Tampoco purgar jamás el proyecto activo en el workspace.
       const activeCloudIds = new Set(activeCloud.map(cp => cp.id));
+      const activePId = typeof window !== 'undefined' && window.location?.search ? new URLSearchParams(window.location.search).get('project') : null;
       let prunedCollab = 0;
       const cleanList = curList.filter(p => {
         const pOwner = (p.ownerEmail || '').toLowerCase().trim();
         if (!pOwner || pOwner === myEmail || p.isSample || (typeof p.id === 'string' && (p.id.startsWith('proj-default') || p.id.startsWith('proj-demo')))) {
           return true;
         }
+        // Nunca purgar el proyecto que el usuario tiene abierto actualmente
+        if (activePId && (p.id === activePId || p.cloudId === activePId)) {
+          return true;
+        }
+        // Si fue explícitamente eliminado por lápida, purgarlo
+        if (isProjectMarkedDeleted(p.id) || (p.cloudId && isProjectMarkedDeleted(p.cloudId))) {
+          prunedCollab++;
+          return false;
+        }
+        // Si el usuario es miembro activo o pendiente en p.members, conservarlo aunque Supabase tarde en indexarlo
+        if (Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === myEmail && (m.status === 'active' || m.status === 'accepted' || m.status === 'pending'))) {
+          return true;
+        }
         if (!activeCloudIds.has(p.id) && !activeCloudIds.has(p.cloudId)) {
-          markProjectDeleted(p.id);
-          if (p.cloudId) markProjectDeleted(p.cloudId);
-          try {
-            if (typeof localStorage !== 'undefined') {
-              localStorage.removeItem(getSettingsKey(p.id));
-              localStorage.removeItem(getStorageKey(p.id));
-              localStorage.removeItem(`estimaciones_data_${p.id}`);
-              localStorage.removeItem(`adm_const_chat_${p.id}`);
-              localStorage.removeItem(`control_obra_chat_${p.id}`);
-              localStorage.removeItem(`adm_const_signatures_${p.id}`);
-              localStorage.removeItem(`adm_const_bitacora_${p.id}`);
-              localStorage.removeItem(`adm_const_expenses_${p.id}`);
-              localStorage.removeItem(`adm_const_suppliers_${p.id}`);
-            }
-          } catch (_) {}
           prunedCollab++;
           return false;
         }
@@ -513,12 +524,9 @@ export async function recordDeletedProjectTombstone(projectId, ownerEmail = null
     await sb.from('chat_mensajes').upsert({
       id: rowId,
       proyecto_id: '__cubikar_tombstones__',
-      empresa_id: null,
-      owner_email: oEmail,
       autor_nombre: user?.name || 'Sistema',
       autor_email: user?.email || oEmail,
       mensaje: projectId,
-      adjuntos: [],
       payload_json: {
         projectId,
         ownerEmail: oEmail,
@@ -550,12 +558,9 @@ export async function recordHostActiveManifest(ownerEmail, activeProjectIds = []
     await sb.from('chat_mensajes').upsert({
       id: rowId,
       proyecto_id: '__cubikar_host_manifest__',
-      empresa_id: null,
-      owner_email: oEmail,
       autor_nombre: 'Manifiesto de Proyectos',
       autor_email: oEmail,
       mensaje: JSON.stringify(ids),
-      adjuntos: [],
       payload_json: {
         ownerEmail: oEmail,
         activeProjectIds: ids,
@@ -632,36 +637,35 @@ export async function syncHostWorkspaceProjects(hostEmail) {
     } catch (_) {}
 
     let prunedCount = 0;
+    const activePId = typeof window !== 'undefined' && window.location?.search ? new URLSearchParams(window.location.search).get('project') : null;
 
     const updatedList = currentList.filter(p => {
       const pOwner = (p.ownerEmail || '').toLowerCase().trim();
       if (pOwner === targetHost) {
-        // CONFIRMACIÓN 1 y 2:
-        // Si el proyecto pertenece a este anfitrión pero NO existe en la base de datos Supabase, ¡PURGAR!
-        if (!activeIdsSet.has(p.id) && !activeIdsSet.has(p.cloudId)) {
-          markProjectDeleted(p.id);
-          if (p.cloudId) markProjectDeleted(p.cloudId);
-          try {
-            if (typeof localStorage !== 'undefined') {
-              localStorage.removeItem(`adm_const_settings_${p.id}`);
-              localStorage.removeItem(`control_obra_tree_${p.id}`);
-              localStorage.removeItem(`adm_arq_settings_${p.id}`);
-              localStorage.removeItem(`cubikar_arq_tree_${p.id}`);
-            }
-          } catch (_) {}
+        if (activePId && (p.id === activePId || p.cloudId === activePId)) {
+          return true;
+        }
+        // Si fue eliminado por lápida, purgarlo
+        if (isProjectMarkedDeleted(p.id) || (p.cloudId && isProjectMarkedDeleted(p.cloudId))) {
           prunedCount++;
           return false;
         }
+        if (activeIdsSet.size > 0 && !activeIdsSet.has(p.id) && !activeIdsSet.has(p.cloudId)) {
+          // Si no vino en activeIdsSet y no es miembro pendiente local, remover de la lista
+          const hasLocalMem = Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === myEmail && (m.status === 'active' || m.status === 'accepted' || m.status === 'pending'));
+          if (!hasLocalMem) {
+            prunedCount++;
+            return false;
+          }
+        }
 
-        // Si existe en la nube, verificar si el usuario actual sigue teniendo invitación activa aceptada
+        // Si existe en la nube, permitir estado 'accepted', 'active' o 'pending'
         const cloudP = activeCloudProjects.find(cp => cp.id === p.id || cp.id === p.cloudId);
         if (cloudP && Array.isArray(cloudP.proyecto_colaboradores)) {
           const myMem = cloudP.proyecto_colaboradores.find(
             c => (c.email_colaborador || '').toLowerCase().trim() === myEmail
           );
-          if (!myMem || (myMem.estado_invitacion !== 'accepted' && myMem.estado_invitacion !== 'active')) {
-            markProjectDeleted(p.id);
-            if (p.cloudId) markProjectDeleted(p.cloudId);
+          if (!myMem || (myMem.estado_invitacion !== 'accepted' && myMem.estado_invitacion !== 'active' && myMem.estado_invitacion !== 'pending')) {
             prunedCount++;
             return false;
           }
@@ -705,9 +709,9 @@ export async function reconcileDeletedProjectsWithCloud() {
   try {
     const { data: tombstones, error: tErr } = await sb
       .from('chat_mensajes')
-      .select('mensaje, payload_json, owner_email')
+      .select('mensaje, payload_json')
       .eq('proyecto_id', '__cubikar_tombstones__')
-      .limit(100);
+      .limit(500);
 
     let changed = false;
     if (!tErr && Array.isArray(tombstones) && tombstones.length > 0) {

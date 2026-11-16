@@ -424,12 +424,40 @@ function getAllNotificationsUsers(scope = 'all') {
 // =========================================================================
 // NOTIFICACIONES DE MENCIONES (EN "MIS PROYECTOS DE OBRA" Y BARRA LATERAL IZQUIERDA)
 // =========================================================================
+const DISMISSED_NOTIFICATIONS_KEY = 'cubikar_dismissed_notifications_v1';
+
+export function getDismissedNotificationIds() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(DISMISSED_NOTIFICATIONS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    }
+  } catch (_) {}
+  return [];
+}
+
+export function markNotificationDismissed(notifKey) {
+  if (!notifKey) return;
+  try {
+    const list = getDismissedNotificationIds();
+    if (!list.includes(notifKey)) {
+      list.push(notifKey);
+      if (list.length > 500) list.splice(0, list.length - 500);
+      localStorage.setItem(DISMISSED_NOTIFICATIONS_KEY, JSON.stringify(list));
+    }
+  } catch (_) {}
+}
+
 // scope = 'current' -> Solo notificaciones donde mencionaron usuarios en el proyecto activo (Barra lateral del proyecto)
 // scope = 'all'     -> Todas las notificaciones donde etiquetaron usuarios de todos los proyectos ("Mis Proyectos de Obra")
 export function getUserMentionsNotifications(targetHandle = null, scope = 'all') {
   const filterHandle = targetHandle || selectedNotificationsHandle || 'all';
   const isAllHandles = String(filterHandle).toLowerCase() === 'all';
   const handleLower = String(filterHandle || '').toLowerCase();
+  const dismissedSet = new Set(getDismissedNotificationIds());
 
   const activePid = getActiveProjectId() || 'proj-default-01';
   const activeProjObj = getProjectById(activePid);
@@ -444,7 +472,7 @@ export function getUserMentionsNotifications(targetHandle = null, scope = 'all')
   projects.forEach(proj => {
     const msgs = loadProjectChatMessages(proj.id);
     msgs.forEach(m => {
-      if (m.dismissed) return;
+      if (m.dismissed || dismissedSet.has(`${proj.id}:${m.id}`) || dismissedSet.has(String(m.id))) return;
       const mentionsList = extractMentionsFromMessage(m);
       if (mentionsList.length === 0) return;
 
@@ -549,6 +577,8 @@ export function dismissMentionNotification(projectId, msgId, event = null) {
     event.stopPropagation();
   }
   const pid = projectId || getActiveProjectId() || 'proj-default-01';
+  markNotificationDismissed(`${pid}:${msgId}`);
+  markNotificationDismissed(String(msgId));
   const msgs = loadProjectChatMessages(pid);
   const target = msgs.find(m => String(m.id) === String(msgId));
   if (target) {
@@ -557,8 +587,9 @@ export function dismissMentionNotification(projectId, msgId, event = null) {
     if (!Array.isArray(target.readBy)) target.readBy = [];
     if (!target.readBy.includes('__all__')) target.readBy.push('__all__');
     saveProjectChatMessages(msgs, pid);
-    renderSidebarNotificationsUI();
   }
+  renderSidebarNotificationsUI();
+  showToast('Notificación eliminada', 'info');
 }
 
 /**
@@ -567,6 +598,15 @@ export function dismissMentionNotification(projectId, msgId, event = null) {
 export function purgeAllNotifications(scope = 'all') {
   const user = getCurrentUser();
   const uEmail = (user?.email || '').toLowerCase().trim();
+
+  // Registrar como descartadas todas las invitaciones actuales
+  try {
+    const pendingInvs = uEmail ? getPendingInvitationsForUser(uEmail) : [];
+    pendingInvs.forEach(inv => {
+      if (inv && inv.id) markNotificationDismissed(`inv:${inv.id}`);
+      if (inv && inv.projectId) markNotificationDismissed(`inv_proj:${inv.projectId}:${uEmail}`);
+    });
+  } catch (_) {}
 
   // 1. Purgar todas las invitaciones pendientes para este usuario
   try {
@@ -589,6 +629,8 @@ export function purgeAllNotifications(scope = 'all') {
       const msgs = loadProjectChatMessages(proj.id);
       let changed = false;
       msgs.forEach(m => {
+        markNotificationDismissed(`${proj.id}:${m.id}`);
+        markNotificationDismissed(String(m.id));
         m.isRead = true;
         m.dismissed = true;
         if (!Array.isArray(m.readBy)) m.readBy = [];
@@ -605,8 +647,19 @@ export function purgeAllNotifications(scope = 'all') {
       const validPids = new Set(getProjectsList().map(p => p.id));
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const k = localStorage.key(i);
-        if (k && (k.startsWith('adm_const_chat_') || k.startsWith('control_obra_chat_') || k.startsWith('adm_arq_chat_'))) {
-          const pid = k.replace('adm_const_chat_', '').replace('control_obra_chat_', '').replace('adm_arq_chat_', '');
+        if (k && (
+          k.startsWith('adm_const_project_chat_') ||
+          k.startsWith('adm_arq_project_chat_') ||
+          k.startsWith('adm_const_chat_') ||
+          k.startsWith('control_obra_chat_') ||
+          k.startsWith('adm_arq_chat_')
+        )) {
+          const pid = k
+            .replace('adm_const_project_chat_', '')
+            .replace('adm_arq_project_chat_', '')
+            .replace('adm_const_chat_', '')
+            .replace('control_obra_chat_', '')
+            .replace('adm_arq_chat_', '');
           if (!validPids.has(pid)) {
             localStorage.removeItem(k);
           }
@@ -615,9 +668,25 @@ export function purgeAllNotifications(scope = 'all') {
     }
   } catch (_) {}
 
-  // 4. Refrescar interfaz de la campana inmediatamente
+  // 4. Sincronizar estado limpio en user_metadata
+  try {
+    if (user && user.user_metadata?.cubikar_cloud_state_v2) {
+      const cs = user.user_metadata.cubikar_cloud_state_v2;
+      if (Array.isArray(cs.planInvitations)) {
+        cs.planInvitations = cs.planInvitations.filter(pi => (pi.email || '').toLowerCase().trim() !== uEmail);
+      }
+      if (Array.isArray(cs.acceptedInvitations)) {
+        cs.acceptedInvitations = cs.acceptedInvitations.filter(i => !((i.email || '').toLowerCase().trim() === uEmail && i.status === 'pending'));
+      }
+    }
+    if (typeof window !== 'undefined' && typeof window.triggerDebouncedCloudStateSync === 'function') {
+      window.triggerDebouncedCloudStateSync(user);
+    }
+  } catch (_) {}
+
+  // 5. Refrescar interfaz de la campana inmediatamente
   renderSidebarNotificationsUI();
-  showToast('Notificaciones e invitaciones purgadas exitosamente', 'info');
+  showToast('Notificaciones eliminadas exitosamente', 'info');
 }
 
 export function openMentionNotification(projectId, msgId, partidaId = '', event = null) {
@@ -723,9 +792,10 @@ export function handleAcceptInvitationAction(invId) {
 }
 
 export function handleRejectInvitationAction(invId) {
+  markNotificationDismissed(`inv:${invId}`);
   const ok = rejectProjectInvitation(invId);
   if (ok) {
-    showToast('Invitación rechazada', 'info');
+    showToast('Notificación de invitación eliminada', 'info');
     renderSidebarNotificationsUI();
     if (typeof window.refreshProjectsGridUI === 'function') {
       try { window.refreshProjectsGridUI(); } catch (_) {}
@@ -734,7 +804,8 @@ export function handleRejectInvitationAction(invId) {
       try { window.renderPortalDashboard(); } catch (_) {}
     }
   } else {
-    showToast('No se encontró la invitación', 'warning');
+    renderSidebarNotificationsUI();
+    showToast('Notificación eliminada', 'info');
   }
 }
 
@@ -780,8 +851,8 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
       <div class="flex items-center gap-1.5 shrink-0">
         <button type="button" onclick="event.stopPropagation(); purgeAllNotifications('${scope}')"
                 class="px-2 py-1 rounded-lg bg-rose-600/20 hover:bg-rose-600/35 text-rose-300 border border-rose-500/35 text-[10px] font-bold cursor-pointer transition flex items-center gap-1"
-                title="Purgar y eliminar todas las notificaciones e invitaciones obsoletas">
-          <i class="fa-solid fa-trash-can text-[9px]"></i> Purgar
+                title="Eliminar todas las notificaciones de la campana">
+          <i class="fa-solid fa-trash-can text-[9px]"></i> Eliminar todas
         </button>
         ${unreadCount > 0 ? `
           <button type="button" onclick="event.stopPropagation(); markAllMentionsAsRead('${scope}')"
@@ -859,8 +930,8 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
                 <div class="flex items-center gap-1.5 shrink-0">
                   <button type="button" onclick="event.stopPropagation(); handleRejectInvitationAction('${inv.id}')"
                           class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-[10.5px] font-semibold transition cursor-pointer flex items-center gap-1"
-                          title="Rechazar y descartar invitación">
-                    <i class="fa-solid fa-xmark text-[9px]"></i> Rechazar
+                          title="Eliminar y descartar esta notificación de invitación">
+                    <i class="fa-solid fa-trash-can text-[9px]"></i> Eliminar
                   </button>
                   <button type="button" onclick="handleAcceptInvitationAction('${inv.id}')"
                           class="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10.5px] transition shadow shadow-blue-600/30 active:scale-95 cursor-pointer flex items-center gap-1">
@@ -917,9 +988,9 @@ function buildNotificationsPopoverHTML(mentionsList, unreadCount, users, filterH
                     <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
                   </span>
                   <button type="button" onclick="event.stopPropagation(); dismissMentionNotification('${item.projectId}', '${m.id}', event)"
-                          class="w-4 h-4 rounded hover:bg-slate-700 text-slate-500 hover:text-rose-400 inline-flex items-center justify-center transition"
-                          title="Descartar notificación">
-                    <i class="fa-solid fa-xmark text-[9px]"></i>
+                          class="px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-slate-700/80 hover:border-rose-500/40 inline-flex items-center gap-1 text-[9.5px] font-semibold transition cursor-pointer"
+                          title="Eliminar esta notificación">
+                    <i class="fa-solid fa-trash-can text-[8.5px]"></i> Eliminar
                   </button>
                 </div>
               </div>

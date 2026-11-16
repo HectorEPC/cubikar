@@ -848,11 +848,12 @@ export function getProjectsList() {
 
       // Asegurar que cada proyecto tenga su lista de colaboradores con permisos
       const currentUser = getCurrentUser();
+      const isRealAuthenticatedUser = Boolean(currentUser && currentUser.email && !SYSTEM_EXCLUDED_EMAILS.has(currentUser.email.toLowerCase().trim()));
       let changed = false;
 
-      // Asegurar que el proyecto auténtico Catálogo Muestra - Proyecto Residencial esté siempre registrado, salvo si fue eliminado
+      // Solo registrar el proyecto muestra para cuentas demo/sin autenticar, nunca inyectarlo a cuentas reales
       const hasCasaLaura = list.some(p => p.id === 'proj-opus-casa-laura' || (p.projectName && (p.projectName.toLowerCase().includes('casa laura') || p.projectName.toLowerCase().includes('proyecto residencial'))));
-      if (!hasCasaLaura && !isDeleted('proj-opus-casa-laura')) {
+      if (!isRealAuthenticatedUser && !hasCasaLaura && !isDeleted('proj-opus-casa-laura')) {
         const proj3Id = 'proj-opus-casa-laura';
         const proj3Settings = Object.assign({}, defaultSettings, {
           companyName: 'Constructora Opus México',
@@ -980,6 +981,13 @@ export function getProjectsList() {
   } catch (e) {
     console.error('Error leyendo proyectos:', e);
   }
+  const currentUser = getCurrentUser();
+  if (currentUser && currentUser.email && !SYSTEM_EXCLUDED_EMAILS.has(currentUser.email.toLowerCase().trim())) {
+    try {
+      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify([]));
+    } catch (_) {}
+    return [];
+  }
   return initializeDefaultProjects();
 }
 
@@ -1019,12 +1027,12 @@ export function getProjectsForUser(user) {
     if (p.ownerEmail && p.ownerEmail.toLowerCase().trim() === emailLower) {
       return true;
     }
-    // O es miembro activo y aceptado
+    // O es miembro activo, aceptado o con invitación pendiente
     if (Array.isArray(p.members)) {
       return p.members.some(m => {
         const mEmail = (m.email || '').toLowerCase().trim();
         const mStatus = (m.status || '').toLowerCase().trim();
-        return mEmail === emailLower && (mStatus === 'active' || mStatus === 'accepted');
+        return mEmail === emailLower && (mStatus === 'active' || mStatus === 'accepted' || mStatus === 'pending' || !mStatus);
       });
     }
     return false;
@@ -1535,12 +1543,30 @@ export function removeProjectMember(projectId, memberId) {
 
   // También limpiar cualquier invitación pendiente asociada
   if (targetMember && targetMember.email) {
+    const cleanTargetEmail = targetMember.email.toLowerCase().trim();
+    const ownerEmail = (proj.ownerEmail || getCurrentUser()?.email || '').toLowerCase().trim();
     try {
       const invs = getStoredInvitations().filter(
-        inv => !(inv.projectId === projectId && inv.email.toLowerCase() === targetMember.email.toLowerCase())
+        inv => !(inv.projectId === projectId && (inv.email || '').toLowerCase().trim() === cleanTargetEmail)
       );
       saveStoredInvitations(invs);
     } catch (e) {}
+
+    // Si ya no pertenece a ningún otro proyecto de este propietario, limpiarlo también de las invitaciones de plan
+    try {
+      const stillInOtherProject = list.some(p =>
+        p.id !== projectId &&
+        (p.ownerEmail || '').toLowerCase().trim() === ownerEmail &&
+        Array.isArray(p.members) &&
+        p.members.some(m => (m.email || '').toLowerCase().trim() === cleanTargetEmail)
+      );
+      if (!stillInOtherProject) {
+        const planInvs = getStoredPlanInvitations().filter(
+          pi => !((pi.ownerEmail || '').toLowerCase().trim() === ownerEmail && (pi.email || '').toLowerCase().trim() === cleanTargetEmail)
+        );
+        saveStoredPlanInvitations(planInvs);
+      }
+    } catch (_) {}
 
     // Eliminar en Supabase PostgreSQL (public.proyecto_colaboradores)
     try {
@@ -1627,29 +1653,42 @@ export function getTabAssignedMembers(projectId, tabId) {
 // Eliminar proyecto definitivamente
 export async function deleteProject(projectId) {
   if (!projectId) return false;
-  markProjectDeleted(projectId);
 
-  try {
-    localStorage.removeItem(getSettingsKey(projectId));
-    localStorage.removeItem(getStorageKey(projectId));
-    localStorage.removeItem(`estimaciones_data_${projectId}`);
-    localStorage.removeItem(`adm_const_chat_${projectId}`);
-    localStorage.removeItem(`control_obra_chat_${projectId}`);
-    localStorage.removeItem(`adm_const_signatures_${projectId}`);
-    localStorage.removeItem(`adm_const_bitacora_${projectId}`);
-    localStorage.removeItem(`adm_const_expenses_${projectId}`);
-    localStorage.removeItem(`adm_const_suppliers_${projectId}`);
-  } catch (e) {}
+  const currentList = getProjectsList();
+  const targetObj = currentList.find(p => p.id === projectId || p.cloudId === projectId);
+  const cloudId = targetObj?.cloudId || null;
+
+  markProjectDeleted(projectId);
+  if (cloudId && cloudId !== projectId) {
+    markProjectDeleted(cloudId);
+  }
+
+  const idsToClean = cloudId && cloudId !== projectId ? [projectId, cloudId] : [projectId];
+  idsToClean.forEach(pid => {
+    try {
+      localStorage.removeItem(getSettingsKey(pid));
+      localStorage.removeItem(getStorageKey(pid));
+      localStorage.removeItem(`estimaciones_data_${pid}`);
+      localStorage.removeItem(`adm_const_project_chat_${pid}`);
+      localStorage.removeItem(`adm_arq_project_chat_${pid}`);
+      localStorage.removeItem(`adm_const_chat_${pid}`);
+      localStorage.removeItem(`control_obra_chat_${pid}`);
+      localStorage.removeItem(`adm_const_signatures_${pid}`);
+      localStorage.removeItem(`adm_const_bitacora_${pid}`);
+      localStorage.removeItem(`adm_const_expenses_${pid}`);
+      localStorage.removeItem(`adm_const_suppliers_${pid}`);
+    } catch (e) {}
+  });
 
   // Purgar todas las invitaciones asociadas a este proyecto para que se limpien las notificaciones
   try {
     const currentInvs = getStoredInvitations();
-    const cleanedInvs = currentInvs.filter(i => i.projectId !== projectId);
+    const cleanedInvs = currentInvs.filter(i => i.projectId !== projectId && (!cloudId || i.projectId !== cloudId));
     if (cleanedInvs.length !== currentInvs.length) {
       saveStoredInvitations(cleanedInvs);
     }
     const currentPlanInvs = getStoredPlanInvitations();
-    const cleanedPlanInvs = currentPlanInvs.filter(pi => pi.projectId !== projectId);
+    const cleanedPlanInvs = currentPlanInvs.filter(pi => pi.projectId !== projectId && (!cloudId || pi.projectId !== cloudId));
     if (cleanedPlanInvs.length !== currentPlanInvs.length) {
       saveStoredPlanInvitations(cleanedPlanInvs);
     }
@@ -1663,12 +1702,11 @@ export async function deleteProject(projectId) {
   } catch (_) {}
 
   // 1. Limpiar proyecto de la lista en memoria y localStorage
-  const currentList = getProjectsList();
-  const list = currentList.filter(p => p.id !== projectId && p.cloudId !== projectId);
+  const list = currentList.filter(p => p.id !== projectId && p.cloudId !== projectId && (!cloudId || (p.id !== cloudId && p.cloudId !== cloudId)));
   saveProjectsList(list);
 
   // 2. Si el proyecto eliminado estaba activo en el workspace, resetearlo
-  if (typeof getActiveProjectId === 'function' && (getActiveProjectId() === projectId)) {
+  if (typeof getActiveProjectId === 'function' && (getActiveProjectId() === projectId || (cloudId && getActiveProjectId() === cloudId))) {
     if (typeof setActiveProjectId === 'function') setActiveProjectId(null);
   }
 
@@ -1680,12 +1718,12 @@ export async function deleteProject(projectId) {
     let modified = false;
     if (Array.isArray(cs.ownedProjects)) {
       const prevLen = cs.ownedProjects.length;
-      cs.ownedProjects = cs.ownedProjects.filter(p => p.id !== projectId && p.cloudId !== projectId);
+      cs.ownedProjects = cs.ownedProjects.filter(p => p.id !== projectId && p.cloudId !== projectId && (!cloudId || (p.id !== cloudId && p.cloudId !== cloudId)));
       if (cs.ownedProjects.length !== prevLen) modified = true;
     }
     if (Array.isArray(cs.collaboratedProjects)) {
       const prevLen = cs.collaboratedProjects.length;
-      cs.collaboratedProjects = cs.collaboratedProjects.filter(p => p.id !== projectId && p.cloudId !== projectId);
+      cs.collaboratedProjects = cs.collaboratedProjects.filter(p => p.id !== projectId && p.cloudId !== projectId && (!cloudId || (p.id !== cloudId && p.cloudId !== cloudId)));
       if (cs.collaboratedProjects.length !== prevLen) modified = true;
     }
     if (modified) {
@@ -1697,8 +1735,10 @@ export async function deleteProject(projectId) {
   try {
     if (typeof window !== 'undefined' && window.CubikarRealtime?.broadcastProjectDeleted) {
       window.CubikarRealtime.broadcastProjectDeleted(projectId, myEmail);
+      if (cloudId && cloudId !== projectId) window.CubikarRealtime.broadcastProjectDeleted(cloudId, myEmail);
     } else if (typeof window !== 'undefined' && typeof window.broadcastProjectDeleted === 'function') {
       window.broadcastProjectDeleted(projectId, myEmail);
+      if (cloudId && cloudId !== projectId) window.broadcastProjectDeleted(cloudId, myEmail);
     }
   } catch (_) {}
 
@@ -1706,6 +1746,9 @@ export async function deleteProject(projectId) {
   try {
     if (typeof window !== 'undefined' && typeof window.recordDeletedProjectTombstone === 'function') {
       await window.recordDeletedProjectTombstone(projectId, myEmail);
+      if (cloudId && cloudId !== projectId) {
+        await window.recordDeletedProjectTombstone(cloudId, myEmail);
+      }
     }
     if (myEmail && typeof window !== 'undefined' && typeof window.recordHostActiveManifest === 'function') {
       const myActiveIds = list.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail).map(p => p.id);
@@ -1716,13 +1759,18 @@ export async function deleteProject(projectId) {
   // 6. Eliminar de la base de datos Supabase
   try {
     await deleteProjectFromCloud(projectId);
+    if (cloudId && cloudId !== projectId) {
+      await deleteProjectFromCloud(cloudId);
+    }
   } catch (err) {
     console.warn('[deleteProject] Aviso al eliminar en Supabase:', err);
   }
 
   // 7. Respaldar estado limpio a la nube inmediatamente
   try {
-    if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
+    if (typeof window !== 'undefined' && typeof window.triggerDebouncedCloudStateSync === 'function') {
+      window.triggerDebouncedCloudStateSync(user);
+    } else if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
       await window.syncUserCollaborationToCloud(user);
     }
   } catch (_) {}
@@ -1787,6 +1835,17 @@ export function getPendingInvitationsForUser(userEmail) {
   const deletedList = getDeletedProjectsList();
   const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
 
+  let dismissedSet = new Set();
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const rawDismissed = localStorage.getItem('cubikar_dismissed_notifications_v1');
+      if (rawDismissed) {
+        const parsed = JSON.parse(rawDismissed);
+        if (Array.isArray(parsed)) dismissedSet = new Set(parsed);
+      }
+    }
+  } catch (_) {}
+
   const results = [];
   const seenKeys = new Set();
 
@@ -1794,6 +1853,7 @@ export function getPendingInvitationsForUser(userEmail) {
   allInvs.forEach(inv => {
     if (inv.status !== 'pending') return;
     if ((inv.email || '').toLowerCase().trim() !== emailLower) return;
+    if (dismissedSet.has(`inv:${inv.id}`) || dismissedSet.has(`inv_proj:${inv.projectId}:${emailLower}`)) return;
 
     // Si el proyecto fue eliminado o marcado como eliminado, NO MOSTRAR
     if (isDeleted(inv.projectId)) return;
@@ -1836,11 +1896,13 @@ export function getPendingInvitationsForUser(userEmail) {
           if (mem && (mem.status === 'active' || mem.status === 'accepted')) return;
         }
 
+        const synId = 'plan-inv-' + hp.id + '-' + pInv.id;
+        if (dismissedSet.has(`inv:${synId}`) || dismissedSet.has(`inv:${pInv.id}`) || dismissedSet.has(`inv_proj:${hp.id}:${emailLower}`)) return;
         const key = hp.id + '|' + emailLower;
         if (!seenKeys.has(key)) {
           seenKeys.add(key);
           results.push({
-            id: 'plan-inv-' + hp.id + '-' + pInv.id,
+            id: synId,
             projectId: hp.id,
             projectName: hp.projectName,
             companyName: hp.companyName || '',

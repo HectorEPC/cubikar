@@ -1,6 +1,6 @@
 import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js';
 import { defaultTreeData, defaultSettings } from '../config/defaultData.js';
-import { syncActiveProjectSummary, getProjectById } from '../modules/portal/projectService.js';
+import { syncActiveProjectSummary, getProjectById, isProjectMarkedDeleted } from '../modules/portal/projectService.js';
 import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js';
 import { broadcastProjectMutation } from '../core/realtimeSync.js';
 import { sanitizeCatalogNodes } from '../core/textSanitizer.js';
@@ -223,8 +223,10 @@ export function triggerDebouncedCloudSync() {
     cloudSyncTimer = null;
     const projectId = getActiveProjectId();
     if (!projectId) return;
+    if (typeof isProjectMarkedDeleted === 'function' && isProjectMarkedDeleted(projectId)) return;
     const project = getProjectById(projectId);
     if (!project) return;
+    if (typeof isProjectMarkedDeleted === 'function' && project.cloudId && isProjectMarkedDeleted(project.cloudId)) return;
     try {
       await syncProjectToCloud(project, state.settings, state.treeData);
     } catch (e) {

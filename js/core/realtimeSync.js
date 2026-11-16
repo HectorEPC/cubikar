@@ -322,6 +322,49 @@ export function subscribeToProjectRealtime(projectId) {
     }
   );
 
+  // 3B. Escuchar mensajes de chat directos en 'chat_mensajes' (Postgres CDC para sincronización 100% garantizada)
+  activeChannel.on(
+    'postgres_changes',
+    {
+      event: '*',
+      schema: 'public',
+      table: 'chat_mensajes',
+      filter: `proyecto_id=eq.${projectId}`
+    },
+    (payload) => {
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const row = payload.new;
+        if (!row || (row.proyecto_id && String(row.proyecto_id).startsWith('__'))) return;
+        const msg = row.payload_json && typeof row.payload_json === 'object' && row.payload_json.id
+          ? row.payload_json
+          : {
+              id: String(row.id || '').replace(`${projectId}__`, '').replace(`${projectId}::`, ''),
+              text: row.mensaje || '',
+              authorName: row.autor_nombre || 'Colaborador',
+              authorEmail: row.autor_email || '',
+              authorAvatar: row.autor_avatar_url || row.autor_avatar || '',
+              createdAt: row.created_at || new Date().toISOString()
+            };
+        handleIncomingChatMessage({
+          projectId: row.proyecto_id || projectId,
+          author: {
+            email: row.autor_email || msg.authorEmail || '',
+            name: row.autor_nombre || msg.authorName || 'Colaborador',
+            avatar: row.autor_avatar_url || msg.authorAvatar || ''
+          },
+          message: msg
+        });
+      } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+        const rawOldId = String(payload.old.id || '');
+        const cleanMsgId = rawOldId.replace(`${projectId}__`, '').replace(`${projectId}::`, '');
+        handleIncomingChatDelete({
+          projectId: payload.old.proyecto_id || projectId,
+          messageId: cleanMsgId
+        });
+      }
+    }
+  );
+
   // 4. Sincronización de presencia de usuarios (quién está en la obra)
   activeChannel.on('presence', { event: 'sync' }, () => {
     if (!activeChannel) return;
@@ -842,7 +885,8 @@ export function initGlobalRealtimeSync() {
       } else if (payload.eventType === 'UPDATE') {
         const newEmail = (payload.new?.email_colaborador || '').toLowerCase().trim();
         if (newEmail === myEmail) {
-          if (payload.new?.estado_invitacion !== 'accepted') {
+          const estado = (payload.new?.estado_invitacion || '').toLowerCase().trim();
+          if (estado === 'rejected' || estado === 'revoked') {
             handleIncomingCollaboratorRemoved({
               projectId: payload.new?.proyecto_id,
               email: myEmail
@@ -1244,6 +1288,7 @@ export function handleIncomingProjectDeleted(data) {
     localStorage.removeItem(getSettingsKey(projectId));
     localStorage.removeItem(getStorageKey(projectId));
     localStorage.removeItem(`estimaciones_data_${projectId}`);
+    localStorage.removeItem(resolveChatStorageKey(projectId));
     localStorage.removeItem(`adm_const_chat_${projectId}`);
     localStorage.removeItem(`control_obra_chat_${projectId}`);
     localStorage.removeItem(`adm_const_signatures_${projectId}`);
@@ -1254,21 +1299,15 @@ export function handleIncomingProjectDeleted(data) {
 
   // Purgar invitaciones pendientes de este proyecto para que la campana se limpie de inmediato
   try {
-    const rawInvs = localStorage.getItem('cubikar_project_invitations_v1');
-    if (rawInvs) {
-      const invList = JSON.parse(rawInvs);
-      if (Array.isArray(invList)) {
-        const cleanedInvs = invList.filter(i => i.projectId !== projectId);
-        localStorage.setItem('cubikar_project_invitations_v1', JSON.stringify(cleanedInvs));
-      }
+    const curInvs = getStoredInvitations();
+    const cleanedInvs = curInvs.filter(i => i.projectId !== projectId);
+    if (cleanedInvs.length !== curInvs.length) {
+      saveStoredInvitations(cleanedInvs);
     }
-    const rawPlanInvs = localStorage.getItem('cubikar_plan_invitations_v1');
-    if (rawPlanInvs) {
-      const planList = JSON.parse(rawPlanInvs);
-      if (Array.isArray(planList)) {
-        const cleanedPlan = planList.filter(pi => pi.projectId !== projectId);
-        localStorage.setItem('cubikar_plan_invitations_v1', JSON.stringify(cleanedPlan));
-      }
+    const curPlanInvs = getStoredPlanInvitations();
+    const cleanedPlan = curPlanInvs.filter(pi => pi.projectId !== projectId);
+    if (cleanedPlan.length !== curPlanInvs.length) {
+      saveStoredPlanInvitations(cleanedPlan);
     }
   } catch (_) {}
 
@@ -1383,19 +1422,17 @@ export function handleIncomingCollaboratorRemoved(data) {
     try {
       localStorage.removeItem(getSettingsKey(projectId));
       localStorage.removeItem(getStorageKey(projectId));
+      localStorage.removeItem(resolveChatStorageKey(projectId));
       localStorage.removeItem(`adm_const_chat_${projectId}`);
       localStorage.removeItem(`control_obra_chat_${projectId}`);
     } catch (_) {}
 
     // Purgar invitaciones pendientes de este proyecto para limpiar la campana
     try {
-      const rawInvs = localStorage.getItem('cubikar_project_invitations_v1');
-      if (rawInvs) {
-        const invList = JSON.parse(rawInvs);
-        if (Array.isArray(invList)) {
-          const cleanedInvs = invList.filter(i => !(i.projectId === projectId && (i.email || '').toLowerCase().trim() === myEmail));
-          localStorage.setItem('cubikar_project_invitations_v1', JSON.stringify(cleanedInvs));
-        }
+      const curInvs = getStoredInvitations();
+      const cleanedInvs = curInvs.filter(i => !(i.projectId === projectId && (i.email || '').toLowerCase().trim() === myEmail));
+      if (cleanedInvs.length !== curInvs.length) {
+        saveStoredInvitations(cleanedInvs);
       }
     } catch (_) {}
 
@@ -1468,22 +1505,14 @@ function handlePeerSyncRequest({ email }) {
     const isTargetOwner = (p.ownerEmail || '').toLowerCase().trim() === targetEmail;
     return isTargetMember || isTargetOwner;
   }).map(p => {
-    let localTree = null;
     let localSettings = null;
-    let localChat = null;
     try {
-      const rawTree = localStorage.getItem(getStorageKey(p.id));
-      if (rawTree) localTree = JSON.parse(rawTree);
       const rawSettings = localStorage.getItem(getSettingsKey(p.id));
       if (rawSettings) localSettings = JSON.parse(rawSettings);
-      const rawChat = localStorage.getItem(resolveChatStorageKey(p.id));
-      if (rawChat) localChat = JSON.parse(rawChat);
     } catch (_) {}
     return {
       ...p,
-      treeData: localTree,
-      settings: localSettings,
-      chatMessages: localChat
+      settings: localSettings
     };
   });
 
@@ -1655,16 +1684,23 @@ export function handleIncomingChatMessage(data) {
   }
 
   const projectId = data.projectId;
+  const currentPId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
   const allProjects = getProjectsList();
-  const proj = allProjects.find(p => p.id === projectId);
-  if (!proj) return;
+  const proj = allProjects.find(p => p.id === projectId || p.cloudId === projectId);
+  const isCurrentActive = Boolean(currentPId && (currentPId === projectId || (proj && (currentPId === proj.id || currentPId === proj.cloudId))));
 
-  const isOwner = (proj.ownerEmail || '').toLowerCase().trim() === myEmail;
-  const isMember = Array.isArray(proj.members) && proj.members.some(m => (m.email || '').toLowerCase().trim() === myEmail);
-  if (!isOwner && !isMember) return;
+  if (!proj && !isCurrentActive) return;
+
+  if (proj && !isCurrentActive) {
+    const isOwner = (proj.ownerEmail || '').toLowerCase().trim() === myEmail;
+    const isMember = Array.isArray(proj.members) && proj.members.some(m => (m.email || '').toLowerCase().trim() === myEmail);
+    if (!isOwner && !isMember) return;
+  }
+
+  const effectivePid = proj?.id || projectId;
 
   // 1. Guardar mensaje en el almacenamiento local de este proyecto
-  const chatKey = resolveChatStorageKey(projectId);
+  const chatKey = resolveChatStorageKey(effectivePid);
   let messages = [];
   try {
     const raw = localStorage.getItem(chatKey);
@@ -1675,22 +1711,33 @@ export function handleIncomingChatMessage(data) {
   }
 
   // Deduplicar por id
-  const exists = messages.some(m => m.id === data.message.id);
-  if (!exists) {
+  const existsIdx = messages.findIndex(m => m.id === data.message.id);
+  if (existsIdx === -1) {
     messages.push(data.message);
+    try {
+      localStorage.setItem(chatKey, JSON.stringify(messages));
+    } catch (_) {}
+  } else {
+    // Preservar estado local de lectura/descarte si ya lo tenía
+    const prev = messages[existsIdx];
+    messages[existsIdx] = {
+      ...data.message,
+      isRead: Boolean(prev.isRead || data.message.isRead),
+      dismissed: Boolean(prev.dismissed || data.message.dismissed),
+      readBy: Array.isArray(prev.readBy) && prev.readBy.length > 0 ? prev.readBy : (data.message.readBy || [])
+    };
     try {
       localStorage.setItem(chatKey, JSON.stringify(messages));
     } catch (_) {}
   }
 
-  // 2. Si el usuario actual es el anfitrión, respaldar en su estado en la nube
-  if (isOwner) {
-    persistChatMessageToHostCloud(projectId, data.message, proj);
+  // 2. Actualizar campana de notificaciones inmediatamente (tanto en portal como en workspace)
+  if (typeof window !== 'undefined' && typeof window.renderSidebarNotificationsUI === 'function') {
+    try { window.renderSidebarNotificationsUI(); } catch (_) {}
   }
 
   // 3. Si la obra está abierta actualmente en pantalla, actualizar la interfaz del dock
-  const currentPId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
-  if (currentPId && currentPId === projectId) {
+  if (isCurrentActive) {
     if (typeof window !== 'undefined' && typeof window.renderProjectChatDock === 'function') {
       window.renderProjectChatDock();
     }
@@ -1844,24 +1891,23 @@ export function broadcastChatDelete(projectId, messageId) {
 export async function persistChatMessageToHostCloud(projectId, message, proj) {
   const sb = getSupabaseClient();
   const allProjects = proj ? [proj] : getProjectsList();
-  const targetProj = proj || allProjects.find(p => p.id === projectId);
+  const targetProj = proj || allProjects.find(p => p.id === projectId || p.cloudId === projectId);
   const ownerEmail = (targetProj?.ownerEmail || message?.ownerEmail || getCurrentUser()?.email || '').toLowerCase().trim();
   if (!projectId || !message) return;
 
-  // 1. Guardar en tabla Supabase 'chat_mensajes'
+  // 1. Guardar en tabla Supabase 'chat_mensajes' usando columnas exactas del esquema
   if (sb && typeof sb.from === 'function') {
     try {
       const rowId = `${projectId}__${message.id}`;
       await sb.from('chat_mensajes').upsert({
         id: rowId,
         proyecto_id: projectId,
-        empresa_id: targetProj?.empresaId || null,
-        owner_email: ownerEmail,
         autor_nombre: message.authorName || 'Colaborador',
         autor_email: message.authorEmail || getCurrentUser()?.email || '',
         autor_avatar_url: message.authorAvatar || '',
         mensaje: message.text || '',
-        adjuntos: (message.estimaciones || []).concat(message.reportes || []),
+        partida_id: message.partidaId ? String(message.partidaId) : null,
+        etiquetas: Array.isArray(message.mentions) ? message.mentions : [],
         payload_json: message,
         created_at: message.createdAt || new Date().toISOString()
       }, { onConflict: 'id' });
@@ -1872,8 +1918,8 @@ export async function persistChatMessageToHostCloud(projectId, message, proj) {
   const currentUser = getCurrentUser();
   if (currentUser && (currentUser.email || '').toLowerCase().trim() === ownerEmail) {
     try {
-      if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
-        window.syncUserCollaborationToCloud(currentUser);
+      if (typeof window !== 'undefined' && typeof window.triggerDebouncedCloudStateSync === 'function') {
+        window.triggerDebouncedCloudStateSync(currentUser);
       }
     } catch (_) {}
   }
@@ -1883,14 +1929,17 @@ export async function deleteChatMessageFromHostCloud(projectId, messageId) {
   const sb = getSupabaseClient();
   if (!sb || !projectId || !messageId) return;
   try {
-    const rowId = `${projectId}__${messageId}`;
-    await sb.from('chat_mensajes').delete().eq('id', rowId);
+    await Promise.allSettled([
+      sb.from('chat_mensajes').delete().eq('id', `${projectId}__${messageId}`),
+      sb.from('chat_mensajes').delete().eq('id', `${projectId}::${messageId}`)
+    ]);
   } catch (_) {}
 }
 
 export async function hydrateProjectChatFromCloud(projectId) {
   const sb = getSupabaseClient();
   if (!sb || !projectId || typeof sb.from !== 'function') return;
+  if (String(projectId).startsWith('__')) return;
   try {
     const { data, error } = await sb
       .from('chat_mensajes')
@@ -1908,17 +1957,33 @@ export async function hydrateProjectChatFromCloud(projectId) {
       if (!Array.isArray(localMessages)) localMessages = [];
 
       const map = new Map();
-      localMessages.forEach(m => map.set(m.id, m));
+      localMessages.forEach(m => {
+        if (m && m.id) map.set(m.id, m);
+      });
       data.forEach(row => {
-        const msg = row.payload_json || {
-          id: (row.id || '').split('__')[1] || row.id,
-          text: row.mensaje,
-          authorName: row.autor_nombre,
-          authorEmail: row.autor_email,
-          authorAvatar: row.autor_avatar_url,
-          time: new Date(row.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
-        };
-        map.set(msg.id, msg);
+        if (!row || (row.id && String(row.id).startsWith('__'))) return;
+        const cleanId = String(row.id || '').replace(`${projectId}__`, '').replace(`${projectId}::`, '');
+        const msg = (row.payload_json && typeof row.payload_json === 'object' && row.payload_json.id)
+          ? { ...row.payload_json, id: row.payload_json.id || cleanId }
+          : {
+              id: cleanId,
+              text: row.mensaje || '',
+              authorName: row.autor_nombre || 'Colaborador',
+              authorEmail: row.autor_email || '',
+              authorAvatar: row.autor_avatar_url || '',
+              time: row.created_at ? new Date(row.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''
+            };
+        const prev = map.get(msg.id);
+        if (prev) {
+          map.set(msg.id, {
+            ...msg,
+            isRead: Boolean(prev.isRead || msg.isRead),
+            dismissed: Boolean(prev.dismissed || msg.dismissed),
+            readBy: Array.isArray(prev.readBy) && prev.readBy.length > 0 ? prev.readBy : (msg.readBy || [])
+          });
+        } else {
+          map.set(msg.id, msg);
+        }
       });
 
       const merged = Array.from(map.values()).sort((a, b) => {
@@ -1928,8 +1993,13 @@ export async function hydrateProjectChatFromCloud(projectId) {
       });
 
       localStorage.setItem(chatKey, JSON.stringify(merged));
-      if (typeof window !== 'undefined' && typeof window.renderProjectChatDock === 'function') {
-        window.renderProjectChatDock();
+      if (typeof window !== 'undefined') {
+        if (typeof window.renderProjectChatDock === 'function') {
+          window.renderProjectChatDock();
+        }
+        if (typeof window.renderSidebarNotificationsUI === 'function') {
+          window.renderSidebarNotificationsUI();
+        }
       }
     }
   } catch (_) {}

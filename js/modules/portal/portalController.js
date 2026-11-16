@@ -64,7 +64,7 @@ import {
   SAMPLE_LOGOS,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261115_v20_live_fix';
+} from './projectService.js?v=20261116_v24_sync_fix';
 import { showToast } from '../../ui/notifications.js';
 import { persistLocalData, state, initStore } from '../../state/store.js';
 import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js';
@@ -245,6 +245,67 @@ function showWorkspaceView(user, project) {
 
   if (project && project.id) {
     setActiveProjectId(project.id);
+    // Si el usuario es un invitado abriendo la obra, promover automáticamente su membresía a 'active' / 'accepted'
+    const myEmail = (user?.email || '').toLowerCase().trim();
+    const ownerEmail = (project.ownerEmail || '').toLowerCase().trim();
+    if (myEmail && ownerEmail && myEmail !== ownerEmail) {
+      try {
+        const list = getProjectsList();
+        const pObj = list.find(p => p.id === project.id || p.cloudId === project.id);
+        let memUpdated = false;
+        let myRole = 'editar';
+        if (pObj) {
+          if (!Array.isArray(pObj.members)) pObj.members = [];
+          const mem = pObj.members.find(m => (m.email || '').toLowerCase().trim() === myEmail);
+          if (mem) {
+            myRole = mem.role || 'editar';
+            if (mem.status !== 'active' && mem.status !== 'accepted') {
+              mem.status = 'active';
+              memUpdated = true;
+            }
+          } else {
+            pObj.members.push({
+              id: 'mem-' + myEmail,
+              name: user.name || myEmail.split('@')[0],
+              email: myEmail,
+              avatar: user.avatar || AVATARS_BY_SEX['Masculino'],
+              role: 'editar',
+              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
+              status: 'active'
+            });
+            memUpdated = true;
+          }
+          if (memUpdated) {
+            saveProjectsList(list);
+          }
+        }
+        const invs = getStoredInvitations();
+        let invUpdated = false;
+        invs.forEach(i => {
+          if ((i.projectId === project.id || i.projectId === project.cloudId) && (i.email || '').toLowerCase().trim() === myEmail && i.status === 'pending') {
+            i.status = 'accepted';
+            i.acceptedAt = new Date().toISOString();
+            invUpdated = true;
+          }
+        });
+        if (invUpdated) saveStoredInvitations(invs);
+
+        const planInvs = getStoredPlanInvitations();
+        let planInvUpdated = false;
+        planInvs.forEach(pi => {
+          if ((pi.ownerEmail || '').toLowerCase().trim() === ownerEmail && (pi.email || '').toLowerCase().trim() === myEmail && pi.status === 'pending') {
+            pi.status = 'accepted';
+            pi.acceptedAt = new Date().toISOString();
+            planInvUpdated = true;
+          }
+        });
+        if (planInvUpdated) saveStoredPlanInvitations(planInvs);
+
+        if ((memUpdated || invUpdated || planInvUpdated) && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
+          window.addCollaboratorToCloud(project.id, myEmail, myRole, 'accepted');
+        }
+      } catch (_) {}
+    }
   }
   if (project && project.ownerEmail) {
     const hostEmail = (project.ownerEmail || '').toLowerCase().trim();
@@ -1438,9 +1499,9 @@ export function renderPortalDashboard() {
 
           // Si es proyecto de un anfitrión (colaboración externa):
           if (!isMyOwnProject) {
-            // Confirmación 1: Debe existir en la lista de la nube devuelta por Supabase
             const existsInCloud = cloudIds.has(lp.id) || cloudIds.has(lp.cloudId);
-            if (!existsInCloud) {
+            const hasLocalInvite = Array.isArray(lp.members) && lp.members.some(m => (m.email || '').toLowerCase().trim() === myEmail && (m.status === 'active' || m.status === 'accepted' || m.status === 'pending'));
+            if (!existsInCloud && !hasLocalInvite) {
               console.info(`[PortalReconcile] Purgando proyecto fantasma/eliminado de anfitrión: ${lp.projectName} (${lp.id})`);
               changed = true;
               try {
@@ -1450,11 +1511,11 @@ export function renderPortalDashboard() {
               return false;
             }
 
-            // Confirmación 2: El usuario actual DEBE tener invitación activa aceptada
+            // Confirmación 2: El usuario actual DEBE tener invitación activa, aceptada o pendiente
             const cloudProj = cloudList.find(cp => cp.id === lp.id || cp.id === lp.cloudId);
             if (cloudProj && Array.isArray(cloudProj.members)) {
               const myMem = cloudProj.members.find(m => (m.email || '').toLowerCase().trim() === myEmail);
-              if (!myMem || (myMem.status !== 'accepted' && myMem.status !== 'active')) {
+              if (!myMem || (myMem.status !== 'accepted' && myMem.status !== 'active' && myMem.status !== 'pending')) {
                 console.info(`[PortalReconcile] Purgando proyecto sin membresía activa: ${lp.projectName} (${lp.id})`);
                 changed = true;
                 return false;
@@ -3722,10 +3783,16 @@ export async function logoutUser(skipConfirm = false) {
   // 3. Limpiar almacenamiento de usuario activo
   saveCurrentUser(null);
 
-  // 4. Purga completa y definitiva de localStorage y sessionStorage al cerrar sesión
+  // 4. Purga de sesión preservando lápidas de proyectos eliminados y notificaciones descartadas
   try {
     if (typeof localStorage !== 'undefined') {
+      const preservedDeleted = localStorage.getItem('cubikar_deleted_projects_v1');
+      const preservedDismissedNotifs = localStorage.getItem('cubikar_dismissed_notifications_v1');
+      const preservedAuthVer = localStorage.getItem('cubikar_auth_session_version');
       localStorage.clear();
+      if (preservedDeleted) localStorage.setItem('cubikar_deleted_projects_v1', preservedDeleted);
+      if (preservedDismissedNotifs) localStorage.setItem('cubikar_dismissed_notifications_v1', preservedDismissedNotifs);
+      if (preservedAuthVer) localStorage.setItem('cubikar_auth_session_version', preservedAuthVer);
     }
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.clear();
@@ -4134,7 +4201,7 @@ export function openInviteModal(projectId, defaultTab = 'members') {
 
   const nameBadge = document.getElementById('invite-modal-project-name');
   if (nameBadge) {
-    nameBadge.textContent = state.settings?.projectName || proj.projectName || 'Proyecto de Obra';
+    nameBadge.textContent = proj.projectName || state.settings?.projectName || 'Proyecto de Obra';
   }
 
   // Limpiar campos

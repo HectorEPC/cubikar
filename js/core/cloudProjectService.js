@@ -373,8 +373,13 @@ export async function fetchCloudProjects() {
         }));
 
         const ownerColab = rawColabs.find(c => c.rol === 'owner');
-        const ownerEmail = (cp.owner_email || ownerColab?.email_colaborador || user.email || '').toLowerCase().trim();
-        const ownerName = ownerColab?.nombre_colaborador || (ownerEmail === myEmail ? (user.name || 'Propietario') : ownerEmail.split('@')[0]);
+        const ownerEmail = (cp.owner_email || ownerColab?.email_colaborador || (cp.creado_por && cp.creado_por === user.id ? myEmail : '') || '').toLowerCase().trim();
+        const isMyOwn = ownerEmail === myEmail || (cp.creado_por && cp.creado_por === user.id);
+        const isMyCollab = rawColabs.some(c => (c.email_colaborador || '').toLowerCase().trim() === myEmail && c.estado_invitacion !== 'rejected');
+        if (!isMyOwn && !isMyCollab) {
+          return null;
+        }
+        const ownerName = ownerColab?.nombre_colaborador || (ownerEmail === myEmail ? (user.name || 'Propietario') : (ownerEmail ? ownerEmail.split('@')[0] : 'Propietario'));
 
         const cfg = (cp.configuracion && typeof cp.configuracion === 'object') ? cp.configuracion : {};
 
@@ -404,7 +409,8 @@ export async function fetchCloudProjects() {
           updatedAt: cp.updated_at || new Date().toISOString(),
           members: reconstructedMembers
         };
-      });
+      })
+      .filter(Boolean);
   } catch (err) {
     console.error('[CloudProjectService] Excepción al consultar proyectos en la nube:', err);
     return [];
@@ -606,13 +612,26 @@ export async function updateCloudConcept(projectId, patchOrConcept) {
 }
 
 /**
- * Eliminar un proyecto en la nube
+ * Eliminar un proyecto en la nube y todas sus tablas dependientes en cascada
  */
 export async function deleteProjectFromCloud(projectId) {
   const sb = getSupabaseClient();
   if (!isSupabaseConfigured() || !sb || !projectId) return;
 
   try {
+    await Promise.allSettled([
+      sb.from('catalogo_conceptos').delete().eq('proyecto_id', projectId),
+      sb.from('insumos_apu').delete().eq('proyecto_id', projectId),
+      sb.from('proyecto_colaboradores').delete().eq('proyecto_id', projectId),
+      sb.from('estimaciones').delete().eq('proyecto_id', projectId),
+      sb.from('cronograma_config').delete().eq('proyecto_id', projectId),
+      sb.from('bitacora_notas').delete().eq('proyecto_id', projectId),
+      sb.from('bitacora_config').delete().eq('proyecto_id', projectId),
+      sb.from('compras_gastos').delete().eq('proyecto_id', projectId),
+      sb.from('proveedores').delete().eq('proyecto_id', projectId),
+      sb.from('chat_mensajes').delete().eq('proyecto_id', projectId)
+    ]);
+
     await sb.from('proyectos').delete().eq('id', projectId);
   } catch (err) {
     console.warn('[CloudProjectService] Error al eliminar proyecto en la nube:', err);
