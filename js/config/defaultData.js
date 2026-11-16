@@ -5300,7 +5300,8 @@
         "costoDirecto":  11423.46,
         "expanded":  true,
         "selected":  true,
-        "children":  {
+        "children":  [
+                         {
                          "id":  "10.1",
                          "clave":  "CBK-RES-0093",
                          "descripcion":  "Puerta de herrería de 0.90 x 2.00 m cerrada de lámina hecha con tablero C20 y chapa marca Dexter, incluye: suministro, instalación, acarreo de los materiales, a una 1a. estacion a 20.00 m. de distancia horizontal, en p.b. y 1er. nivel.",
@@ -5342,6 +5343,7 @@
                                          }
                                      ]
                      }
+                     ]
     },
     {
         "id":  "11",
@@ -5355,7 +5357,8 @@
         "costoDirecto":  202835.73,
         "expanded":  true,
         "selected":  true,
-        "children":  {
+        "children":  [
+                         {
                          "id":  "11.1",
                          "clave":  "CBK-RES-0094",
                          "descripcion":  "Suministro y colocación de cancelería de aluminio natural de 3\" elaborada con perfiles comerciales en ventanas, incluye: accesorios necesarios para su instalación y sellado, vidrio claro de 6 mm. De espesor en ventanas fijas y corredizas, trabajo terminado, andamios, jaladera, materiales, mano de obra y herramienta.",
@@ -5379,6 +5382,7 @@
                                          }
                                      ]
                      }
+                     ]
     },
     {
         "id":  "12",

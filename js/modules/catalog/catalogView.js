@@ -30,7 +30,7 @@ export function renderTAB1() {
       totalCount++;
       if (node.selected) selectedCount++;
 
-      const isParent = node.children && node.children.length > 0;
+      const isParent = Array.isArray(node.children) && node.children.length > 0;
       if (isParent && node.unidad !== 'lote') {
         node.unidad = 'lote';
       }

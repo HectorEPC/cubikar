@@ -68,12 +68,12 @@ export function getActiveProjectId() {
 }
 
 export function getStorageKey(projectId = null) {
-  const pId = projectId || activeProjectId;
+  const pId = projectId || getActiveProjectId();
   return pId ? `control_obra_treeData_${pId}` : DEFAULT_STORAGE_KEY;
 }
 
 export function getSettingsKey(projectId = null) {
-  const pId = projectId || activeProjectId;
+  const pId = projectId || getActiveProjectId();
   return pId ? `control_obra_settings_${pId}` : DEFAULT_SETTINGS_KEY;
 }
 

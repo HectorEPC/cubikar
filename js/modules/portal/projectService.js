@@ -1270,6 +1270,9 @@ export function prepareCatalogTreeNodes(nodes, prefix = '') {
   return nodes.map((node, idx) => {
     const currentId = node.id || (prefix ? `${prefix}.${idx + 1}` : `${idx + 1}`);
     const copy = { ...node, id: currentId, expanded: true, selected: true };
+    if (copy.children && !Array.isArray(copy.children) && typeof copy.children === 'object') {
+      copy.children = [copy.children];
+    }
     if (Array.isArray(copy.children) && copy.children.length > 0) {
       copy.tipo = 'Partida';
       copy.children = prepareCatalogTreeNodes(copy.children, currentId);

@@ -26,6 +26,7 @@ $RECYCLE.BIN/
 *~
 respaldos/
 *.zip
+!data/Catalogo_Muestra_Proyecto_Residencial_APU.zip
 scratch/
 test_*
 *.ps1

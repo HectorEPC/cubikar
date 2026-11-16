@@ -4,6 +4,7 @@
 import {
   setActiveProjectId,
   getActiveProjectId,
+  getStorageKey,
   getSettingsKey
 } from '../../config/constants.js?v=20261115_v16';
 import {
@@ -2483,7 +2484,7 @@ export function exportProjectToExcelAction(projectId) {
 
   let tree = [];
   try {
-    const raw = localStorage.getItem(`adm_const_tree_${projectId}`);
+    const raw = localStorage.getItem(getStorageKey(projectId));
     if (raw) tree = JSON.parse(raw);
   } catch (e) {}
 
@@ -2920,9 +2921,10 @@ export function openNuevoProyectoModal() {
     }
   }
   
-  const radioBlank = document.querySelector('input[name="wiz-template"][value="blank"]');
-  if (radioBlank) {
-    radioBlank.checked = true;
+  wizardData.template = 'demo';
+  const radioDemo = document.querySelector('input[name="wiz-template"][value="demo"]');
+  if (radioDemo) {
+    radioDemo.checked = true;
   }
   updateTemplateSelection();
 
@@ -2957,6 +2959,12 @@ export function goToWizardStep(step) {
       alert('Por favor completa el Nombre de Empresa, Nombre de Proyecto y Ubicación antes de avanzar.');
       return;
     }
+  }
+
+  // Si avanzamos desde el paso 2, registrar la plantilla seleccionada
+  if (wizardData.step === 2) {
+    const selTpl = document.querySelector('input[name="wiz-template"]:checked')?.value;
+    if (selTpl) wizardData.template = selTpl;
   }
 
   wizardData.step = step;
@@ -3245,7 +3253,8 @@ export function updateWizardFactorPreview() {
 
 export function updateTemplateSelection() {
   const checked = document.querySelector('input[name="wiz-template"]:checked');
-  const val = checked ? checked.value : 'blank';
+  const val = checked ? checked.value : (wizardData.template || 'demo');
+  wizardData.template = val;
   const lblDemo = document.getElementById('lbl-tpl-demo');
   const lblBlank = document.getElementById('lbl-tpl-blank');
   if (!lblDemo || !lblBlank) return;
@@ -3276,7 +3285,8 @@ export async function finalizeCreateProject() {
   const fasarVal = parseFloat(document.getElementById('wiz-fasar')?.value);
   const fasar = isNaN(fasarVal) ? 70.00 : fasarVal;
   const tplEl = document.querySelector('input[name="wiz-template"]:checked');
-  const tpl = tplEl ? tplEl.value : 'blank';
+  const tpl = wizardData.template || (tplEl ? tplEl.value : 'demo');
+  wizardData.template = tpl;
 
   const user = getCurrentUser();
 
@@ -3349,9 +3359,9 @@ export async function finalizeCreateProject() {
 
   // Sincronizar en segundo plano a Supabase PostgreSQL
   try {
-    const rawTree = localStorage.getItem(`adm_const_tree_${newProj.id}`);
-    const rawSettings = localStorage.getItem(`adm_const_settings_${newProj.id}`);
-    const pTree = rawTree ? JSON.parse(rawTree) : [];
+    const rawTree = localStorage.getItem(getStorageKey(newProj.id));
+    const rawSettings = localStorage.getItem(getSettingsKey(newProj.id));
+    const pTree = rawTree ? JSON.parse(rawTree) : (sampleTree || []);
     const pSettings = rawSettings ? JSON.parse(rawSettings) : projPayload;
     syncProjectToCloud(newProj, pSettings, pTree).then(res => {
       if (res && res.success) {
@@ -3388,8 +3398,8 @@ export async function syncProjectToCloudAction(projectId, event) {
   try {
     let tree = [];
     let settings = {};
-    const rawT = localStorage.getItem(`adm_const_tree_${projectId}`);
-    const rawS = localStorage.getItem(`adm_const_settings_${projectId}`);
+    const rawT = localStorage.getItem(getStorageKey(projectId));
+    const rawS = localStorage.getItem(getSettingsKey(projectId));
     if (rawT) tree = JSON.parse(rawT);
     if (rawS) settings = JSON.parse(rawS);
 

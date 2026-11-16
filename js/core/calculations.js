@@ -47,7 +47,7 @@ export function updateSobrecostoBadge() {
 
 // Total de una partida recursiva (sumatoria de hijos o concepto)
 export function calculateParentTotal(node) {
-  if (!node.children || node.children.length === 0) {
+  if (!node.children || !Array.isArray(node.children) || node.children.length === 0) {
     const cant = round2(node.cantidad || 0);
     const pu = round2(node.precioUnitario || 0);
     return round2(cant * pu);
@@ -61,7 +61,7 @@ export function calculateParentTotal(node) {
 
 // Costo directo de una partida recursiva
 export function calculateParentDirectTotal(node) {
-  if (!node.children || node.children.length === 0) {
+  if (!node.children || !Array.isArray(node.children) || node.children.length === 0) {
     const cant = round2(node.cantidad || 0);
     const cd = node.costoDirecto !== undefined ? node.costoDirecto : node.precioUnitario;
     const cdVal = round2(cd || 0);
