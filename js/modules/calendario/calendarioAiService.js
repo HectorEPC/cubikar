@@ -3,11 +3,11 @@
 // Analiza el Tipo de Obra, partidas, volúmenes, matrices APU y días inhábiles para proponer
 // duraciones realistas, dependencias Fin-a-Inicio libres de ciclos y frentes simultáneos.
 
-import { state, persistSettings } from '../../state/store.js?v=20261116_cf10';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf10';
-import { getProjectById } from '../portal/projectService.js?v=20261116_cf10';
-import { extractJsonFromAiResponse } from '../ai/geminiClient.js?v=20261116_cf10';
-import { callGeminiProxyApi } from '../ai/aiQuotaAndCacheService.js?v=20261116_cf10';
+import { state, persistSettings } from '../../state/store.js?v=20261116_cf11';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf11';
+import { getProjectById } from '../portal/projectService.js?v=20261116_cf11';
+import { extractJsonFromAiResponse } from '../ai/geminiClient.js?v=20261116_cf11';
+import { callGeminiProxyApi } from '../ai/aiQuotaAndCacheService.js?v=20261116_cf11';
 import {
   extractScheduleItems,
   getScheduleSettings,
@@ -19,7 +19,7 @@ import {
   formatDate,
   addDays,
   diffDays
-} from './calendarioModel.js?v=20261116_cf10';
+} from './calendarioModel.js?v=20261116_cf11';
 
 export const WORK_TYPE_PROFILES = {
   edificacion: {
@@ -624,7 +624,7 @@ export function generateLocalConstructiveProposal(options = {}) {
 // Genera una propuesta avanzada consultando Gemini IA en tiempo real (con respaldo seguro al motor experto)
 export async function generateGeminiConstructiveProposal(options = {}) {
   const apiKey = String(options.apiKey || state.settings?.apiKey || '').trim();
-  const { checkStandardAiQuota, recordAiQuotaConsumption, applyServerQuotaSnapshot } = await import('../ai/aiQuotaAndCacheService.js?v=20261116_cf10');
+  const { checkStandardAiQuota, recordAiQuotaConsumption, applyServerQuotaSnapshot } = await import('../ai/aiQuotaAndCacheService.js?v=20261116_cf11');
   const quotaCheck = checkStandardAiQuota(1, null, apiKey);
   if (!quotaCheck.allowed) {
     throw new Error(quotaCheck.reason || 'Cuota mensual de IA estándar agotada para tu plan.');

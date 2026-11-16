@@ -2,10 +2,10 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf10';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf10';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261116_cf10';
-import { showToast } from '../ui/notifications.js?v=20261116_cf10';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf11';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf11';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261116_cf11';
+import { showToast } from '../ui/notifications.js?v=20261116_cf11';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -438,7 +438,7 @@ export async function fetchCloudProjects() {
   const user = getCurrentUser();
 
   if (!isSupabaseConfigured() || !sb || !user?.id) {
-    return [];
+    return null;
   }
 
   try {
@@ -452,10 +452,10 @@ export async function fetchCloudProjects() {
 
     if (error) {
       console.warn('[CloudProjectService] Error al obtener proyectos de la nube:', error.message);
-      return [];
+      return null;
     }
 
-    if (!Array.isArray(cloudList)) return [];
+    if (!Array.isArray(cloudList)) return null;
 
     let deletedList = [];
     try {
@@ -567,7 +567,7 @@ export async function fetchCloudProjects() {
       .filter(Boolean);
   } catch (err) {
     console.error('[CloudProjectService] Excepción al consultar proyectos en la nube:', err);
-    return [];
+    return null;
   }
 }
 

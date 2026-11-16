@@ -1,25 +1,25 @@
 // js/modules/reference/masterCatalogModal.js
 // Modal de Catálogo Maestro y Biblioteca de Referencia (Opción 1)
 
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf10';
-import { saveState } from '../../state/history.js?v=20261116_cf10';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf10';
-import { formatMoney } from '../../core/formatters.js?v=20261116_cf10';
-import { findNodeById, recalculateClaves, guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf10';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf10';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf11';
+import { saveState } from '../../state/history.js?v=20261116_cf11';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf11';
+import { formatMoney } from '../../core/formatters.js?v=20261116_cf11';
+import { findNodeById, recalculateClaves, guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf11';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf11';
 import {
   listReferenceCatalogs,
   searchReferenceItems,
   deleteReferenceCatalog,
   getReferenceDatabaseStats,
   syncMasterCatalogsFromCloud
-} from './referenceDb.js?v=20261116_cf10';
-import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetCatalogs.js?v=20261116_cf10';
-import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js?v=20261116_cf10';
-import { openImportModal } from '../io/universalImporter.js?v=20261116_cf10';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf10';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf10';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf10';
+} from './referenceDb.js?v=20261116_cf11';
+import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetCatalogs.js?v=20261116_cf11';
+import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js?v=20261116_cf11';
+import { openImportModal } from '../io/universalImporter.js?v=20261116_cf11';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf11';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf11';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf11';
 
 let debounceTimer = null;
 let currentSearchResults = [];

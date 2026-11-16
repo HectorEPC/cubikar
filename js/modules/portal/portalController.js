@@ -6,7 +6,7 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261116_cf10';
+} from '../../config/constants.js?v=20261116_cf11';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -66,15 +66,15 @@ import {
   SAMPLE_LOGOS,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261116_cf10';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf10';
-import { persistLocalData, state, initStore } from '../../state/store.js?v=20261116_cf10';
-import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261116_cf10';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf10';
-import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf10';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261116_cf10';
-import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261116_cf10';
-import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261116_cf10';
+} from './projectService.js?v=20261116_cf11';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf11';
+import { persistLocalData, state, initStore } from '../../state/store.js?v=20261116_cf11';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261116_cf11';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf11';
+import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf11';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261116_cf11';
+import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261116_cf11';
+import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261116_cf11';
 import {
   signUp,
   signInWithPassword,
@@ -84,18 +84,18 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js?v=20261116_cf10';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261116_cf10';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf10';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf10';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf10';
+} from '../../core/authService.js?v=20261116_cf11';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261116_cf11';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf11';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf11';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf11';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
   openCubikarAdminModal
-} from '../admin/cubikarAdmin.js?v=20261116_cf10';
-import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf10';
-import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261116_cf10';
+} from '../admin/cubikarAdmin.js?v=20261116_cf11';
+import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf11';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261116_cf11';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';

@@ -3,8 +3,8 @@
 // persistencia total de proyectos, anfitriones, invitaciones y membresías
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf10';
-import { syncProjectToCloud, fetchCloudProjects } from './cloudProjectService.js?v=20261116_cf10';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf11';
+import { syncProjectToCloud, fetchCloudProjects } from './cloudProjectService.js?v=20261116_cf11';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -20,9 +20,9 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261116_cf10';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf10';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf10';
+} from '../modules/portal/projectService.js?v=20261116_cf11';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf11';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf11';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
@@ -468,7 +468,8 @@ export function restoreUserCollaborationFromCloud(user = null) {
   // Consultar proyectos en Supabase PostgreSQL (public.proyectos + public.proyecto_colaboradores)
   if (isSupabaseConfigured()) {
     fetchCloudProjects().then(cloudList => {
-      const activeCloud = Array.isArray(cloudList) ? cloudList : [];
+      if (!Array.isArray(cloudList)) return;
+      const activeCloud = cloudList;
       const curList = typeof getProjectsList === 'function' ? getProjectsList() : [];
       let updated = false;
 
