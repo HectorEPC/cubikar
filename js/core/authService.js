@@ -1,10 +1,10 @@
 // js/core/authService.js
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
-import { STORAGE_KEY_USER } from '../config/constants.js?v=20261116_cf6';
-import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261116_cf6';
-import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261116_cf6';
-import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261116_cf6';
+import { STORAGE_KEY_USER } from '../config/constants.js?v=20261116_cf7';
+import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261116_cf7';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261116_cf7';
+import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261116_cf7';
 import {
   writeSharedSsoCookie,
   clearSharedSsoCookie,
@@ -14,7 +14,7 @@ import {
   scrubSsoHashParams,
   hasPendingIncomingSso,
   getLastSignOutTimestamp
-} from './ssoHelper.js?v=20261116_cf6';
+} from './ssoHelper.js?v=20261116_cf7';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -108,6 +108,9 @@ async function repairBloatedJwtRemote(accessToken) {
   addEndpoint('/api/admin-users');
   if (origin !== 'https://const.cubikar.app') {
     addEndpoint('https://const.cubikar.app/api/admin-users');
+  }
+  if (origin !== 'https://cubikar.app') {
+    addEndpoint('https://cubikar.app/api/admin-users');
   }
 
   for (const endpoint of endpoints) {
@@ -998,7 +1001,7 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
           restoreUserCollaborationFromCloud(user);
         } catch (_) {}
         autoSyncCollaborationOnStartup(user, { force: Boolean(force) });
-        import('../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf6')
+        import('../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf7')
           .then(m => m.syncAiQuotaFromSupabase())
           .catch(() => {});
       }, 50);

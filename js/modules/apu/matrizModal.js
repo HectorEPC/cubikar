@@ -1,15 +1,15 @@
 // js/modules/apu/matrizModal.js
 // Controlador de la Ventana Maximizada de Matriz APU (Estilo Configuración del Sistema)
 
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf6';
-import { saveState } from '../../state/history.js?v=20261116_cf6';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf6';
-import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261116_cf6';
-import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf6';
-import { findNodeById } from '../catalog/treeService.js?v=20261116_cf6';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf6';
-import { renderAPUInsumos, renderInsumosUnitarios } from './apuView.js?v=20261116_cf6';
-import { addInsumo, removeInsumo, updateInsumo, filterMatriz } from './apuService.js?v=20261116_cf6';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf7';
+import { saveState } from '../../state/history.js?v=20261116_cf7';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf7';
+import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261116_cf7';
+import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf7';
+import { findNodeById } from '../catalog/treeService.js?v=20261116_cf7';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf7';
+import { renderAPUInsumos, renderInsumosUnitarios } from './apuView.js?v=20261116_cf7';
+import { addInsumo, removeInsumo, updateInsumo, filterMatriz } from './apuService.js?v=20261116_cf7';
 
 let currentMatrizModalTab = 'matriz'; // 'matriz' | 'explosion'
 let selectedModalApuRowIdx = null;

@@ -43,11 +43,53 @@ function setCorsHeaders(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
+function parseJwtKeyRole(key) {
+  const clean = String(key || '').trim();
+  if (!clean) return '';
+  if (clean.startsWith('sb_secret_')) return 'secret';
+  if (clean.startsWith('eyJ')) {
+    try {
+      const parts = clean.split('.');
+      if (parts.length >= 2) {
+        const payload = decodeBase64UrlJson(parts[1]);
+        return String(payload?.role || '').toLowerCase().trim();
+      }
+    } catch {}
+  }
+  return '';
+}
+
+function buildSupabaseAdminHeaders(adminKey, extra = {}) {
+  const clean = String(adminKey || '').trim();
+  if (!clean) return { ...extra };
+  if (clean.startsWith('sb_secret_')) {
+    return { apikey: clean, ...extra };
+  }
+  return {
+    apikey: clean,
+    Authorization: `Bearer ${clean}`,
+    ...extra
+  };
+}
+
+function buildSupabaseReadHeaders(serviceRoleKey, sbAnonKey, callerToken, extra = {}) {
+  if (serviceRoleKey) {
+    return buildSupabaseAdminHeaders(serviceRoleKey, extra);
+  }
+  return {
+    apikey: sbAnonKey,
+    Authorization: `Bearer ${callerToken}`,
+    ...extra
+  };
+}
+
 function getSupabaseConfig() {
   const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL).replace(/\/+$/, '');
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
-  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-  return { url, anonKey, serviceRoleKey };
+  const rawAdminKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '').trim();
+  const adminRole = parseJwtKeyRole(rawAdminKey);
+  const serviceRoleKey = (adminRole === 'secret' || adminRole === 'service_role') ? rawAdminKey : '';
+  return { url, anonKey, serviceRoleKey, misconfiguredAnonKey: adminRole === 'anon' };
 }
 
 function sanitizePostgrestFilterTerm(raw) {
@@ -58,12 +100,10 @@ function sanitizePostgrestFilterTerm(raw) {
 
 async function updateEmpresaWithBillingCycleFallback(sbUrl, serviceRoleKey, empresaId, payload) {
   if (!sbUrl || !serviceRoleKey || !empresaId) return { ok: false };
-  const headers = {
-    apikey: serviceRoleKey,
-    Authorization: `Bearer ${serviceRoleKey}`,
+  const headers = buildSupabaseAdminHeaders(serviceRoleKey, {
     'Content-Type': 'application/json',
     Prefer: 'return=minimal'
-  };
+  });
   const endpoint = `${sbUrl}/rest/v1/empresas?id=eq.${encodeURIComponent(empresaId)}`;
   let res = await fetch(endpoint, {
     method: 'PATCH',
@@ -122,9 +162,7 @@ async function isVerifiedAdmin(callerEmail, sbUrl, serviceRoleKey, callerToken, 
     .filter(Boolean);
   if (envCoAdmins.includes(email)) return true;
 
-  const readKey = serviceRoleKey || sbAnonKey;
-  const authBearer = serviceRoleKey || callerToken;
-  if (!readKey || !authBearer) return false;
+  if (!serviceRoleKey && (!sbAnonKey || !callerToken)) return false;
 
   try {
     const safeEmail = sanitizePostgrestFilterTerm(email);
@@ -132,10 +170,7 @@ async function isVerifiedAdmin(callerEmail, sbUrl, serviceRoleKey, callerToken, 
     const res = await fetch(
       `${sbUrl}/rest/v1/cubikar_registros?email=ilike.${encodeURIComponent(safeEmail)}&select=email,metadata&limit=1`,
       {
-        headers: {
-          apikey: readKey,
-          Authorization: `Bearer ${authBearer}`
-        }
+        headers: buildSupabaseReadHeaders(serviceRoleKey, sbAnonKey, callerToken)
       }
     );
     if (res.ok) {
@@ -201,7 +236,11 @@ async function verifySupabaseJwtCryptographic(token, sbUrl) {
         sigBytes,
         signingInput
       );
-      return valid ? { userId: uid, email: String(payload.email || '').toLowerCase().trim() } : null;
+      return valid ? {
+        userId: uid,
+        email: String(payload.email || '').toLowerCase().trim(),
+        userMetadata: (payload?.user_metadata && typeof payload.user_metadata === 'object') ? payload.user_metadata : {}
+      } : null;
     }
 
     const jwtSecret = (process.env.SUPABASE_JWT_SECRET || '').trim();
@@ -214,7 +253,11 @@ async function verifySupabaseJwtCryptographic(token, sbUrl) {
         ['verify']
       );
       const valid = await globalThis.crypto.subtle.verify('HMAC', hmacKey, sigBytes, signingInput);
-      return valid ? { userId: uid, email: String(payload.email || '').toLowerCase().trim() } : null;
+      return valid ? {
+        userId: uid,
+        email: String(payload.email || '').toLowerCase().trim(),
+        userMetadata: (payload?.user_metadata && typeof payload.user_metadata === 'object') ? payload.user_metadata : {}
+      } : null;
     }
 
     return null;
@@ -315,79 +358,122 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { url: sbUrl, anonKey: sbAnonKey, serviceRoleKey } = getSupabaseConfig();
+  const { url: sbUrl, anonKey: sbAnonKey, serviceRoleKey, misconfiguredAnonKey } = getSupabaseConfig();
 
   // Auto-reparación segura para sesiones bloqueadas por JWT / user_metadata sobredimensionado:
-  // Recibe accessToken en el BODY POST (sin cabecera Authorization gigante que bloquee HTTP/2)
-  // y lo valida criptográficamente con JWKS (ES256) antes de compactar user_metadata vía Admin API.
+  // Recibe accessToken en el BODY POST (sin cabecera Authorization gigante en HTTP/2)
+  // y lo valida criptográficamente con JWKS (ES256) antes de compactar user_metadata vía Admin API
+  // o respaldo directo self-service vía PUT /auth/v1/user (sin depender de service_role en Cloudflare).
   if (req.method === 'POST') {
     let preBody = req.body;
     if (typeof preBody === 'string') {
       try { preBody = JSON.parse(preBody); } catch { preBody = null; }
     }
     if (preBody && String(preBody.action || '').toLowerCase() === 'slim_own_jwt_metadata') {
-      if (!serviceRoleKey) {
-        return res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada en este servidor.' });
-      }
       const rawToken = String(preBody.accessToken || '').trim();
       const verified = await verifySupabaseJwtCryptographic(rawToken, sbUrl);
       if (!verified?.userId) {
         return res.status(401).json({ error: 'Token de sesión inválido o expirado para compactación.' });
       }
       try {
-        const userAdminEndpoint = `${sbUrl}/auth/v1/admin/users/${encodeURIComponent(verified.userId)}`;
-        const getUserRes = await fetch(userAdminEndpoint, {
-          headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` }
-        });
-        if (!getUserRes.ok) {
-          return res.status(getUserRes.status).json({ error: 'No se pudo leer el usuario en Supabase Auth.' });
+        // Nivel 1: Si hay una service_role / sb_secret válida, compactar vía Admin API
+        if (serviceRoleKey) {
+          try {
+            const userAdminEndpoint = `${sbUrl}/auth/v1/admin/users/${encodeURIComponent(verified.userId)}`;
+            const adminReadHeaders = buildSupabaseAdminHeaders(serviceRoleKey);
+            const getUserRes = await fetch(userAdminEndpoint, { headers: adminReadHeaders });
+            if (getUserRes.ok) {
+              const adminUser = await getUserRes.json();
+              const prevMeta = adminUser?.user_metadata || verified.userMetadata || {};
+              const beforeChars = JSON.stringify(prevMeta).length;
+              const cleanedMeta = buildCompactUserMetadata(prevMeta);
+
+              const putHeaders = buildSupabaseAdminHeaders(serviceRoleKey, { 'Content-Type': 'application/json' });
+              let putRes = await fetch(userAdminEndpoint, {
+                method: 'PUT',
+                headers: putHeaders,
+                body: JSON.stringify({ user_metadata: cleanedMeta })
+              });
+              if (putRes.ok) {
+                let updatedAdminUser = await putRes.json().catch(() => null);
+                let actualAfterChars = updatedAdminUser?.user_metadata
+                  ? JSON.stringify(updatedAdminUser.user_metadata).length
+                  : JSON.stringify(cleanedMeta).length;
+
+                if (actualAfterChars > 3500) {
+                  const pureCleaned = Object.fromEntries(Object.entries(cleanedMeta).filter(([, v]) => v !== null));
+                  await fetch(userAdminEndpoint, {
+                    method: 'PUT',
+                    headers: putHeaders,
+                    body: JSON.stringify({ user_metadata: {} })
+                  });
+                  putRes = await fetch(userAdminEndpoint, {
+                    method: 'PUT',
+                    headers: putHeaders,
+                    body: JSON.stringify({ user_metadata: pureCleaned })
+                  });
+                  if (putRes.ok) {
+                    updatedAdminUser = await putRes.json().catch(() => null);
+                    if (updatedAdminUser?.user_metadata) {
+                      actualAfterChars = JSON.stringify(updatedAdminUser.user_metadata).length;
+                    }
+                  }
+                }
+                return res.status(200).json({
+                  ok: true,
+                  repaired: true,
+                  method: 'admin',
+                  beforeChars,
+                  afterChars: actualAfterChars
+                });
+              }
+            }
+          } catch {}
         }
-        const adminUser = await getUserRes.json();
-        const prevMeta = adminUser?.user_metadata || {};
+
+        // Nivel 2 (Respaldo automático sin depender de SUPABASE_SERVICE_ROLE_KEY):
+        // Compactar los propios metadatos del usuario vía server-to-server PUT /auth/v1/user
+        let prevMeta = (verified.userMetadata && typeof verified.userMetadata === 'object')
+          ? verified.userMetadata
+          : {};
+        if (Object.keys(prevMeta).length === 0 && rawToken.length <= 14000) {
+          try {
+            const selfGetRes = await fetch(`${sbUrl}/auth/v1/user`, {
+              headers: { apikey: sbAnonKey, Authorization: `Bearer ${rawToken}` }
+            });
+            if (selfGetRes.ok) {
+              const selfUser = await selfGetRes.json().catch(() => null);
+              if (selfUser?.user_metadata) prevMeta = selfUser.user_metadata;
+            }
+          } catch {}
+        }
+
         const beforeChars = JSON.stringify(prevMeta).length;
         const cleanedMeta = buildCompactUserMetadata(prevMeta);
-
-        const putHeaders = {
-          apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-          'Content-Type': 'application/json'
-        };
-        let putRes = await fetch(userAdminEndpoint, {
+        const selfPutRes = await fetch(`${sbUrl}/auth/v1/user`, {
           method: 'PUT',
-          headers: putHeaders,
-          body: JSON.stringify({ user_metadata: cleanedMeta })
+          headers: {
+            apikey: sbAnonKey,
+            Authorization: `Bearer ${rawToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ data: cleanedMeta })
         });
-        if (!putRes.ok) {
-          const errTxt = await putRes.text().catch(() => '');
-          return res.status(putRes.status).json({ error: `Error compactando metadatos: ${errTxt}` });
+        if (!selfPutRes.ok) {
+          const errTxt = await selfPutRes.text().catch(() => '');
+          return res.status(selfPutRes.status).json({
+            error: `No se pudo auto-compactar sesión (${selfPutRes.status}): ${errTxt}`,
+            misconfiguredAnonKey: Boolean(misconfiguredAnonKey)
+          });
         }
-        let updatedAdminUser = await putRes.json().catch(() => null);
-        let actualAfterChars = updatedAdminUser?.user_metadata
-          ? JSON.stringify(updatedAdminUser.user_metadata).length
+        const updatedSelf = await selfPutRes.json().catch(() => null);
+        const actualAfterChars = updatedSelf?.user_metadata
+          ? JSON.stringify(updatedSelf.user_metadata).length
           : JSON.stringify(cleanedMeta).length;
-
-        if (actualAfterChars > 3500) {
-          const pureCleaned = Object.fromEntries(Object.entries(cleanedMeta).filter(([, v]) => v !== null));
-          await fetch(userAdminEndpoint, {
-            method: 'PUT',
-            headers: putHeaders,
-            body: JSON.stringify({ user_metadata: {} })
-          });
-          putRes = await fetch(userAdminEndpoint, {
-            method: 'PUT',
-            headers: putHeaders,
-            body: JSON.stringify({ user_metadata: pureCleaned })
-          });
-          if (putRes.ok) {
-            updatedAdminUser = await putRes.json().catch(() => null);
-            if (updatedAdminUser?.user_metadata) {
-              actualAfterChars = JSON.stringify(updatedAdminUser.user_metadata).length;
-            }
-          }
-        }
         return res.status(200).json({
           ok: true,
           repaired: true,
+          method: 'self',
           beforeChars,
           afterChars: actualAfterChars
         });
@@ -439,13 +525,8 @@ export default async function handler(req, res) {
 
     if (checkSelf) {
       try {
-        const readKey = serviceRoleKey || sbAnonKey;
-        const readBearer = serviceRoleKey || caller.token;
         const regRes = await fetch(`${sbUrl}/rest/v1/cubikar_registros?select=email,nombre,registered_at,metadata`, {
-          headers: {
-            apikey: readKey,
-            Authorization: `Bearer ${readBearer}`
-          }
+          headers: buildSupabaseReadHeaders(serviceRoleKey, sbAnonKey, caller.token)
         });
         if (regRes.ok) {
           const rows = await regRes.json();
@@ -504,10 +585,7 @@ export default async function handler(req, res) {
     if (serviceRoleKey) {
       try {
         const authRes = await fetch(`${sbUrl}/auth/v1/admin/users?page=1&per_page=1000`, {
-          headers: {
-            apikey: serviceRoleKey,
-            Authorization: `Bearer ${serviceRoleKey}`
-          }
+          headers: buildSupabaseAdminHeaders(serviceRoleKey)
         });
 
         if (authRes.ok) {
@@ -550,10 +628,7 @@ export default async function handler(req, res) {
           ? `&or=(email.ilike.*${encodeURIComponent(searchParam)}*,nombre_completo.ilike.*${encodeURIComponent(searchParam)}*)`
           : '';
         const perfRes = await fetch(`${sbUrl}/rest/v1/perfiles?select=*,empresas(*)${orFilter}`, {
-          headers: {
-            apikey: serviceRoleKey,
-            Authorization: `Bearer ${serviceRoleKey}`
-          }
+          headers: buildSupabaseAdminHeaders(serviceRoleKey)
         });
         if (perfRes.ok) {
           const perfiles = await perfRes.json();
@@ -607,13 +682,8 @@ export default async function handler(req, res) {
 
     // 3. Complementar desde cubikar_registros SIN sobrescribir datos autoritativos de Auth/Empresas
     try {
-      const readKey = serviceRoleKey || sbAnonKey;
-      const readBearer = serviceRoleKey || caller.token;
       const regRes = await fetch(`${sbUrl}/rest/v1/cubikar_registros?select=*`, {
-        headers: {
-          apikey: readKey,
-          Authorization: `Bearer ${readBearer}`
-        }
+        headers: buildSupabaseReadHeaders(serviceRoleKey, sbAnonKey, caller.token)
       });
       if (regRes.ok) {
         const rows = await regRes.json();
@@ -737,10 +807,7 @@ export default async function handler(req, res) {
           const perfRes = await fetch(
             `${sbUrl}/rest/v1/perfiles?email=ilike.${encodeURIComponent(safeEmail)}&select=empresa_id,empresas(id,plan)&limit=1`,
             {
-              headers: {
-                apikey: serviceRoleKey,
-                Authorization: `Bearer ${serviceRoleKey}`
-              }
+              headers: buildSupabaseAdminHeaders(serviceRoleKey)
             }
           );
           if (perfRes.ok) {
@@ -785,16 +852,12 @@ export default async function handler(req, res) {
       globalUsersCache.set(rawEmail, userEntry);
 
       try {
-        const postKey = serviceRoleKey || sbAnonKey;
-        const postBearer = serviceRoleKey || caller.token;
         await fetch(`${sbUrl}/rest/v1/cubikar_registros?on_conflict=email`, {
           method: 'POST',
-          headers: {
-            apikey: postKey,
-            Authorization: `Bearer ${postBearer}`,
+          headers: buildSupabaseReadHeaders(serviceRoleKey, sbAnonKey, caller.token, {
             'Content-Type': 'application/json',
             Prefer: 'resolution=merge-duplicates,return=minimal'
-          },
+          }),
           body: JSON.stringify({
             email: rawEmail,
             nombre: userEntry.name,
@@ -841,7 +904,7 @@ export default async function handler(req, res) {
       try {
         const perfRes = await fetch(
           `${sbUrl}/rest/v1/perfiles?email=ilike.${encodeURIComponent(targetEmail)}&select=id,empresa_id&limit=1`,
-          { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } }
+          { headers: buildSupabaseAdminHeaders(serviceRoleKey) }
         );
         const rows = perfRes.ok ? await perfRes.json() : [];
         const empresaId = rows?.[0]?.empresa_id;
@@ -900,10 +963,7 @@ export default async function handler(req, res) {
         if (body.userId) {
           const delRes = await fetch(`${sbUrl}/auth/v1/admin/users/${encodeURIComponent(String(body.userId))}`, {
             method: 'DELETE',
-            headers: {
-              apikey: serviceRoleKey,
-              Authorization: `Bearer ${serviceRoleKey}`
-            }
+            headers: buildSupabaseAdminHeaders(serviceRoleKey)
           });
           if (!delRes.ok) {
             const errTxt = await delRes.text().catch(() => '');
@@ -914,10 +974,7 @@ export default async function handler(req, res) {
           deletedFromAuth++;
         } else {
           const authRes = await fetch(`${sbUrl}/auth/v1/admin/users?page=1&per_page=1000`, {
-            headers: {
-              apikey: serviceRoleKey,
-              Authorization: `Bearer ${serviceRoleKey}`
-            }
+            headers: buildSupabaseAdminHeaders(serviceRoleKey)
           });
 
           if (!authRes.ok) {
@@ -935,10 +992,7 @@ export default async function handler(req, res) {
             if (matched && matched.id) {
               const delRes = await fetch(`${sbUrl}/auth/v1/admin/users/${matched.id}`, {
                 method: 'DELETE',
-                headers: {
-                  apikey: serviceRoleKey,
-                  Authorization: `Bearer ${serviceRoleKey}`
-                }
+                headers: buildSupabaseAdminHeaders(serviceRoleKey)
               });
               if (!delRes.ok) {
                 const errTxt = await delRes.text().catch(() => '');
@@ -961,17 +1015,11 @@ export default async function handler(req, res) {
           if (!safeTarget) continue;
           await fetch(`${sbUrl}/rest/v1/perfiles?email=ilike.${encodeURIComponent(safeTarget)}`, {
             method: 'DELETE',
-            headers: {
-              apikey: serviceRoleKey,
-              Authorization: `Bearer ${serviceRoleKey}`
-            }
+            headers: buildSupabaseAdminHeaders(serviceRoleKey)
           });
           await fetch(`${sbUrl}/rest/v1/cubikar_registros?email=ilike.${encodeURIComponent(safeTarget)}`, {
             method: 'DELETE',
-            headers: {
-              apikey: serviceRoleKey,
-              Authorization: `Bearer ${serviceRoleKey}`
-            }
+            headers: buildSupabaseAdminHeaders(serviceRoleKey)
           });
           deletedFromTables++;
         } catch {}
@@ -1007,10 +1055,7 @@ export default async function handler(req, res) {
         if (serviceRoleKey) {
           try {
             const authRes = await fetch(`${sbUrl}/auth/v1/admin/users?page=1&per_page=1000`, {
-              headers: {
-                apikey: serviceRoleKey,
-                Authorization: `Bearer ${serviceRoleKey}`
-              }
+              headers: buildSupabaseAdminHeaders(serviceRoleKey)
             });
             if (authRes.ok) {
               const authData = await authRes.json();
@@ -1022,11 +1067,7 @@ export default async function handler(req, res) {
                   : {};
                 await fetch(`${sbUrl}/auth/v1/admin/users/${targetUser.id}`, {
                   method: 'PUT',
-                  headers: {
-                    apikey: serviceRoleKey,
-                    Authorization: `Bearer ${serviceRoleKey}`,
-                    'Content-Type': 'application/json'
-                  },
+                  headers: buildSupabaseAdminHeaders(serviceRoleKey, { 'Content-Type': 'application/json' }),
                   body: JSON.stringify({
                     user_metadata: {
                       ...prevUserMeta,
@@ -1040,13 +1081,11 @@ export default async function handler(req, res) {
           } catch (_) {}
         }
 
-        const readKey = serviceRoleKey || sbAnonKey;
-        const authBearer = serviceRoleKey || caller.token;
         let existingRow = null;
 
         const checkRes = await fetch(
           `${sbUrl}/rest/v1/cubikar_registros?email=ilike.${encodeURIComponent(targetEmail)}&select=email,nombre,metadata&limit=1`,
-          { headers: { apikey: readKey, Authorization: `Bearer ${authBearer}` } }
+          { headers: buildSupabaseReadHeaders(serviceRoleKey, sbAnonKey, caller.token) }
         );
         if (checkRes.ok) {
           const rows = await checkRes.json();
@@ -1064,12 +1103,10 @@ export default async function handler(req, res) {
 
         const upsertRes = await fetch(`${sbUrl}/rest/v1/cubikar_registros?on_conflict=email`, {
           method: 'POST',
-          headers: {
-            apikey: readKey,
-            Authorization: `Bearer ${authBearer}`,
+          headers: buildSupabaseReadHeaders(serviceRoleKey, sbAnonKey, caller.token, {
             'Content-Type': 'application/json',
             Prefer: 'resolution=merge-duplicates,return=minimal'
-          },
+          }),
           body: JSON.stringify({
             email: targetEmail,
             nombre: existingRow?.nombre || targetName,
