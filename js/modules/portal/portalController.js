@@ -4526,41 +4526,9 @@ export function renderHeaderCollaborators() {
   const proj = getProjectById(pId);
   let members = (proj && Array.isArray(proj.members)) ? proj.members : [];
 
-  // Si no cuenta aún con miembros asignados, inicializar con equipo base con roles
   if (members.length === 0) {
-    const currentUser = getCurrentUser();
-    members = [
-      {
-        id: 'mem-' + ((currentUser && currentUser.email) || 'admin'),
-        name: (currentUser && currentUser.name) || 'Administrador de Obra',
-        email: (currentUser && currentUser.email) || 'admin@constructora.com',
-        avatar: (currentUser && currentUser.avatar) || AVATARS_BY_SEX['Masculino'],
-        role: 'editar'
-      },
-      {
-        id: 'mem-colab-01',
-        name: 'Ing. Mariana Torres Morales',
-        email: 'mariana.torres.costos@gmail.com',
-        avatar: AVATARS_BY_SEX['Femenino'],
-        role: 'escribir'
-      },
-      {
-        id: 'mem-colab-02',
-        name: 'Arq. Roberto Méndez Silva',
-        email: 'roberto.mendez.obras@gmail.com',
-        avatar: AVATARS_BY_SEX['Masculino'],
-        role: 'leer'
-      }
-    ];
-    if (proj) {
-      proj.members = members;
-      const list = getProjectsList();
-      const idx = list.findIndex(p => p.id === proj.id);
-      if (idx !== -1) {
-        list[idx] = proj;
-        saveProjectsList(list);
-      }
-    }
+    container.innerHTML = '';
+    return;
   }
 
   const roleLabels = {

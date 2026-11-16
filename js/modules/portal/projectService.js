@@ -933,34 +933,8 @@ export function getProjectsList() {
             }
           });
         }
-        if (!p.members || !Array.isArray(p.members) || p.members.length === 0) {
-          p.members = [
-            {
-              id: 'mem-' + (currentUser ? currentUser.email : 'owner'),
-              name: (currentUser && currentUser.name) || 'Administrador de Obra',
-              email: (currentUser && currentUser.email) || 'admin@constructora.com',
-              avatar: (currentUser && currentUser.avatar) || AVATARS_BY_SEX['Masculino'],
-              role: 'editar',
-              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
-            },
-            {
-              id: 'mem-colab-01',
-              name: 'Ing. Mariana Torres Morales',
-              email: 'mariana.torres.costos@gmail.com',
-              avatar: AVATARS_BY_SEX['Femenino'],
-              role: 'escribir',
-              allowedTabs: ['insumos', 'estimaciones']
-            },
-            {
-              id: 'mem-colab-02',
-              name: 'Arq. Roberto Méndez Silva',
-              email: 'roberto.mendez.obras@gmail.com',
-              avatar: AVATARS_BY_SEX['Masculino'],
-              role: 'leer',
-              allowedTabs: ['cat', 'calendario']
-            }
-          ];
-          changed = true;
+        if (!p.members || !Array.isArray(p.members)) {
+          p.members = [];
         }
 
         // Asignar tipo de obra si no cuenta con él
