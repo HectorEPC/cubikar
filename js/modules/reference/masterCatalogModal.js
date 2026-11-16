@@ -1,25 +1,25 @@
 // js/modules/reference/masterCatalogModal.js
 // Modal de Catálogo Maestro y Biblioteca de Referencia (Opción 1)
 
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf5';
-import { saveState } from '../../state/history.js?v=20261116_cf5';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf5';
-import { formatMoney } from '../../core/formatters.js?v=20261116_cf5';
-import { findNodeById, recalculateClaves, guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf5';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf5';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf6';
+import { saveState } from '../../state/history.js?v=20261116_cf6';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf6';
+import { formatMoney } from '../../core/formatters.js?v=20261116_cf6';
+import { findNodeById, recalculateClaves, guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf6';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf6';
 import {
   listReferenceCatalogs,
   searchReferenceItems,
   deleteReferenceCatalog,
   getReferenceDatabaseStats,
   syncMasterCatalogsFromCloud
-} from './referenceDb.js?v=20261116_cf5';
-import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetCatalogs.js?v=20261116_cf5';
-import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js?v=20261116_cf5';
-import { openImportModal } from '../io/universalImporter.js?v=20261116_cf5';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf5';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf5';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf5';
+} from './referenceDb.js?v=20261116_cf6';
+import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetCatalogs.js?v=20261116_cf6';
+import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js?v=20261116_cf6';
+import { openImportModal } from '../io/universalImporter.js?v=20261116_cf6';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf6';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf6';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf6';
 
 let debounceTimer = null;
 let currentSearchResults = [];

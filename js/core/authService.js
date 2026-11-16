@@ -1,10 +1,10 @@
 // js/core/authService.js
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
-import { STORAGE_KEY_USER } from '../config/constants.js?v=20261116_cf5';
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf5';
-import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261116_cf5';
-import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261116_cf5';
+import { STORAGE_KEY_USER } from '../config/constants.js?v=20261116_cf6';
+import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261116_cf6';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261116_cf6';
+import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261116_cf6';
 import {
   writeSharedSsoCookie,
   clearSharedSsoCookie,
@@ -14,7 +14,7 @@ import {
   scrubSsoHashParams,
   hasPendingIncomingSso,
   getLastSignOutTimestamp
-} from './ssoHelper.js?v=20261116_cf5';
+} from './ssoHelper.js?v=20261116_cf6';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -52,6 +52,207 @@ const cachedProfilesByUserId = new Map();
 
 export function isSsoHydrationPending() {
   return ssoHydrationInProgress;
+}
+
+const MAX_SAFE_JWT_CHARS = 4500;
+let compactSessionInFlightPromise = null;
+const repairedJwtFingerprints = new Set();
+
+function extractJwtExpSeconds(token) {
+  if (!token || typeof token !== 'string') return 0;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return 0;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4 ? b64 + '='.repeat(4 - (b64.length % 4)) : b64;
+    const payload = JSON.parse(atob(pad));
+    return Number(payload?.exp || 0) || 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function hasBloatedUserMetadata(user) {
+  const meta = user?.user_metadata;
+  if (!meta || typeof meta !== 'object') return false;
+  if (meta.cubikar_collaboration_v1 && typeof meta.cubikar_collaboration_v1 === 'object') return true;
+  for (const imgKey of ['avatar_url', 'picture']) {
+    const val = meta[imgKey];
+    if (typeof val === 'string' && (val.startsWith('data:') || val.length > 600)) return true;
+  }
+  const cs = meta.cubikar_cloud_state_v2;
+  if (cs && typeof cs === 'object') {
+    if (Array.isArray(cs.ownedProjects) && cs.ownedProjects.length > 0) return true;
+    if (Array.isArray(cs.collaboratedProjects) && cs.collaboratedProjects.length > 0) return true;
+    if (Array.isArray(cs.deletedProjectIds) && cs.deletedProjectIds.length > 15) return true;
+  }
+  if (Array.isArray(meta.cubikar_dismissed_notifications) && meta.cubikar_dismissed_notifications.length > 25) return true;
+  if (Array.isArray(meta.cubikar_read_mentions) && meta.cubikar_read_mentions.length > 25) return true;
+  try {
+    if (JSON.stringify(meta).length > 3600) return true;
+  } catch (_) {}
+  return false;
+}
+
+function isJwtSessionBloated(session) {
+  const token = session?.access_token;
+  if (typeof token === 'string' && token.length > MAX_SAFE_JWT_CHARS) return true;
+  return hasBloatedUserMetadata(session?.user);
+}
+
+async function repairBloatedJwtRemote(accessToken) {
+  if (!accessToken || typeof accessToken !== 'string' || !accessToken.includes('.')) return false;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const endpoints = [];
+  const addEndpoint = (u) => { if (u && !endpoints.includes(u)) endpoints.push(u); };
+  addEndpoint('/api/admin-users');
+  if (origin !== 'https://const.cubikar.app') {
+    addEndpoint('https://const.cubikar.app/api/admin-users');
+  }
+
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'slim_own_jwt_metadata',
+          accessToken
+        })
+      });
+      if (!res.ok) continue;
+      const json = await res.json().catch(() => null);
+      if (json?.ok) return true;
+    } catch (_) {}
+  }
+  return false;
+}
+
+async function refreshCleanSession(sb, refreshToken) {
+  if (!sb) return null;
+  try {
+    const { data, error } = refreshToken
+      ? await sb.auth.refreshSession({ refresh_token: refreshToken })
+      : await sb.auth.refreshSession();
+    if (!error && data?.session?.access_token) {
+      return data.session;
+    }
+  } catch (_) {}
+
+  const cfg = typeof getSupabaseConfig === 'function' ? getSupabaseConfig() : null;
+  if (refreshToken && cfg?.url && cfg?.anonKey) {
+    try {
+      const res = await fetch(`${cfg.url}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: {
+          apikey: cfg.anonKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+      if (res.ok) {
+        const tok = await res.json().catch(() => null);
+        if (tok?.access_token) {
+          const setRes = await sb.auth.setSession({
+            access_token: tok.access_token,
+            refresh_token: tok.refresh_token || refreshToken
+          });
+          return setRes?.data?.session || tok;
+        }
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+export function hasOversizedLocalJwt() {
+  try {
+    const localTok = readLocalSupabaseTokens();
+    if (localTok?.accessToken && localTok.accessToken.length > MAX_SAFE_JWT_CHARS) return true;
+    const cookieTok = readSharedSsoCookie();
+    if (cookieTok?.accessToken && cookieTok.accessToken.length > MAX_SAFE_JWT_CHARS) return true;
+    if (hasBloatedUserMetadata(getCurrentUser())) return true;
+  } catch (_) {}
+  return false;
+}
+
+export async function ensureCompactAuthSession(sbClient = null, sessionOverride = null) {
+  if (compactSessionInFlightPromise) {
+    return compactSessionInFlightPromise;
+  }
+
+  compactSessionInFlightPromise = (async () => {
+    const sb = sbClient || getSupabaseClient();
+    let session = sessionOverride || null;
+    if (!session && sb) {
+      try {
+        const { data } = await sb.auth.getSession();
+        session = data?.session || null;
+      } catch (_) {}
+    }
+    if (!session) {
+      const localTok = readLocalSupabaseTokens();
+      if (localTok?.accessToken && localTok?.refreshToken) {
+        session = { access_token: localTok.accessToken, refresh_token: localTok.refreshToken, user: null };
+      }
+    }
+    if (!session || !isJwtSessionBloated(session)) {
+      return session;
+    }
+    if (!session.access_token || !session.access_token.includes('.')) {
+      return session;
+    }
+
+    const fp = `${session.access_token.length}_${session.access_token.slice(-16)}`;
+    if (repairedJwtFingerprints.has(fp)) {
+      return session;
+    }
+    try {
+      const prevTs = Number(typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('cubikar_jwt_slim_ts_' + fp) || 0 : 0);
+      if (prevTs > 0 && (Date.now() - prevTs) < 10000) {
+        return session;
+      }
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('cubikar_jwt_slim_ts_' + fp, String(Date.now()));
+      }
+    } catch (_) {}
+    repairedJwtFingerprints.add(fp);
+
+    const exp = extractJwtExpSeconds(session.access_token);
+    if (exp > 0 && exp < Math.floor(Date.now() / 1000) + 30 && session.refresh_token) {
+      const renewed = await refreshCleanSession(sb, session.refresh_token);
+      if (renewed?.access_token) {
+        session = renewed;
+        if (!isJwtSessionBloated(session)) {
+          return session;
+        }
+      }
+    }
+
+    const repaired = await repairBloatedJwtRemote(session.access_token);
+    if (!repaired) {
+      return session;
+    }
+
+    const cleanSession = await refreshCleanSession(sb, session.refresh_token);
+    if (cleanSession?.access_token) {
+      console.info(`[Supabase Auth] Sesión JWT compactada automáticamente (${session.access_token.length} -> ${cleanSession.access_token.length} bytes).`);
+      if (cleanSession.user) {
+        try {
+          syncLocalUserSession(cleanSession.user, null, false, resolveRememberPreference(null));
+          if (resolveRememberPreference(null)) {
+            writeSharedSsoCookie(cleanSession);
+          }
+        } catch (_) {}
+      }
+      return cleanSession;
+    }
+    return session;
+  })().finally(() => {
+    compactSessionInFlightPromise = null;
+  });
+
+  return compactSessionInFlightPromise;
 }
 
 function clearCachedUserProfiles() {
@@ -357,6 +558,13 @@ export async function signInWithPassword({ email, password, remember = null }) {
 
     if (authError) throw authError;
 
+    if (data?.session && isJwtSessionBloated(data.session)) {
+      const compact = await ensureCompactAuthSession(sb, data.session);
+      if (compact?.user) {
+        data = { ...data, session: compact, user: compact.user };
+      }
+    }
+
     syncLocalUserSession(data.user, null, true, effectiveRemember);
     if (effectiveRemember && data.session) {
       writeSharedSsoCookie(data.session);
@@ -437,8 +645,15 @@ export async function signInWithGoogleIdToken({ idToken, rawNonce, remember = nu
   explicitAuthDepth += 1;
   explicitAuthRemember = effectiveRemember;
   try {
-    const { data, error } = await sb.auth.signInWithIdToken(payload);
+    let { data, error } = await sb.auth.signInWithIdToken(payload);
     if (error) throw error;
+
+    if (data?.session && isJwtSessionBloated(data.session)) {
+      const compact = await ensureCompactAuthSession(sb, data.session);
+      if (compact?.user) {
+        data = { ...data, session: compact, user: compact.user };
+      }
+    }
 
     let perfil = null;
     if (data?.user?.id) {
@@ -783,7 +998,7 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
           restoreUserCollaborationFromCloud(user);
         } catch (_) {}
         autoSyncCollaborationOnStartup(user, { force: Boolean(force) });
-        import('../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf5')
+        import('../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf6')
           .then(m => m.syncAiQuotaFromSupabase())
           .catch(() => {});
       }, 50);
@@ -831,7 +1046,10 @@ export async function hydrateIncomingSsoSession() {
         const email = (data.session.user.email || '').toLowerCase().trim();
         const isClosed = getClosedSessionsList().includes(email);
         if (current || (!isClosed && hasValidLocalSessionForEmail(email))) {
-          return { hydrated: true, session: data.session, user: data.session.user };
+          const cleanSession = isJwtSessionBloated(data.session)
+            ? ((await ensureCompactAuthSession(sb, data.session)) || data.session)
+            : data.session;
+          return { hydrated: true, session: cleanSession, user: cleanSession.user };
         }
       }
     } catch (_) {}
@@ -885,7 +1103,11 @@ export async function hydrateIncomingSsoSession() {
     let sessionData = null;
     let sessionError = null;
 
-    if (tokens.accessToken && tokens.refreshToken) {
+    if (tokens.accessToken && tokens.accessToken.length > MAX_SAFE_JWT_CHARS) {
+      await repairBloatedJwtRemote(tokens.accessToken);
+    }
+
+    if (tokens.accessToken && tokens.accessToken.length <= MAX_SAFE_JWT_CHARS && tokens.refreshToken) {
       try {
         const res = await sb.auth.setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken });
         if (res.data?.session?.user) {
@@ -927,6 +1149,13 @@ export async function hydrateIncomingSsoSession() {
 
     if (!sessionData?.session?.user) {
       return { hydrated: false, error: sessionError };
+    }
+
+    if (isJwtSessionBloated(sessionData.session)) {
+      const compact = await ensureCompactAuthSession(sb, sessionData.session);
+      if (compact?.user) {
+        sessionData = { ...sessionData, session: compact, user: compact.user };
+      }
     }
 
     const data = sessionData;
@@ -1003,6 +1232,42 @@ export function initAuthListener(onAuthChangeCallback) {
       const isExplicitLogin = (event === 'SIGNED_IN' || (event === 'USER_UPDATED' && !isInternalSync) || isOAuthRedirect);
       const rememberPref = isExplicitInteractive ? explicitAuthRemember : null;
       const shouldKeepSsoCookie = rememberPref !== null ? rememberPref : resolveRememberPreference(null);
+
+      if (isJwtSessionBloated(session)) {
+        setTimeout(async () => {
+          const cleanSession = (await ensureCompactAuthSession(sb, session)) || session;
+          if (!cleanSession?.user) return;
+          if (shouldKeepSsoCookie) {
+            writeSharedSsoCookie(cleanSession);
+          } else if (rememberPref === false) {
+            clearSharedSsoCookie({ markSignOut: false });
+          }
+
+          const cachedEntry = cachedProfilesByUserId.get(cleanSession.user.id);
+          const initialPerfil = cachedEntry ? cachedEntry.data : null;
+          syncLocalUserSession(cleanSession.user, initialPerfil, isExplicitLogin, rememberPref);
+
+          if (!isInternalSync && event !== 'TOKEN_REFRESHED') {
+            try {
+              autoSyncCollaborationOnStartup(cleanSession.user, { force: isExplicitLogin });
+            } catch (e) {}
+          }
+          if (onAuthChangeCallback) onAuthChangeCallback(event, cleanSession, initialPerfil);
+
+          if (!initialPerfil) {
+            fetchUserProfile(cleanSession.user.id).then((perfil) => {
+              if (perfil && getCurrentUser()?.id === cleanSession.user.id) {
+                syncLocalUserSession(cleanSession.user, perfil, false, null);
+                if (onAuthChangeCallback) {
+                  onAuthChangeCallback('PROFILE_LOADED', cleanSession, perfil);
+                }
+              }
+            }).catch(() => {});
+          }
+        }, 0);
+        return;
+      }
+
       if (shouldKeepSsoCookie) {
         writeSharedSsoCookie(session);
       } else if (rememberPref === false) {

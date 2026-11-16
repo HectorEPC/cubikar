@@ -1,22 +1,22 @@
 // js/modules/io/universalImporter.js
 // Importador Universal compatible con .xlsx, .xls, .csv, .json
 
-import { state, persistLocalData, persistSettings } from '../../state/store.js?v=20261116_cf5';
-import { saveState } from '../../state/history.js?v=20261116_cf5';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf5';
-import { formatMoney, round2, round5, parseFlexibleNumber } from '../../core/formatters.js?v=20261116_cf5';
-import { updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js?v=20261116_cf5';
-import { recalculateClaves, findNodeById, guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf5';
-import { CASA_LAURA_PROJECT, getExactOpusInsumosForClave } from './casaLauraData.js?v=20261116_cf5';
-import { countTreeConcepts, loadSampleResidentialZipCatalog } from '../portal/projectService.js?v=20261116_cf5';
-import { defaultTreeData } from '../../config/defaultData.js?v=20261116_cf5';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf5';
-import { saveReferenceCatalog, getReferenceDatabaseStats, canImportReferenceCatalog } from '../reference/referenceDb.js?v=20261116_cf5';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf5';
-import { parseOpusOrNeodataFile } from './opusNeodataImporter.js?v=20261116_cf5';
-import { cleanMojibake, sanitizeCatalogNodes, readBlobAsTextSmart } from '../../core/textSanitizer.js?v=20261116_cf5';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf5';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf5';
+import { state, persistLocalData, persistSettings } from '../../state/store.js?v=20261116_cf6';
+import { saveState } from '../../state/history.js?v=20261116_cf6';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf6';
+import { formatMoney, round2, round5, parseFlexibleNumber } from '../../core/formatters.js?v=20261116_cf6';
+import { updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js?v=20261116_cf6';
+import { recalculateClaves, findNodeById, guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf6';
+import { CASA_LAURA_PROJECT, getExactOpusInsumosForClave } from './casaLauraData.js?v=20261116_cf6';
+import { countTreeConcepts, loadSampleResidentialZipCatalog } from '../portal/projectService.js?v=20261116_cf6';
+import { defaultTreeData } from '../../config/defaultData.js?v=20261116_cf6';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf6';
+import { saveReferenceCatalog, getReferenceDatabaseStats, canImportReferenceCatalog } from '../reference/referenceDb.js?v=20261116_cf6';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf6';
+import { parseOpusOrNeodataFile } from './opusNeodataImporter.js?v=20261116_cf6';
+import { cleanMojibake, sanitizeCatalogNodes, readBlobAsTextSmart } from '../../core/textSanitizer.js?v=20261116_cf6';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf6';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf6';
 
 let currentParsedData = null; // Almacena el resultado del parsing del archivo actual
 let currentWorkbook = null;

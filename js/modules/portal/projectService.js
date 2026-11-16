@@ -15,14 +15,14 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261116_cf5';
+} from '../../config/constants.js?v=20261116_cf6';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf5';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf5';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf5';
-import { deleteProjectFromCloud } from '../../core/cloudProjectService.js?v=20261116_cf5';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf5';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf6';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf6';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf6';
+import { deleteProjectFromCloud } from '../../core/cloudProjectService.js?v=20261116_cf6';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf6';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -588,7 +588,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261116_cf5').then(m => {
+            import('../../core/supabaseClient.js?v=20261116_cf6').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});

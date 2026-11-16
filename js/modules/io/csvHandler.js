@@ -1,15 +1,15 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf5';
-import { saveState } from '../../state/history.js?v=20261116_cf5';
-import { guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf5';
-import { countTreeConcepts } from '../portal/projectService.js?v=20261116_cf5';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf5';
-import { calculateParentTotal, calculateParentDirectTotal } from '../../core/calculations.js?v=20261116_cf5';
-import { recalculateClaves } from '../catalog/treeService.js?v=20261116_cf5';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf5';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf5';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf5';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf5';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf5';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf6';
+import { saveState } from '../../state/history.js?v=20261116_cf6';
+import { guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf6';
+import { countTreeConcepts } from '../portal/projectService.js?v=20261116_cf6';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf6';
+import { calculateParentTotal, calculateParentDirectTotal } from '../../core/calculations.js?v=20261116_cf6';
+import { recalculateClaves } from '../catalog/treeService.js?v=20261116_cf6';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf6';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf6';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf6';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf6';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf6';
 
 // Abrir modal interactivo de selección de formato de exportación
 export function openExportModal() {

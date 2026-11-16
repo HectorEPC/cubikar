@@ -1,16 +1,16 @@
 // js/modules/compras/expensesExporter.js
 // Exportación a Excel (.xlsx) y generación de formatos imprimibles oficiales de Orden de Compra y Reportes
 
-import { state } from '../../state/store.js?v=20261116_cf5';
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261116_cf5';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf5';
-import { openPrintWindow } from '../io/printService.js?v=20261116_cf5';
-import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesSignatures } from './expensesModel.js?v=20261116_cf5';
-import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261116_cf5';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf5';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf5';
-import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261116_cf5';
-import { isNightMode } from '../../ui/themeController.js?v=20261116_cf5';
+import { state } from '../../state/store.js?v=20261116_cf6';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261116_cf6';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf6';
+import { openPrintWindow } from '../io/printService.js?v=20261116_cf6';
+import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesSignatures } from './expensesModel.js?v=20261116_cf6';
+import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261116_cf6';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf6';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf6';
+import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261116_cf6';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf6';
 
 /**
  * Renderizar bloque dinámico de firmas configuradas para los reportes de Compras y Pagos

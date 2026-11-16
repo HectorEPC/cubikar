@@ -3,19 +3,19 @@
 // Incluye: KPIs de obra, Timeline cronológico con filtros, Redacción con conceptos y fotos,
 // Canvas táctil de firma digital, Configuración S3 del Anfitrión y Lightbox de evidencias.
 
-import { state } from '../../state/store.js?v=20261116_cf5';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf5';
-import { guardTabUnlocked, isTabLocked, toggleTabLock } from '../../ui/tabLockController.js?v=20261116_cf5';
-import { getCurrentUser, resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf5';
+import { state } from '../../state/store.js?v=20261116_cf6';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf6';
+import { guardTabUnlocked, isTabLocked, toggleTabLock } from '../../ui/tabLockController.js?v=20261116_cf6';
+import { getCurrentUser, resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf6';
 
 function isLegalBitacoraAllowed() {
   const planId = resolveWorkspacePlanContext()?.planId || 'free';
   return planId === 'plus' || planId === 'pro';
 }
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf5';
-import { formatDate } from '../calendario/calendarioModel.js?v=20261116_cf5';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf5';
-import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261116_cf5';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf6';
+import { formatDate } from '../calendario/calendarioModel.js?v=20261116_cf6';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf6';
+import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261116_cf6';
 import {
   BITACORA_NOTE_TYPES,
   BITACORA_WEATHER_OPTIONS,
@@ -34,7 +34,7 @@ import {
   sealAndSignBitacoraNote,
   getCatalogConceptsForBitacora,
   getBitacoraWorkSummary
-} from './bitacoraModel.js?v=20261116_cf5';
+} from './bitacoraModel.js?v=20261116_cf6';
 import {
   getStorageConnectionSummary,
   uploadBitacoraEvidenceFile,
@@ -42,12 +42,12 @@ import {
   openBitacoraPdfArtifact,
   resolveBitacoraPhotoUrl,
   syncPendingBitacoraArtifactsToCloud
-} from './bitacoraDriveService.js?v=20261116_cf5';
+} from './bitacoraDriveService.js?v=20261116_cf6';
 import {
   generateNotePdfArtifact,
   downloadSingleNotePdf,
   generateAndDownloadFullBitacoraBook
-} from './bitacoraPdfService.js?v=20261116_cf5';
+} from './bitacoraPdfService.js?v=20261116_cf6';
 
 // Estado de UI y filtros del Timeline
 let searchFilter = '';

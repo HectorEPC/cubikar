@@ -3,8 +3,8 @@
 // persistencia total de proyectos, anfitriones, invitaciones y membresías
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf5';
-import { syncProjectToCloud, fetchCloudProjects } from './cloudProjectService.js?v=20261116_cf5';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf6';
+import { syncProjectToCloud, fetchCloudProjects } from './cloudProjectService.js?v=20261116_cf6';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -20,9 +20,9 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261116_cf5';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf5';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf5';
+} from '../modules/portal/projectService.js?v=20261116_cf6';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf6';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf6';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
@@ -39,7 +39,38 @@ let lastStartupSyncAt = 0;
 const MIN_CLOUD_UPDATE_INTERVAL_MS = 12000;
 const BASE_FAILURE_BACKOFF_MS = 5000;
 const MAX_FAILURE_BACKOFF_MS = 120000;
-const MAX_METADATA_DELETED_IDS = 40;
+const MAX_METADATA_DELETED_IDS = 15;
+
+function compactCloudStatePayload(rawPayload) {
+  const payload = { ...rawPayload };
+  if (Array.isArray(payload.planInvitations) && payload.planInvitations.length > 15) {
+    payload.planInvitations = payload.planInvitations.slice(-15);
+  }
+  if (Array.isArray(payload.acceptedInvitations) && payload.acceptedInvitations.length > 15) {
+    payload.acceptedInvitations = payload.acceptedInvitations.slice(-15);
+  }
+  if (Array.isArray(payload.sentPlanInvitations) && payload.sentPlanInvitations.length > 15) {
+    payload.sentPlanInvitations = payload.sentPlanInvitations.slice(-15);
+  }
+  if (Array.isArray(payload.sentProjectInvitations) && payload.sentProjectInvitations.length > 15) {
+    payload.sentProjectInvitations = payload.sentProjectInvitations.slice(-15);
+  }
+  if (Array.isArray(payload.deletedProjectIds) && payload.deletedProjectIds.length > MAX_METADATA_DELETED_IDS) {
+    payload.deletedProjectIds = payload.deletedProjectIds.slice(-MAX_METADATA_DELETED_IDS);
+  }
+  if (JSON.stringify(payload).length > 2200) {
+    payload.deletedProjectIds = Array.isArray(payload.deletedProjectIds) ? payload.deletedProjectIds.slice(-10) : [];
+    payload.sentPlanInvitations = Array.isArray(payload.sentPlanInvitations) ? payload.sentPlanInvitations.slice(-5) : [];
+    payload.sentProjectInvitations = Array.isArray(payload.sentProjectInvitations) ? payload.sentProjectInvitations.slice(-5) : [];
+  }
+  if (JSON.stringify(payload).length > 2200) {
+    payload.sentPlanInvitations = [];
+    payload.sentProjectInvitations = [];
+    payload.planInvitations = Array.isArray(payload.planInvitations) ? payload.planInvitations.slice(-5) : [];
+    payload.acceptedInvitations = Array.isArray(payload.acceptedInvitations) ? payload.acceptedInvitations.slice(-5) : [];
+  }
+  return payload;
+}
 
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
@@ -142,7 +173,7 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
     }
 
     const deletedList = typeof getDeletedProjectsList === 'function' ? getDeletedProjectsList() : [];
-    const cloudPayload = {
+    const cloudPayload = compactCloudStatePayload({
       version: 2,
       subscription: currentSub,
       ownedProjects: [],
@@ -153,13 +184,14 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
       sentProjectInvitations: mySentProjectInvs,
       deletedProjectIds: Array.isArray(deletedList) ? deletedList.slice(-MAX_METADATA_DELETED_IDS) : [],
       updatedAt: new Date().toISOString()
-    };
+    });
 
     const nextSignature = computeCloudStateSignature(cloudPayload);
     const remoteState = sessionUser?.user_metadata?.cubikar_cloud_state_v2 || currentUser?.user_metadata?.cubikar_cloud_state_v2;
     const remoteSignature = computeCloudStateSignature(remoteState);
+    const hasLegacyV1Remote = Boolean(sessionUser?.user_metadata?.cubikar_collaboration_v1 || currentUser?.user_metadata?.cubikar_collaboration_v1);
 
-    if (nextSignature && (nextSignature === lastCloudSyncSignature || nextSignature === remoteSignature)) {
+    if (!hasLegacyV1Remote && nextSignature && (nextSignature === lastCloudSyncSignature || nextSignature === remoteSignature)) {
       lastCloudSyncSignature = nextSignature;
       if (currentUser && remoteState) {
         if (!currentUser.user_metadata) currentUser.user_metadata = {};
@@ -175,9 +207,13 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
       lastInternalCloudUpdateAt = Date.now();
       const { error } = await sb.auth.updateUser({
         data: {
+          cubikar_collaboration_v1: null,
           cubikar_cloud_state_v2: cloudPayload
         }
       });
+      if (currentUser?.user_metadata && 'cubikar_collaboration_v1' in currentUser.user_metadata) {
+        delete currentUser.user_metadata.cubikar_collaboration_v1;
+      }
 
       if (error) {
         syncFailed = true;
@@ -827,20 +863,25 @@ export async function reconcileDeletedProjectsWithCloud() {
       saveProjectsList(current, { skipCloudSync: true });
 
       const user = getCurrentUser();
-      if (user && user.user_metadata?.cubikar_cloud_state_v2) {
-        const cs = user.user_metadata.cubikar_cloud_state_v2;
-        const hadLegacyArrays = (Array.isArray(cs.collaboratedProjects) && cs.collaboratedProjects.length > 0) ||
-          (Array.isArray(cs.ownedProjects) && cs.ownedProjects.length > 0);
-        const hadBloatedDelIds = Array.isArray(cs.deletedProjectIds) && cs.deletedProjectIds.length > MAX_METADATA_DELETED_IDS;
+      if (user && (user.user_metadata?.cubikar_cloud_state_v2 || user.user_metadata?.cubikar_collaboration_v1)) {
+        const hadLegacyV1 = Boolean(user.user_metadata?.cubikar_collaboration_v1);
+        const cs = compactCloudStatePayload(user.user_metadata.cubikar_cloud_state_v2 || { version: 2 });
+        const hadLegacyArrays = (Array.isArray(user.user_metadata?.cubikar_cloud_state_v2?.collaboratedProjects) && user.user_metadata.cubikar_cloud_state_v2.collaboratedProjects.length > 0) ||
+          (Array.isArray(user.user_metadata?.cubikar_cloud_state_v2?.ownedProjects) && user.user_metadata.cubikar_cloud_state_v2.ownedProjects.length > 0);
+        const hadBloatedDelIds = Array.isArray(user.user_metadata?.cubikar_cloud_state_v2?.deletedProjectIds) && user.user_metadata.cubikar_cloud_state_v2.deletedProjectIds.length > MAX_METADATA_DELETED_IDS;
         cs.collaboratedProjects = [];
         cs.ownedProjects = [];
         const deletedIds = typeof getDeletedProjectsList === 'function' ? getDeletedProjectsList() : [];
         cs.deletedProjectIds = Array.isArray(deletedIds) ? deletedIds.slice(-MAX_METADATA_DELETED_IDS) : [];
+        if (user.user_metadata) {
+          delete user.user_metadata.cubikar_collaboration_v1;
+          user.user_metadata.cubikar_cloud_state_v2 = cs;
+        }
         saveCurrentUser(user);
-        if (hadLegacyArrays || hadBloatedDelIds) {
+        if (hadLegacyV1 || hadLegacyArrays || hadBloatedDelIds) {
           try {
             lastInternalCloudUpdateAt = Date.now();
-            await sb.auth.updateUser({ data: { cubikar_cloud_state_v2: cs } });
+            await sb.auth.updateUser({ data: { cubikar_collaboration_v1: null, cubikar_cloud_state_v2: cs } });
           } catch (_) {}
         }
       }
@@ -888,6 +929,7 @@ export async function autoSyncCollaborationOnStartup(user = null, opts = {}) {
     const myPlanInvs = allPlanInvs.filter(pi => (pi.email || '').toLowerCase().trim() === myEmail);
 
     const cloudState = currentUser.user_metadata?.cubikar_cloud_state_v2;
+    const hasLegacyV1 = Boolean(currentUser.user_metadata?.cubikar_collaboration_v1);
     const hasLegacyArrays = (Array.isArray(cloudState?.ownedProjects) && cloudState.ownedProjects.length > 0) ||
       (Array.isArray(cloudState?.collaboratedProjects) && cloudState.collaboratedProjects.length > 0);
     const hasBloatedDelIds = Array.isArray(cloudState?.deletedProjectIds) && cloudState.deletedProjectIds.length > MAX_METADATA_DELETED_IDS;
@@ -896,6 +938,7 @@ export async function autoSyncCollaborationOnStartup(user = null, opts = {}) {
 
     if (
       !cloudState ||
+      hasLegacyV1 ||
       hasLegacyArrays ||
       hasBloatedDelIds ||
       hasUnsyncedLocal ||

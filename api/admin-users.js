@@ -20,6 +20,7 @@ function isAllowedOrigin(rawOrigin) {
       host === 'cubikar.app' ||
       host.endsWith('.cubikar.app') ||
       host.endsWith('.pages.dev') ||
+      host.endsWith('.hepc-90.workers.dev') ||
       host === 'cubikar-jj8j.vercel.app' ||
       host.endsWith('.vercel.app') ||
       host === 'localhost' ||
@@ -149,6 +150,160 @@ async function isVerifiedAdmin(callerEmail, sbUrl, serviceRoleKey, callerToken, 
   return false;
 }
 
+function decodeBase64UrlToUint8(b64u) {
+  const b64 = String(b64u || '').replace(/-/g, '+').replace(/_/g, '/');
+  const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+  const bin = atob(padded);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function decodeBase64UrlJson(b64u) {
+  const txt = new TextDecoder().decode(decodeBase64UrlToUint8(b64u));
+  return JSON.parse(txt);
+}
+
+async function verifySupabaseJwtCryptographic(token, sbUrl) {
+  try {
+    const parts = String(token || '').trim().split('.');
+    if (parts.length !== 3) return null;
+    const header = decodeBase64UrlJson(parts[0]);
+    const payload = decodeBase64UrlJson(parts[1]);
+    const uid = String(payload?.sub || '').trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) return null;
+    if (payload?.aud && payload.aud !== 'authenticated') return null;
+    if (sbUrl && payload?.iss && !String(payload.iss).startsWith(sbUrl)) return null;
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (!payload?.exp || Number(payload.exp) < nowSec - 300) return null;
+
+    const signingInput = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+    const sigBytes = decodeBase64UrlToUint8(parts[2]);
+
+    if (header?.alg === 'ES256') {
+      const jwksRes = await fetch(`${sbUrl}/auth/v1/.well-known/jwks.json`);
+      if (!jwksRes.ok) return null;
+      const jwks = await jwksRes.json();
+      const keys = Array.isArray(jwks?.keys) ? jwks.keys : [];
+      const jwk = (header.kid ? keys.find(k => k.kid === header.kid) : null) ||
+                  keys.find(k => k.kty === 'EC' && (!k.alg || k.alg === 'ES256'));
+      if (!jwk) return null;
+      const cryptoKey = await globalThis.crypto.subtle.importKey(
+        'jwk',
+        jwk,
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        false,
+        ['verify']
+      );
+      const valid = await globalThis.crypto.subtle.verify(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        cryptoKey,
+        sigBytes,
+        signingInput
+      );
+      return valid ? { userId: uid, email: String(payload.email || '').toLowerCase().trim() } : null;
+    }
+
+    const jwtSecret = (process.env.SUPABASE_JWT_SECRET || '').trim();
+    if (header?.alg === 'HS256' && jwtSecret) {
+      const hmacKey = await globalThis.crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(jwtSecret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['verify']
+      );
+      const valid = await globalThis.crypto.subtle.verify('HMAC', hmacKey, sigBytes, signingInput);
+      return valid ? { userId: uid, email: String(payload.email || '').toLowerCase().trim() } : null;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function buildCompactUserMetadata(existingMeta = {}) {
+  const src = (existingMeta && typeof existingMeta === 'object') ? existingMeta : {};
+  const cleaned = {};
+  const scalarKeys = [
+    'sub', 'email', 'email_verified', 'phone_verified', 'full_name', 'name',
+    'given_name', 'family_name', 'empresa_nombre', 'role', 'provider', 'providers',
+    'sexo', 'dob', 'subscription'
+  ];
+  for (const k of scalarKeys) {
+    if (src[k] !== undefined) {
+      if (typeof src[k] === 'string' && src[k].length > 512) {
+        cleaned[k] = src[k].slice(0, 512);
+      } else {
+        cleaned[k] = src[k];
+      }
+    }
+  }
+  for (const imgKey of ['avatar_url', 'picture']) {
+    const val = src[imgKey];
+    if (typeof val === 'string' && val.trim() && !val.trim().startsWith('data:') && val.length <= 512) {
+      cleaned[imgKey] = val.trim();
+    } else if (Object.prototype.hasOwnProperty.call(src, imgKey)) {
+      cleaned[imgKey] = null;
+    }
+  }
+  const v2 = src.cubikar_cloud_state_v2;
+  if (v2 && typeof v2 === 'object') {
+    let compactV2 = {
+      version: 2,
+      subscription: v2.subscription || cleaned.subscription || { planId: 'free', billingCycle: 'monthly' },
+      ownedProjects: [],
+      collaboratedProjects: [],
+      planInvitations: Array.isArray(v2.planInvitations) ? v2.planInvitations.slice(0, 15) : [],
+      acceptedInvitations: Array.isArray(v2.acceptedInvitations) ? v2.acceptedInvitations.slice(0, 15) : [],
+      sentPlanInvitations: Array.isArray(v2.sentPlanInvitations) ? v2.sentPlanInvitations.slice(0, 15) : [],
+      sentProjectInvitations: Array.isArray(v2.sentProjectInvitations) ? v2.sentProjectInvitations.slice(0, 15) : [],
+      deletedProjectIds: Array.isArray(v2.deletedProjectIds) ? v2.deletedProjectIds.slice(-15) : [],
+      updatedAt: v2.updatedAt || new Date().toISOString()
+    };
+    if (JSON.stringify(compactV2).length > 1800) {
+      compactV2 = {
+        version: 2,
+        subscription: compactV2.subscription,
+        ownedProjects: [],
+        collaboratedProjects: [],
+        planInvitations: compactV2.planInvitations.slice(0, 5),
+        acceptedInvitations: compactV2.acceptedInvitations.slice(0, 5),
+        sentPlanInvitations: [],
+        sentProjectInvitations: [],
+        deletedProjectIds: compactV2.deletedProjectIds.slice(-10),
+        updatedAt: compactV2.updatedAt
+      };
+    }
+    cleaned.cubikar_cloud_state_v2 = compactV2;
+  }
+  if (Array.isArray(src.cubikar_dismissed_notifications) && src.cubikar_dismissed_notifications.length > 0) {
+    cleaned.cubikar_dismissed_notifications = src.cubikar_dismissed_notifications
+      .slice(-15)
+      .map(v => String(v || '').slice(0, 64))
+      .filter(Boolean);
+  } else if (Object.prototype.hasOwnProperty.call(src, 'cubikar_dismissed_notifications')) {
+    cleaned.cubikar_dismissed_notifications = null;
+  }
+  if (Array.isArray(src.cubikar_read_mentions) && src.cubikar_read_mentions.length > 0) {
+    cleaned.cubikar_read_mentions = src.cubikar_read_mentions
+      .slice(-15)
+      .map(v => String(v || '').slice(0, 64))
+      .filter(Boolean);
+  } else if (Object.prototype.hasOwnProperty.call(src, 'cubikar_read_mentions')) {
+    cleaned.cubikar_read_mentions = null;
+  }
+  // GoTrue PUT /admin/users hace merge de claves de primer nivel:
+  // cualquier clave legado/desconocida (incluida cubikar_collaboration_v1) debe ir explícitamente en null para borrarse.
+  for (const existingKey of Object.keys(src)) {
+    if (!Object.prototype.hasOwnProperty.call(cleaned, existingKey)) {
+      cleaned[existingKey] = null;
+    }
+  }
+  return cleaned;
+}
+
 export default async function handler(req, res) {
   setCorsHeaders(req, res);
 
@@ -161,6 +316,87 @@ export default async function handler(req, res) {
   }
 
   const { url: sbUrl, anonKey: sbAnonKey, serviceRoleKey } = getSupabaseConfig();
+
+  // Auto-reparación segura para sesiones bloqueadas por JWT / user_metadata sobredimensionado:
+  // Recibe accessToken en el BODY POST (sin cabecera Authorization gigante que bloquee HTTP/2)
+  // y lo valida criptográficamente con JWKS (ES256) antes de compactar user_metadata vía Admin API.
+  if (req.method === 'POST') {
+    let preBody = req.body;
+    if (typeof preBody === 'string') {
+      try { preBody = JSON.parse(preBody); } catch { preBody = null; }
+    }
+    if (preBody && String(preBody.action || '').toLowerCase() === 'slim_own_jwt_metadata') {
+      if (!serviceRoleKey) {
+        return res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada en este servidor.' });
+      }
+      const rawToken = String(preBody.accessToken || '').trim();
+      const verified = await verifySupabaseJwtCryptographic(rawToken, sbUrl);
+      if (!verified?.userId) {
+        return res.status(401).json({ error: 'Token de sesión inválido o expirado para compactación.' });
+      }
+      try {
+        const userAdminEndpoint = `${sbUrl}/auth/v1/admin/users/${encodeURIComponent(verified.userId)}`;
+        const getUserRes = await fetch(userAdminEndpoint, {
+          headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` }
+        });
+        if (!getUserRes.ok) {
+          return res.status(getUserRes.status).json({ error: 'No se pudo leer el usuario en Supabase Auth.' });
+        }
+        const adminUser = await getUserRes.json();
+        const prevMeta = adminUser?.user_metadata || {};
+        const beforeChars = JSON.stringify(prevMeta).length;
+        const cleanedMeta = buildCompactUserMetadata(prevMeta);
+
+        const putHeaders = {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+          'Content-Type': 'application/json'
+        };
+        let putRes = await fetch(userAdminEndpoint, {
+          method: 'PUT',
+          headers: putHeaders,
+          body: JSON.stringify({ user_metadata: cleanedMeta })
+        });
+        if (!putRes.ok) {
+          const errTxt = await putRes.text().catch(() => '');
+          return res.status(putRes.status).json({ error: `Error compactando metadatos: ${errTxt}` });
+        }
+        let updatedAdminUser = await putRes.json().catch(() => null);
+        let actualAfterChars = updatedAdminUser?.user_metadata
+          ? JSON.stringify(updatedAdminUser.user_metadata).length
+          : JSON.stringify(cleanedMeta).length;
+
+        if (actualAfterChars > 3500) {
+          const pureCleaned = Object.fromEntries(Object.entries(cleanedMeta).filter(([, v]) => v !== null));
+          await fetch(userAdminEndpoint, {
+            method: 'PUT',
+            headers: putHeaders,
+            body: JSON.stringify({ user_metadata: {} })
+          });
+          putRes = await fetch(userAdminEndpoint, {
+            method: 'PUT',
+            headers: putHeaders,
+            body: JSON.stringify({ user_metadata: pureCleaned })
+          });
+          if (putRes.ok) {
+            updatedAdminUser = await putRes.json().catch(() => null);
+            if (updatedAdminUser?.user_metadata) {
+              actualAfterChars = JSON.stringify(updatedAdminUser.user_metadata).length;
+            }
+          }
+        }
+        return res.status(200).json({
+          ok: true,
+          repaired: true,
+          beforeChars,
+          afterChars: actualAfterChars
+        });
+      } catch (err) {
+        return res.status(500).json({ error: err.message || 'Error interno compactando sesión JWT.' });
+      }
+    }
+  }
+
   const caller = await verifyCallerJwt(req, sbUrl, sbAnonKey, serviceRoleKey);
   if (!caller) {
     return res.status(401).json({ error: 'No autorizado. Se requiere sesión activa verificada.' });
