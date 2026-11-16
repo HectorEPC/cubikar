@@ -26,6 +26,18 @@ let activeChannel = null;
 let currentSubscribedProjectId = null;
 let broadcastDebounceTimer = null;
 
+let lastToastTime = 0;
+let lastToastAuthor = '';
+function showThrottledToast(message, type = 'info', author = '') {
+  const now = Date.now();
+  if (author && author === lastToastAuthor && now - lastToastTime < 4000) {
+    return;
+  }
+  lastToastTime = now;
+  lastToastAuthor = author;
+  showToast(message, type);
+}
+
 let onRemoteConceptUpdated = null;
 let onPresenceSyncCallback = null;
 
@@ -366,7 +378,9 @@ export function broadcastProjectMutation({
 
   const sendPayload = () => {
     let safeTreeData = null;
-    if (Array.isArray(treeData)) {
+    // Si viene un parche granular (edición de celda, cantidad, precio, etc.), NO enviamos el árbol completo por red
+    // para evitar saturar el ancho de banda y congelar la UI de los demás usuarios.
+    if (!patch && Array.isArray(treeData)) {
       try {
         const raw = JSON.stringify(treeData);
         if (raw.length < 180000) {
@@ -419,14 +433,15 @@ export function broadcastProjectMutation({
       }
     }
 
-    // 2. Enviar vía canal global para sincronizar ventanas, dashboard y todos los colaboradores
+    // 2. Enviar vía canal global solo metadata ligera para el dashboard (nunca enviamos safeTreeData al canal global si estamos editando)
     if (!globalSyncChannel) initGlobalRealtimeSync();
     if (globalSyncChannel) {
       try {
+        const globalPayload = Object.assign({}, payload, { treeData: null });
         globalSyncChannel.send({
           type: 'broadcast',
           event: 'proyecto_actualizado_global',
-          payload
+          payload: globalPayload
         });
       } catch (err) {
         console.warn('[Realtime] Aviso al emitir en canal global:', err);
@@ -571,7 +586,7 @@ export function handleIncomingProjectUpdate(data) {
 
   const authorName = data.author?.name || data.author?.email || 'Un colaborador';
   const desc = data.changeDescription || 'cambios en el catálogo';
-  showToast(`🔄 ${authorName} actualizó ${desc} en tiempo real`, 'info');
+  showThrottledToast(`🔄 ${authorName} actualizó ${desc} en tiempo real`, 'info', authorEmail);
 
   // Si somos el anfitrión/propietario, respaldar automáticamente el nuevo estado en la nube
   const isOwner = proj && (proj.ownerEmail || '').toLowerCase().trim() === myEmail;
@@ -816,7 +831,9 @@ export function initGlobalRealtimeSync() {
 
       if (payload.eventType === 'DELETE') {
         const oldEmail = (payload.old?.email_colaborador || '').toLowerCase().trim();
-        if (oldEmail === myEmail || !oldEmail) {
+        // Solo expulsar si el registro eliminado explícitamente pertenece a este usuario.
+        // Nunca expulsar por registros con email vacío o de otros usuarios.
+        if (oldEmail && oldEmail === myEmail) {
           handleIncomingCollaboratorRemoved({
             projectId: payload.old?.proyecto_id,
             email: myEmail
