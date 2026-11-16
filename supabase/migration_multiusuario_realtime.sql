@@ -108,7 +108,7 @@ CREATE INDEX IF NOT EXISTS idx_catalogo_orden ON public.catalogo_conceptos(proye
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.chat_mensajes (
     id VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    proyecto_id UUID NOT NULL REFERENCES public.proyectos(id) ON DELETE CASCADE,
+    proyecto_id VARCHAR(255) NOT NULL,
     autor_email VARCHAR(255) NOT NULL,
     autor_nombre VARCHAR(255) DEFAULT '',
     autor_avatar TEXT DEFAULT '',
@@ -122,6 +122,8 @@ CREATE TABLE IF NOT EXISTS public.chat_mensajes (
 
 DO $$
 BEGIN
+    ALTER TABLE public.chat_mensajes ALTER COLUMN proyecto_id TYPE VARCHAR(255);
+    ALTER TABLE public.chat_mensajes DROP CONSTRAINT IF EXISTS chat_mensajes_proyecto_id_fkey;
     ALTER TABLE public.chat_mensajes ADD COLUMN IF NOT EXISTS autor_avatar_url TEXT DEFAULT '';
     ALTER TABLE public.chat_mensajes ADD COLUMN IF NOT EXISTS payload_json JSONB DEFAULT '{}'::jsonb;
 EXCEPTION
@@ -226,6 +228,7 @@ DROP POLICY IF EXISTS "Eliminar proyectos de mi empresa" ON public.proyectos;
 DROP POLICY IF EXISTS "proyectos_insert_auth" ON public.proyectos;
 DROP POLICY IF EXISTS "proyectos_update_colaboracion" ON public.proyectos;
 DROP POLICY IF EXISTS "proyectos_delete_owner" ON public.proyectos;
+DROP POLICY IF EXISTS "proyectos_delete_colaboracion" ON public.proyectos;
 
 CREATE POLICY "proyectos_select_colaboracion" ON public.proyectos
     FOR SELECT USING (public.check_user_project_access(id::text));
@@ -236,10 +239,11 @@ CREATE POLICY "proyectos_insert_auth" ON public.proyectos
 CREATE POLICY "proyectos_update_colaboracion" ON public.proyectos
     FOR UPDATE USING (public.check_user_project_access(id::text, ARRAY['owner', 'admin', 'editar']));
 
-CREATE POLICY "proyectos_delete_owner" ON public.proyectos
+CREATE POLICY "proyectos_delete_colaboracion" ON public.proyectos
     FOR DELETE USING (
         LOWER(owner_email) = public.current_user_email()
         OR public.current_user_email() = 'hepc.90@gmail.com'
+        OR public.check_user_project_access(id::text, ARRAY['owner', 'admin', 'editar'])
     );
 
 -- 7.2 Políticas para public.proyecto_colaboradores
@@ -297,14 +301,22 @@ DROP POLICY IF EXISTS "chat_insert" ON public.chat_mensajes;
 DROP POLICY IF EXISTS "chat_delete" ON public.chat_mensajes;
 
 CREATE POLICY "chat_select" ON public.chat_mensajes
-    FOR SELECT USING (public.check_user_project_access(proyecto_id::text));
+    FOR SELECT USING (
+        proyecto_id LIKE '__cubikar_%'
+        OR public.check_user_project_access(proyecto_id::text)
+    );
 
 CREATE POLICY "chat_insert" ON public.chat_mensajes
-    FOR INSERT WITH CHECK (public.check_user_project_access(proyecto_id::text));
+    FOR INSERT WITH CHECK (
+        proyecto_id LIKE '__cubikar_%'
+        OR public.check_user_project_access(proyecto_id::text)
+        OR auth.role() = 'authenticated'
+    );
 
 CREATE POLICY "chat_delete" ON public.chat_mensajes
     FOR DELETE USING (
-        LOWER(autor_email) = public.current_user_email()
+        proyecto_id LIKE '__cubikar_%'
+        OR LOWER(autor_email) = public.current_user_email()
         OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin'])
     );
 

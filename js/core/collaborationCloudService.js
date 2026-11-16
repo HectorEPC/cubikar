@@ -565,6 +565,31 @@ export async function syncHostWorkspaceProjects(hostEmail) {
     const currentList = getProjectsList();
     const activeCloudProjects = Array.isArray(hostProjects) ? hostProjects : [];
     const activeIdsSet = new Set(activeCloudProjects.map(p => p.id));
+
+    // Si la consulta directa a proyectos devolvió vacío o incompleto, consultar también el manifiesto del anfitrión
+    if (activeIdsSet.size === 0) {
+      try {
+        const { data: manifestRow } = await sb
+          .from('chat_mensajes')
+          .select('mensaje, payload_json')
+          .eq('id', `__manifest__${targetHost}`)
+          .maybeSingle();
+        if (manifestRow?.payload_json?.activeProjectIds && Array.isArray(manifestRow.payload_json.activeProjectIds)) {
+          manifestRow.payload_json.activeProjectIds.forEach(id => activeIdsSet.add(id));
+        } else if (manifestRow?.mensaje) {
+          try {
+            const parsed = JSON.parse(manifestRow.mensaje);
+            if (Array.isArray(parsed)) parsed.forEach(id => activeIdsSet.add(id));
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+
+    if (typeof window !== 'undefined') {
+      if (!window.__hostActiveManifest) window.__hostActiveManifest = {};
+      window.__hostActiveManifest[targetHost] = Array.from(activeIdsSet);
+    }
+
     let prunedCount = 0;
 
     const updatedList = currentList.filter(p => {
