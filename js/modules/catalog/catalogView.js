@@ -1,14 +1,14 @@
-import { state } from '../../state/store.js?v=20261116_cf8';
-import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js?v=20261116_cf8';
-import { getHierarchyColor } from '../../core/colors.js?v=20261116_cf8';
-import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js?v=20261116_cf8';
-import { findNodeById } from './treeService.js?v=20261116_cf8';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf8';
-import { APU_WIDTH_KEY } from '../../config/constants.js?v=20261116_cf8';
-import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf8';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf8';
-import { getClampedApuWidth } from '../../ui/resizer.js?v=20261116_cf8';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf8';
+import { state } from '../../state/store.js?v=20261116_cf10';
+import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js?v=20261116_cf10';
+import { getHierarchyColor } from '../../core/colors.js?v=20261116_cf10';
+import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js?v=20261116_cf10';
+import { findNodeById } from './treeService.js?v=20261116_cf10';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf10';
+import { APU_WIDTH_KEY } from '../../config/constants.js?v=20261116_cf10';
+import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf10';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf10';
+import { getClampedApuWidth } from '../../ui/resizer.js?v=20261116_cf10';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf10';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';

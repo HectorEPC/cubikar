@@ -2,11 +2,11 @@
 // Modelo y cálculos del Calendario de Obra (Gantt, Flujo Financiero y Curva S)
 // Sincronizado 100% con state.treeData del Catálogo Base
 
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf8';
-import { getActiveProjectId, getStorageKey, STORAGE_KEY_PROJECTS } from '../../config/constants.js?v=20261116_cf8';
-import { getHierarchyColor } from '../../core/colors.js?v=20261116_cf8';
-import { scheduleCronogramaCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf8';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf8';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf10';
+import { getActiveProjectId, getStorageKey, STORAGE_KEY_PROJECTS } from '../../config/constants.js?v=20261116_cf10';
+import { getHierarchyColor } from '../../core/colors.js?v=20261116_cf10';
+import { scheduleCronogramaCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf10';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf10';
 
 // Colores modernos por partida para las barras del cronograma Gantt
 export const PARTIDA_COLORS = [

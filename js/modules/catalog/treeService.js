@@ -1,15 +1,15 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf8';
-import { saveState } from '../../state/history.js?v=20261116_cf8';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf8';
-import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261116_cf8';
-import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf8';
-import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261116_cf8';
-import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261116_cf8';
-import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf8';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf10';
+import { saveState } from '../../state/history.js?v=20261116_cf10';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf10';
+import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261116_cf10';
+import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf10';
+import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261116_cf10';
+import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261116_cf10';
+import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf10';
 export { countTreeConcepts };
-import { getFactorSobrecosto, round2 } from '../../core/calculations.js?v=20261116_cf8';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf8';
-import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261116_cf8';
+import { getFactorSobrecosto, round2 } from '../../core/calculations.js?v=20261116_cf10';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf10';
+import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261116_cf10';
 
 function createNodeUuid() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

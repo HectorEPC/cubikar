@@ -3,10 +3,10 @@
 // y por Estimación Individual en la pestaña Estimaciones.
 // Cuando está bloqueado, solo permite consultar e imprimir la información (sin cambiar, mover ni editar).
 
-import { getActiveProjectId } from '../config/constants.js?v=20261116_cf8';
-import { showToast } from './notifications.js?v=20261116_cf8';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261116_cf8';
-import { isEstimacionLocked, toggleActiveEstimacionLockState, setEstimacionLocked } from '../modules/estimaciones/estimacionesModel.js?v=20261116_cf8';
+import { getActiveProjectId } from '../config/constants.js?v=20261116_cf10';
+import { showToast } from './notifications.js?v=20261116_cf10';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261116_cf10';
+import { isEstimacionLocked, toggleActiveEstimacionLockState, setEstimacionLocked } from '../modules/estimaciones/estimacionesModel.js?v=20261116_cf10';
 
 const STORAGE_KEY_TAB_LOCKS_PREFIX = 'adm_const_tab_locks_';
 
