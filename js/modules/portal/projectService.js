@@ -15,14 +15,14 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261116_cf15';
+} from '../../config/constants.js?v=20261116_cf16';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf15';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf15';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf15';
-import { deleteProjectFromCloud } from '../../core/cloudProjectService.js?v=20261116_cf15';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf15';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf16';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf16';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf16';
+import { deleteProjectFromCloud } from '../../core/cloudProjectService.js?v=20261116_cf16';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf16';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -167,41 +167,93 @@ export function getRegisteredUsersList() {
   return [];
 }
 
-export async function syncUserToCloudAdmin(userObj) {
+const inFlightAdminSyncByEmail = new Map();
+const lastAdminSyncSigByEmail = new Map();
+const ADMIN_SYNC_COOLDOWN_MS = 5 * 60 * 1000;
+
+export async function syncUserToCloudAdmin(userObj, opts = {}) {
   if (!userObj || !userObj.email) return;
   try {
     const cleanEmail = userObj.email.toLowerCase().trim();
-    const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
-    let accessToken = null;
-    if (sb && typeof sb.auth?.getSession === 'function') {
-      const { data } = await sb.auth.getSession();
-      accessToken = data?.session?.access_token || null;
-    }
-    if (!accessToken) return;
+    const planKey = userObj.subscription?.planId || 'free';
+    const sig = `${cleanEmail}|${userObj.name || ''}|${planKey}`;
+    const now = Date.now();
 
-    const payload = {
-      action: 'sync_user',
-      user: {
-        id: userObj.id || null,
-        name: userObj.name || cleanEmail.split('@')[0],
-        email: cleanEmail,
-        sexo: userObj.sexo || 'Masculino',
-        dob: userObj.dob || '',
-        avatar: userObj.avatar || '',
-        registeredAt: userObj.registeredAt || userObj.createdAt || new Date().toISOString(),
-        subscription: userObj.subscription || { planId: 'free', billingCycle: 'monthly' }
+    if (!opts?.force) {
+      const last = lastAdminSyncSigByEmail.get(cleanEmail);
+      if (last && last.sig === sig && (now - last.ts) < ADMIN_SYNC_COOLDOWN_MS) return;
+      try {
+        if (typeof sessionStorage !== 'undefined') {
+          const cachedRaw = sessionStorage.getItem(`cubikar_admin_sync_${cleanEmail}`);
+          if (cachedRaw) {
+            const cached = JSON.parse(cachedRaw);
+            if (cached?.sig === sig && (now - Number(cached.ts || 0)) < ADMIN_SYNC_COOLDOWN_MS) {
+              lastAdminSyncSigByEmail.set(cleanEmail, { sig, ts: Number(cached.ts || 0) });
+              return;
+            }
+          }
+        }
+      } catch (_) {}
+      if (inFlightAdminSyncByEmail.has(cleanEmail)) {
+        return inFlightAdminSyncByEmail.get(cleanEmail);
       }
-    };
-    if (typeof fetch === 'function') {
-      fetch('/api/admin-users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify(payload)
-      }).catch(() => {});
     }
+
+    const runPromise = (async () => {
+      const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
+      let accessToken = null;
+      if (sb && typeof sb.auth?.getSession === 'function') {
+        const { data } = await sb.auth.getSession();
+        accessToken = data?.session?.access_token || null;
+      }
+      if (!accessToken || accessToken.length > 7500) return;
+
+      const rawAvatar = String(userObj.avatar || '');
+      const safeAvatar = (rawAvatar.startsWith('data:') || rawAvatar.length > 1024) ? '' : rawAvatar;
+
+      const payload = {
+        action: 'sync_user',
+        user: {
+          id: userObj.id || null,
+          name: userObj.name || cleanEmail.split('@')[0],
+          email: cleanEmail,
+          sexo: userObj.sexo || 'Masculino',
+          dob: userObj.dob || '',
+          avatar: safeAvatar,
+          registeredAt: userObj.registeredAt || userObj.createdAt || new Date().toISOString(),
+          subscription: userObj.subscription || { planId: 'free', billingCycle: 'monthly' }
+        }
+      };
+      if (typeof fetch === 'function') {
+        const tsDone = Date.now();
+        lastAdminSyncSigByEmail.set(cleanEmail, { sig, ts: tsDone });
+        const res = await fetch('/api/admin-users', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify(payload)
+        });
+        if (res && res.ok) {
+          try {
+            if (typeof sessionStorage !== 'undefined') {
+              sessionStorage.setItem(`cubikar_admin_sync_${cleanEmail}`, JSON.stringify({ sig, ts: tsDone }));
+            }
+          } catch (_) {}
+        } else {
+          // Si falló, permitir reintento tras 20s en lugar de silenciar 5 min
+          lastAdminSyncSigByEmail.set(cleanEmail, { sig, ts: Date.now() - (ADMIN_SYNC_COOLDOWN_MS - 20000) });
+        }
+      }
+    })().catch(() => {
+      lastAdminSyncSigByEmail.set(cleanEmail, { sig, ts: Date.now() - (ADMIN_SYNC_COOLDOWN_MS - 20000) });
+    }).finally(() => {
+      inFlightAdminSyncByEmail.delete(cleanEmail);
+    });
+
+    inFlightAdminSyncByEmail.set(cleanEmail, runPromise);
+    return runPromise;
   } catch (_) {}
 }
 
@@ -588,7 +640,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261116_cf15').then(m => {
+            import('../../core/supabaseClient.js?v=20261116_cf16').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});

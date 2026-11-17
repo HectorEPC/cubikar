@@ -1,10 +1,10 @@
 // js/core/authService.js
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
-import { STORAGE_KEY_USER } from '../config/constants.js?v=20261116_cf15';
-import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261116_cf15';
-import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261116_cf15';
-import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261116_cf15';
+import { STORAGE_KEY_USER } from '../config/constants.js?v=20261116_cf16';
+import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261116_cf16';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261116_cf16';
+import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261116_cf16';
 import {
   writeSharedSsoCookie,
   clearSharedSsoCookie,
@@ -14,7 +14,7 @@ import {
   scrubSsoHashParams,
   hasPendingIncomingSso,
   getLastSignOutTimestamp
-} from './ssoHelper.js?v=20261116_cf15';
+} from './ssoHelper.js?v=20261116_cf16';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -49,6 +49,9 @@ let explicitAuthRemember = null;
 let ssoHydrationInProgress = false;
 const inFlightProfilePromises = new Map();
 const cachedProfilesByUserId = new Map();
+const failedProfileAtByUserId = new Map();
+let lastBootAuthUserId = '';
+let lastBootAuthAt = 0;
 
 export function isSsoHydrationPending() {
   return ssoHydrationInProgress;
@@ -293,11 +296,20 @@ export async function ensureCompactAuthSession(sbClient = null, sessionOverride 
       }
     }
 
-    markUserCompactCooldown(uid, session.access_token.length);
     const repaired = await repairBloatedJwtRemote(session.access_token);
     if (!repaired) {
+      // Si falló por red/error, reintentar en ~15s en lugar de esperar 3 minutos con token grande
+      const shortTs = Date.now() - (COMPACT_COOLDOWN_MS - 15000);
+      const entry = { ts: shortTs, len: Number(session.access_token.length || 0) };
+      compactAttemptByUser.set(uid, entry);
+      try {
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('cubikar_jwt_slim_uid_' + uid, JSON.stringify(entry));
+        }
+      } catch (_) {}
       return session;
     }
+    markUserCompactCooldown(uid, session.access_token.length);
 
     let latestRefreshToken = session.refresh_token;
     if (sb) {
@@ -914,6 +926,10 @@ export async function fetchUserProfile(userId, forceRefresh = false) {
   if (!forceRefresh && cached && (Date.now() - cached.fetchedAt) < 5000) {
     return cached.data;
   }
+  const lastFailAt = failedProfileAtByUserId.get(userId) || 0;
+  if (!forceRefresh && lastFailAt > 0 && (Date.now() - lastFailAt) < 10000) {
+    return null;
+  }
   if (inFlightProfilePromises.has(userId)) {
     return inFlightProfilePromises.get(userId);
   }
@@ -947,12 +963,15 @@ export async function fetchUserProfile(userId, forceRefresh = false) {
         .single();
 
       if (error) {
+        failedProfileAtByUserId.set(userId, Date.now());
         console.warn('[Supabase Auth] Perfil no encontrado:', error.message);
         return null;
       }
+      failedProfileAtByUserId.delete(userId);
       cachedProfilesByUserId.set(userId, { data, fetchedAt: Date.now() });
       return data;
     } catch (err) {
+      failedProfileAtByUserId.set(userId, Date.now());
       console.error('[Supabase Auth] Error al obtener perfil:', err);
       return null;
     } finally {
@@ -1073,7 +1092,7 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
       initialSyncedUserIds.add(user.id);
       setTimeout(() => {
         autoSyncCollaborationOnStartup(user, { force: Boolean(force && explicitAuthDepth > 0) });
-        import('../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf15')
+        import('../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf16')
           .then(m => m.syncAiQuotaFromSupabase())
           .catch(() => {});
       }, 50);
@@ -1286,6 +1305,15 @@ export function initAuthListener(onAuthChangeCallback) {
       );
       const isExplicitInteractive = explicitAuthDepth > 0 || isOAuthRedirect || ssoHydrationInProgress || hasPendingIncomingSso(false);
       const hasActiveLocal = hasValidLocalSessionForEmail(email);
+      const nowBoot = Date.now();
+      const isPassiveBootPair = !isExplicitInteractive && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION');
+      if (isPassiveBootPair && lastBootAuthUserId === session.user.id && (nowBoot - lastBootAuthAt) < 3000) {
+        return;
+      }
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        lastBootAuthUserId = session.user.id;
+        lastBootAuthAt = nowBoot;
+      }
 
       // Nunca auto-ingresar desde sesiones/tokens pasivos (INITIAL_SESSION, TOKEN_REFRESHED, SIGNED_IN)
       // si la sesión fue cerrada explícitamente o no existe una sesión local activa/recordada.
@@ -1378,6 +1406,9 @@ export function initAuthListener(onAuthChangeCallback) {
       }, 0);
     } else {
       if (event === 'SIGNED_OUT') {
+        lastBootAuthUserId = '';
+        lastBootAuthAt = 0;
+        failedProfileAtByUserId.clear();
         initialSyncedUserIds.clear();
         clearCachedUserProfiles();
         clearSharedSsoCookie({ markSignOut: true });

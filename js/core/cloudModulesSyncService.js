@@ -1,7 +1,7 @@
-import { getActiveProjectId } from '../config/constants.js?v=20261116_cf15';
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf15';
-import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261116_cf15';
-import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261116_cf15';
+import { getActiveProjectId } from '../config/constants.js?v=20261116_cf16';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf16';
+import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261116_cf16';
+import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261116_cf16';
 
 const pendingTimers = new Map();
 const inFlightModuleHydrateByProject = new Map();
@@ -73,7 +73,7 @@ export function stripInlineBinaryPayloads(evidence) {
   return clone;
 }
 
-async function getCloudSyncContext(projectIdOverride = '') {
+async function getCloudSyncContext(projectIdOverride = '', options = {}) {
   if (!isSupabaseConfigured()) return null;
   const sb = await getSupabaseClient();
   if (!sb) return null;
@@ -105,7 +105,9 @@ async function getCloudSyncContext(projectIdOverride = '') {
     ''
   ).trim().toLowerCase();
 
-  const empresaId = await resolveUserEmpresaId(sb, user);
+  const empresaId = options?.skipEmpresaLookup
+    ? (currentUser?.empresaId || null)
+    : await resolveUserEmpresaId(sb, user);
 
   return { sb, user, projectId, cloudUuid, project, ownerEmail, empresaId };
 }
@@ -556,7 +558,7 @@ export async function hydrateProjectModulesFromCloud(projectIdOverride = '', opt
   }
 
   const runPromise = (async () => {
-    const ctx = await getCloudSyncContext(projectIdOverride);
+    const ctx = await getCloudSyncContext(projectIdOverride, { skipEmpresaLookup: true });
     if (!ctx) return { ok: false, skipped: true };
 
     const pid = ctx.projectId;

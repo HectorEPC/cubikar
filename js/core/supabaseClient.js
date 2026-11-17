@@ -54,6 +54,41 @@ function getCreateClientFn() {
 }
 
 export let supabase = null;
+const recentNetFailureTimestamps = [];
+
+function getHeaderCaseInsensitive(headers, name) {
+  if (!headers) return '';
+  if (typeof headers.get === 'function') return String(headers.get(name) || '');
+  const target = name.toLowerCase();
+  for (const k of Object.keys(headers)) {
+    if (k.toLowerCase() === target) return String(headers[k] || '');
+  }
+  return '';
+}
+
+function createResilientSupabaseFetch() {
+  if (typeof globalThis === 'undefined' || typeof globalThis.fetch !== 'function') return undefined;
+  return async function cubikarSupabaseFetch(input, init) {
+    const now = Date.now();
+    while (recentNetFailureTimestamps.length > 0 && (now - recentNetFailureTimestamps[0]) > 4000) {
+      recentNetFailureTimestamps.shift();
+    }
+    const retryCount = Number(getHeaderCaseInsensitive(init?.headers || input?.headers, 'X-Retry-Count') || '0') || 0;
+    if (retryCount >= 2 || (retryCount >= 1 && recentNetFailureTimestamps.length >= 3)) {
+      throw new DOMException('Reintento suprimido por inestabilidad de red', 'AbortError');
+    }
+    try {
+      const response = await globalThis.fetch(input, init);
+      recentNetFailureTimestamps.length = 0;
+      return response;
+    } catch (err) {
+      if (err?.name !== 'AbortError' && err?.code !== 'ABORT_ERR') {
+        recentNetFailureTimestamps.push(Date.now());
+      }
+      throw err;
+    }
+  };
+}
 
 export function getSupabaseClient() {
   if (!supabase) initSupabaseClient();
@@ -75,12 +110,14 @@ export function initSupabaseClient() {
 
   try {
     const cfg = getSupabaseConfig();
+    const customFetch = createResilientSupabaseFetch();
     supabase = createClientFn(cfg.url, cfg.anonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true
       },
+      ...(customFetch ? { global: { fetch: customFetch } } : {}),
       realtime: {
         params: {
           eventsPerSecond: 10

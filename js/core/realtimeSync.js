@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf15';
-import { state } from '../state/store.js?v=20261116_cf15';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf16';
+import { state } from '../state/store.js?v=20261116_cf16';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -17,10 +17,10 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261116_cf15';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf15';
-import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261116_cf15';
-import { showToast } from '../ui/notifications.js?v=20261116_cf15';
+} from '../modules/portal/projectService.js?v=20261116_cf16';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf16';
+import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261116_cf16';
+import { showToast } from '../ui/notifications.js?v=20261116_cf16';
 
 let activeChannel = null;
 let currentSubscribedProjectId = null;
@@ -592,7 +592,7 @@ export function subscribeToProjectRealtime(projectId) {
   activeChannel.subscribe(async (status) => {
     if (status === 'SUBSCRIBED') {
       console.info(`[Realtime] Conectado al canal WebSocket de la obra: ${canonicalCloudId}`);
-      hydrateProjectChatFromCloud(projectId);
+      setTimeout(() => { hydrateProjectChatFromCloud(projectId); }, 350);
       const user = getCurrentUser();
       if (user) {
         await activeChannel.track({
@@ -2094,19 +2094,25 @@ async function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
 
   // Mergear proyectos filtrando lápidas locales y en la nube (sin resurrección)
   if (Array.isArray(projects) && projects.length > 0) {
+    const currentProjs = getProjectsList();
+    const activeKnownIds = new Set(
+      currentProjs.flatMap(cp => [cp?.id, cp?.cloudId]).filter(Boolean).map(v => String(v).trim())
+    );
     const incomingIds = Array.from(new Set(
       projects.flatMap(p => [p?.id, p?.cloudId]).filter(Boolean).map(v => String(v).trim())
     ));
+    const unknownIncomingIds = incomingIds.filter(id => !activeKnownIds.has(id));
     const cloudDeletedSet = new Set(lastPeerDeletedSet);
     try {
       const sb = getSupabaseClient();
       const nowDel = Date.now();
-      if (sb && isSupabaseConfigured() && incomingIds.length > 0 && (nowDel - lastPeerDeletedCheckAt) >= 8000) {
+      if (sb && isSupabaseConfigured() && unknownIncomingIds.length > 0 && (nowDel - lastPeerDeletedCheckAt) >= 15000) {
         if (!inFlightPeerDeletedPromise) {
+          lastPeerDeletedCheckAt = nowDel;
           inFlightPeerDeletedPromise = sb
             .from('proyectos_eliminados')
             .select('proyecto_id')
-            .in('proyecto_id', incomingIds)
+            .in('proyecto_id', unknownIncomingIds)
             .then(({ data: delRows }) => {
               lastPeerDeletedCheckAt = Date.now();
               if (Array.isArray(delRows)) {
@@ -2116,6 +2122,7 @@ async function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
               }
               return lastPeerDeletedSet;
             })
+            .catch(() => lastPeerDeletedSet)
             .finally(() => { inFlightPeerDeletedPromise = null; });
         }
         const refreshed = await inFlightPeerDeletedPromise;
@@ -2133,7 +2140,6 @@ async function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
       }
     } catch (_) {}
 
-    const currentProjs = getProjectsList();
     let projChanged = false;
     projects.forEach(p => {
       if (!p || !p.id) return;
@@ -2728,8 +2734,14 @@ export async function hydrateProjectChatFromCloud(projectId, opts = {}) {
 
   const now = Date.now();
   const lastAt = lastChatHydrateAtByProject.get(effectivePid) || 0;
-  if (!opts?.force && (now - lastAt) < 5000) return;
-  lastChatHydrateAtByProject.set(effectivePid, now);
+  if (!opts?.force && ((now - lastAt) < 12000 || (lastAllChatHydrateAt > 0 && (now - lastAllChatHydrateAt) < 12000))) {
+    return;
+  }
+  if (!opts?.force && inFlightAllChatHydratePromise) {
+    try { await inFlightAllChatHydratePromise; } catch (_) {}
+    if ((Date.now() - (lastChatHydrateAtByProject.get(effectivePid) || 0)) < 12000) return;
+  }
+  lastChatHydrateAtByProject.set(effectivePid, Date.now());
 
   const runPromise = (async () => {
     try {
@@ -2845,7 +2857,10 @@ export async function hydrateAllUserProjectsChatFromCloud(force = false) {
         });
       });
       if (idsToQuery.length === 0) return false;
-      lastAllChatHydrateAt = Date.now();
+      const hydrateTs = Date.now();
+      lastAllChatHydrateAt = hydrateTs;
+      idsToQuery.forEach(pid => lastChatHydrateAtByProject.set(pid, hydrateTs));
+      projects.forEach(p => { if (p?.id) lastChatHydrateAtByProject.set(p.id, hydrateTs); });
 
       const { data, error } = await sb
         .from('chat_mensajes')

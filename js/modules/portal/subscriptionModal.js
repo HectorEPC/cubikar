@@ -11,10 +11,10 @@ import {
   addFeaturedProfile,
   getActiveWorkspaceData,
   getUserPlanId
-} from './projectService.js?v=20261116_cf15';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf15';
-import { isNightMode } from '../../ui/themeController.js?v=20261116_cf15';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf15';
+} from './projectService.js?v=20261116_cf16';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf16';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf16';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf16';
 
 export const STORAGE_KEY_SUBSCRIPTION = 'adm_const_subscription';
 
@@ -222,19 +222,27 @@ export function getCurrentSubscription() {
 let inFlightSubSyncPromise = null;
 let lastSubSyncEmail = '';
 let lastSubSyncAt = 0;
+let lastSubSyncFailAt = 0;
 let lastSubSyncResult = null;
 const SUB_SYNC_TTL_MS = 12000;
+const SUB_FAIL_COOLDOWN_MS = 12000;
 
-export async function syncSubscriptionFromCloud(targetEmail = null) {
+export async function syncSubscriptionFromCloud(targetEmail = null, opts = {}) {
   const user = getCurrentUser();
   const email = (targetEmail || user?.email || '').toLowerCase().trim();
   if (!email) return null;
 
   const now = Date.now();
-  if (lastSubSyncEmail === email && lastSubSyncResult && (now - lastSubSyncAt) < SUB_SYNC_TTL_MS) {
-    return lastSubSyncResult;
+  const passedPerfil = opts?.perfil || null;
+  if (!passedPerfil && !opts?.force) {
+    if (lastSubSyncEmail === email && lastSubSyncResult && (now - lastSubSyncAt) < SUB_SYNC_TTL_MS) {
+      return lastSubSyncResult;
+    }
+    if (lastSubSyncEmail === email && lastSubSyncFailAt > 0 && (now - lastSubSyncFailAt) < SUB_FAIL_COOLDOWN_MS) {
+      return null;
+    }
   }
-  if (inFlightSubSyncPromise && lastSubSyncEmail === email) {
+  if (!passedPerfil && inFlightSubSyncPromise && lastSubSyncEmail === email) {
     return inFlightSubSyncPromise;
   }
 
@@ -258,22 +266,34 @@ export async function syncSubscriptionFromCloud(targetEmail = null) {
         let resolvedPlanId = null;
         const resolvedCycle = authUser.user_metadata?.subscription?.billingCycle === 'annual' ? 'annual' : 'monthly';
         let resolvedUpdatedAt = new Date().toISOString();
+        let perfilLookupFailed = false;
 
         try {
-          const { data: perfil, error: perfilErr } = await sb
-            .from('perfiles')
-            .select('empresa_id, empresas(id, plan, plan_const, acceso_const, estado_suscripcion, periodo_fin_const, periodo_fin)')
-            .eq('id', authUser.id)
-            .maybeSingle();
-          const emp = !perfilErr ? perfil?.empresas : null;
+          let emp = passedPerfil?.empresas || null;
+          if (!emp && !passedPerfil) {
+            const { data: perfil, error: perfilErr } = await sb
+              .from('perfiles')
+              .select('empresa_id, empresas(id, plan, plan_const, acceso_const, estado_suscripcion, periodo_fin_const, periodo_fin)')
+              .eq('id', authUser.id)
+              .maybeSingle();
+            if (perfilErr) {
+              perfilLookupFailed = true;
+              lastSubSyncFailAt = Date.now();
+            } else {
+              emp = perfil?.empresas || null;
+            }
+          }
           if (emp) {
             const candidatePlan = emp.plan_const || emp.plan || 'free';
             const statusOk = !emp.estado_suscripcion || emp.estado_suscripcion === 'active' || emp.estado_suscripcion === 'trialing';
             resolvedPlanId = (candidatePlan !== 'free' && !statusOk) ? 'free' : candidatePlan;
           }
-        } catch (_) {}
+        } catch (_) {
+          perfilLookupFailed = true;
+          lastSubSyncFailAt = Date.now();
+        }
 
-        if (!resolvedPlanId && authUser.user_metadata?.subscription?.planId) {
+        if (!resolvedPlanId && !perfilLookupFailed && authUser.user_metadata?.subscription?.planId) {
           resolvedPlanId = authUser.user_metadata.subscription.planId;
           resolvedUpdatedAt = authUser.user_metadata.subscription.updatedAt || resolvedUpdatedAt;
         }
@@ -297,6 +317,7 @@ export async function syncSubscriptionFromCloud(targetEmail = null) {
           } catch (_) {}
           localStorage.setItem(`adm_const_subscription_${email}`, JSON.stringify(resolved));
           lastSubSyncAt = Date.now();
+          lastSubSyncFailAt = 0;
           lastSubSyncResult = resolved;
           const freshUser = getCurrentUser();
           if (freshUser && (freshUser.email || '').toLowerCase().trim() === email) {
@@ -315,6 +336,7 @@ export async function syncSubscriptionFromCloud(targetEmail = null) {
         }
       }
     } catch (e) {
+      lastSubSyncFailAt = Date.now();
       console.warn('[Subscription] Error al sincronizar desde la nube:', e);
     } finally {
       inFlightSubSyncPromise = null;
