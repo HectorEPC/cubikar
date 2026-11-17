@@ -1,7 +1,7 @@
-import { getActiveProjectId } from '../config/constants.js?v=20261116_cf13';
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf13';
-import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261116_cf13';
-import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261116_cf13';
+import { getActiveProjectId } from '../config/constants.js?v=20261116_cf14';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf14';
+import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261116_cf14';
+import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261116_cf14';
 
 const pendingTimers = new Map();
 
@@ -462,20 +462,30 @@ export async function syncChatNow(projectIdOverride = '') {
   }
   if (!Array.isArray(messages) || messages.length === 0) return { ok: true, count: 0 };
 
-  const rows = messages.map((m) => {
-    const cleanId = String(m.id || '').replace(/^.*?(?:__|::)/, '');
-    return {
-      id: `${targetChatPid}__${cleanId}`,
-      proyecto_id: targetChatPid,
-      autor_nombre: String(m.authorName || m.autorNombre || 'Usuario'),
-      autor_email: String(m.authorEmail || m.autorEmail || ''),
-      autor_avatar_url: String(m.authorAvatar || ''),
-      mensaje: String(m.text || m.mensaje || ''),
-      partida_id: m.partidaId ? String(m.partidaId) : null,
-      etiquetas: Array.isArray(m.mentions) ? m.mentions : [],
-      payload_json: { ...m, id: cleanId }
-    };
-  });
+  const rows = messages
+    .filter((m) => m && m.id && !String(m.id).startsWith('seed_msg_') && !String(m.id).startsWith('__'))
+    .map((m) => {
+      const cleanId = String(m.id || '').replace(/^.*?(?:__|::)/, '');
+      const cloudPayload = { ...m, id: cleanId };
+      delete cloudPayload.localReadBy;
+      delete cloudPayload.localDismissedBy;
+      cloudPayload.perUserRead = true;
+      cloudPayload.isRead = false;
+      cloudPayload.dismissed = false;
+      cloudPayload.readBy = [];
+      return {
+        id: `${targetChatPid}__${cleanId}`,
+        proyecto_id: targetChatPid,
+        autor_nombre: String(m.authorName || m.autorNombre || 'Usuario'),
+        autor_email: String(m.authorEmail || m.autorEmail || ''),
+        autor_avatar_url: String(m.authorAvatar || ''),
+        mensaje: String(m.text || m.mensaje || ''),
+        partida_id: m.partidaId ? String(m.partidaId) : null,
+        etiquetas: Array.isArray(m.mentions) ? m.mentions : [],
+        payload_json: cloudPayload
+      };
+    });
+  if (rows.length === 0) return { ok: true, count: 0 };
 
   const { error } = await ctx.sb.from('chat_mensajes').upsert(rows, { onConflict: 'id' });
   if (error) {
@@ -738,19 +748,37 @@ export async function hydrateProjectModulesFromCloud(projectIdOverride = '') {
         const merged = new Map();
         for (const r of chatRows) {
           if (!r || (r.id && String(r.id).startsWith('__'))) continue;
-          const cleanId = String(r.payload_json?.id || r.id || '').replace(/^.*?(?:__|::)/, '');
-          if (!cleanId) continue;
-          const remoteMsg = { ...(r.payload_json || {}), id: cleanId };
-          const prev = localMap.get(remoteMsg.id);
+          const base = (r.payload_json && typeof r.payload_json === 'object') ? r.payload_json : {};
+          const cleanId = String(base.id || r.id || '').replace(/^.*?(?:__|::)/, '');
+          if (!cleanId || cleanId.startsWith('seed_msg_')) continue;
+          const cleanRemote = { ...base, id: cleanId };
+          if (cleanRemote.perUserRead) {
+            delete cleanRemote.isRead;
+            delete cleanRemote.dismissed;
+            delete cleanRemote.readBy;
+          }
+          if ((!Array.isArray(cleanRemote.mentions) || cleanRemote.mentions.length === 0) && Array.isArray(r.etiquetas)) {
+            cleanRemote.mentions = r.etiquetas;
+          }
+          const prev = localMap.get(cleanId);
           if (prev) {
-            merged.set(remoteMsg.id, {
-              ...remoteMsg,
-              isRead: Boolean(prev.isRead || remoteMsg.isRead),
-              dismissed: Boolean(prev.dismissed || remoteMsg.dismissed),
-              readBy: Array.isArray(prev.readBy) && prev.readBy.length > 0 ? prev.readBy : (remoteMsg.readBy || [])
+            merged.set(cleanId, {
+              ...cleanRemote,
+              ...(prev.localReadBy ? { localReadBy: prev.localReadBy } : {}),
+              ...(prev.localDismissedBy ? { localDismissedBy: prev.localDismissedBy } : {}),
+              perUserRead: Boolean(prev.perUserRead || base.perUserRead),
+              isRead: Boolean(prev.isRead),
+              dismissed: Boolean(prev.dismissed),
+              readBy: Array.from(new Set([
+                ...(Array.isArray(prev.readBy) ? prev.readBy.filter(x => x !== '__all__') : []),
+                ...(!base.perUserRead && Array.isArray(base.readBy) ? base.readBy : [])
+              ]))
             });
           } else {
-            merged.set(remoteMsg.id, remoteMsg);
+            merged.set(cleanId, {
+              ...cleanRemote,
+              ...(base.perUserRead ? { isRead: false, dismissed: false, readBy: [] } : {})
+            });
           }
         }
         for (const [mId, m] of localMap.entries()) {

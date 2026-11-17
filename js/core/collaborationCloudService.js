@@ -3,8 +3,8 @@
 // persistencia total de proyectos, anfitriones, invitaciones y membresías
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf13';
-import { syncProjectToCloud, fetchCloudProjects } from './cloudProjectService.js?v=20261116_cf13';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf14';
+import { syncProjectToCloud, fetchCloudProjects } from './cloudProjectService.js?v=20261116_cf14';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -20,9 +20,9 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261116_cf13';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf13';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf13';
+} from '../modules/portal/projectService.js?v=20261116_cf14';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf14';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf14';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
@@ -946,6 +946,9 @@ export async function autoSyncCollaborationOnStartup(user = null, opts = {}) {
       myPlanInvs.length > cloudPlanCount
     ) {
       await syncUserCollaborationToCloud(currentUser, { force });
+    }
+    if (typeof window !== 'undefined' && typeof window.hydrateAllUserProjectsChatFromCloud === 'function') {
+      window.hydrateAllUserProjectsChatFromCloud(true).catch(() => {});
     }
   })().finally(() => {
     startupSyncInFlightPromise = null;

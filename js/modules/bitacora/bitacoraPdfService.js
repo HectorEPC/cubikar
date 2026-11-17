@@ -4,15 +4,15 @@
 //  1) PDF oficial individual por cada nota asentada (con fotos y firma digital)
 //  2) Libro Completo de Bitácora Compilado (Carátula, Índice y Notas cronológicas)
 
-import { state } from '../../state/store.js?v=20261116_cf13';
-import { getBitacoraConfig, getBitacoraWorkSummary, getNoteTypeMeta } from './bitacoraModel.js?v=20261116_cf13';
-import { buildBitacoraPdfFileName } from './bitacoraDriveService.js?v=20261116_cf13';
+import { state } from '../../state/store.js?v=20261116_cf14';
+import { getBitacoraConfig, getBitacoraWorkSummary, getNoteTypeMeta } from './bitacoraModel.js?v=20261116_cf14';
+import { buildBitacoraPdfFileName } from './bitacoraDriveService.js?v=20261116_cf14';
 import {
   resolveManagedFileDataUrl,
   resolveManagedFileUrl,
   uploadManagedFile
-} from '../../services/s3StorageService.js?v=20261116_cf13';
-import { resolveActivePrintBranding, getCubikarLogoPngDataUrl } from '../io/printBrandingService.js?v=20261116_cf13';
+} from '../../services/s3StorageService.js?v=20261116_cf14';
+import { resolveActivePrintBranding, getCubikarLogoPngDataUrl } from '../io/printBrandingService.js?v=20261116_cf14';
 
 const JSPDF_CDN_FALLBACK = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
 

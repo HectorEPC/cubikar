@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf13';
-import { state } from '../state/store.js?v=20261116_cf13';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf14';
+import { state } from '../state/store.js?v=20261116_cf14';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -17,10 +17,10 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261116_cf13';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf13';
-import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261116_cf13';
-import { showToast } from '../ui/notifications.js?v=20261116_cf13';
+} from '../modules/portal/projectService.js?v=20261116_cf14';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf14';
+import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261116_cf14';
+import { showToast } from '../ui/notifications.js?v=20261116_cf14';
 
 let activeChannel = null;
 let currentSubscribedProjectId = null;
@@ -530,10 +530,17 @@ export function subscribeToProjectRealtime(projectId) {
         return;
       }
       const msg = rawPayloadMsg && rawPayloadMsg.id
-        ? { ...rawPayloadMsg, id: cleanMsgId }
+        ? {
+            ...rawPayloadMsg,
+            id: cleanMsgId,
+            mentions: (Array.isArray(rawPayloadMsg.mentions) && rawPayloadMsg.mentions.length > 0)
+              ? rawPayloadMsg.mentions
+              : (Array.isArray(row.etiquetas) ? row.etiquetas : [])
+          }
         : {
             id: cleanMsgId,
             text: row.mensaje || '',
+            mentions: Array.isArray(row.etiquetas) ? row.etiquetas : [],
             authorName: row.autor_nombre || 'Colaborador',
             authorEmail: row.autor_email || '',
             authorAvatar: row.autor_avatar_url || row.autor_avatar || '',
@@ -1327,10 +1334,72 @@ export function initGlobalRealtimeSync() {
     }
   );
 
+  // 13B. Escuchar nuevos mensajes/eliminaciones de chat globales en Supabase Postgres (CDC)
+  globalSyncChannel.on(
+    'postgres_changes',
+    {
+      event: '*',
+      schema: 'public',
+      table: 'chat_mensajes'
+    },
+    (payload) => {
+      const stripPrefix = (rawVal) => String(rawVal || '').replace(/^.*?(?:__|::)/, '');
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const row = payload.new;
+        if (!row || !row.proyecto_id || String(row.proyecto_id).startsWith('__')) return;
+        const rawPayloadMsg = row.payload_json && typeof row.payload_json === 'object' ? row.payload_json : null;
+        const cleanMsgId = stripPrefix(rawPayloadMsg?.id || row.id);
+        if (
+          !cleanMsgId ||
+          cleanMsgId.startsWith('seed_msg_') ||
+          rawPayloadMsg?.senderSessionId === LOCAL_CLIENT_SESSION_ID ||
+          isRecentlyPushedLocally(cleanMsgId) ||
+          isRecentlyPushedLocally(row.id)
+        ) {
+          return;
+        }
+        const msg = rawPayloadMsg && (rawPayloadMsg.id || cleanMsgId)
+          ? {
+              ...rawPayloadMsg,
+              id: cleanMsgId,
+              mentions: (Array.isArray(rawPayloadMsg.mentions) && rawPayloadMsg.mentions.length > 0)
+                ? rawPayloadMsg.mentions
+                : (Array.isArray(row.etiquetas) ? row.etiquetas : [])
+            }
+          : {
+              id: cleanMsgId,
+              text: row.mensaje || '',
+              mentions: Array.isArray(row.etiquetas) ? row.etiquetas : [],
+              authorName: row.autor_nombre || 'Colaborador',
+              authorEmail: row.autor_email || '',
+              authorAvatar: row.autor_avatar_url || row.autor_avatar || '',
+              createdAt: row.created_at || new Date().toISOString()
+            };
+        handleIncomingChatMessage({
+          projectId: row.proyecto_id,
+          senderSessionId: msg.senderSessionId || null,
+          author: {
+            email: row.autor_email || msg.authorEmail || '',
+            name: row.autor_nombre || msg.authorName || 'Colaborador',
+            avatar: row.autor_avatar_url || row.autor_avatar || msg.authorAvatar || ''
+          },
+          message: msg
+        });
+      } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+        if (payload.old.proyecto_id && String(payload.old.proyecto_id).startsWith('__')) return;
+        handleIncomingChatDelete({
+          projectId: payload.old.proyecto_id || '',
+          messageId: stripPrefix(payload.old.id)
+        });
+      }
+    }
+  );
+
   globalSyncChannel.subscribe((status) => {
     if (status === 'SUBSCRIBED') {
       console.info('[Realtime] Canal global WebSocket conectado exitosamente.');
       requestPeerSync();
+      hydrateAllUserProjectsChatFromCloud().catch(() => {});
     }
   });
 
@@ -2157,8 +2226,119 @@ async function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
 // SINCRONIZACIÓN DE CHAT DE PROYECTO EN TIEMPO REAL & PERSISTENCIA EN ANFITRIÓN
 // =========================================================================
 
+function normChatTextToken(v) {
+  return String(v || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function extractAllMessageMentions(message, fallbackEtiquetas = null) {
+  const seen = new Set();
+  const out = [];
+  const push = (raw) => {
+    const clean = String(raw || '').trim().replace(/[.,;:!?)\]]+$/, '');
+    if (!clean.startsWith('@') || clean.length < 2) return;
+    const norm = normChatTextToken(clean);
+    if (!seen.has(norm)) {
+      seen.add(norm);
+      out.push(clean);
+    }
+  };
+  if (Array.isArray(message?.mentions)) message.mentions.forEach(push);
+  if (Array.isArray(fallbackEtiquetas)) fallbackEtiquetas.forEach(push);
+  if (typeof message?.text === 'string') {
+    const matches = message.text.match(/@[A-Za-z0-9_.\-áéíóúÁÉÍÓÚñÑ]+/g);
+    if (matches) matches.forEach(push);
+  }
+  return out;
+}
+
+function sanitizeChatMsgForCloud(msg) {
+  if (!msg || typeof msg !== 'object') return msg;
+  const copy = { ...msg };
+  delete copy.localReadBy;
+  delete copy.localDismissedBy;
+  copy.perUserRead = true;
+  copy.isRead = false;
+  copy.dismissed = false;
+  copy.readBy = [];
+  return copy;
+}
+
+function mergeRemoteChatMessage(prev, remoteMsg, rowEtiquetas = null) {
+  const mergedMentions = extractAllMessageMentions(remoteMsg, rowEtiquetas);
+  const remoteWithoutSharedRead = { ...remoteMsg };
+  if (remoteWithoutSharedRead.perUserRead) {
+    delete remoteWithoutSharedRead.isRead;
+    delete remoteWithoutSharedRead.dismissed;
+    delete remoteWithoutSharedRead.readBy;
+  }
+  const baseMerged = prev
+    ? {
+        ...remoteWithoutSharedRead,
+        ...(prev.localReadBy ? { localReadBy: prev.localReadBy } : {}),
+        ...(prev.localDismissedBy ? { localDismissedBy: prev.localDismissedBy } : {}),
+        isRead: Boolean(prev.isRead),
+        dismissed: Boolean(prev.dismissed),
+        readBy: Array.from(new Set([
+          ...(Array.isArray(prev.readBy) ? prev.readBy.filter(r => r !== '__all__') : []),
+          ...(Array.isArray(remoteMsg.readBy) && !remoteMsg.perUserRead ? remoteMsg.readBy : [])
+        ])),
+        perUserRead: Boolean(prev.perUserRead || remoteMsg.perUserRead)
+      }
+    : {
+        ...remoteMsg,
+        ...(remoteMsg.perUserRead ? { isRead: false, dismissed: false, readBy: [] } : {})
+      };
+  if (mergedMentions.length > 0 && (!Array.isArray(baseMerged.mentions) || baseMerged.mentions.length === 0)) {
+    baseMerged.mentions = mergedMentions;
+  }
+  return baseMerged;
+}
+
+function isUserMentionedInIncomingMsg(currentUser, proj, message) {
+  if (!currentUser || !message) return false;
+  const myEmail = String(currentUser.email || '').toLowerCase().trim();
+  const mentions = extractAllMessageMentions(message);
+  if (mentions.length === 0) return false;
+
+  const selfTokens = new Set(['@todos']);
+  const addTok = (val) => {
+    const raw = String(val || '').toLowerCase().trim();
+    const norm = normChatTextToken(val);
+    if (raw) selfTokens.add(raw);
+    if (norm) selfTokens.add(norm);
+  };
+  if (myEmail) {
+    addTok(myEmail);
+    const prefix = myEmail.split('@')[0];
+    if (prefix) addTok('@' + prefix);
+  }
+  const myName = String(currentUser.name || '').trim();
+  if (myName) {
+    addTok('@' + myName.replace(/\s+/g, '.'));
+    addTok('@' + myName.replace(/\s+/g, ''));
+  }
+  const members = Array.isArray(proj?.members) ? proj.members : [];
+  members.forEach(m => {
+    const mEmail = String(m?.email || '').toLowerCase().trim();
+    const mNameNorm = normChatTextToken(m?.name);
+    if ((myEmail && mEmail === myEmail) || (myName && mNameNorm && mNameNorm === normChatTextToken(myName))) {
+      const cleanName = String(m?.name || '').trim();
+      if (cleanName) addTok('@' + cleanName.replace(/\s+/g, '.'));
+    }
+  });
+  return mentions.some(tag => selfTokens.has(normChatTextToken(tag)) || selfTokens.has(String(tag).toLowerCase().trim()));
+}
+
 export function resolveChatStorageKey(projectId = null) {
-  const pid = projectId || (typeof getActiveProjectId === 'function' ? getActiveProjectId() : null) || 'proj-default-01';
+  let pid = projectId || (typeof getActiveProjectId === 'function' ? getActiveProjectId() : null) || 'proj-default-01';
+  try {
+    const proj = getProjectsList().find(p => p && (p.id === pid || p.cloudId === pid));
+    if (proj && proj.id) pid = proj.id;
+  } catch (_) {}
   const isArq = typeof window !== 'undefined' && (
     (window.location?.hostname || '').includes('arq') ||
     (window.location?.pathname || '').includes('ADM_ARQ')
@@ -2172,7 +2352,7 @@ export function handleIncomingChatMessage(data) {
   if (!currentUser || !currentUser.email) return;
 
   const cleanMsgId = String(data.message.id || '').replace(/^.*?(?:__|::)/, '');
-  if (!cleanMsgId) return;
+  if (!cleanMsgId || cleanMsgId.startsWith('seed_msg_')) return;
 
   if (
     data.senderSessionId === LOCAL_CLIENT_SESSION_ID ||
@@ -2219,10 +2399,17 @@ export function handleIncomingChatMessage(data) {
 
   const dockEl = typeof document !== 'undefined' ? document.getElementById('project-chat-dock') : null;
   const isDockOpen = Boolean(isCurrentActive && dockEl && !dockEl.classList.contains('hidden'));
+  const isOwnAuthor = Boolean(myEmail && authorEmail && authorEmail === myEmail);
+  const normalizedMentions = extractAllMessageMentions(data.message, data.etiquetas);
   const normalizedIncoming = {
     ...data.message,
     id: cleanMsgId,
-    isRead: Boolean(authorEmail === myEmail || isDockOpen)
+    perUserRead: true,
+    mentions: normalizedMentions.length > 0 ? normalizedMentions : (Array.isArray(data.message.mentions) ? data.message.mentions : []),
+    isRead: Boolean(isOwnAuthor || isDockOpen),
+    dismissed: false,
+    readBy: (isOwnAuthor || isDockOpen) && myEmail ? [myEmail] : [],
+    localReadBy: (isOwnAuthor || isDockOpen) ? { [myEmail || '__local__']: true } : {}
   };
 
   messages.push(normalizedIncoming);
@@ -2235,7 +2422,7 @@ export function handleIncomingChatMessage(data) {
     try { window.renderSidebarNotificationsUI(); } catch (_) {}
   }
 
-  // 3. Si la obra está abierta actualmente en pantalla, actualizar la interfaz del dock
+  // 3. Si la obra está abierta actualmente en pantalla, actualizar la interfaz del dock y badge del chat
   if (isCurrentActive) {
     if (typeof window !== 'undefined' && typeof window.renderProjectChatDock === 'function') {
       window.renderProjectChatDock();
@@ -2246,15 +2433,11 @@ export function handleIncomingChatMessage(data) {
         if (listEl) listEl.scrollTop = listEl.scrollHeight;
       }, 50);
     }
+  }
 
-    if (authorEmail !== myEmail) {
-      const mentions = Array.isArray(data.message.mentions) ? data.message.mentions : [];
-      const myHandle = (currentUser.name || currentUser.email).replace(/\s+/g, '');
-      const isMentioned = mentions.some(m => m.toLowerCase().includes(myHandle.toLowerCase()) || m.toLowerCase().includes(myEmail));
-      if (isMentioned) {
-        showToast(`💬 ${data.author?.name || 'Un colaborador'} te mencionó en el chat`, 'info');
-      }
-    }
+  if (authorEmail !== myEmail && isUserMentionedInIncomingMsg(currentUser, proj, normalizedIncoming)) {
+    const pName = proj?.projectName ? ` en ${proj.projectName}` : ' en el chat';
+    showToast(`💬 ${data.author?.name || 'Un colaborador'} te mencionó${pName}`, 'info');
   }
 }
 
@@ -2433,11 +2616,11 @@ export async function persistChatMessageToHostCloud(projectId, message, proj) {
 
   // 1. Guardar en tabla Supabase 'chat_mensajes' usando columnas exactas del esquema
   const cleanMsgId = String(message.id || '').replace(/^.*?(?:__|::)/, '');
-  const msgToPersist = {
+  const msgToPersist = sanitizeChatMsgForCloud({
     ...message,
     id: cleanMsgId,
     senderSessionId: message.senderSessionId || LOCAL_CLIENT_SESSION_ID
-  };
+  });
   markLocalConceptPush(cleanMsgId);
   if (sb && typeof sb.from === 'function') {
     try {
@@ -2537,27 +2720,25 @@ export async function hydrateProjectChatFromCloud(projectId) {
         const cleanId = String(row.payload_json?.id || row.id || '').replace(/^.*?(?:__|::)/, '');
         if (!cleanId) return;
         const msg = (row.payload_json && typeof row.payload_json === 'object' && row.payload_json.id)
-          ? { ...row.payload_json, id: cleanId }
+          ? {
+              ...row.payload_json,
+              id: cleanId,
+              mentions: (Array.isArray(row.payload_json.mentions) && row.payload_json.mentions.length > 0)
+                ? row.payload_json.mentions
+                : (Array.isArray(row.etiquetas) ? row.etiquetas : [])
+            }
           : {
               id: cleanId,
               text: row.mensaje || '',
+              mentions: Array.isArray(row.etiquetas) ? row.etiquetas : [],
               authorName: row.autor_nombre || 'Colaborador',
               authorEmail: row.autor_email || '',
               authorAvatar: row.autor_avatar_url || '',
               createdAt: row.created_at || new Date().toISOString(),
               time: row.created_at ? new Date(row.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''
             };
-        const prev = map.get(msg.id);
-        if (prev) {
-          map.set(msg.id, {
-            ...msg,
-            isRead: Boolean(prev.isRead || msg.isRead),
-            dismissed: Boolean(prev.dismissed || msg.dismissed),
-            readBy: Array.isArray(prev.readBy) && prev.readBy.length > 0 ? prev.readBy : (msg.readBy || [])
-          });
-        } else {
-          map.set(msg.id, msg);
-        }
+        const prev = map.get(cleanId);
+        map.set(cleanId, mergeRemoteChatMessage(prev, msg, row.etiquetas));
       });
 
       const merged = Array.from(map.values()).sort((a, b) => {
@@ -2581,7 +2762,113 @@ export async function hydrateProjectChatFromCloud(projectId) {
   }
 }
 
+let lastAllChatHydrateAt = 0;
+
+export async function hydrateAllUserProjectsChatFromCloud(force = false) {
+  const sb = getSupabaseClient();
+  const user = getCurrentUser();
+  if (!sb || !isSupabaseConfigured() || !user || !user.email || typeof sb.from !== 'function') return false;
+
+  const now = Date.now();
+  if (!force && (now - lastAllChatHydrateAt) < 15000) return false;
+
+  try {
+    const projects = getProjectsList() || [];
+    const projByAnyId = new Map();
+    const idsToQuery = [];
+    const idSet = new Set();
+    projects.forEach(p => {
+      if (!p) return;
+      [p.id, p.cloudId].forEach(pid => {
+        if (pid && !String(pid).startsWith('__') && !idSet.has(String(pid))) {
+          idSet.add(String(pid));
+          idsToQuery.push(String(pid));
+          projByAnyId.set(String(pid), p);
+        }
+      });
+    });
+    if (idsToQuery.length === 0) return false;
+    lastAllChatHydrateAt = now;
+
+    const { data, error } = await sb
+      .from('chat_mensajes')
+      .select('*')
+      .in('proyecto_id', idsToQuery.slice(0, 60))
+      .order('created_at', { ascending: true });
+
+    if (error || !Array.isArray(data) || data.length === 0) return false;
+
+    const rowsByProj = new Map();
+    data.forEach(row => {
+      if (!row || !row.proyecto_id || String(row.proyecto_id).startsWith('__')) return;
+      if (row.id && String(row.id).startsWith('__')) return;
+      const proj = projByAnyId.get(String(row.proyecto_id));
+      const canonicalPid = proj?.id || String(row.proyecto_id);
+      if (!rowsByProj.has(canonicalPid)) rowsByProj.set(canonicalPid, []);
+      rowsByProj.get(canonicalPid).push(row);
+    });
+
+    let updatedAny = false;
+    rowsByProj.forEach((rows, canonicalPid) => {
+      const chatKey = resolveChatStorageKey(canonicalPid);
+      let localMessages = [];
+      try {
+        const raw = localStorage.getItem(chatKey);
+        if (raw) localMessages = JSON.parse(raw);
+      } catch (_) {}
+      if (!Array.isArray(localMessages)) localMessages = [];
+
+      const map = new Map();
+      localMessages.forEach(m => {
+        if (m && m.id) {
+          const normId = String(m.id).replace(/^.*?(?:__|::)/, '');
+          if (normId.startsWith('seed_msg_')) return;
+          map.set(normId, { ...m, id: normId });
+        }
+      });
+      rows.forEach(row => {
+        const rawPayload = (row.payload_json && typeof row.payload_json === 'object') ? row.payload_json : null;
+        const cleanId = String(rawPayload?.id || row.id || '').replace(/^.*?(?:__|::)/, '');
+        if (!cleanId || cleanId.startsWith('seed_msg_')) return;
+        const msg = rawPayload && rawPayload.id
+          ? {
+              ...rawPayload,
+              id: cleanId,
+              mentions: (Array.isArray(rawPayload.mentions) && rawPayload.mentions.length > 0)
+                ? rawPayload.mentions
+                : (Array.isArray(row.etiquetas) ? row.etiquetas : [])
+            }
+          : {
+              id: cleanId,
+              text: row.mensaje || '',
+              mentions: Array.isArray(row.etiquetas) ? row.etiquetas : [],
+              authorName: row.autor_nombre || 'Colaborador',
+              authorEmail: row.autor_email || '',
+              authorAvatar: row.autor_avatar_url || '',
+              createdAt: row.created_at || new Date().toISOString(),
+              time: row.created_at ? new Date(row.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''
+            };
+        map.set(cleanId, mergeRemoteChatMessage(map.get(cleanId), msg, row.etiquetas));
+      });
+
+      const merged = Array.from(map.values()).sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      localStorage.setItem(chatKey, JSON.stringify(merged));
+      updatedAny = true;
+    });
+
+    if (updatedAny && typeof window !== 'undefined') {
+      if (typeof window.renderProjectChatDock === 'function') window.renderProjectChatDock();
+      if (typeof window.renderSidebarNotificationsUI === 'function') window.renderSidebarNotificationsUI();
+    }
+    return updatedAny;
+  } catch (err) {
+    console.warn('[Realtime] Error hidratando chats del usuario:', err);
+    return false;
+  }
+}
+
 if (typeof window !== 'undefined') {
+  window.hydrateAllUserProjectsChatFromCloud = hydrateAllUserProjectsChatFromCloud;
   window.CubikarRealtime = {
     initGlobalRealtimeSync,
     subscribeToProjectRealtime,
@@ -2601,6 +2888,7 @@ if (typeof window !== 'undefined') {
     handleIncomingChatMessage,
     handleIncomingChatDelete,
     hydrateProjectChatFromCloud,
+    hydrateAllUserProjectsChatFromCloud,
     requestPeerSync
   };
   window.broadcastProjectDeleted = broadcastProjectDeleted;
