@@ -6,7 +6,7 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261116_cf19';
+} from '../../config/constants.js?v=20261116_cf20';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -66,15 +66,15 @@ import {
   SAMPLE_LOGOS,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261116_cf19';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf19';
-import { persistLocalData, state, initStore } from '../../state/store.js?v=20261116_cf19';
-import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261116_cf19';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf19';
-import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf19';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261116_cf19';
-import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261116_cf19';
-import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261116_cf19';
+} from './projectService.js?v=20261116_cf20';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf20';
+import { persistLocalData, state, initStore } from '../../state/store.js?v=20261116_cf20';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261116_cf20';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf20';
+import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf20';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261116_cf20';
+import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261116_cf20';
+import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261116_cf20';
 import {
   signUp,
   signInWithPassword,
@@ -84,18 +84,18 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js?v=20261116_cf19';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261116_cf19';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf19';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf19';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf19';
+} from '../../core/authService.js?v=20261116_cf20';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261116_cf20';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf20';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf20';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf20';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
   openCubikarAdminModal
-} from '../admin/cubikarAdmin.js?v=20261116_cf19';
-import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf19';
-import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261116_cf19';
+} from '../admin/cubikarAdmin.js?v=20261116_cf20';
+import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf20';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261116_cf20';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -1556,11 +1556,11 @@ export function renderPortalDashboard() {
               }
             }
           } else {
-            // Proyecto propio: si estaba sincronizado con la nube pero ya no existe en Supabase (fue eliminado)
+            // Proyecto propio que no está en proyectos_eliminados pero aún no figura en cloudIds:
+            // conservarlo y marcar isCloudSynced=false para que se suba a Supabase sin perderse.
             if (lp.isCloudSynced && !cloudIds.has(lp.id) && !cloudIds.has(lp.cloudId)) {
-              console.info(`[PortalReconcile] Proyecto propio eliminado en la nube: ${lp.projectName} (${lp.id})`);
+              lp.isCloudSynced = false;
               changed = true;
-              return false;
             }
           }
 

@@ -11,10 +11,10 @@ import {
   addFeaturedProfile,
   getActiveWorkspaceData,
   getUserPlanId
-} from './projectService.js?v=20261116_cf19';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf19';
-import { isNightMode } from '../../ui/themeController.js?v=20261116_cf19';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf19';
+} from './projectService.js?v=20261116_cf20';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf20';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf20';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf20';
 
 export const STORAGE_KEY_SUBSCRIPTION = 'adm_const_subscription';
 

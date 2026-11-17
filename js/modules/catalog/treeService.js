@@ -1,15 +1,15 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf19';
-import { saveState } from '../../state/history.js?v=20261116_cf19';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf19';
-import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261116_cf19';
-import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf19';
-import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261116_cf19';
-import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261116_cf19';
-import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf19';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf20';
+import { saveState } from '../../state/history.js?v=20261116_cf20';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf20';
+import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261116_cf20';
+import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf20';
+import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261116_cf20';
+import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261116_cf20';
+import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf20';
 export { countTreeConcepts };
-import { getFactorSobrecosto, round2 } from '../../core/calculations.js?v=20261116_cf19';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf19';
-import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261116_cf19';
+import { getFactorSobrecosto, round2 } from '../../core/calculations.js?v=20261116_cf20';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf20';
+import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261116_cf20';
 
 function createNodeUuid() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

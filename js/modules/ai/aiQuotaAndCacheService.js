@@ -2,13 +2,13 @@
 // Servicio unificado de cuotas mensuales de IA (Estándar vs Google Search Grounding)
 // y caché inteligente de precios de insumos para proteger la rentabilidad de Cubikar.
 
-import { state } from '../../state/store.js?v=20261116_cf19';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf19';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf19';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf19';
-import { getMonthlyAiQuotaUsage, recordAiUsageDetailed, syncMonthlyAiQuotaFromServer, getCurrentMonthKey } from '../admin/cubikarAdmin.js?v=20261116_cf19';
-import { generateLocalMatrix } from './localMatrixEngine.js?v=20261116_cf19';
-import { buildLocalGenerationContext } from './localEstimator.js?v=20261116_cf19';
+import { state } from '../../state/store.js?v=20261116_cf20';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf20';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf20';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf20';
+import { getMonthlyAiQuotaUsage, recordAiUsageDetailed, syncMonthlyAiQuotaFromServer, getCurrentMonthKey } from '../admin/cubikarAdmin.js?v=20261116_cf20';
+import { generateLocalMatrix } from './localMatrixEngine.js?v=20261116_cf20';
+import { buildLocalGenerationContext } from './localEstimator.js?v=20261116_cf20';
 
 export const STORAGE_KEY_SUPPLY_PRICE_CACHE = 'cubikar_insumo_price_cache_v1';
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
