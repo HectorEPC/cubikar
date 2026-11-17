@@ -55,6 +55,7 @@ function getCreateClientFn() {
 
 export let supabase = null;
 const recentNetFailureTimestamps = [];
+const MAX_SAFE_HTTP_BEARER_CHARS = 12000;
 
 function getHeaderCaseInsensitive(headers, name) {
   if (!headers) return '';
@@ -69,6 +70,16 @@ function getHeaderCaseInsensitive(headers, name) {
 function createResilientSupabaseFetch() {
   if (typeof globalThis === 'undefined' || typeof globalThis.fetch !== 'function') return undefined;
   return async function cubikarSupabaseFetch(input, init) {
+    const authHdr = getHeaderCaseInsensitive(init?.headers || input?.headers, 'Authorization');
+    const reqUrl = typeof input === 'string' ? input : String(input?.url || '');
+    const isTokenExchange = reqUrl.includes('/auth/v1/token');
+    if (!isTokenExchange && /^Bearer\s+/i.test(authHdr) && authHdr.length > (MAX_SAFE_HTTP_BEARER_CHARS + 7)) {
+      if (typeof window !== 'undefined') {
+        window.__cubikarOversizedJwtBlocked = true;
+      }
+      throw new DOMException('Token JWT sobredimensionado bloqueado localmente antes del transporte HTTP', 'AbortError');
+    }
+
     const now = Date.now();
     while (recentNetFailureTimestamps.length > 0 && (now - recentNetFailureTimestamps[0]) > 4000) {
       recentNetFailureTimestamps.shift();
@@ -80,6 +91,9 @@ function createResilientSupabaseFetch() {
     try {
       const response = await globalThis.fetch(input, init);
       recentNetFailureTimestamps.length = 0;
+      if (typeof window !== 'undefined' && window.__cubikarOversizedJwtBlocked && /^Bearer\s+/i.test(authHdr)) {
+        window.__cubikarOversizedJwtBlocked = false;
+      }
       return response;
     } catch (err) {
       if (err?.name !== 'AbortError' && err?.code !== 'ABORT_ERR') {

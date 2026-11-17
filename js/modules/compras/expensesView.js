@@ -2,10 +2,10 @@ let isExpensesPrintingBusy = false;
 // js/modules/compras/expensesView.js
 // Renderizador y controlador de eventos para la pestaña COMPRAS Y PAGOS (Control de Gastos y ERP Financiero)
 
-import { state } from '../../state/store.js?v=20261116_cf16';
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261116_cf16';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf16';
-import { normalizeInsumoText } from '../insumosGenerales/insumosConsolidator.js?v=20261116_cf16';
+import { state } from '../../state/store.js?v=20261116_cf17';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261116_cf17';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf17';
+import { normalizeInsumoText } from '../insumosGenerales/insumosConsolidator.js?v=20261116_cf17';
 import {
   loadExpensesData,
   saveExpensesData,
@@ -23,26 +23,26 @@ import {
   getDefaultExpensesSignatures,
   getExpensesSignatures,
   saveExpensesSignatures
-} from './expensesModel.js?v=20261116_cf16';
+} from './expensesModel.js?v=20261116_cf17';
 import {
   getExpensesKpiMetrics,
   getAllBudgetInsumosExplosion,
   getInsumosBudgetVsActualComparison
-} from './expensesCalculations.js?v=20261116_cf16';
+} from './expensesCalculations.js?v=20261116_cf17';
 import {
   processExpenseEvidenceUpload,
   openExpenseEvidence,
   deleteExpenseEvidence
-} from './driveExpenseService.js?v=20261116_cf16';
-import { resolveHostStorageContext } from '../../services/storageQuotaService.js?v=20261116_cf16';
+} from './driveExpenseService.js?v=20261116_cf17';
+import { resolveHostStorageContext } from '../../services/storageQuotaService.js?v=20261116_cf17';
 import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
   printExpensesActiveReport
-} from './expensesExporter.js?v=20261116_cf16';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf16';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf16';
-import { isNightMode } from '../../ui/themeController.js?v=20261116_cf16';
+} from './expensesExporter.js?v=20261116_cf17';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf17';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf17';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf17';
 
 function isAdvancedExpensesAllowed() {
   return true;

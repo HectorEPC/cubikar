@@ -1484,3 +1484,249 @@ BEGIN
         END IF;
     END LOOP;
 END $$;
+
+-- ==============================================================================
+-- 7. RPC MULTI-PC DE ESPACIOS DE COLABORACIÓN Y SANEAMIENTO DE JWT INFLADOS
+-- ==============================================================================
+
+-- 7.1 Consulta segura de espacios compartidos donde el usuario es colaborador (pending o accepted)
+CREATE OR REPLACE FUNCTION public.get_my_collaboration_workspaces()
+RETURNS TABLE (
+    proyecto_id UUID,
+    nombre TEXT,
+    owner_email TEXT,
+    owner_name TEXT,
+    company_name TEXT,
+    rol TEXT,
+    estado_invitacion TEXT,
+    updated_at TIMESTAMPTZ
+) AS $$
+DECLARE
+    u_email TEXT;
+BEGIN
+    u_email := public.current_user_email();
+    IF u_email = '' THEN
+        RETURN;
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        p.id AS proyecto_id,
+        COALESCE(p.nombre, 'Proyecto de Obra')::text AS nombre,
+        LOWER(TRIM(COALESCE(p.owner_email, owner_pc.email_colaborador, '')))::text AS owner_email,
+        COALESCE(
+            NULLIF(TRIM(p.configuracion->>'ownerName'), ''),
+            NULLIF(TRIM(owner_pc.nombre_colaborador), ''),
+            NULLIF(TRIM(pf.nombre_completo), ''),
+            NULLIF(SPLIT_PART(LOWER(TRIM(COALESCE(p.owner_email, owner_pc.email_colaborador, ''))), '@', 1), ''),
+            'Anfitrión'
+        )::text AS owner_name,
+        COALESCE(
+            NULLIF(TRIM(p.configuracion->>'companyName'), ''),
+            NULLIF(TRIM(p.cliente), ''),
+            ''
+        )::text AS company_name,
+        COALESCE(pc.rol, 'editar')::text AS rol,
+        COALESCE(pc.estado_invitacion, 'pending')::text AS estado_invitacion,
+        GREATEST(COALESCE(pc.updated_at, p.updated_at), COALESCE(p.updated_at, pc.updated_at)) AS updated_at
+    FROM public.proyecto_colaboradores pc
+    INNER JOIN public.proyectos p ON p.id = pc.proyecto_id
+    LEFT JOIN LATERAL (
+        SELECT opc.email_colaborador, opc.nombre_colaborador
+        FROM public.proyecto_colaboradores opc
+        WHERE opc.proyecto_id = p.id AND opc.rol = 'owner'
+        ORDER BY opc.updated_at DESC NULLS LAST
+        LIMIT 1
+    ) owner_pc ON TRUE
+    LEFT JOIN public.perfiles pf
+        ON LOWER(TRIM(COALESCE(pf.email, ''))) = LOWER(TRIM(COALESCE(p.owner_email, owner_pc.email_colaborador, '')))
+    WHERE LOWER(TRIM(pc.email_colaborador)) = u_email
+      AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'accepted'))) <> 'rejected'
+      AND LOWER(TRIM(COALESCE(p.owner_email, owner_pc.email_colaborador, ''))) <> u_email
+      AND (
+          to_regclass('public.proyectos_eliminados') IS NULL
+          OR NOT EXISTS (
+              SELECT 1 FROM public.proyectos_eliminados pe
+              WHERE pe.proyecto_id = p.id::text
+          )
+      )
+    ORDER BY GREATEST(COALESCE(pc.updated_at, p.updated_at), COALESCE(p.updated_at, pc.updated_at)) DESC NULLS LAST;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
+
+REVOKE ALL ON FUNCTION public.get_my_collaboration_workspaces() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_my_collaboration_workspaces() TO authenticated;
+
+-- 7.2 Limpieza idempotente de auth.users.raw_user_meta_data inflada (> ~2.5 KB o con llaves legadas)
+DO $$
+DECLARE
+    r RECORD;
+    v_meta JSONB;
+    v_cs JSONB;
+    v_arr JSONB;
+    v_k TEXT;
+    v_v JSONB;
+    v_safe_keys TEXT[] := ARRAY[
+        'sub', 'email', 'email_verified', 'phone_verified',
+        'full_name', 'name', 'user_name', 'preferred_username',
+        'empresa_nombre', 'company_name', 'plan', 'subscription',
+        'role', 'rol', 'auth_session_version', 'cubikar_cloud_state_v2',
+        'cubikar_dismissed_notifications', 'cubikar_read_mentions'
+    ];
+    v_cleaned_count INT := 0;
+BEGIN
+    IF to_regclass('auth.users') IS NULL THEN
+        RETURN;
+    END IF;
+
+    FOR r IN
+        SELECT id, raw_user_meta_data
+        FROM auth.users
+        WHERE raw_user_meta_data IS NOT NULL
+          AND (
+              raw_user_meta_data ? 'cubikar_collaboration_v1'
+              OR length(raw_user_meta_data::text) > 2500
+              OR LEFT(COALESCE(raw_user_meta_data->>'avatar_url', ''), 5) = 'data:'
+              OR LEFT(COALESCE(raw_user_meta_data->>'picture', ''), 5) = 'data:'
+              OR jsonb_typeof(raw_user_meta_data->'cubikar_cloud_state_v2'->'ownedProjects') = 'array'
+              OR jsonb_typeof(raw_user_meta_data->'cubikar_cloud_state_v2'->'collaboratedProjects') = 'array'
+          )
+    LOOP
+        v_meta := COALESCE(r.raw_user_meta_data, '{}'::jsonb);
+
+        -- Eliminar llave legada v1
+        v_meta := v_meta - 'cubikar_collaboration_v1';
+
+        -- Eliminar avatares base64 o URLs extensas del JWT
+        IF (v_meta ? 'avatar_url') AND (
+            LEFT(COALESCE(v_meta->>'avatar_url', ''), 5) = 'data:'
+            OR length(COALESCE(v_meta->>'avatar_url', '')) > 512
+        ) THEN
+            v_meta := v_meta - 'avatar_url';
+        END IF;
+        IF (v_meta ? 'picture') AND (
+            LEFT(COALESCE(v_meta->>'picture', ''), 5) = 'data:'
+            OR length(COALESCE(v_meta->>'picture', '')) > 512
+        ) THEN
+            v_meta := v_meta - 'picture';
+        END IF;
+
+        -- Compactar cubikar_cloud_state_v2 preservando suscripción e invitaciones ligeras
+        IF jsonb_typeof(v_meta->'cubikar_cloud_state_v2') = 'object' THEN
+            v_cs := v_meta->'cubikar_cloud_state_v2';
+            v_cs := v_cs - 'ownedProjects' - 'collaboratedProjects';
+
+            FOR v_k IN SELECT unnest(ARRAY['planInvitations', 'acceptedInvitations', 'sentPlanInvitations', 'sentProjectInvitations']) LOOP
+                IF jsonb_typeof(v_cs->v_k) = 'array' THEN
+                    SELECT COALESCE(jsonb_agg(
+                        CASE WHEN jsonb_typeof(elem) = 'object'
+                             THEN elem - 'avatar' - 'companyLogo'
+                             ELSE elem
+                        END
+                        ORDER BY ord ASC
+                    ), '[]'::jsonb)
+                    INTO v_arr
+                    FROM (
+                        SELECT elem, ord
+                        FROM jsonb_array_elements(v_cs->v_k) WITH ORDINALITY AS t(elem, ord)
+                        ORDER BY ord DESC
+                        LIMIT 10
+                    ) sub;
+                    v_cs := jsonb_set(v_cs, ARRAY[v_k], v_arr, true);
+                END IF;
+            END LOOP;
+
+            IF jsonb_typeof(v_cs->'deletedProjectIds') = 'array' AND jsonb_array_length(v_cs->'deletedProjectIds') > 15 THEN
+                SELECT COALESCE(jsonb_agg(elem ORDER BY ord ASC), '[]'::jsonb)
+                INTO v_arr
+                FROM (
+                    SELECT elem, ord
+                    FROM jsonb_array_elements(v_cs->'deletedProjectIds') WITH ORDINALITY AS t(elem, ord)
+                    ORDER BY ord DESC
+                    LIMIT 15
+                ) sub;
+                v_cs := jsonb_set(v_cs, '{deletedProjectIds}', v_arr, true);
+            END IF;
+
+            IF length(v_cs::text) > 1800 THEN
+                v_cs := jsonb_strip_nulls(jsonb_build_object(
+                    'version', COALESCE(v_cs->'version', '2'::jsonb),
+                    'subscription', v_cs->'subscription',
+                    'planInvitations', CASE WHEN jsonb_typeof(v_cs->'planInvitations') = 'array' THEN v_cs->'planInvitations' ELSE '[]'::jsonb END,
+                    'deletedProjectIds', COALESCE((
+                        SELECT jsonb_agg(elem ORDER BY ord ASC)
+                        FROM (
+                            SELECT elem, ord FROM jsonb_array_elements(COALESCE(v_cs->'deletedProjectIds', '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)
+                            ORDER BY ord DESC LIMIT 10
+                        ) d
+                    ), '[]'::jsonb),
+                    'updatedAt', v_cs->'updatedAt'
+                ));
+            END IF;
+
+            IF length(v_cs::text) > 1800 THEN
+                v_cs := jsonb_strip_nulls(jsonb_build_object(
+                    'version', 2,
+                    'subscription', v_cs->'subscription',
+                    'updatedAt', v_cs->'updatedAt'
+                ));
+            END IF;
+
+            v_meta := jsonb_set(v_meta, '{cubikar_cloud_state_v2}', v_cs, true);
+        END IF;
+
+        -- Acotar listas de notificaciones/menciones leídas en metadata
+        FOR v_k IN SELECT unnest(ARRAY['cubikar_dismissed_notifications', 'cubikar_read_mentions']) LOOP
+            IF jsonb_typeof(v_meta->v_k) = 'array' AND jsonb_array_length(v_meta->v_k) > 20 THEN
+                SELECT COALESCE(jsonb_agg(elem ORDER BY ord ASC), '[]'::jsonb)
+                INTO v_arr
+                FROM (
+                    SELECT elem, ord FROM jsonb_array_elements(v_meta->v_k) WITH ORDINALITY AS t(elem, ord)
+                    ORDER BY ord DESC LIMIT 20
+                ) n;
+                v_meta := jsonb_set(v_meta, ARRAY[v_k], v_arr, true);
+            END IF;
+        END LOOP;
+
+        -- Purga de respaldo si aún supera 3 KB
+        IF length(v_meta::text) > 3000 THEN
+            FOR v_k, v_v IN SELECT key, value FROM jsonb_each(v_meta) LOOP
+                IF NOT (v_k = ANY(v_safe_keys)) THEN
+                    IF length(v_v::text) > 400 OR LEFT(COALESCE(v_v #>> '{}', ''), 5) = 'data:' THEN
+                        v_meta := v_meta - v_k;
+                    END IF;
+                END IF;
+            END LOOP;
+        END IF;
+
+        IF length(v_meta::text) > 3500 THEN
+            v_meta := v_meta - 'cubikar_dismissed_notifications' - 'cubikar_read_mentions';
+            IF jsonb_typeof(v_meta->'cubikar_cloud_state_v2') = 'object' THEN
+                v_meta := jsonb_set(
+                    v_meta,
+                    '{cubikar_cloud_state_v2}',
+                    jsonb_strip_nulls(jsonb_build_object(
+                        'version', 2,
+                        'subscription', v_meta->'cubikar_cloud_state_v2'->'subscription',
+                        'updatedAt', v_meta->'cubikar_cloud_state_v2'->'updatedAt'
+                    )),
+                    true
+                );
+            END IF;
+        END IF;
+
+        UPDATE auth.users
+        SET raw_user_meta_data = v_meta,
+            updated_at = timezone('utc'::text, now())
+        WHERE id = r.id;
+
+        v_cleaned_count := v_cleaned_count + 1;
+    END LOOP;
+
+    RAISE NOTICE 'Cubikar Auth Metadata cleanup completed. Compacted % auth.users rows.', v_cleaned_count;
+EXCEPTION
+    WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Sin privilegios sobre auth.users en esta sesión; omitiendo saneamiento directo de JWT.';
+    WHEN others THEN
+        RAISE NOTICE 'Aviso durante saneamiento de raw_user_meta_data: %', SQLERRM;
+END $$;

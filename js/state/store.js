@@ -1,10 +1,10 @@
-import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261116_cf16';
-import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261116_cf16';
-import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261116_cf16';
-import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261116_cf16';
-import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261116_cf16';
-import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261116_cf16';
-import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261116_cf16';
+import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261116_cf17';
+import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261116_cf17';
+import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261116_cf17';
+import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261116_cf17';
+import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261116_cf17';
+import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261116_cf17';
+import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261116_cf17';
 
 // Estado global reactivo y centralizado de la aplicación
 export const state = {

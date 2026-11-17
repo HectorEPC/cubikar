@@ -1,10 +1,10 @@
 // js/core/authService.js
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
-import { STORAGE_KEY_USER } from '../config/constants.js?v=20261116_cf16';
-import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261116_cf16';
-import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261116_cf16';
-import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261116_cf16';
+import { STORAGE_KEY_USER } from '../config/constants.js?v=20261116_cf17';
+import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261116_cf17';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261116_cf17';
+import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261116_cf17';
 import {
   writeSharedSsoCookie,
   clearSharedSsoCookie,
@@ -14,7 +14,7 @@ import {
   scrubSsoHashParams,
   hasPendingIncomingSso,
   getLastSignOutTimestamp
-} from './ssoHelper.js?v=20261116_cf16';
+} from './ssoHelper.js?v=20261116_cf17';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -154,7 +154,9 @@ function isJwtSessionBloated(session) {
 }
 
 async function repairBloatedJwtRemote(accessToken) {
-  if (!accessToken || typeof accessToken !== 'string' || !accessToken.includes('.')) return false;
+  if (!accessToken || typeof accessToken !== 'string' || !accessToken.includes('.')) {
+    return { ok: false };
+  }
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const endpoints = [];
   const addEndpoint = (u) => { if (u && !endpoints.includes(u)) endpoints.push(u); };
@@ -166,6 +168,7 @@ async function repairBloatedJwtRemote(accessToken) {
     addEndpoint('https://cubikar.app/api/admin-users');
   }
 
+  let lastFailure = { ok: false };
   for (const endpoint of endpoints) {
     try {
       const res = await fetch(endpoint, {
@@ -176,12 +179,19 @@ async function repairBloatedJwtRemote(accessToken) {
           accessToken
         })
       });
-      if (!res.ok) continue;
       const json = await res.json().catch(() => null);
-      if (json?.ok) return true;
+      if (res.ok && json?.ok) return { ok: true };
+      if (json && (json.needsServiceRoleKey || res.status === 422)) {
+        lastFailure = {
+          ok: false,
+          status: res.status,
+          error: json.error || '',
+          needsServiceRoleKey: Boolean(json.needsServiceRoleKey)
+        };
+      }
     } catch (_) {}
   }
-  return false;
+  return lastFailure;
 }
 
 async function refreshCleanSession(sb, refreshToken) {
@@ -296,19 +306,60 @@ export async function ensureCompactAuthSession(sbClient = null, sessionOverride 
       }
     }
 
-    const repaired = await repairBloatedJwtRemote(session.access_token);
-    if (!repaired) {
-      // Si falló por red/error, reintentar en ~15s en lugar de esperar 3 minutos con token grande
-      const shortTs = Date.now() - (COMPACT_COOLDOWN_MS - 15000);
-      const entry = { ts: shortTs, len: Number(session.access_token.length || 0) };
-      compactAttemptByUser.set(uid, entry);
-      try {
-        if (typeof sessionStorage !== 'undefined') {
-          sessionStorage.setItem('cubikar_jwt_slim_uid_' + uid, JSON.stringify(entry));
+    const repairResult = await repairBloatedJwtRemote(session.access_token);
+    if (!repairResult?.ok) {
+      if (session.refresh_token) {
+        lastCompactRefreshAt = Date.now();
+        const postFailRefresh = await refreshCleanSession(sb, session.refresh_token);
+        if (postFailRefresh?.access_token && !isJwtSessionBloated(postFailRefresh)) {
+          lastCompactRefreshAt = Date.now();
+          if (typeof window !== 'undefined') window.__cubikarOversizedJwtBlocked = false;
+          markUserCompactCooldown(uid, postFailRefresh.access_token.length);
+          console.info(`[Supabase Auth] Sesión JWT renovada y compactada (${session.access_token.length} -> ${postFailRefresh.access_token.length} bytes).`);
+          if (postFailRefresh.user) {
+            try {
+              syncLocalUserSession(postFailRefresh.user, null, false, resolveRememberPreference(null));
+              if (resolveRememberPreference(null)) {
+                writeSharedSsoCookie(postFailRefresh);
+              }
+            } catch (_) {}
+          }
+          return postFailRefresh;
         }
-      } catch (_) {}
+      }
+
+      const tokenTooLargeForHttp = session.access_token.length > 12000;
+      if (tokenTooLargeForHttp && typeof window !== 'undefined') {
+        window.__cubikarOversizedJwtBlocked = true;
+        if (window.__cubikarOversizedJwtWarnedFp !== fp) {
+          window.__cubikarOversizedJwtWarnedFp = fp;
+          console.warn(
+            `[Supabase Auth] Token JWT de ${session.access_token.length} bytes excede el límite HTTP (${repairResult?.error || 'requiere SUPABASE_SERVICE_ROLE_KEY o migración SQL'}). Se bloquearon peticiones pesadas localmente hasta compactar y volver a iniciar sesión.`
+          );
+          if (typeof window.showToast === 'function') {
+            try {
+              window.showToast('Tu sesión requiere compactación en la nube (SQL / Service Role Key) y volver a iniciar sesión.', 'warning');
+            } catch (_) {}
+          }
+        }
+      }
+
+      if (repairResult?.needsServiceRoleKey && tokenTooLargeForHttp) {
+        markUserCompactCooldown(uid, session.access_token.length);
+      } else {
+        // Si falló por red/error transitorio, reintentar en ~15s
+        const shortTs = Date.now() - (COMPACT_COOLDOWN_MS - 15000);
+        const entry = { ts: shortTs, len: Number(session.access_token.length || 0) };
+        compactAttemptByUser.set(uid, entry);
+        try {
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('cubikar_jwt_slim_uid_' + uid, JSON.stringify(entry));
+          }
+        } catch (_) {}
+      }
       return session;
     }
+    if (typeof window !== 'undefined') window.__cubikarOversizedJwtBlocked = false;
     markUserCompactCooldown(uid, session.access_token.length);
 
     let latestRefreshToken = session.refresh_token;
@@ -1092,7 +1143,7 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
       initialSyncedUserIds.add(user.id);
       setTimeout(() => {
         autoSyncCollaborationOnStartup(user, { force: Boolean(force && explicitAuthDepth > 0) });
-        import('../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf16')
+        import('../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf17')
           .then(m => m.syncAiQuotaFromSupabase())
           .catch(() => {});
       }, 50);
