@@ -11,10 +11,10 @@ import {
   addFeaturedProfile,
   getActiveWorkspaceData,
   getUserPlanId
-} from './projectService.js?v=20261116_cf21';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf21';
-import { isNightMode } from '../../ui/themeController.js?v=20261116_cf21';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf21';
+} from './projectService.js?v=20261116_cf22';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf22';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf22';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf22';
 
 export const STORAGE_KEY_SUBSCRIPTION = 'adm_const_subscription';
 
@@ -58,8 +58,9 @@ export const SUBSCRIPTION_PLANS = [
     periodLabel: 'Siempre gratis',
     icon: 'fa-solid fa-seedling',
     popular: false,
-    accent: 'slate',
-    dropdownBadgeClass: 'bg-slate-800 text-slate-300 border-slate-700',
+    accent: 'emerald',
+    iconColor: 'text-emerald-400',
+    dropdownBadgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
     maxProjects: 2,
     maxConcepts: 100,
     maxMembers: 3,
@@ -99,6 +100,7 @@ export const SUBSCRIPTION_PLANS = [
     icon: 'fa-solid fa-bolt',
     popular: true,
     accent: 'blue',
+    iconColor: 'text-blue-400',
     dropdownBadgeClass: 'bg-blue-500/20 text-blue-300 border-blue-400/40',
     maxProjects: 15,
     maxConcepts: 1500,
@@ -139,6 +141,7 @@ export const SUBSCRIPTION_PLANS = [
     icon: 'fa-solid fa-crown',
     popular: false,
     accent: 'amber',
+    iconColor: 'text-amber-400',
     dropdownBadgeClass: 'bg-amber-500/20 text-amber-300 border-amber-400/50',
     maxProjects: 50,
     maxConcepts: 3500,
@@ -410,13 +413,13 @@ export function updateSubscriptionBadgesUI(options = {}) {
 
   const dropdownBadge = document.getElementById('dropdown-user-plan-badge');
   if (dropdownBadge) {
-    dropdownBadge.textContent = plan.name;
+    dropdownBadge.innerHTML = `<i class="${plan.icon} mr-1 text-[9px]"></i>${plan.name}`;
     dropdownBadge.className = `text-[10px] font-bold px-2 py-0.5 rounded-full border ${plan.dropdownBadgeClass}`;
   }
 
   const portalDropdownBadge = document.getElementById('portal-dropdown-user-plan-badge');
   if (portalDropdownBadge) {
-    portalDropdownBadge.textContent = plan.name;
+    portalDropdownBadge.innerHTML = `<i class="${plan.icon} mr-1 text-[9px]"></i>${plan.name}`;
     portalDropdownBadge.className = `text-[10px] font-bold px-2 py-0.5 rounded-full border ${plan.dropdownBadgeClass}`;
   }
 
@@ -424,10 +427,30 @@ export function updateSubscriptionBadgesUI(options = {}) {
   if (profileModalBadge) {
     profileModalBadge.textContent = `Plan ${plan.name}`;
   }
+  const profileModalIcon = document.getElementById('profile-modal-plan-icon');
+  if (profileModalIcon) {
+    profileModalIcon.className = `${plan.icon} ${plan.id === 'pro' ? 'text-amber-500' : (plan.id === 'plus' ? 'text-blue-500' : 'text-emerald-500')} text-sm`;
+  }
 
   const headerActiveBadge = document.getElementById('subscription-header-active-badge');
   if (headerActiveBadge) {
-    headerActiveBadge.textContent = `Plan actual: ${plan.name}`;
+    headerActiveBadge.innerHTML = `<i class="${plan.icon} mr-1"></i>Plan actual: ${plan.name}`;
+    headerActiveBadge.className = `text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${plan.dropdownBadgeClass}`;
+  }
+
+  const modalHeaderIcon = document.getElementById('subscription-modal-header-icon');
+  const modalHeaderIconBox = document.getElementById('subscription-modal-header-icon-box');
+  if (modalHeaderIcon) {
+    modalHeaderIcon.className = plan.icon;
+  }
+  if (modalHeaderIconBox) {
+    if (plan.id === 'plus') {
+      modalHeaderIconBox.className = 'w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 text-lg shadow-inner';
+    } else if (plan.id === 'pro') {
+      modalHeaderIconBox.className = 'w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400 text-lg shadow-inner';
+    } else {
+      modalHeaderIconBox.className = 'w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 text-lg shadow-inner';
+    }
   }
 
   // Refrescar inmediatamente el indicador de membresía del portal (#mode-status-badge) y botón de nuevo proyecto
@@ -487,8 +510,8 @@ export function renderSubscriptionCards() {
 
     // Estilos adaptativos según nivel de suscripción y modo visual (Día / Nocturno)
     let cardBorder = night ? 'border-slate-700/90 bg-slate-900/90' : 'border-slate-200 bg-white';
-    let badgeClasses = night ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-slate-100 text-slate-700 border border-slate-200';
-    let iconBoxClasses = night ? 'bg-slate-800 text-emerald-400 border border-slate-700' : 'bg-emerald-50 text-emerald-600 border border-emerald-200';
+    let badgeClasses = night ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+    let iconBoxClasses = night ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-600 border border-emerald-200';
     let checkIconColor = 'text-emerald-500';
     let actionBtnClasses = '';
     let actionBtnLabel = '';
@@ -530,7 +553,7 @@ export function renderSubscriptionCards() {
       actionBtnClasses = night
         ? 'w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 transition flex items-center justify-center gap-1.5 cursor-pointer'
         : 'w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition flex items-center justify-center gap-1.5 cursor-pointer';
-      actionBtnLabel = `<span>Cambiar a Gratuita</span>`;
+      actionBtnLabel = `<i class="fa-solid fa-seedling text-[11px]"></i><span>Cambiar a Gratuita</span>`;
     }
 
     const billingSubtext = plan.id === 'free'
@@ -676,9 +699,9 @@ export function renderSubscriptionComparisonTable(night = isNightMode()) {
           <thead>
             <tr class="border-b ${thCls}">
               <th class="py-2.5 px-3 font-bold">Característica</th>
-              <th class="py-2.5 px-3 font-bold text-center">Gratuita (\$0)</th>
-              <th class="py-2.5 px-3 font-bold text-center text-blue-500">Plus (${isAnnual ? '$280' : '$350'} / mes)</th>
-              <th class="py-2.5 px-3 font-bold text-center text-amber-500">Pro (${isAnnual ? '$760' : '$950'} / mes)</th>
+              <th class="py-2.5 px-3 font-bold text-center text-emerald-500"><i class="fa-solid fa-seedling mr-1"></i>Gratuita (\$0)</th>
+              <th class="py-2.5 px-3 font-bold text-center text-blue-500"><i class="fa-solid fa-bolt mr-1"></i>Plus (${isAnnual ? '$280' : '$350'} / mes)</th>
+              <th class="py-2.5 px-3 font-bold text-center text-amber-500"><i class="fa-solid fa-crown mr-1"></i>Pro (${isAnnual ? '$760' : '$950'} / mes)</th>
             </tr>
           </thead>
           <tbody>

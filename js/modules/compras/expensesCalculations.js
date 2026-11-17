@@ -1,14 +1,14 @@
 // js/modules/compras/expensesCalculations.js
 // Motor de cálculos financieros, KPIs de obra y cruce con la Explosión de Insumos
 
-import { state } from '../../state/store.js?v=20261116_cf21';
-import { round2, round5 } from '../../core/formatters.js?v=20261116_cf21';
-import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf21';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf21';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261116_cf21';
-import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261116_cf21';
-import { loadEstimacionesData, getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261116_cf21';
-import { getExpensesRecords, getExpensesConfig } from './expensesModel.js?v=20261116_cf21';
+import { state } from '../../state/store.js?v=20261116_cf22';
+import { round2, round5 } from '../../core/formatters.js?v=20261116_cf22';
+import { getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf22';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261116_cf22';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261116_cf22';
+import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261116_cf22';
+import { loadEstimacionesData, getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261116_cf22';
+import { getExpensesRecords, getExpensesConfig } from './expensesModel.js?v=20261116_cf22';
 
 /**
  * Obtener Monto Total Contratado / Presupuestado de la obra

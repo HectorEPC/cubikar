@@ -1,9 +1,9 @@
-import { getActiveProjectId } from '../config/constants.js?v=20261116_cf21';
-import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261116_cf21';
-import { getCurrentUser, getProjectById, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf21';
-import { recordStorageUsage } from '../modules/admin/cubikarAdmin.js?v=20261116_cf21';
-import { formatBytes } from '../utils/fileCompressor.js?v=20261116_cf21';
-import { getLocalMediaStats } from './mediaCacheDb.js?v=20261116_cf21';
+import { getActiveProjectId } from '../config/constants.js?v=20261116_cf22';
+import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261116_cf22';
+import { getCurrentUser, getProjectById, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf22';
+import { recordStorageUsage } from '../modules/admin/cubikarAdmin.js?v=20261116_cf22';
+import { formatBytes } from '../utils/fileCompressor.js?v=20261116_cf22';
+import { getLocalMediaStats } from './mediaCacheDb.js?v=20261116_cf22';
 
 export const MB_BYTES = 1024 * 1024;
 export const GB_BYTES = 1024 * MB_BYTES;
@@ -17,6 +17,9 @@ export const UNIFIED_STORAGE_PLANS = {
     planId: 'free',
     name: 'Gratuita',
     label: 'Plan Gratuito',
+    icon: 'fa-solid fa-seedling',
+    iconColor: 'text-emerald-400',
+    badgeClass: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
     totalMb: 200,
     totalBytes: 200 * MB_BYTES,
     catalogReservedMb: 6,
@@ -31,6 +34,9 @@ export const UNIFIED_STORAGE_PLANS = {
     planId: 'plus',
     name: 'Plus',
     label: 'Plan Plus',
+    icon: 'fa-solid fa-bolt',
+    iconColor: 'text-blue-400',
+    badgeClass: 'bg-blue-500/20 text-blue-300 border border-blue-400/30',
     totalMb: 2048,
     totalBytes: 2 * GB_BYTES,
     catalogReservedMb: 50,
@@ -45,6 +51,9 @@ export const UNIFIED_STORAGE_PLANS = {
     planId: 'pro',
     name: 'Pro',
     label: 'Plan Pro',
+    icon: 'fa-solid fa-crown',
+    iconColor: 'text-amber-400',
+    badgeClass: 'bg-amber-500/20 text-amber-300 border border-amber-400/30',
     totalMb: 5120,
     totalBytes: 5 * GB_BYTES,
     catalogReservedMb: 200,
@@ -140,7 +149,7 @@ function withTimeout(promise, ms, fallbackValue) {
 
 async function fetchLocalCatalogUsageBytes(ownerEmail = '') {
   try {
-    const mod = await import('../modules/reference/referenceDb.js?v=20261116_cf21');
+    const mod = await import('../modules/reference/referenceDb.js?v=20261116_cf22');
     if (typeof mod.getReferenceDatabaseStats === 'function') {
       const stats = await mod.getReferenceDatabaseStats(ownerEmail || null);
       return Number(stats?.totalBytes ?? stats?.estimatedBytes ?? 0);
@@ -412,7 +421,7 @@ export function renderStorageMeterHtml(summary, options = {}) {
             <div class="flex items-center gap-2 flex-wrap min-w-0">
               <h4 class="text-xs font-black text-white tracking-wide flex items-center gap-1.5">
                 <span>Espacio Utilizado en la Nube</span>
-                <span class="text-[9.5px] font-extrabold px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 font-sans">${s.spec.label}</span>
+                <span class="text-[9.5px] font-extrabold px-1.5 py-0.2 rounded-full ${s.spec.badgeClass || 'bg-blue-500/20 text-blue-300 border border-blue-400/30'} font-sans flex items-center gap-1 shrink-0"><i class="${s.spec.icon || 'fa-solid fa-bolt'} text-[8.5px]"></i><span>${s.spec.label}</span></span>
               </h4>
               <span class="text-[10px] text-slate-400 hidden sm:inline truncate">
                 · Monitoreo AWS S3
@@ -504,7 +513,7 @@ export function renderStorageMeterHtml(summary, options = {}) {
           <div class="min-w-0">
             <h4 class="text-sm font-black text-white tracking-wide flex items-center gap-2">
               <span>Espacio Utilizado en la Nube</span>
-              <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 font-sans">${s.spec.label}</span>
+              <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full ${s.spec.badgeClass || 'bg-blue-500/20 text-blue-300 border border-blue-400/30'} font-sans flex items-center gap-1 shrink-0"><i class="${s.spec.icon || 'fa-solid fa-bolt'} text-[9px]"></i><span>${s.spec.label}</span></span>
             </h4>
             <span class="text-[11px] text-slate-300 block truncate">
               Monitoreo de almacenamiento AWS S3 para proyectos, presupuestos y base de datos

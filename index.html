@@ -243,7 +243,7 @@
                   <i class="fa-solid fa-crown text-amber-400 text-xs w-4 text-center"></i>
                   <span>Suscripción</span>
                 </span>
-                <span id="dropdown-user-plan-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Gratuita</span>
+                <span id="dropdown-user-plan-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"><i class="fa-solid fa-seedling mr-1 text-[9px]"></i>Gratuita</span>
               </button>
 
               <button type="button" onclick="closeUserDropdown(); openSettingsModal('general')" 
@@ -3448,7 +3448,7 @@
         <!-- Acceso rápido a Suscripción desde Mi Perfil -->
         <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
-            <i class="fa-solid fa-crown text-amber-500 text-sm"></i>
+            <i id="profile-modal-plan-icon" class="fa-solid fa-seedling text-emerald-500 text-sm"></i>
             <div>
               <span class="block text-[11px] font-bold text-slate-800" id="profile-modal-plan-badge">Plan Gratuita</span>
               <span class="block text-[10px] text-slate-500">Opciones disponibles: Gratuita, Plus y Pro</span>
@@ -4706,8 +4706,8 @@
       <!-- Encabezado Ejecutivo -->
       <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white px-5 py-4 flex flex-wrap justify-between items-center gap-3 shrink-0 border-b border-slate-800">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400 text-lg shadow-inner">
-            <i class="fa-solid fa-crown"></i>
+          <div id="subscription-modal-header-icon-box" class="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 text-lg shadow-inner">
+            <i id="subscription-modal-header-icon" class="fa-solid fa-seedling"></i>
           </div>
           <div>
             <div class="flex items-center gap-2 flex-wrap">
@@ -5867,9 +5867,9 @@
       setInterval(purgeInvalidScopeOptions, 300);
     })();
   </script>
-  <script type="module" src="js/app.js?v=20261116_cf21"></script>
+  <script type="module" src="js/app.js?v=20261116_cf22"></script>
   <script type="module">
-    import { switchTab } from './js/ui/modalController.js?v=20261116_cf21';
+    import { switchTab } from './js/ui/modalController.js?v=20261116_cf22';
     import { renderBitacoraView } from './js/modules/bitacora/bitacoraView.js?v=20261117_cf23';
 
     try {

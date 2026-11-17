@@ -1,10 +1,10 @@
 // js/ui/appSwitcher.js
 // Selector Unificado de Aplicaciones del Ecosistema Cubikar (Estilo Google Workspace Waffle 9-puntos)
 
-import { appendSsoToUrlFromStorage } from '../core/ssoHelper.js?v=20261116_cf21';
-import { getCurrentUser, getProjectsList, getDeletedProjectsList } from '../modules/portal/projectService.js?v=20261116_cf21';
-import { getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf21';
-import { getSupabaseClient } from '../core/supabaseClient.js?v=20261116_cf21';
+import { appendSsoToUrlFromStorage } from '../core/ssoHelper.js?v=20261116_cf22';
+import { getCurrentUser, getProjectsList, getDeletedProjectsList } from '../modules/portal/projectService.js?v=20261116_cf22';
+import { getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf22';
+import { getSupabaseClient } from '../core/supabaseClient.js?v=20261116_cf22';
 
 function csvEsc(val) {
   const s = String(val ?? '').replace(/\r?\n/g, ' ');

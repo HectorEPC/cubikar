@@ -6,7 +6,7 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261116_cf21';
+} from '../../config/constants.js?v=20261116_cf22';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -66,15 +66,15 @@ import {
   SAMPLE_LOGOS,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261116_cf21';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf21';
-import { persistLocalData, state, initStore } from '../../state/store.js?v=20261116_cf21';
-import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261116_cf21';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf21';
-import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf21';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261116_cf21';
-import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261116_cf21';
-import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261116_cf21';
+} from './projectService.js?v=20261116_cf22';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf22';
+import { persistLocalData, state, initStore } from '../../state/store.js?v=20261116_cf22';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261116_cf22';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf22';
+import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf22';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261116_cf22';
+import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261116_cf22';
+import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261116_cf22';
 import {
   signUp,
   signInWithPassword,
@@ -84,18 +84,18 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js?v=20261116_cf21';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261116_cf21';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf21';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf21';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf21';
+} from '../../core/authService.js?v=20261116_cf22';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261116_cf22';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf22';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf22';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf22';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
   openCubikarAdminModal
-} from '../admin/cubikarAdmin.js?v=20261116_cf21';
-import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf21';
-import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261116_cf21';
+} from '../admin/cubikarAdmin.js?v=20261116_cf22';
+import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf22';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261116_cf22';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -1392,11 +1392,16 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
   const ownedCount = ownedProjects.length;
 
   if (scope === 'owned') {
+    const iconCls = userPlanLimits.icon || (userPlanId === 'plus' ? 'fa-solid fa-bolt' : (userPlanId === 'pro' ? 'fa-solid fa-crown' : 'fa-solid fa-seedling'));
+    const colorCls = userPlanLimits.iconColor || (userPlanId === 'plus' ? 'text-blue-400' : (userPlanId === 'pro' ? 'text-amber-400' : 'text-emerald-400'));
+    const borderCls = userPlanLimits.borderClass || (userPlanId === 'plus' ? 'border-blue-500/40' : (userPlanId === 'pro' ? 'border-amber-500/40' : 'border-emerald-500/40'));
+    const pillCls = userPlanLimits.pillClass || (userPlanId === 'plus' ? 'text-blue-300 font-mono text-[11px] bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/30 font-bold' : (userPlanId === 'pro' ? 'text-amber-300 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/30 font-bold' : 'text-emerald-300 font-mono text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/30 font-bold'));
+
     return `
-      <div class="flex items-center gap-2 bg-slate-900/90 border border-amber-500/40 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
-        <i class="fa-solid fa-crown text-amber-400"></i>
+      <div class="flex items-center gap-2 bg-slate-900/90 ${borderCls} px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
+        <i class="${iconCls} ${colorCls}"></i>
         <span class="text-slate-300">🏷️ Membresía activa: <strong class="text-white">Plan ${userPlanLimits.name}</strong></span>
-        <span class="text-amber-300 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/30 font-bold">(${ownedCount}/${userPlanLimits.maxProjects} obras)</span>
+        <span class="${pillCls}">(${ownedCount}/${userPlanLimits.maxProjects} obras)</span>
       </div>
     `;
   }
@@ -1408,6 +1413,8 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
     const hostPlanId = getUserPlanId(targetEmail);
     const hostPlanLimits = getPlanLimits(hostPlanId);
     const planName = hostPlanLimits.name;
+    const hostIconCls = hostPlanLimits.icon || (hostPlanId === 'plus' ? 'fa-solid fa-bolt' : (hostPlanId === 'pro' ? 'fa-solid fa-crown' : 'fa-solid fa-seedling'));
+    const hostColorCls = hostPlanLimits.iconColor || (hostPlanId === 'plus' ? 'text-blue-400' : (hostPlanId === 'pro' ? 'text-amber-400' : 'text-emerald-400'));
     const isEditor = inv?.isEditor || false;
     const roleDisplay = inv?.myRoleDisplay || 'Leer';
     const allSysProjects = getProjectsList();
@@ -1419,7 +1426,7 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
       return `
         <div class="flex items-center gap-2 bg-emerald-950/70 border border-emerald-500/50 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
           <i class="fa-solid fa-circle-check text-emerald-400"></i>
-          <span class="text-emerald-200">🏷️ Membresía: <strong class="text-white">Plan ${planName}</strong> (${hostCount}/${maxProjects} obras)</span>
+          <span class="text-emerald-200">🏷️ Membresía: <strong class="text-white"><i class="${hostIconCls} ${hostColorCls} mr-1"></i>Plan ${planName}</strong> (${hostCount}/${maxProjects} obras)</span>
           <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-md font-bold text-[10.5px]">⭐ Editor (Puedes crear obras)</span>
         </div>
       `;
@@ -1427,7 +1434,7 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
       return `
         <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 rounded-xl shadow-inner text-xs">
           <i class="fa-solid fa-user-lock text-slate-400"></i>
-          <span class="text-slate-300">🏷️ Membresía: <strong class="text-white">Plan ${planName}</strong> (${hostCount}/${maxProjects} obras)</span>
+          <span class="text-slate-300">🏷️ Membresía: <strong class="text-white"><i class="${hostIconCls} ${hostColorCls} mr-1"></i>Plan ${planName}</strong> (${hostCount}/${maxProjects} obras)</span>
           <span class="bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-md font-medium text-[10.5px]">🔒 Rol: ${roleDisplay} (Solo lectura / colaborador)</span>
         </div>
       `;
@@ -4163,7 +4170,7 @@ export function updatePortalHeaderUserArea(user) {
               <i class="fa-solid fa-crown text-amber-400 text-xs"></i>
               <span>Suscripción</span>
             </span>
-            <span id="portal-dropdown-user-plan-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Gratuita</span>
+            <span id="portal-dropdown-user-plan-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"><i class="fa-solid fa-seedling mr-1 text-[9px]"></i>Gratuita</span>
           </button>
           <div class="h-px bg-slate-800 my-1"></div>
           <div class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Ecosistema Cubikar</div>

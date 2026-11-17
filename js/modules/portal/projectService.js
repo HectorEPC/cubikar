@@ -15,14 +15,14 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261116_cf21';
+} from '../../config/constants.js?v=20261116_cf22';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf21';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf21';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf21';
-import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf21';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf21';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf22';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf22';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf22';
+import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf22';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf22';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -640,7 +640,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261116_cf21').then(m => {
+            import('../../core/supabaseClient.js?v=20261116_cf22').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -2697,7 +2697,14 @@ export function getProjectEffectivePlan(projectId) {
 // ==========================================
 export const PLAN_LIMITS = {
   free: {
+    id: 'free',
     name: 'Gratuita',
+    icon: 'fa-solid fa-seedling',
+    iconColor: 'text-emerald-400',
+    accentColor: 'emerald',
+    badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+    borderClass: 'border-emerald-500/40',
+    pillClass: 'text-emerald-300 font-mono text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/30 font-bold',
     maxProjects: 2,
     maxConcepts: 100,
     maxMembers: 3,
@@ -2710,7 +2717,14 @@ export const PLAN_LIMITS = {
     canInvite: true
   },
   plus: {
+    id: 'plus',
     name: 'Plus',
+    icon: 'fa-solid fa-bolt',
+    iconColor: 'text-blue-400',
+    accentColor: 'blue',
+    badgeClass: 'bg-blue-500/20 text-blue-300 border-blue-400/40',
+    borderClass: 'border-blue-500/40',
+    pillClass: 'text-blue-300 font-mono text-[11px] bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/30 font-bold',
     maxProjects: 15,
     maxConcepts: 1500,
     maxMembers: 10,
@@ -2723,7 +2737,14 @@ export const PLAN_LIMITS = {
     canInvite: true
   },
   pro: {
+    id: 'pro',
     name: 'Pro',
+    icon: 'fa-solid fa-crown',
+    iconColor: 'text-amber-400',
+    accentColor: 'amber',
+    badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-400/50',
+    borderClass: 'border-amber-500/40',
+    pillClass: 'text-amber-300 font-mono text-[11px] bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/30 font-bold',
     maxProjects: 50,
     maxConcepts: 3500,
     maxMembers: 30,
