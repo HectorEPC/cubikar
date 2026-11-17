@@ -394,13 +394,13 @@ export function renderBitacoraView() {
         ` : ''}
       </div>
 
-      <!-- Medidor unificado de cuota AWS S3 -->
-      <div id="bitacora-storage-meter" class="px-4 pt-2 bg-slate-50 border-b border-slate-200 shrink-0 pb-2"></div>
-
       <!-- 4. LÍNEA DE TIEMPO (TIMELINE CRONOLÓGICO) -->
       <div id="bitacora-timeline-scroll" class="flex-1 overflow-y-auto custom-scroll p-4 sm:p-6">
         ${renderBitacoraTimelineHtml(notes)}
       </div>
+
+      <!-- Medidor unificado de cuota AWS S3 -->
+      <div id="bitacora-storage-meter" class="px-4 pt-2 bg-slate-50 border-t border-slate-200 shrink-0 pb-2"></div>
 
     </div>
   `;
