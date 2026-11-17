@@ -2,11 +2,11 @@
 // Modelo de datos y lógica de cálculo para ESTIMACIONES DE OBRA
 // Sincronizado reactivamente con state.treeData (Catálogo Base)
 
-import { state } from '../../state/store.js?v=20261116_cf12';
-import { getActiveProjectId, getStorageKey } from '../../config/constants.js?v=20261116_cf12';
-import { formatDate, parseDate, addDays, diffDays } from '../calendario/calendarioModel.js?v=20261116_cf12';
-import { scheduleEstimacionesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261116_cf12';
-import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261116_cf12';
+import { state } from '../../state/store.js?v=20261116_cf13';
+import { getActiveProjectId, getStorageKey } from '../../config/constants.js?v=20261116_cf13';
+import { formatDate, parseDate, addDays, diffDays } from '../calendario/calendarioModel.js?v=20261116_cf13';
+import { scheduleEstimacionesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261116_cf13';
+import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261116_cf13';
 
 const STORAGE_KEY_PREFIX = 'estimaciones_data_';
 

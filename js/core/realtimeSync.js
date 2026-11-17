@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf12';
-import { state } from '../state/store.js?v=20261116_cf12';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf13';
+import { state } from '../state/store.js?v=20261116_cf13';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -17,10 +17,10 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261116_cf12';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf12';
-import { findNodeById } from '../modules/catalog/treeService.js?v=20261116_cf12';
-import { showToast } from '../ui/notifications.js?v=20261116_cf12';
+} from '../modules/portal/projectService.js?v=20261116_cf13';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf13';
+import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261116_cf13';
+import { showToast } from '../ui/notifications.js?v=20261116_cf13';
 
 let activeChannel = null;
 let currentSubscribedProjectId = null;
@@ -90,6 +90,9 @@ export function applyTreePatch(tree, patch) {
       const exists = tree.some(n => n.id === patch.node.id || (patch.node.uuid && n.uuid === patch.node.uuid));
       if (!exists) {
         tree.push(patch.node);
+        if (typeof window !== 'undefined' && typeof window.addKnownCloudConceptIds === 'function') {
+          window.addKnownCloudConceptIds(currentSubscribedProjectId, [patch.node.uuid || patch.node.id]);
+        }
         return true;
       }
     }
@@ -97,13 +100,18 @@ export function applyTreePatch(tree, patch) {
   }
 
   if (type === 'add_child_row') {
-    const parent = findNodeById(tree, patch.parentId);
+    const parent = (patch.parentUuid ? findNodeById(tree, patch.parentUuid) : null)
+      || findNodeById(tree, patch.parentId)
+      || (patch.parentClave ? findNodeById(tree, patch.parentClave) : null);
     if (parent && patch.node && patch.node.id) {
       if (!Array.isArray(parent.children)) parent.children = [];
       const exists = parent.children.some(n => n.id === patch.node.id || (patch.node.uuid && n.uuid === patch.node.uuid));
       if (!exists) {
         parent.children.push(patch.node);
         parent.expanded = true;
+        if (typeof window !== 'undefined' && typeof window.addKnownCloudConceptIds === 'function') {
+          window.addKnownCloudConceptIds(currentSubscribedProjectId, [patch.node.uuid || patch.node.id]);
+        }
         return true;
       }
     }
@@ -209,10 +217,16 @@ function applyClearMatrixToNode(node) {
   }
 
   if (type === 'duplicate_node') {
+    if (!patch.clonedNode) return false;
+    const clonedUid = patch.clonedNode.uuid || patch.clonedNode.id;
+    if (findNodeById(tree, clonedUid) || findNodeById(tree, patch.clonedNode.id)) return false;
     function insertCloned(nodes) {
-      const idx = nodes.findIndex(n => n.id === patch.id);
-      if (idx !== -1 && patch.clonedNode) {
-        nodes.splice(idx + 1, 0, patch.clonedNode);
+      const idx = nodes.findIndex(n => matchesPatchRef(n, patch));
+      if (idx !== -1) {
+        nodes.splice(idx + 1, 0, JSON.parse(JSON.stringify(patch.clonedNode)));
+        if (typeof window !== 'undefined' && typeof window.addKnownCloudConceptIds === 'function') {
+          window.addKnownCloudConceptIds(currentSubscribedProjectId, [clonedUid]);
+        }
         return true;
       }
       for (let n of nodes) {
@@ -220,7 +234,57 @@ function applyClearMatrixToNode(node) {
       }
       return false;
     }
-    return insertCloned(tree);
+    if (insertCloned(tree)) return true;
+    const parentFallback = (patch.parentUuid ? findNodeById(tree, patch.parentUuid) : null)
+      || (patch.parentId ? findNodeById(tree, patch.parentId) : null);
+    const targetList = parentFallback ? (parentFallback.children = parentFallback.children || []) : tree;
+    targetList.push(JSON.parse(JSON.stringify(patch.clonedNode)));
+    return true;
+  }
+
+  if (type === 'paste_node') {
+    if (!patch.node) return false;
+    const pastedUid = patch.node.uuid || patch.node.id;
+    if (findNodeById(tree, pastedUid) || findNodeById(tree, patch.node.id)) return false;
+    const pastedCopy = JSON.parse(JSON.stringify(patch.node));
+    const targetRef = { id: patch.targetId, uuid: patch.targetUuid, clave: patch.targetClave };
+    function insertAfterTarget(nodes) {
+      const idx = nodes.findIndex(n => matchesPatchRef(n, targetRef));
+      if (idx !== -1) {
+        nodes.splice(idx + 1, 0, pastedCopy);
+        return true;
+      }
+      for (const n of nodes) {
+        if (Array.isArray(n.children) && insertAfterTarget(n.children)) return true;
+      }
+      return false;
+    }
+    let inserted = (patch.targetId || patch.targetUuid || patch.targetClave) ? insertAfterTarget(tree) : false;
+    if (!inserted) {
+      const pNode = (patch.parentUuid ? findNodeById(tree, patch.parentUuid) : null)
+        || (patch.parentId ? findNodeById(tree, patch.parentId) : null);
+      const list = pNode ? (pNode.children = pNode.children || []) : tree;
+      const pos = (typeof patch.position === 'number' && patch.position >= 0 && patch.position <= list.length)
+        ? patch.position
+        : list.length;
+      list.splice(pos, 0, pastedCopy);
+    }
+    if (typeof window !== 'undefined' && typeof window.addKnownCloudConceptIds === 'function') {
+      window.addKnownCloudConceptIds(currentSubscribedProjectId, [pastedUid]);
+    }
+    try { recalculateClaves(tree); } catch (_) {}
+    return true;
+  }
+
+  if (type === 'update_insumos') {
+    const node = findPatchTargetNode(tree, patch);
+    if (!node) return false;
+    node.insumos = Array.isArray(patch.insumos) ? JSON.parse(JSON.stringify(patch.insumos)) : [];
+    if (patch.precioUnitario !== undefined) node.precioUnitario = Number(patch.precioUnitario) || 0;
+    if (patch.costoDirecto !== undefined) node.costoDirecto = Number(patch.costoDirecto) || 0;
+    if (patch.userClearedMatrix !== undefined) node.userClearedMatrix = Boolean(patch.userClearedMatrix);
+    if (patch.isMatrixCustomized !== undefined) node.isMatrixCustomized = Boolean(patch.isMatrixCustomized);
+    return true;
   }
 
   if (type === 'move_node') {
@@ -413,8 +477,25 @@ export function subscribeToProjectRealtime(projectId) {
         filter: `proyecto_id=eq.${canonicalCloudId}`
       },
       (payload) => {
-        if (payload?.new) {
-          handleIncomingConceptUpdate(payload.new);
+        if (payload?.eventType === 'DELETE') {
+          const oldId = payload?.old?.id;
+          if (oldId && !isRecentlyPushedLocally(oldId)) {
+            if (applyTreePatch(state.treeData, { type: 'delete_node', id: oldId, uuid: oldId })) {
+              try {
+                const activePId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
+                if (activePId) localStorage.setItem(getStorageKey(activePId), JSON.stringify(state.treeData));
+              } catch (_) {}
+              if (typeof window.recalculateClaves === 'function') {
+                try { window.recalculateClaves(state.treeData); } catch (_) {}
+              }
+              if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
+              if (typeof window.renderTAB1 === 'function') window.renderTAB1();
+            }
+          }
+          return;
+        }
+        if (payload?.new && payload.new.id) {
+          handleIncomingConceptUpdate(payload.new, payload.eventType);
         }
       }
     );
@@ -549,9 +630,8 @@ export function broadcastProjectMutation({
     let safeTreeData = null;
     let treeTooLarge = false;
     let treePendingCloudSync = false;
-    // Si viene un parche granular (edición de celda, cantidad, precio, etc.), NO enviamos el árbol completo por red
-    // para evitar saturar el ancho de banda y congelar la UI de los demás usuarios.
-    if (!patch && Array.isArray(treeData)) {
+    // Nunca enviar árbol completo en mutaciones con patch ni en cambios de solo settings
+    if (!patch && changeType !== 'settings_updated' && Array.isArray(treeData)) {
       try {
         const raw = JSON.stringify(treeData);
         if (raw.length < 180000) {
@@ -755,7 +835,7 @@ export function handleIncomingProjectUpdate(data) {
     } catch (_) {}
   }
 
-  if (Array.isArray(data.treeData)) {
+  if (!data.patch && data.changeType !== 'settings_updated' && Array.isArray(data.treeData)) {
     try {
       localStorage.setItem(getStorageKey(effectiveStorageId), JSON.stringify(data.treeData));
     } catch (_) {}
@@ -849,7 +929,7 @@ function markLocalConceptPush(id) {
   const key = String(id || '').trim();
   if (!key) return;
   const now = Date.now();
-  recentLocalConceptPushes.set(key, now + 6000);
+  recentLocalConceptPushes.set(key, now + 8000);
   if (recentLocalConceptPushes.size > 200) {
     for (const [k, exp] of recentLocalConceptPushes.entries()) {
       if (exp < now) recentLocalConceptPushes.delete(k);
@@ -904,14 +984,17 @@ export function broadcastConceptChange(concept) {
 /**
  * Actualizar nodo local cuando otro usuario modifica un concepto en la nube
  */
-function handleIncomingConceptUpdate(data) {
+function handleIncomingConceptUpdate(data, eventType = 'UPDATE') {
   if (!data || !data.id) return;
+
+  const isUuidVal = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s || '').trim());
+  const dataIsUuid = isUuidVal(data.id);
 
   // Si el cambio fue emitido por esta misma sesión o recién enviado desde este dispositivo (eco CDC/Broadcast), ignorar
   if (data.senderSessionId && data.senderSessionId === LOCAL_CLIENT_SESSION_ID) {
     return;
   }
-  if (isRecentlyPushedLocally(data.id) || (data.uuid && isRecentlyPushedLocally(data.uuid)) || (data.clave && isRecentlyPushedLocally(data.clave))) {
+  if (isRecentlyPushedLocally(data.id) || (data.uuid && isRecentlyPushedLocally(data.uuid)) || (!dataIsUuid && data.clave && isRecentlyPushedLocally(data.clave))) {
     return;
   }
 
@@ -919,13 +1002,14 @@ function handleIncomingConceptUpdate(data) {
   function findAndMutate(nodes) {
     if (!Array.isArray(nodes)) return false;
     for (let node of nodes) {
-      if (
-        node.id === data.id ||
-        node.uuid === data.id ||
-        (data.uuid && (node.id === data.uuid || node.uuid === data.uuid)) ||
-        (data.clave && node.clave === data.clave)
-      ) {
-        if (data.id && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(String(data.id))) {
+      const nodeHasOwnUuid = isUuidVal(node.uuid) || isUuidVal(node.id);
+      const idOrUuidMatch = node.id === data.id
+        || (node.uuid && node.uuid === data.id)
+        || (data.uuid && (node.id === data.uuid || node.uuid === data.uuid));
+      const safeClaveMatch = !dataIsUuid && !nodeHasOwnUuid && data.clave && node.clave === data.clave;
+
+      if (idOrUuidMatch || safeClaveMatch) {
+        if (dataIsUuid) {
           node.uuid = String(data.id);
         }
         if (data.cantidad !== undefined) node.cantidad = Number(data.cantidad) || 0;
@@ -935,6 +1019,11 @@ function handleIncomingConceptUpdate(data) {
         if (data.costo_directo !== undefined) node.costoDirecto = Number(data.costo_directo) || 0;
         if (data.descripcion !== undefined) node.descripcion = data.descripcion;
         if (data.unidad !== undefined) node.unidad = data.unidad;
+        if (data.color !== undefined) {
+          if (data.color) node.color = data.color;
+          else delete node.color;
+        }
+        if (Array.isArray(data.insumos)) node.insumos = data.insumos;
         matchedNodeId = node.id;
         return true;
       }
@@ -945,8 +1034,40 @@ function handleIncomingConceptUpdate(data) {
     return false;
   }
 
-  const updated = findAndMutate(state.treeData);
+  let updated = findAndMutate(state.treeData);
+  if (!updated && eventType === 'INSERT' && dataIsUuid) {
+    const newNode = {
+      id: data.id,
+      uuid: data.id,
+      clave: data.clave || '',
+      descripcion: data.descripcion || '',
+      unidad: data.unidad || (data.tipo === 'concepto' ? 'pza' : 'lote'),
+      cantidad: Number(data.cantidad) || 0,
+      precioUnitario: Number(data.precio_unitario) || 0,
+      costoDirecto: Number(data.costo_directo) || 0,
+      color: data.color || null,
+      expanded: data.expanded !== false,
+      selected: data.selected !== false,
+      insumos: Array.isArray(data.insumos) ? data.insumos : [],
+      children: []
+    };
+    const parentNode = data.parent_id ? findNodeById(state.treeData, data.parent_id) : null;
+    if (parentNode) {
+      if (!Array.isArray(parentNode.children)) parentNode.children = [];
+      parentNode.children.push(newNode);
+      updated = true;
+    } else if (!data.parent_id && Array.isArray(state.treeData)) {
+      state.treeData.push(newNode);
+      updated = true;
+    }
+    if (updated && typeof window !== 'undefined' && typeof window.addKnownCloudConceptIds === 'function') {
+      window.addKnownCloudConceptIds(currentSubscribedProjectId, [data.id]);
+    }
+  }
   if (updated) {
+    if (typeof window.recalculateClaves === 'function' && Array.isArray(state.treeData)) {
+      try { window.recalculateClaves(state.treeData); } catch (_) {}
+    }
     try {
       const activePId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
       if (activePId) {
@@ -979,7 +1100,7 @@ export async function pushConceptUpdateToSupabase(concept) {
 
   markLocalConceptPush(rawId);
   markLocalConceptPush(concept.id);
-  if (concept.clave) markLocalConceptPush(concept.clave);
+  if (!isUuid(rawId) && concept.clave) markLocalConceptPush(concept.clave);
 
   const updateFields = {
     descripcion: concept.descripcion || '',
@@ -991,19 +1112,18 @@ export async function pushConceptUpdateToSupabase(concept) {
   };
 
   try {
-    let updatedRows = null;
     if (isUuid(rawId)) {
-      const { data, error } = await sb
+      const { error } = await sb
         .from('catalogo_conceptos')
         .update(updateFields)
-        .eq('id', rawId)
-        .select('id');
-      if (!error && Array.isArray(data) && data.length > 0) {
-        updatedRows = data;
+        .eq('id', rawId);
+      if (error) {
+        console.warn('[Realtime] Error en pushConceptUpdateToSupabase:', error.message);
       }
+      return;
     }
 
-    if (!updatedRows && concept.clave) {
+    if (concept.clave) {
       const activePId = typeof getActiveProjectId === 'function' ? getActiveProjectId() : currentSubscribedProjectId;
       const allProjects = getProjectsList();
       const proj = allProjects.find(p => p.id === activePId || p.cloudId === activePId);
@@ -1798,11 +1918,16 @@ export function handleIncomingCollaboratorRemoved(data) {
 /**
  * Solicitar sincronización peer a otros usuarios conectados
  */
+let lastPeerSyncSentAt = 0;
 export function requestPeerSync() {
   if (!globalSyncChannel) return;
+  if (globalSyncChannel.state && globalSyncChannel.state !== 'joined') return;
+  const now = Date.now();
+  if (lastPeerSyncSentAt > 0 && (now - lastPeerSyncSentAt) < 10000) return;
   const currentUser = getCurrentUser();
   if (!currentUser || !currentUser.email) return;
 
+  lastPeerSyncSentAt = now;
   globalSyncChannel.send({
     type: 'broadcast',
     event: 'solicitar_sincronizacion_peer',

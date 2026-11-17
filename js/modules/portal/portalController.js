@@ -6,7 +6,7 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261116_cf12';
+} from '../../config/constants.js?v=20261116_cf13';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -66,15 +66,15 @@ import {
   SAMPLE_LOGOS,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261116_cf12';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf12';
-import { persistLocalData, state, initStore } from '../../state/store.js?v=20261116_cf12';
-import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261116_cf12';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf12';
-import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf12';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261116_cf12';
-import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261116_cf12';
-import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261116_cf12';
+} from './projectService.js?v=20261116_cf13';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf13';
+import { persistLocalData, state, initStore } from '../../state/store.js?v=20261116_cf13';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261116_cf13';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf13';
+import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf13';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261116_cf13';
+import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261116_cf13';
+import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261116_cf13';
 import {
   signUp,
   signInWithPassword,
@@ -84,18 +84,18 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js?v=20261116_cf12';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261116_cf12';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf12';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf12';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf12';
+} from '../../core/authService.js?v=20261116_cf13';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261116_cf13';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf13';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf13';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf13';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
   openCubikarAdminModal
-} from '../admin/cubikarAdmin.js?v=20261116_cf12';
-import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf12';
-import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261116_cf12';
+} from '../admin/cubikarAdmin.js?v=20261116_cf13';
+import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf13';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261116_cf13';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -3598,22 +3598,31 @@ export async function finalizeCreateProject() {
     }
   } catch (_) {}
 
-  // Sincronizar a Supabase PostgreSQL con timeout máximo de 1200ms para entrada instantánea
+  // Sincronizar a Supabase PostgreSQL asegurando espera prudente para que UUIDs y árbol inicial terminen de subirse
   try {
     const rawTree = localStorage.getItem(getStorageKey(newProj.id));
     const rawSettings = localStorage.getItem(getSettingsKey(newProj.id));
     const treeToSave = rawTree ? JSON.parse(rawTree) : (sampleTree || []);
     const settingsToSave = rawSettings ? JSON.parse(rawSettings) : projPayload;
+    let initialSyncFinished = false;
+    try { sessionStorage.setItem(`cubikar_pending_initial_upload_${newProj.id}`, '1'); } catch (_) {}
     const syncTask = syncProjectToCloud(newProj, settingsToSave, treeToSave).then((res) => {
+      initialSyncFinished = true;
       if (res && res.success) {
         newProj.isCloudSynced = true;
         if (res.projectId) newProj.cloudId = res.projectId;
+        try {
+          if (Array.isArray(treeToSave) && treeToSave.length > 0) {
+            localStorage.setItem(getStorageKey(newProj.id), JSON.stringify(treeToSave));
+          }
+          sessionStorage.removeItem(`cubikar_pending_initial_upload_${newProj.id}`);
+        } catch (_) {}
         const latestProjs = getProjectsList();
         const lIdx = latestProjs.findIndex(p => p.id === newProj.id || p.cloudId === newProj.cloudId);
         if (lIdx >= 0) {
           latestProjs[lIdx].isCloudSynced = true;
           latestProjs[lIdx].cloudId = newProj.cloudId;
-          saveProjectsList(latestProjs);
+          saveProjectsList(latestProjs, { skipCloudSync: true });
         }
         console.info('[CloudSync] Nuevo proyecto respaldado en Supabase con ID:', res.projectId);
       }
@@ -3625,8 +3634,15 @@ export async function finalizeCreateProject() {
 
     await Promise.race([
       syncTask,
-      new Promise(resolve => setTimeout(resolve, 1200))
+      new Promise(resolve => setTimeout(resolve, 6500))
     ]);
+    if (!initialSyncFinished) {
+      try {
+        if (Array.isArray(treeToSave) && treeToSave.length > 0) {
+          localStorage.setItem(getStorageKey(newProj.id), JSON.stringify(treeToSave));
+        }
+      } catch (_) {}
+    }
   } catch (err) {
     console.warn('[CloudSync] Aviso al respaldar nuevo proyecto:', err);
   }

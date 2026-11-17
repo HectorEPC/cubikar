@@ -1,14 +1,14 @@
-import { state } from '../../state/store.js?v=20261116_cf12';
-import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js?v=20261116_cf12';
-import { getHierarchyColor } from '../../core/colors.js?v=20261116_cf12';
-import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js?v=20261116_cf12';
-import { findNodeById } from './treeService.js?v=20261116_cf12';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf12';
-import { APU_WIDTH_KEY } from '../../config/constants.js?v=20261116_cf12';
-import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf12';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf12';
-import { getClampedApuWidth } from '../../ui/resizer.js?v=20261116_cf12';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf12';
+import { state } from '../../state/store.js?v=20261116_cf13';
+import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js?v=20261116_cf13';
+import { getHierarchyColor } from '../../core/colors.js?v=20261116_cf13';
+import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js?v=20261116_cf13';
+import { findNodeById } from './treeService.js?v=20261116_cf13';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf13';
+import { APU_WIDTH_KEY } from '../../config/constants.js?v=20261116_cf13';
+import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf13';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf13';
+import { getClampedApuWidth } from '../../ui/resizer.js?v=20261116_cf13';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf13';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';

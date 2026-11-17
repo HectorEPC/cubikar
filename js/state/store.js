@@ -1,10 +1,10 @@
-import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261116_cf12';
-import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261116_cf12';
-import { syncActiveProjectSummary, getProjectById, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261116_cf12';
-import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261116_cf12';
-import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261116_cf12';
-import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261116_cf12';
-import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261116_cf12';
+import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261116_cf13';
+import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261116_cf13';
+import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261116_cf13';
+import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261116_cf13';
+import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261116_cf13';
+import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261116_cf13';
+import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261116_cf13';
 
 // Estado global reactivo y centralizado de la aplicación
 export const state = {
@@ -16,6 +16,50 @@ export const state = {
   clipboardNode: null,
   clipboardMeta: null
 };
+
+let localTreeMutationSeq = 0;
+export function bumpLocalTreeMutationSeq() {
+  localTreeMutationSeq++;
+  return localTreeMutationSeq;
+}
+export function getLocalTreeMutationSeq() {
+  return localTreeMutationSeq;
+}
+
+function ensureLocalTreeUuids(nodes) {
+  let mutated = false;
+  const genUuid = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+  };
+  const walk = (list) => {
+    if (!Array.isArray(list)) return;
+    list.forEach((n) => {
+      if (!n || typeof n !== 'object') return;
+      if (!n.uuid || !/^[0-9a-f]{8}-/i.test(String(n.uuid))) {
+        n.uuid = (n.id && /^[0-9a-f]{8}-/i.test(String(n.id))) ? n.id : genUuid();
+        mutated = true;
+      }
+      if (Array.isArray(n.insumos)) {
+        n.insumos.forEach((ins) => {
+          if (!ins || typeof ins !== 'object') return;
+          if (!ins.uuid || !/^[0-9a-f]{8}-/i.test(String(ins.uuid))) {
+            ins.uuid = (ins.id && /^[0-9a-f]{8}-/i.test(String(ins.id))) ? ins.id : genUuid();
+            mutated = true;
+          }
+        });
+      }
+      if (Array.isArray(n.children)) walk(n.children);
+    });
+  };
+  walk(nodes);
+  return mutated;
+}
 
 // Sincronizar portapapeles compartido entre proyectos desde localStorage
 export function syncClipboardFromStorage() {
@@ -96,11 +140,27 @@ export function initStore() {
     } else {
       state.treeData = [];
     }
+    if (Array.isArray(state.treeData) && ensureLocalTreeUuids(state.treeData) && activePId) {
+      try { localStorage.setItem(getStorageKey(activePId), JSON.stringify(state.treeData)); } catch (_) {}
+    }
 
-    // Si el proyecto está activo, siempre sincronizar con la versión autoritativa más reciente de Supabase PostgreSQL
+    // Si el proyecto está activo, sincronizar con Supabase SIN pisar mutaciones locales concurrentes durante la carga
     if (activePId) {
+      const bootMutationSeq = localTreeMutationSeq;
       loadProjectTreeFromCloud(activePId).then(cloudTree => {
+        if (localTreeMutationSeq !== bootMutationSeq) {
+          triggerDebouncedCloudSync();
+          return;
+        }
+        let hasPendingInitial = false;
+        try { hasPendingInitial = sessionStorage.getItem(`cubikar_pending_initial_upload_${activePId}`) === '1'; } catch (_) {}
         if (Array.isArray(cloudTree) && cloudTree.length > 0) {
+          const currentProjMeta = getProjectById(activePId);
+          const localHasNodes = savedData && Array.isArray(state.treeData) && state.treeData.length > 0;
+          if ((hasPendingInitial || !currentProjMeta?.isCloudSynced) && localHasNodes && cloudTree.length < state.treeData.length) {
+            triggerDebouncedCloudSync();
+            return;
+          }
           const currentJson = JSON.stringify(state.treeData || []);
           const incomingJson = JSON.stringify(cloudTree);
           if (currentJson !== incomingJson) {
@@ -244,7 +304,18 @@ export function triggerDebouncedCloudSync() {
     let syncSuccess = false;
     try {
       const syncRes = await syncProjectToCloud(project, state.settings, state.treeData);
-      syncSuccess = Boolean(!syncRes || syncRes.success !== false);
+      syncSuccess = Boolean(syncRes && syncRes.success);
+      if (syncSuccess) {
+        try { sessionStorage.removeItem(`cubikar_pending_initial_upload_${projectId}`); } catch (_) {}
+        const list = getProjectsList();
+        const idx = list.findIndex(p => p.id === project.id || (syncRes.projectId && p.cloudId === syncRes.projectId));
+        if (idx !== -1) {
+          list[idx].isCloudSynced = true;
+          list[idx].cloudId = syncRes.projectId || list[idx].cloudId || list[idx].id;
+          list[idx].lastCloudSyncAt = Date.now();
+          saveProjectsList(list, { skipCloudSync: true });
+        }
+      }
     } catch (e) {
       console.warn('[CloudSync] Fallo silencioso en autosincronización:', e);
     }
@@ -300,9 +371,11 @@ export function persistSettings(meta = {}) {
 // Persistencia en localStorage con debounce de 300ms y emisión en vivo vía WebSockets
 let persistTimer = null;
 export function persistLocalData(immediate = false, meta = {}) {
+  localTreeMutationSeq++;
   const projectId = getActiveProjectId();
   const flushPersist = () => {
     try {
+      ensureLocalTreeUuids(state.treeData);
       localStorage.setItem(getStorageKey(), JSON.stringify(state.treeData));
       syncActiveProjectSummary(projectId, state.treeData, state.settings);
       if (!meta?.patch && checkIfLargeTree(state.treeData)) {
@@ -313,7 +386,9 @@ export function persistLocalData(immediate = false, meta = {}) {
           changeDescription: meta?.changeDescription || 'cambios en el catálogo'
         };
       }
-      if (!meta?.skipFullCloudSync) {
+      const projMeta = projectId ? getProjectById(projectId) : null;
+      const shouldSkipFullSync = Boolean(meta?.skipFullCloudSync) && Boolean(projMeta?.isCloudSynced);
+      if (!shouldSkipFullSync) {
         triggerDebouncedCloudSync();
       }
 
@@ -343,5 +418,7 @@ export function persistLocalData(immediate = false, meta = {}) {
   }, 300);
 }
 
-// Guardado forzado al cerrar o recargar ventana
-window.addEventListener('beforeunload', () => persistLocalData(true));
+// Guardado forzado al cerrar o recargar ventana (solo si había escritura pendiente)
+window.addEventListener('beforeunload', () => {
+  if (persistTimer) persistLocalData(true);
+});

@@ -1,4 +1,4 @@
-import { state } from '../state/store.js?v=20261116_cf12';
+import { state } from '../state/store.js?v=20261116_cf13';
 
 export const numFormatter = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const numFormatter5 = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 5, maximumFractionDigits: 5 });

@@ -1,13 +1,13 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf12';
-import { saveState } from '../../state/history.js?v=20261116_cf12';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf12';
-import { findNodeById, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf12';
-import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from './apuView.js?v=20261116_cf12';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf12';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf12';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf12';
-import { round2, round5 } from '../../core/formatters.js?v=20261116_cf12';
-import { updateGrandTotal } from '../../core/calculations.js?v=20261116_cf12';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf13';
+import { saveState } from '../../state/history.js?v=20261116_cf13';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf13';
+import { findNodeById, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf13';
+import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from './apuView.js?v=20261116_cf13';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf13';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf13';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf13';
+import { round2, round5 } from '../../core/formatters.js?v=20261116_cf13';
+import { getFactorSobrecosto, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf13';
 
 // Filtro de botones en la tabla Matriz APU
 export function filterMatriz(tipo) {
@@ -57,6 +57,47 @@ export function filterInsumos(tipo) {
   }
 }
 
+function genInsumoUuid() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+function syncNodeCostFromInsumos(node) {
+  if (!node || !Array.isArray(node.insumos)) return;
+  let totalCD = 0;
+  for (const ins of node.insumos) {
+    totalCD += (Number(ins?.cantidad) || 0) * (Number(ins?.costoUnitario) || 0);
+  }
+  const factor = typeof getFactorSobrecosto === 'function' ? (Number(getFactorSobrecosto()) || 1) : 1;
+  node.costoDirecto = round2(totalCD);
+  node.precioUnitario = round2(totalCD * factor);
+}
+
+function buildInsumosPatch(node) {
+  return {
+    changeType: 'apu_updated',
+    highlightId: node.id,
+    changeDescription: `matriz APU de "${node.clave || node.descripcion || 'concepto'}"`,
+    skipFullCloudSync: true,
+    patch: {
+      type: 'update_insumos',
+      id: node.id,
+      uuid: node.uuid || node.id,
+      clave: node.clave || '',
+      insumos: Array.isArray(node.insumos) ? node.insumos : [],
+      precioUnitario: Number(node.precioUnitario) || 0,
+      costoDirecto: Number(node.costoDirecto) || 0,
+      userClearedMatrix: Boolean(node.userClearedMatrix),
+      isMatrixCustomized: Boolean(node.isMatrixCustomized)
+    }
+  };
+}
+
 // Agregar nuevo insumo a la matriz del concepto activo
 export function addInsumo() {
   if (!canCurrentUserEditProject()) {
@@ -77,7 +118,10 @@ export function addInsumo() {
   const defaultTipo = (state.currentMatrizFilter && state.currentMatrizFilter !== 'Todos') ? state.currentMatrizFilter : 'Material';
   node.isMatrixCustomized = true;
   node.userClearedMatrix = false;
+  const newInsUuid = genInsumoUuid();
   node.insumos.push({
+    id: newInsUuid,
+    uuid: newInsUuid,
     clave: `INS-0${node.insumos.length + 1}`,
     tipo: defaultTipo,
     descripcion: 'Nuevo Insumo',
@@ -85,10 +129,11 @@ export function addInsumo() {
     cantidad: 1.00,
     costoUnitario: 0.00
   });
-  renderAPUInsumos(node);
+  syncNodeCostFromInsumos(node);
+  renderAPUInsumos(node, { skipPersist: true });
   renderInsumosUnitarios(node);
   updateGrandTotal();
-  persistLocalData();
+  persistLocalData(true, buildInsumosPatch(node));
 }
 
 // Actualizar un campo de un insumo (descripcion, tipo, unidad, cantidad, costoUnitario)
@@ -107,7 +152,9 @@ export function updateInsumo(index, field, value) {
   const node = findNodeById(state.treeData, state.activeSelectedId);
   if (node && node.insumos && node.insumos[index]) {
     node.isMatrixCustomized = true;
+    node.userClearedMatrix = false;
     const ins = node.insumos[index];
+    if (!ins.uuid) ins.uuid = (ins.id && /^[0-9a-f]{8}-/i.test(String(ins.id))) ? ins.id : genInsumoUuid();
     if (field === 'cantidad') {
       ins.cantidad = round5(value);
     } else if (field === 'costoUnitario') {
@@ -115,8 +162,11 @@ export function updateInsumo(index, field, value) {
     } else {
       ins[field] = value;
     }
-    renderAPUInsumos(node);
+    syncNodeCostFromInsumos(node);
+    renderAPUInsumos(node, { skipPersist: true });
     renderInsumosUnitarios(node);
+    updateGrandTotal();
+    persistLocalData(true, buildInsumosPatch(node));
   }
 }
 
@@ -137,9 +187,11 @@ export function removeInsumo(index) {
       if (node.insumos.length === 0) {
         node.userClearedMatrix = true;
       }
-      persistLocalData();
-      renderAPUInsumos(node);
+      syncNodeCostFromInsumos(node);
+      renderAPUInsumos(node, { skipPersist: true });
       renderInsumosUnitarios(node);
+      updateGrandTotal();
+      persistLocalData(true, buildInsumosPatch(node));
       showToast('Insumo eliminado de la matriz', 'info');
     }
   }
@@ -199,6 +251,7 @@ export function limpiarMatrizConceptoSeleccionado() {
     changeType: 'matrix_cleared',
     highlightId: node.id,
     changeDescription: `matriz de ${node.clave || 'concepto'}`,
+    skipFullCloudSync: true,
     patch: {
       type: 'clear_matrix',
       id: node.id,
@@ -227,7 +280,7 @@ export function limpiarMatricesCasillas() {
     if (active && (!active.children || active.children.length === 0)) {
       active.selected = true;
       targets = [active];
-      persistLocalData(true, { skipBroadcast: true });
+      persistLocalData(true, { skipBroadcast: true, skipFullCloudSync: true });
       renderTAB1();
     }
   }
@@ -266,6 +319,7 @@ export function limpiarMatricesCasillas() {
   persistLocalData(true, {
     changeType: 'matrix_cleared',
     changeDescription: `matrices de ${count} concepto(s)`,
+    skipFullCloudSync: true,
     patch: {
       type: 'clear_matrices',
       ids: clearedRefs.map(r => r.id),

@@ -383,7 +383,7 @@ BEGIN
             OR (COALESCE(TRIM(p_owner_email), '') = '' AND (p_empresa_id IS NULL OR p_empresa_id = public.obtener_mi_empresa_id()));
     END IF;
 
-    RETURN public.check_user_project_access(p_id::text, ARRAY['owner', 'admin', 'editar']);
+    RETURN public.check_user_project_access(p_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']);
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
 
@@ -565,10 +565,17 @@ BEGIN
     END IF;
 
     IF LOWER(TRIM(OLD.email_colaborador)) = v_email THEN
-        IF NEW.rol IS DISTINCT FROM OLD.rol
-           OR NEW.proyecto_id IS DISTINCT FROM OLD.proyecto_id
+        IF NEW.proyecto_id IS DISTINCT FROM OLD.proyecto_id
            OR LOWER(TRIM(NEW.email_colaborador)) IS DISTINCT FROM LOWER(TRIM(OLD.email_colaborador)) THEN
             RAISE EXCEPTION 'Solo el propietario o admin del proyecto puede modificar el rol o asignación.';
+        END IF;
+        -- Cuando el invitado acepta o actualiza su propia invitación, preservar su rol original de BD sin escalarlo
+        IF NEW.rol IS DISTINCT FROM OLD.rol THEN
+            IF COALESCE(NEW.estado_invitacion, '') = 'accepted' AND COALESCE(OLD.estado_invitacion, '') <> 'accepted' THEN
+                NEW.rol := OLD.rol;
+            ELSE
+                RAISE EXCEPTION 'Solo el propietario o admin del proyecto puede modificar el rol o asignación.';
+            END IF;
         END IF;
         RETURN NEW;
     END IF;
@@ -739,7 +746,7 @@ CREATE POLICY "proyectos_insert_auth" ON public.proyectos
 
 CREATE POLICY "proyectos_update_colaboracion" ON public.proyectos
     FOR UPDATE USING (
-        public.check_user_project_access(id::text, ARRAY['owner', 'admin', 'editar'])
+        public.check_user_project_access(id::text, ARRAY['owner', 'admin', 'editar', 'escribir'])
     );
 
 CREATE POLICY "proyectos_delete_colaboracion" ON public.proyectos
@@ -1117,6 +1124,325 @@ BEGIN
         );
     END IF;
 END $$;
+
+-- ==============================================================================
+-- 5.5 TABLAS DE MÓDULOS OPERATIVOS (CRONOGRAMA, BITÁCORA, COMPRAS, ESTIMACIONES, ARCHIVOS)
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = timezone('utc'::text, now());
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+ALTER TABLE IF EXISTS public.estimaciones
+    ADD COLUMN IF NOT EXISTS fotos JSONB DEFAULT '[]'::jsonb,
+    ADD COLUMN IF NOT EXISTS locked BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS resumen JSONB DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS detalles_json JSONB DEFAULT '{}'::jsonb;
+
+ALTER TABLE IF EXISTS public.cronograma_actividades
+    ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}'::jsonb;
+
+CREATE TABLE IF NOT EXISTS public.cronograma_config (
+    proyecto_id TEXT PRIMARY KEY,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    config_json JSONB DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+DROP TRIGGER IF EXISTS update_cronograma_config_modtime ON public.cronograma_config;
+CREATE TRIGGER update_cronograma_config_modtime
+    BEFORE UPDATE ON public.cronograma_config
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.cronograma_config ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso cronograma config" ON public.cronograma_config;
+DROP POLICY IF EXISTS "cronograma_config_select" ON public.cronograma_config;
+DROP POLICY IF EXISTS "cronograma_config_insert" ON public.cronograma_config;
+DROP POLICY IF EXISTS "cronograma_config_update" ON public.cronograma_config;
+DROP POLICY IF EXISTS "cronograma_config_delete" ON public.cronograma_config;
+
+CREATE POLICY "cronograma_config_select"
+    ON public.cronograma_config FOR SELECT
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "cronograma_config_insert"
+    ON public.cronograma_config FOR INSERT
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "cronograma_config_update"
+    ON public.cronograma_config FOR UPDATE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "cronograma_config_delete"
+    ON public.cronograma_config FOR DELETE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+CREATE TABLE IF NOT EXISTS public.archivos_almacen (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    proyecto_id TEXT DEFAULT '',
+    owner_email VARCHAR(255) NOT NULL,
+    uploaded_by_email VARCHAR(255) DEFAULT '',
+    modulo VARCHAR(60) NOT NULL CHECK (modulo IN (
+        'bitacora', 'compras', 'estimaciones', 'reportes',
+        'catalogos_maestros', 'avatares', 'branding', 'otros'
+    )),
+    categoria VARCHAR(40) NOT NULL DEFAULT 'project_files' CHECK (categoria IN (
+        'project_files', 'master_catalog', 'branding'
+    )),
+    entidad_id TEXT DEFAULT '',
+    nombre_original TEXT NOT NULL,
+    mime_type VARCHAR(150) NOT NULL DEFAULT 'application/octet-stream',
+    extension VARCHAR(20) DEFAULT '',
+    s3_bucket VARCHAR(120) DEFAULT '',
+    s3_key TEXT NOT NULL UNIQUE,
+    tamano_original_bytes BIGINT NOT NULL DEFAULT 0,
+    tamano_bytes BIGINT NOT NULL DEFAULT 0,
+    sha256 VARCHAR(64) DEFAULT '',
+    metadata JSONB DEFAULT '{}'::jsonb,
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_archivos_owner_active ON public.archivos_almacen(LOWER(owner_email), categoria) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_archivos_proyecto ON public.archivos_almacen(proyecto_id, modulo) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_archivos_empresa ON public.archivos_almacen(empresa_id) WHERE deleted_at IS NULL;
+
+DROP TRIGGER IF EXISTS update_archivos_almacen_modtime ON public.archivos_almacen;
+CREATE TRIGGER update_archivos_almacen_modtime
+    BEFORE UPDATE ON public.archivos_almacen
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.archivos_almacen ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso archivos almacen empresa o colaborador" ON public.archivos_almacen;
+CREATE POLICY "Acceso archivos almacen empresa o colaborador"
+    ON public.archivos_almacen FOR ALL
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+CREATE TABLE IF NOT EXISTS public.bitacora_config (
+    proyecto_id TEXT PRIMARY KEY,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    titulo_obra TEXT DEFAULT '',
+    contrato_num VARCHAR(100) DEFAULT '',
+    contratista TEXT DEFAULT '',
+    supervision TEXT DEFAULT '',
+    residente_nombre VARCHAR(255) DEFAULT '',
+    supervisor_nombre VARCHAR(255) DEFAULT '',
+    folio_actual INTEGER DEFAULT 1,
+    config_json JSONB DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.bitacora_notas (
+    id VARCHAR(120) PRIMARY KEY,
+    proyecto_id TEXT NOT NULL,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    folio INTEGER NOT NULL DEFAULT 1,
+    fecha DATE,
+    tipo VARCHAR(60) DEFAULT 'seguimiento',
+    clasificacion VARCHAR(60) DEFAULT 'general',
+    titulo TEXT NOT NULL DEFAULT '',
+    contenido TEXT DEFAULT '',
+    autor_nombre VARCHAR(255) DEFAULT '',
+    autor_email VARCHAR(255) DEFAULT '',
+    estado VARCHAR(40) DEFAULT 'borrador',
+    fotos JSONB DEFAULT '[]'::jsonb,
+    pdf_s3_key TEXT DEFAULT '',
+    pdf_archivo_id UUID REFERENCES public.archivos_almacen(id) ON DELETE SET NULL,
+    sello_json JSONB DEFAULT '{}'::jsonb,
+    payload_json JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bitacora_notas_proyecto ON public.bitacora_notas(proyecto_id, folio);
+
+DROP TRIGGER IF EXISTS update_bitacora_config_modtime ON public.bitacora_config;
+CREATE TRIGGER update_bitacora_config_modtime
+    BEFORE UPDATE ON public.bitacora_config
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_bitacora_notas_modtime ON public.bitacora_notas;
+CREATE TRIGGER update_bitacora_notas_modtime
+    BEFORE UPDATE ON public.bitacora_notas
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.bitacora_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bitacora_notas ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Acceso bitacora config" ON public.bitacora_config;
+DROP POLICY IF EXISTS "bitacora_config_select" ON public.bitacora_config;
+DROP POLICY IF EXISTS "bitacora_config_insert" ON public.bitacora_config;
+DROP POLICY IF EXISTS "bitacora_config_update" ON public.bitacora_config;
+DROP POLICY IF EXISTS "bitacora_config_delete" ON public.bitacora_config;
+
+CREATE POLICY "bitacora_config_select"
+    ON public.bitacora_config FOR SELECT
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_config_insert"
+    ON public.bitacora_config FOR INSERT
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_config_update"
+    ON public.bitacora_config FOR UPDATE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_config_delete"
+    ON public.bitacora_config FOR DELETE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+DROP POLICY IF EXISTS "Acceso bitacora notas" ON public.bitacora_notas;
+DROP POLICY IF EXISTS "bitacora_notas_select" ON public.bitacora_notas;
+DROP POLICY IF EXISTS "bitacora_notas_insert" ON public.bitacora_notas;
+DROP POLICY IF EXISTS "bitacora_notas_update" ON public.bitacora_notas;
+DROP POLICY IF EXISTS "bitacora_notas_delete" ON public.bitacora_notas;
+
+CREATE POLICY "bitacora_notas_select"
+    ON public.bitacora_notas FOR SELECT
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_notas_insert"
+    ON public.bitacora_notas FOR INSERT
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_notas_update"
+    ON public.bitacora_notas FOR UPDATE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "bitacora_notas_delete"
+    ON public.bitacora_notas FOR DELETE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+CREATE TABLE IF NOT EXISTS public.proveedores (
+    id VARCHAR(120) PRIMARY KEY,
+    proyecto_id TEXT NOT NULL,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    nombre VARCHAR(255) NOT NULL,
+    rfc VARCHAR(30) DEFAULT '',
+    categoria VARCHAR(100) DEFAULT '',
+    telefono VARCHAR(50) DEFAULT '',
+    email VARCHAR(255) DEFAULT '',
+    notas TEXT DEFAULT '',
+    payload_json JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.compras_gastos (
+    id VARCHAR(120) PRIMARY KEY,
+    proyecto_id TEXT NOT NULL,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL DEFAULT '',
+    proveedor_id VARCHAR(120) DEFAULT '',
+    concepto_id TEXT DEFAULT '',
+    fecha DATE,
+    tipo VARCHAR(60) DEFAULT 'compra',
+    categoria VARCHAR(100) DEFAULT 'Material',
+    descripcion TEXT NOT NULL DEFAULT '',
+    folio_factura VARCHAR(120) DEFAULT '',
+    subtotal NUMERIC(14, 2) DEFAULT 0.00,
+    iva NUMERIC(14, 2) DEFAULT 0.00,
+    total NUMERIC(14, 2) DEFAULT 0.00,
+    metodo_pago VARCHAR(60) DEFAULT '',
+    estado VARCHAR(40) DEFAULT 'pagado',
+    evidencia_s3_key TEXT DEFAULT '',
+    evidencia_archivo_id UUID REFERENCES public.archivos_almacen(id) ON DELETE SET NULL,
+    evidencia_json JSONB DEFAULT '{}'::jsonb,
+    payload_json JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_proveedores_proyecto ON public.proveedores(proyecto_id);
+CREATE INDEX IF NOT EXISTS idx_compras_gastos_proyecto ON public.compras_gastos(proyecto_id, fecha);
+
+DROP TRIGGER IF EXISTS update_proveedores_modtime ON public.proveedores;
+CREATE TRIGGER update_proveedores_modtime
+    BEFORE UPDATE ON public.proveedores
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_compras_gastos_modtime ON public.compras_gastos;
+CREATE TRIGGER update_compras_gastos_modtime
+    BEFORE UPDATE ON public.compras_gastos
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.proveedores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.compras_gastos ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Acceso proveedores" ON public.proveedores;
+DROP POLICY IF EXISTS "proveedores_select" ON public.proveedores;
+DROP POLICY IF EXISTS "proveedores_insert" ON public.proveedores;
+DROP POLICY IF EXISTS "proveedores_update" ON public.proveedores;
+DROP POLICY IF EXISTS "proveedores_delete" ON public.proveedores;
+
+CREATE POLICY "proveedores_select"
+    ON public.proveedores FOR SELECT
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "proveedores_insert"
+    ON public.proveedores FOR INSERT
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "proveedores_update"
+    ON public.proveedores FOR UPDATE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "proveedores_delete"
+    ON public.proveedores FOR DELETE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+DROP POLICY IF EXISTS "Acceso compras gastos" ON public.compras_gastos;
+DROP POLICY IF EXISTS "compras_gastos_select" ON public.compras_gastos;
+DROP POLICY IF EXISTS "compras_gastos_insert" ON public.compras_gastos;
+DROP POLICY IF EXISTS "compras_gastos_update" ON public.compras_gastos;
+DROP POLICY IF EXISTS "compras_gastos_delete" ON public.compras_gastos;
+
+CREATE POLICY "compras_gastos_select"
+    ON public.compras_gastos FOR SELECT
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "compras_gastos_insert"
+    ON public.compras_gastos FOR INSERT
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "compras_gastos_update"
+    ON public.compras_gastos FOR UPDATE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text))
+    WITH CHECK (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+CREATE POLICY "compras_gastos_delete"
+    ON public.compras_gastos FOR DELETE
+    USING (public.tiene_acceso_escritura_registro(empresa_id, owner_email::text, proyecto_id::text));
+
+CREATE TABLE IF NOT EXISTS public.catalogos_maestros (
+    id VARCHAR(120) PRIMARY KEY,
+    empresa_id UUID REFERENCES public.empresas(id) ON DELETE SET NULL,
+    owner_email VARCHAR(255) NOT NULL,
+    nombre VARCHAR(255) NOT NULL,
+    version VARCHAR(50) DEFAULT '1.0',
+    total_conceptos INTEGER DEFAULT 0,
+    tamano_bytes BIGINT NOT NULL DEFAULT 0,
+    s3_key TEXT DEFAULT '',
+    archivo_id UUID REFERENCES public.archivos_almacen(id) ON DELETE SET NULL,
+    resumen_json JSONB DEFAULT '{}'::jsonb,
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_catalogos_maestros_owner ON public.catalogos_maestros(LOWER(owner_email)) WHERE deleted_at IS NULL;
+
+DROP TRIGGER IF EXISTS update_catalogos_maestros_modtime ON public.catalogos_maestros;
+CREATE TRIGGER update_catalogos_maestros_modtime
+    BEFORE UPDATE ON public.catalogos_maestros
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.catalogos_maestros ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Acceso catalogos maestros" ON public.catalogos_maestros;
+CREATE POLICY "Acceso catalogos maestros"
+    ON public.catalogos_maestros FOR ALL
+    USING (public.tiene_acceso_registro(empresa_id, owner_email::text, ''::text))
+    WITH CHECK (public.tiene_acceso_registro(empresa_id, owner_email::text, ''::text));
 
 -- ==============================================================================
 -- 6. PUBLICACIÓN EN SUPABASE REALTIME

@@ -1,17 +1,17 @@
-import { printCalendarioObraFormat } from '../io/printService.js?v=20261116_cf12';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf12';
-import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf12';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf12';
+import { printCalendarioObraFormat } from '../io/printService.js?v=20261116_cf13';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf13';
+import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf13';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf13';
 // js/modules/calendario/calendarioView.js
 // Renderizador y controlador de la pestaña CALENDARIO DE OBRA
 // Diseño ejecutivo de alta fidelidad, interactivo y sincronizado 100% con Catálogo Base
 
-import { state } from '../../state/store.js?v=20261116_cf12';
-import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261116_cf12';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf12';
-import { isNightMode } from '../../ui/themeController.js?v=20261116_cf12';
-import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf12';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf12';
+import { state } from '../../state/store.js?v=20261116_cf13';
+import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261116_cf13';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf13';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf13';
+import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261116_cf13';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261116_cf13';
 import {
   extractScheduleItems,
   ensureInitialDates,
@@ -52,14 +52,14 @@ import {
   hasScheduleRedoSnapshot,
   undoLastScheduleChange,
   redoLastScheduleChange
-} from './calendarioModel.js?v=20261116_cf12';
+} from './calendarioModel.js?v=20261116_cf13';
 import {
   WORK_TYPE_PROFILES,
   detectProjectWorkType,
   generateLocalConstructiveProposal,
   generateGeminiConstructiveProposal
-} from './calendarioAiService.js?v=20261116_cf12';
-import { exportScheduleToExcel } from './calendarioExporter.js?v=20261116_cf12';
+} from './calendarioAiService.js?v=20261116_cf13';
+import { exportScheduleToExcel } from './calendarioExporter.js?v=20261116_cf13';
 
 let currentScheduleData = null;
 let calendarioLinkClickMode = false;
