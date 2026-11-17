@@ -14,7 +14,7 @@ function isLegalBitacoraAllowed() {
 }
 import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261116_cf21';
 import { formatDate } from '../calendario/calendarioModel.js?v=20261116_cf21';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf21';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261117_cf22';
 import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261116_cf21';
 import {
   BITACORA_NOTE_TYPES,
@@ -399,8 +399,8 @@ export function renderBitacoraView() {
         ${renderBitacoraTimelineHtml(notes)}
       </div>
 
-      <!-- Medidor unificado de cuota AWS S3 -->
-      <div id="bitacora-storage-meter" class="px-4 pt-2 bg-slate-50 border-t border-slate-200 shrink-0 pb-2"></div>
+      <!-- Medidor unificado de cuota AWS S3 (modo compacto delgado) -->
+      <div id="bitacora-storage-meter" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-50 border-t border-slate-200 shrink-0"></div>
 
     </div>
   `;

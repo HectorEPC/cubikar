@@ -388,6 +388,99 @@ export function renderStorageMeterHtml(summary, options = {}) {
         ? 'border-amber-500/40 bg-gradient-to-br from-slate-900 via-amber-950/20 to-slate-900'
         : 'border-slate-800 bg-gradient-to-br from-slate-900 to-indigo-950/70');
 
+  if (compact) {
+    const upgradeBtnCompact = options.showUpgradeButton !== false
+      ? `
+        <button type="button" 
+                onclick="window.openSubscriptionModal?.()" 
+                class="px-2.5 py-1 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-[10.5px] transition shadow-xs cursor-pointer flex items-center gap-1 shrink-0 hover:scale-[1.02] active:scale-95"
+                title="Aumentar cuota y almacenamiento en la nube">
+          <i class="fa-solid fa-crown text-[9.5px] text-amber-300"></i>
+          <span>Mejorar Plan</span>
+        </button>
+      `
+      : '';
+
+    return `
+      <div class="cubikar-storage-meter px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl ${containerBorder} text-white space-y-1.5 shadow-md border">
+        <!-- Fila Superior: Título, Plan, Uso Total y Botón -->
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs shadow-inner shrink-0">
+              <i class="fa-solid fa-cloud"></i>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap min-w-0">
+              <h4 class="text-xs font-black text-white tracking-wide flex items-center gap-1.5">
+                <span>Espacio Utilizado en la Nube</span>
+                <span class="text-[9.5px] font-extrabold px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 font-sans">${s.spec.label}</span>
+              </h4>
+              <span class="text-[10px] text-slate-400 hidden sm:inline truncate">
+                · Monitoreo AWS S3
+              </span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2.5 ml-auto">
+            <div class="flex items-baseline gap-1 text-right">
+              <span class="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Uso Total:</span>
+              <span class="text-xs font-black ${pctColor} font-mono leading-none">${pct.toFixed(2)}%</span>
+            </div>
+            ${upgradeBtnCompact}
+          </div>
+        </div>
+
+        <!-- Barra delgada de progreso -->
+        <div class="w-full h-1.5 rounded-full bg-slate-950/80 p-0.5 overflow-hidden shadow-inner border border-slate-800">
+          <div class="h-full rounded-full transition-all duration-500 ${barGradient}" 
+               style="width: ${Math.min(100, Math.max(pct > 0 ? 1.5 : 0, pct))}%;"></div>
+        </div>
+
+        <!-- Métricas en una sola línea horizontal compacta -->
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pt-1 border-t border-slate-800/70 text-[10px] sm:text-[10.5px]">
+          <div>
+            <span class="text-slate-400 font-bold">1. ESPACIO UTILIZADO:</span>
+            <span class="font-bold font-mono text-white ml-1">${s.formatted.used}</span>
+            <span class="text-slate-400 font-normal"> / ${s.formatted.quota}</span>
+          </div>
+
+          <div>
+            <span class="text-amber-300/90 font-bold">2. PROYECTOS S3:</span>
+            <span class="font-bold font-mono text-amber-400 ml-1">${s.formatted.projectUsed}</span>
+            <span class="text-amber-500/70 font-normal"> / ${s.formatted.projectCap}</span>
+          </div>
+
+          <div>
+            <span class="text-emerald-300/90 font-bold">3. CATÁLOGO MAESTRO:</span>
+            <span class="font-bold font-mono text-emerald-400 ml-1">${s.formatted.catalogUsed}</span>
+            <span class="text-emerald-500/70 font-normal"> / ${s.formatted.catalogCap}</span>
+            <span class="text-slate-400 text-[9px] font-normal ml-1">· Máx/arch: <strong class="text-slate-300">${s.formatted.maxFile}</strong></span>
+          </div>
+        </div>
+
+        ${s.level === 'amber' ? `
+          <div class="mt-1 text-[10px] font-semibold text-amber-300 flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-2 py-1 rounded-lg">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400 shrink-0 text-[10px]"></i>
+            <span>Has superado el 90% de tu cuota de almacenamiento.</span>
+          </div>
+        ` : ''}
+
+        ${s.level === 'blocked' ? `
+          <div class="mt-1 text-[10px] font-semibold text-rose-300 flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/30 px-2 py-1 rounded-lg">
+            <i class="fa-solid fa-circle-xmark text-rose-400 shrink-0 text-[10px]"></i>
+            <span>Cuota al 100%. Subidas bloqueadas.</span>
+          </div>
+        ` : ''}
+
+        ${s.pendingCount > 0 ? `
+          <div class="text-[9.5px] text-slate-400 flex items-center gap-1 pt-0.5">
+            <i class="fa-solid fa-clock-rotate-left text-amber-400 text-[9px]"></i>
+            <span>${s.pendingCount} archivo(s) pendientes de sincronizar a S3.</span>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
   const upgradeBtn = options.showUpgradeButton !== false
     ? `
       <button type="button" 

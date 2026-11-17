@@ -162,7 +162,7 @@ import {
   onBitacoraDownloadsSearchChange,
   onBitacoraDownloadsStatusFilterChange,
   onBitacoraDownloadsTypeFilterChange
-} from './modules/bitacora/bitacoraView.js?v=20261117_cf22';
+} from './modules/bitacora/bitacoraView.js?v=20261117_cf23';
 
 import {
   findNodeById,
