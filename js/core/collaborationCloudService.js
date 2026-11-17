@@ -3,8 +3,8 @@
 // persistencia total de proyectos, anfitriones, invitaciones y membresías
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf20';
-import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache } from './cloudProjectService.js?v=20261116_cf20';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf21';
+import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache } from './cloudProjectService.js?v=20261116_cf21';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -20,9 +20,9 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261116_cf20';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf20';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf20';
+} from '../modules/portal/projectService.js?v=20261116_cf21';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf21';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf21';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
@@ -97,6 +97,140 @@ function compactCloudStatePayload(rawPayload) {
 
 let rpcWorkspacesFailUntil = 0;
 const confirmedCloudDeletedIds = new Set();
+
+const STORAGE_KEY_CLOUD_DENIED_PROJECTS = 'cubikar_cloud_denied_projects_v1';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function getCloudDeniedProjectIds() {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY_CLOUD_DENIED_PROJECTS) : null;
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.map(v => String(v || '').trim()).filter(Boolean) : []);
+  } catch (_) {
+    return new Set();
+  }
+}
+
+function markCloudDeniedProject(id) {
+  const cid = String(id || '').trim();
+  if (!cid) return;
+  try {
+    const set = getCloudDeniedProjectIds();
+    set.add(cid);
+    localStorage.setItem(STORAGE_KEY_CLOUD_DENIED_PROJECTS, JSON.stringify(Array.from(set).slice(-100)));
+  } catch (_) {}
+}
+
+async function readHostManifestIds(sb, hostEmail) {
+  try {
+    const { data: row } = await sb
+      .from('chat_mensajes')
+      .select('mensaje, payload_json')
+      .eq('id', `__manifest__${hostEmail}`)
+      .maybeSingle();
+    if (Array.isArray(row?.payload_json?.activeProjectIds)) return row.payload_json.activeProjectIds.map(v => String(v || '').trim());
+    if (row?.mensaje) {
+      const parsed = JSON.parse(row.mensaje);
+      if (Array.isArray(parsed)) return parsed.map(v => String(v || '').trim());
+    }
+  } catch (_) {}
+  return [];
+}
+
+/**
+ * Un proyecto local que este usuario intentó subir como propio fue rechazado por RLS (403):
+ * eso prueba que el ID ya existe en public.proyectos bajo OTRA cuenta. En lugar de reintentar
+ * en bucle, se verifica de quién es y:
+ *  - si pertenece a un anfitrión que invitó a este usuario (verificado con su manifiesto en la nube
+ *    o con una fila vigente en proyecto_colaboradores), se vincula al usuario como colaborador
+ *    y se reasigna el proyecto al espacio de ese anfitrión;
+ *  - si la invitación fue revocada/rechazada o no hay forma de verificarla, se oculta la copia local.
+ */
+async function resolveForeignOwnedLocalProject(sb, p, myEmail, currentUser, allPlanInvs, ownerHint = '') {
+  const cid = String(p?.cloudId || p?.id || '').trim();
+  if (!sb || !cid || !UUID_RE.test(cid) || !myEmail) return '';
+
+  let myRow = null;
+  try {
+    const { data: rows } = await sb
+      .from('proyecto_colaboradores')
+      .select('rol, estado_invitacion')
+      .eq('proyecto_id', cid)
+      .ilike('email_colaborador', myEmail)
+      .limit(1);
+    myRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  } catch (_) {}
+  const rowStatus = (myRow?.estado_invitacion || '').toLowerCase().trim();
+
+  const hostInvs = (Array.isArray(allPlanInvs) ? allPlanInvs : []).filter(pi => {
+    const oEm = (pi?.ownerEmail || '').toLowerCase().trim();
+    const st = (pi?.status || '').toLowerCase().trim();
+    return (pi?.email || '').toLowerCase().trim() === myEmail && oEm && oEm !== myEmail && (st === 'accepted' || st === 'active');
+  });
+
+  let verifiedHost = '';
+  const hint = (ownerHint || '').toLowerCase().trim();
+  if (hint && hint !== myEmail && hostInvs.some(pi => (pi.ownerEmail || '').toLowerCase().trim() === hint)) {
+    verifiedHost = hint;
+  }
+  if (!verifiedHost) {
+    for (const pi of hostInvs) {
+      const hEm = (pi.ownerEmail || '').toLowerCase().trim();
+      const ids = await readHostManifestIds(sb, hEm);
+      if (ids.includes(cid) || (p.id && ids.includes(String(p.id).trim()))) {
+        verifiedHost = hEm;
+        break;
+      }
+    }
+  }
+
+  const hasLiveRow = Boolean(myRow) && rowStatus !== 'rejected';
+  if (rowStatus === 'rejected' || (!hasLiveRow && !verifiedHost)) {
+    markCloudDeniedProject(cid);
+    if (p.id && p.id !== cid) markCloudDeniedProject(p.id);
+    p.__cloudDenied = true;
+    console.info(`[CloudSync] La obra "${p.projectName || cid}" pertenece a otra cuenta y no tienes invitación vigente; se ocultó de esta lista local.`);
+    return 'denied';
+  }
+
+  const hostInv = hostInvs.find(pi => (pi.ownerEmail || '').toLowerCase().trim() === verifiedHost) || null;
+  let role = myRow?.rol || hostInv?.role || 'leer';
+  if (!['editar', 'escribir', 'leer'].includes(role)) role = 'leer';
+
+  if (rowStatus !== 'accepted' && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
+    try { await window.addCollaboratorToCloud(cid, myEmail, role, 'accepted'); } catch (_) {}
+  }
+
+  if (verifiedHost) {
+    p.ownerEmail = verifiedHost;
+    p.ownerName = resolveCleanHostName(verifiedHost, hostInv?.ownerName || '', p, myEmail);
+    if (hostInv?.ownerPlanId) p.ownerPlanId = hostInv.ownerPlanId;
+  }
+  p.cloudId = cid;
+  p.isCloudSynced = true;
+  const mems = Array.isArray(p.members) ? p.members.filter(m => (m?.email || '').toLowerCase().trim() !== myEmail) : [];
+  mems.push({
+    id: `mem-${cid}-${myEmail}`,
+    name: currentUser?.name || myEmail.split('@')[0],
+    email: myEmail,
+    role,
+    status: 'accepted',
+    allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
+  });
+  p.members = mems;
+
+  try {
+    invalidateCloudProjectsCache();
+    const fresh = await fetchCloudProjects({ force: true });
+    const cp = Array.isArray(fresh) ? fresh.find(x => x && (x.id === cid || x.cloudId === cid)) : null;
+    if (cp) {
+      Object.assign(p, cp, { id: p.id || cp.id, cloudId: cp.id, isCloudSynced: true });
+    }
+  } catch (_) {}
+
+  console.info(`[CloudSync] Obra "${p.projectName || cid}" vinculada al espacio de ${p.ownerEmail} (rol: ${role}).`);
+  return 'reassigned';
+}
 
 async function fetchMyCloudCollaborationWorkspaces(sb, myEmail) {
   if (!sb || !myEmail || !isSupabaseConfigured()) return { ok: false, rows: [] };
@@ -343,6 +477,7 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
     // Persistir proyectos nuevos del propietario que aún no han sido sincronizados a PostgreSQL
     const rawProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail && !p.isCloudSynced && !isProjectMarkedDeleted(p.id) && !isProjectMarkedDeleted(p.cloudId));
     let localProjectsUpdated = false;
+    let foreignProjectsResolved = false;
     for (const p of rawProjects) {
       try {
         let tree = null;
@@ -357,13 +492,22 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
           if (res.projectId) p.cloudId = res.projectId;
           localProjectsUpdated = true;
           didWriteAny = true;
+        } else if (res && res.rlsBlocked) {
+          const outcome = await resolveForeignOwnedLocalProject(sb, p, myEmail, currentUser, allPlanInvs, res.existingOwnerEmail || '');
+          if (outcome) {
+            localProjectsUpdated = true;
+            foreignProjectsResolved = true;
+          }
         }
       } catch (e) {
         console.warn('[CloudSync] Aviso al sincronizar proyecto individual con PostgreSQL:', e);
       }
     }
     if (localProjectsUpdated && typeof saveProjectsList === 'function') {
-      saveProjectsList(allProjects, { skipCloudSync: true });
+      saveProjectsList(allProjects.filter(p => !p.__cloudDenied), { skipCloudSync: true });
+      if (foreignProjectsResolved && typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+        window.refreshProjectsGridUI();
+      }
     }
 
     // Publicar manifiesto de proyectos activos del anfitrión en Supabase para sincronización inter-usuarios (solo si cambió)
@@ -593,10 +737,11 @@ export function restoreUserCollaborationFromCloud(user = null) {
       const storedInvs = typeof getStoredInvitations === 'function' ? getStoredInvitations() : [];
       const storedPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
       let recoveredAny = false;
+      const cloudDeniedIds = getCloudDeniedProjectIds();
 
       candidateIds.forEach(cid => {
         if (!cid || cid === 'default' || cid === 'proj-opus-casa-laura' || cid.startsWith('proj-default') || cid.startsWith('proj-demo')) return;
-        if (existingIds.has(cid) || confirmedCloudDeletedIds.has(cid)) return;
+        if (existingIds.has(cid) || confirmedCloudDeletedIds.has(cid) || cloudDeniedIds.has(cid)) return;
         let parsedSet = null;
         let parsedTree = null;
         try {

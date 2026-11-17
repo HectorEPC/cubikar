@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf20';
-import { state } from '../state/store.js?v=20261116_cf20';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf21';
+import { state } from '../state/store.js?v=20261116_cf21';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -17,10 +17,10 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261116_cf20';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf20';
-import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261116_cf20';
-import { showToast } from '../ui/notifications.js?v=20261116_cf20';
+} from '../modules/portal/projectService.js?v=20261116_cf21';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf21';
+import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261116_cf21';
+import { showToast } from '../ui/notifications.js?v=20261116_cf21';
 
 let activeChannel = null;
 let currentSubscribedProjectId = null;

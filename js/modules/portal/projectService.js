@@ -15,14 +15,14 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261116_cf20';
+} from '../../config/constants.js?v=20261116_cf21';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf20';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf20';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf20';
-import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf20';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf20';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf21';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf21';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf21';
+import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf21';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf21';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -640,7 +640,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261116_cf20').then(m => {
+            import('../../core/supabaseClient.js?v=20261116_cf21').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -3143,7 +3143,7 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
   planInvs.forEach(pInv => {
     const oEmail = (pInv.ownerEmail || '').toLowerCase().trim();
     const guestEmail = (pInv.email || '').toLowerCase().trim();
-    const isExplicitPlanInv = !String(pInv.id || '').startsWith('plan-inv-cloud-');
+    const isExplicitPlanInv = true; // Toda invitación aceptada/activa al plan mantiene visible al anfitrión
     if (guestEmail === uEmail && oEmail && oEmail !== uEmail && !SYSTEM_EXCLUDED_EMAILS.has(oEmail) && (pInv.status === 'accepted' || pInv.status === 'active')) {
       const hostName = resolveCleanHostName(oEmail, pInv.ownerName, null, uEmail);
       const planId = getUserPlanId(oEmail) || pInv.ownerPlanId || 'free';

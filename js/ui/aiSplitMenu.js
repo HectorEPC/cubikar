@@ -1,6 +1,6 @@
 // Controlador del menú Split-Button unificado para generación de matrices APU y cotización de insumos
-import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf20';
-import { isNightMode } from './themeController.js?v=20261116_cf20';
+import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf21';
+import { isNightMode } from './themeController.js?v=20261116_cf21';
 
 const MENU_ID = 'ai-split-floating-menu';
 

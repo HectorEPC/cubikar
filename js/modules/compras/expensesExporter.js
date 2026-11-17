@@ -1,16 +1,16 @@
 // js/modules/compras/expensesExporter.js
 // Exportación a Excel (.xlsx) y generación de formatos imprimibles oficiales de Orden de Compra y Reportes
 
-import { state } from '../../state/store.js?v=20261116_cf20';
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261116_cf20';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf20';
-import { openPrintWindow } from '../io/printService.js?v=20261116_cf20';
-import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesSignatures } from './expensesModel.js?v=20261116_cf20';
-import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261116_cf20';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf20';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf20';
-import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261116_cf20';
-import { isNightMode } from '../../ui/themeController.js?v=20261116_cf20';
+import { state } from '../../state/store.js?v=20261116_cf21';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261116_cf21';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf21';
+import { openPrintWindow } from '../io/printService.js?v=20261116_cf21';
+import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesSignatures } from './expensesModel.js?v=20261116_cf21';
+import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261116_cf21';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf21';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf21';
+import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261116_cf21';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf21';
 
 /**
  * Renderizar bloque dinámico de firmas configuradas para los reportes de Compras y Pagos

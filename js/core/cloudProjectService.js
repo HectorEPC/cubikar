@@ -2,10 +2,10 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf20';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf20';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261116_cf20';
-import { showToast } from '../ui/notifications.js?v=20261116_cf20';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf21';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf21';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261116_cf21';
+import { showToast } from '../ui/notifications.js?v=20261116_cf21';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -395,6 +395,17 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
       .upsert(projectRecord, { onConflict: 'id' });
 
     if (projError) {
+      const isRlsBlocked = projError.code === '42501' || /row-level security/i.test(String(projError.message || ''));
+      if (isRlsBlocked) {
+        // El ID ya existe en public.proyectos bajo otra cuenta (o el usuario solo tiene rol de lectura).
+        console.info('[CloudProjectService] Proyecto perteneciente a otra cuenta; se omite la subida como propio:', projectId);
+        return {
+          success: false,
+          rlsBlocked: true,
+          existingOwnerEmail: (existingCloudProj?.owner_email || '').toLowerCase().trim(),
+          error: projError
+        };
+      }
       console.warn('[CloudProjectService] Error al guardar proyecto en Supabase:', projError.message);
       return { success: false, error: projError };
     }
