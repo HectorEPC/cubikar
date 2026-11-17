@@ -15,14 +15,14 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261116_cf17';
+} from '../../config/constants.js?v=20261116_cf18';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf17';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf17';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf17';
-import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf17';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf17';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf18';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf18';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf18';
+import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf18';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf18';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -640,7 +640,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261116_cf17').then(m => {
+            import('../../core/supabaseClient.js?v=20261116_cf18').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -3103,7 +3103,7 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
       const mem = p.members.find(m => {
         const mEmail = (m.email || '').toLowerCase().trim();
         const mStatus = (m.status || '').toLowerCase().trim();
-        return mEmail === uEmail && (mStatus === 'active' || mStatus === 'accepted' || !mStatus);
+        return mEmail === uEmail && (mStatus === 'active' || mStatus === 'accepted' || mStatus === 'pending' || !mStatus);
       });
       if (mem) {
         if (!map.has(oEmail)) {
@@ -3185,7 +3185,7 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
         return Array.isArray(p.members) && p.members.some(m => {
           const mEmail = (m.email || '').toLowerCase().trim();
           const status = (m.status || '').toLowerCase().trim();
-          return mEmail === uEmail && (status === 'active' || status === 'accepted' || !status);
+          return mEmail === uEmail && (status === 'active' || status === 'accepted' || status === 'pending' || !status);
         });
       });
     })
@@ -3291,7 +3291,7 @@ export function getUserRoleInProject(projectId, user = null) {
   }
 
   if (Array.isArray(proj.members)) {
-    const mem = proj.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
+    const mem = proj.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && (m.status || '').toLowerCase().trim() !== 'rejected');
     if (mem && mem.role) return mem.role;
   }
 
@@ -3300,7 +3300,7 @@ export function getUserRoleInProject(projectId, user = null) {
     const planInv = allPlanInvs.find(inv =>
       (inv.ownerEmail || '').toLowerCase().trim() === (proj.ownerEmail || '').toLowerCase().trim() &&
       (inv.email || '').toLowerCase().trim() === uEmail &&
-      inv.status !== 'pending'
+      (inv.status || '').toLowerCase().trim() !== 'rejected'
     );
     if (planInv && planInv.role) {
       return planInv.role;

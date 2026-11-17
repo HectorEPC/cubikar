@@ -3,8 +3,8 @@
 // persistencia total de proyectos, anfitriones, invitaciones y membresías
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf17';
-import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache } from './cloudProjectService.js?v=20261116_cf17';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf18';
+import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache } from './cloudProjectService.js?v=20261116_cf18';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -20,9 +20,9 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261116_cf17';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf17';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf17';
+} from '../modules/portal/projectService.js?v=20261116_cf18';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf18';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf18';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
@@ -112,7 +112,35 @@ async function fetchMyCloudCollaborationWorkspaces(sb, myEmail) {
       .select('proyecto_id, email_colaborador, nombre_colaborador, rol, estado_invitacion, updated_at')
       .ilike('email_colaborador', myEmail);
     if (!pcErr && Array.isArray(pcRows)) {
-      return { ok: true, rows: pcRows, fromRpc: false };
+      const projIds = Array.from(new Set(pcRows.map(r => r?.proyecto_id).filter(Boolean)));
+      const ownerByProj = new Map();
+      if (projIds.length > 0) {
+        try {
+          const { data: ownerRows } = await sb
+            .from('proyecto_colaboradores')
+            .select('proyecto_id, email_colaborador, nombre_colaborador, rol')
+            .in('proyecto_id', projIds);
+          if (Array.isArray(ownerRows)) {
+            ownerRows.forEach(or => {
+              if (or?.proyecto_id && or.rol === 'owner' && or.email_colaborador) {
+                ownerByProj.set(String(or.proyecto_id), {
+                  email: String(or.email_colaborador).toLowerCase().trim(),
+                  name: or.nombre_colaborador || ''
+                });
+              }
+            });
+          }
+        } catch (_) {}
+      }
+      const enriched = pcRows.map(r => {
+        const ow = ownerByProj.get(String(r?.proyecto_id || ''));
+        return {
+          ...r,
+          owner_email: r?.owner_email || ow?.email || '',
+          owner_name: r?.owner_name || ow?.name || ''
+        };
+      });
+      return { ok: true, rows: enriched, fromRpc: false };
     }
   } catch (_) {}
   return { ok: false, rows: [] };
@@ -553,78 +581,67 @@ export function restoreUserCollaborationFromCloud(user = null) {
             const projId = row?.proyecto_id;
             if (!projId || isDeleted(projId)) continue;
             const hostEm = (row?.owner_email || '').toLowerCase().trim();
-            if (hostEm === myEmail) continue;
+            if (hostEm && hostEm === myEmail) continue;
             const st = (row?.estado_invitacion || '').toLowerCase().trim();
             const role = row?.rol || 'editar';
-            if (st === 'rejected') continue;
+            if (st === 'rejected' || role === 'owner') continue;
 
-            const existingAcceptedPlan = hostEm
-              ? localPlanInvs.find(pi =>
-                  (pi.ownerEmail || '').toLowerCase().trim() === hostEm &&
-                  (pi.email || '').toLowerCase().trim() === myEmail &&
-                  (pi.status === 'accepted' || pi.status === 'active')
-                )
-              : null;
-
-            if (st === 'pending' && existingAcceptedPlan && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
+            if (st === 'pending' && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
               try {
                 const promoRes = await window.addCollaboratorToCloud(projId, myEmail, role, 'accepted');
                 if (promoRes?.success) promotedAny = true;
               } catch (_) {}
-            } else if (st === 'accepted' || st === 'active') {
-              if (hostEm) {
-                const pIdx = localPlanInvs.findIndex(pi =>
-                  (pi.ownerEmail || '').toLowerCase().trim() === hostEm &&
-                  (pi.email || '').toLowerCase().trim() === myEmail
-                );
-                if (pIdx === -1) {
-                  localPlanInvs.unshift({
-                    id: `plan-inv-cloud-${hostEm}`,
-                    ownerEmail: hostEm,
-                    ownerName: resolveCleanHostName(hostEm, row?.owner_name, null, myEmail),
-                    ownerPlanId: 'pro',
-                    email: myEmail,
-                    name: currentUser.name || myEmail.split('@')[0],
-                    role,
-                    status: 'accepted',
-                    acceptedAt: row?.updated_at || new Date().toISOString()
-                  });
-                  planChanged = true;
-                } else if (localPlanInvs[pIdx].status !== 'accepted') {
-                  localPlanInvs[pIdx].status = 'accepted';
-                  localPlanInvs[pIdx].acceptedAt = localPlanInvs[pIdx].acceptedAt || row?.updated_at || new Date().toISOString();
-                  if (row?.owner_name && !localPlanInvs[pIdx].ownerName) localPlanInvs[pIdx].ownerName = row.owner_name;
-                  planChanged = true;
-                }
-              }
-              const iIdx = localInvs.findIndex(li =>
-                li.projectId === projId && (li.email || '').toLowerCase().trim() === myEmail
+            }
+
+            if (hostEm) {
+              const pIdx = localPlanInvs.findIndex(pi =>
+                (pi.ownerEmail || '').toLowerCase().trim() === hostEm &&
+                (pi.email || '').toLowerCase().trim() === myEmail
               );
-              if (iIdx >= 0 && localInvs[iIdx].status !== 'accepted') {
-                localInvs[iIdx].status = 'accepted';
-                localInvs[iIdx].acceptedAt = localInvs[iIdx].acceptedAt || row?.updated_at || new Date().toISOString();
-                invsChanged = true;
-              }
-            } else if (st === 'pending' && hostEm) {
-              const iIdx = localInvs.findIndex(li =>
-                li.projectId === projId && (li.email || '').toLowerCase().trim() === myEmail
-              );
-              if (iIdx === -1) {
-                localInvs.unshift({
-                  id: `inv-cloud-${projId}-${myEmail}`,
-                  projectId: projId,
-                  projectName: row?.nombre || 'Proyecto de Obra',
-                  companyName: row?.company_name || '',
+              if (pIdx === -1) {
+                localPlanInvs.unshift({
+                  id: `plan-inv-cloud-${hostEm}`,
                   ownerEmail: hostEm,
                   ownerName: resolveCleanHostName(hostEm, row?.owner_name, null, myEmail),
+                  ownerPlanId: 'pro',
                   email: myEmail,
                   name: currentUser.name || myEmail.split('@')[0],
                   role,
-                  status: 'pending',
-                  createdAt: row?.updated_at || new Date().toISOString()
+                  status: 'accepted',
+                  acceptedAt: row?.updated_at || new Date().toISOString()
                 });
-                invsChanged = true;
+                planChanged = true;
+              } else if (localPlanInvs[pIdx].status !== 'accepted') {
+                localPlanInvs[pIdx].status = 'accepted';
+                localPlanInvs[pIdx].acceptedAt = localPlanInvs[pIdx].acceptedAt || row?.updated_at || new Date().toISOString();
+                if (row?.owner_name && !localPlanInvs[pIdx].ownerName) localPlanInvs[pIdx].ownerName = row.owner_name;
+                planChanged = true;
               }
+            }
+
+            const iIdx = localInvs.findIndex(li =>
+              li.projectId === projId && (li.email || '').toLowerCase().trim() === myEmail
+            );
+            if (iIdx === -1 && hostEm) {
+              localInvs.unshift({
+                id: `inv-cloud-${projId}-${myEmail}`,
+                projectId: projId,
+                projectName: row?.nombre || 'Proyecto de Obra',
+                companyName: row?.company_name || '',
+                ownerEmail: hostEm,
+                ownerName: resolveCleanHostName(hostEm, row?.owner_name, null, myEmail),
+                email: myEmail,
+                name: currentUser.name || myEmail.split('@')[0],
+                role,
+                status: 'accepted',
+                acceptedAt: row?.updated_at || new Date().toISOString(),
+                createdAt: row?.updated_at || new Date().toISOString()
+              });
+              invsChanged = true;
+            } else if (iIdx >= 0 && localInvs[iIdx].status !== 'accepted') {
+              localInvs[iIdx].status = 'accepted';
+              localInvs[iIdx].acceptedAt = localInvs[iIdx].acceptedAt || row?.updated_at || new Date().toISOString();
+              invsChanged = true;
             }
           }
 
@@ -634,9 +651,17 @@ export function restoreUserCollaborationFromCloud(user = null) {
           if (invsChanged && typeof saveStoredInvitations === 'function') {
             saveStoredInvitations(localInvs, { skipCloudSync: true });
           }
-          if (promotedAny) {
+          const missingAnyInCloudList = wsResult.rows.some(r =>
+            r?.proyecto_id &&
+            !isDeleted(r.proyecto_id) &&
+            (r?.estado_invitacion || '').toLowerCase().trim() !== 'rejected' &&
+            r?.rol !== 'owner' &&
+            (!Array.isArray(cloudList) || !cloudList.some(cp => cp && cp.id === r.proyecto_id))
+          );
+          if (promotedAny || missingAnyInCloudList) {
             try { invalidateCloudProjectsCache(); } catch (_) {}
-            cloudList = await fetchCloudProjects({ force: true });
+            const refreshedCloud = await fetchCloudProjects({ force: true });
+            if (Array.isArray(refreshedCloud)) cloudList = refreshedCloud;
           }
           if ((planChanged || invsChanged) && typeof window !== 'undefined') {
             if (typeof window.renderSidebarNotificationsUI === 'function') window.renderSidebarNotificationsUI();
@@ -644,7 +669,44 @@ export function restoreUserCollaborationFromCloud(user = null) {
           }
         }
 
-        if (!Array.isArray(cloudList)) return;
+        if (!Array.isArray(cloudList)) cloudList = [];
+        if (wsResult?.ok && Array.isArray(wsResult.rows)) {
+          wsResult.rows.forEach(row => {
+            const projId = row?.proyecto_id;
+            const hostEm = (row?.owner_email || '').toLowerCase().trim();
+            const st = (row?.estado_invitacion || '').toLowerCase().trim();
+            const role = row?.rol || 'editar';
+            if (!projId || isDeleted(projId) || !hostEm || hostEm === myEmail || st === 'rejected' || role === 'owner') return;
+            if (!cloudList.some(cp => cp && (cp.id === projId || cp.cloudId === projId))) {
+              cloudList.push({
+                id: projId,
+                cloudId: projId,
+                isCloudSynced: true,
+                projectName: row?.nombre || 'Proyecto de Obra',
+                companyName: row?.company_name || 'Constructora',
+                ownerEmail: hostEm,
+                ownerName: resolveCleanHostName(hostEm, row?.owner_name, null, myEmail),
+                ownerPlanId: 'pro',
+                projectLocation: '',
+                tipoObra: 'Edificación',
+                currency: 'MXN',
+                currencySymbol: '$',
+                applySobrecosto: false,
+                factorSobrecosto: 1.0,
+                createdAt: (row?.updated_at || new Date().toISOString()).slice(0, 10),
+                updatedAt: row?.updated_at || new Date().toISOString(),
+                members: [{
+                  id: `ws-${projId}-${myEmail}`,
+                  name: currentUser.name || myEmail.split('@')[0],
+                  email: myEmail,
+                  role,
+                  status: 'accepted',
+                  allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
+                }]
+              });
+            }
+          });
+        }
         const activeCloud = cloudList;
         const curList = typeof getProjectsList === 'function' ? getProjectsList() : [];
         let updated = false;
@@ -724,6 +786,7 @@ export function restoreUserCollaborationFromCloud(user = null) {
             }
             const prevJson = JSON.stringify(curList[idx]);
             const localMems = Array.isArray(curList[idx].members) ? curList[idx].members : [];
+            const isOwnedByMe = ((cp.ownerEmail || curList[idx].ownerEmail || '').toLowerCase().trim() === myEmail);
             const mergedMembers = Array.isArray(cp.members)
               ? cp.members.map(cm => {
                   const cmEmail = (cm?.email || '').toLowerCase().trim();
@@ -733,7 +796,23 @@ export function restoreUserCollaborationFromCloud(user = null) {
                   }
                   return cm;
                 })
-              : localMems;
+              : [...localMems];
+            if (isOwnedByMe) {
+              localMems.forEach(lm => {
+                const lmEmail = (lm?.email || '').toLowerCase().trim();
+                const lmStatus = (lm?.status || '').toLowerCase().trim();
+                if (!lmEmail || lmStatus === 'rejected') return;
+                const cloudExisting = mergedMembers.find(cm => (cm?.email || '').toLowerCase().trim() === lmEmail);
+                if (!cloudExisting) {
+                  mergedMembers.push(lm);
+                  if (lmEmail !== myEmail && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
+                    try {
+                      window.addCollaboratorToCloud(cp.id, lmEmail, lm.role || 'editar', 'accepted');
+                    } catch (_) {}
+                  }
+                }
+              });
+            }
             const merged = {
               ...curList[idx],
               ...cp,

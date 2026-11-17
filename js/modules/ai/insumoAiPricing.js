@@ -2,8 +2,8 @@
 // Servicio de actualización y cotización de precios de insumos con Inteligencia Artificial
 // Soporta Google Gemini con Google Search Grounding y base de datos de mercado local en México
 
-import { state } from '../../state/store.js?v=20261116_cf17';
-import { round2 } from '../../core/formatters.js?v=20261116_cf17';
+import { state } from '../../state/store.js?v=20261116_cf18';
+import { round2 } from '../../core/formatters.js?v=20261116_cf18';
 import {
   getCachedSupplyPrice,
   setCachedSupplyPrices,
@@ -12,7 +12,7 @@ import {
   recordAiQuotaConsumption,
   applyServerQuotaSnapshot,
   callGeminiProxyApi
-} from './aiQuotaAndCacheService.js?v=20261116_cf17';
+} from './aiQuotaAndCacheService.js?v=20261116_cf18';
 
 // Base de datos de referencia de precios de mercado de construcción en México (en Pesos Mexicanos MXN)
 const TABULADOR_MERCADO_MEXICO = [
