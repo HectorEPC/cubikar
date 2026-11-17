@@ -1,15 +1,15 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf14';
-import { saveState } from '../../state/history.js?v=20261116_cf14';
-import { guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf14';
-import { countTreeConcepts } from '../portal/projectService.js?v=20261116_cf14';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf14';
-import { calculateParentTotal, calculateParentDirectTotal } from '../../core/calculations.js?v=20261116_cf14';
-import { recalculateClaves } from '../catalog/treeService.js?v=20261116_cf14';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf14';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf14';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf14';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf14';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf14';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf15';
+import { saveState } from '../../state/history.js?v=20261116_cf15';
+import { guardConceptLimit } from '../catalog/treeService.js?v=20261116_cf15';
+import { countTreeConcepts } from '../portal/projectService.js?v=20261116_cf15';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf15';
+import { calculateParentTotal, calculateParentDirectTotal } from '../../core/calculations.js?v=20261116_cf15';
+import { recalculateClaves } from '../catalog/treeService.js?v=20261116_cf15';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf15';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf15';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf15';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf15';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf15';
 
 // Abrir modal interactivo de selección de formato de exportación
 export function openExportModal() {

@@ -2,10 +2,10 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf14';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf14';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261116_cf14';
-import { showToast } from '../ui/notifications.js?v=20261116_cf14';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf15';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf15';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261116_cf15';
+import { showToast } from '../ui/notifications.js?v=20261116_cf15';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -72,6 +72,19 @@ const tombstonedConceptIdsByProject = new Map();
 const unclearMatrixIdsByProject = new Map();
 const syncQueueByProject = new Map();
 const conceptMutationQueueByProject = new Map();
+const inFlightEmpresaResolveByUser = new Map();
+const empresaResolveFailUntilByUser = new Map();
+const inFlightTreeLoadByProject = new Map();
+let inFlightFetchCloudProjectsPromise = null;
+let cachedCloudProjectsList = null;
+let cachedCloudProjectsAt = 0;
+let cloudProjectsFailUntil = 0;
+
+export function invalidateCloudProjectsCache() {
+  cachedCloudProjectsList = null;
+  cachedCloudProjectsAt = 0;
+  cloudProjectsFailUntil = 0;
+}
 
 function enqueueConceptMutation(projectUuid, taskFn) {
   const key = String(projectUuid || '').trim() || '__default__';
@@ -156,45 +169,74 @@ export async function resolveUserEmpresaId(sb, user) {
     return user.empresaId;
   }
 
-  try {
-    const { data: perfil } = await sb
-      .from('perfiles')
-      .select('id, empresa_id')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (perfil?.empresa_id && isValidUUID(perfil.empresa_id)) {
-      user.empresaId = perfil.empresa_id;
-      return perfil.empresa_id;
-    }
-
-    // Si aún no tiene empresa asignada, crear una por defecto
-    const { data: newEmpresa, error: empErr } = await sb
-      .from('empresas')
-      .insert({
-        nombre: (user.name || user.email || 'Mi Empresa') + ' - Constructora',
-        plan: 'free',
-        estado_suscripcion: 'trialing'
-      })
-      .select('id')
-      .single();
-
-    if (!empErr && newEmpresa?.id) {
-      user.empresaId = newEmpresa.id;
-      await sb.from('perfiles').upsert({
-        id: user.id,
-        empresa_id: newEmpresa.id,
-        nombre_completo: user.name || user.email,
-        email: user.email,
-        rol: 'owner'
-      });
-      return newEmpresa.id;
-    }
-  } catch (err) {
-    console.warn('[CloudProjectService] Error resolviendo empresa_id:', err);
+  const uid = String(user.id).trim();
+  const failUntil = empresaResolveFailUntilByUser.get(uid) || 0;
+  if (failUntil > Date.now()) {
+    return null;
+  }
+  if (inFlightEmpresaResolveByUser.has(uid)) {
+    return inFlightEmpresaResolveByUser.get(uid);
   }
 
-  return null;
+  const reqPromise = (async () => {
+    try {
+      const { data: perfil, error: perfilErr } = await sb
+        .from('perfiles')
+        .select('id, empresa_id')
+        .eq('id', uid)
+        .maybeSingle();
+
+      // Si hubo error de red o consulta, NO asumir falta de empresa ni crear registros duplicados
+      if (perfilErr) {
+        empresaResolveFailUntilByUser.set(uid, Date.now() + 8000);
+        return null;
+      }
+
+      if (perfil?.empresa_id && isValidUUID(perfil.empresa_id)) {
+        user.empresaId = perfil.empresa_id;
+        try { saveCurrentUser(user); } catch (_) {}
+        return perfil.empresa_id;
+      }
+
+      // Solo si perfiles respondió sin error y realmente no tiene empresa asignada, crear una por defecto
+      const { data: newEmpresa, error: empErr } = await sb
+        .from('empresas')
+        .insert({
+          nombre: (user.name || user.email || 'Mi Empresa') + ' - Constructora',
+          plan: 'free',
+          estado_suscripcion: 'trialing'
+        })
+        .select('id')
+        .single();
+
+      if (!empErr && newEmpresa?.id) {
+        user.empresaId = newEmpresa.id;
+        try { saveCurrentUser(user); } catch (_) {}
+        await sb.from('perfiles').upsert({
+          id: uid,
+          empresa_id: newEmpresa.id,
+          nombre_completo: user.name || user.email,
+          email: user.email,
+          rol: 'owner'
+        });
+        return newEmpresa.id;
+      }
+      if (empErr) {
+        empresaResolveFailUntilByUser.set(uid, Date.now() + 8000);
+      }
+    } catch (err) {
+      empresaResolveFailUntilByUser.set(uid, Date.now() + 8000);
+      console.warn('[CloudProjectService] Error resolviendo empresa_id:', err);
+    }
+    return null;
+  })();
+
+  inFlightEmpresaResolveByUser.set(uid, reqPromise);
+  try {
+    return await reqPromise;
+  } finally {
+    inFlightEmpresaResolveByUser.delete(uid);
+  }
 }
 
 /**
@@ -259,13 +301,19 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
 
     let existingCloudProj = null;
     try {
-      const { data: ep } = await sb
+      const { data: ep, error: epErr } = await sb
         .from('proyectos')
         .select('id, empresa_id, owner_email, creado_por, configuracion')
         .eq('id', projectId)
         .maybeSingle();
+      if (epErr && epErr.code !== 'PGRST116') {
+        console.warn('[CloudProjectService] Consulta previa de proyecto interrumpida (abortando para proteger configuración remota):', epErr.message || epErr);
+        return { success: false, error: epErr };
+      }
       existingCloudProj = ep || null;
-    } catch (_) {}
+    } catch (epCatchErr) {
+      return { success: false, error: epCatchErr };
+    }
 
     const prevCloudCfg = (existingCloudProj?.configuracion && typeof existingCloudProj.configuracion === 'object')
       ? existingCloudProj.configuracion
@@ -340,6 +388,7 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
       return { success: false, error: projError };
     }
     project.isCloudSynced = true;
+    invalidateCloudProjectsCache();
 
     // 2 y 3. Solo el propietario debe sincronizar filas administrativas de 'public.proyecto_colaboradores'
     const currentActorEmail = (user.email || '').toLowerCase().trim();
@@ -604,7 +653,7 @@ export async function syncCatalogTreeToCloud(sb, projectId, treeData, options = 
  * Utiliza RLS en PostgreSQL: devuelve todos los proyectos donde el usuario es
  * Propietario (owner_email) O Colaborador Invitado (proyecto_colaboradores).
  */
-export async function fetchCloudProjects() {
+export async function fetchCloudProjects(opts = {}) {
   const sb = getSupabaseClient();
   const user = getCurrentUser();
 
@@ -612,6 +661,19 @@ export async function fetchCloudProjects() {
     return null;
   }
 
+  const force = Boolean(opts?.force);
+  const now = Date.now();
+  if (!force && cachedCloudProjectsList && (now - cachedCloudProjectsAt) < 4000) {
+    return cachedCloudProjectsList;
+  }
+  if (!force && cloudProjectsFailUntil > now) {
+    return null;
+  }
+  if (inFlightFetchCloudProjectsPromise) {
+    return inFlightFetchCloudProjectsPromise;
+  }
+
+  inFlightFetchCloudProjectsPromise = (async () => {
   try {
     const myEmail = (user.email || '').toLowerCase().trim();
 
@@ -622,6 +684,7 @@ export async function fetchCloudProjects() {
       .order('updated_at', { ascending: false });
 
     if (error) {
+      cloudProjectsFailUntil = Date.now() + 2500;
       console.warn('[CloudProjectService] Error al obtener proyectos de la nube:', error.message);
       return null;
     }
@@ -666,7 +729,7 @@ export async function fetchCloudProjects() {
       return (Array.isArray(deletedList) && deletedList.includes(sid)) || cloudDeletedIds.has(sid);
     };
 
-    return cloudList
+    const mapped = cloudList
       .filter(cp => !isDeleted(cp.id))
       .map(cp => {
         const ind = parseFloat(cp.pct_indirectos) || 0;
@@ -736,9 +799,21 @@ export async function fetchCloudProjects() {
         };
       })
       .filter(Boolean);
+    cachedCloudProjectsList = mapped;
+    cachedCloudProjectsAt = Date.now();
+    cloudProjectsFailUntil = 0;
+    return mapped;
   } catch (err) {
+    cloudProjectsFailUntil = Date.now() + 2500;
     console.error('[CloudProjectService] Excepción al consultar proyectos en la nube:', err);
     return null;
+  }
+  })();
+
+  try {
+    return await inFlightFetchCloudProjectsPromise;
+  } finally {
+    inFlightFetchCloudProjectsPromise = null;
   }
 }
 
@@ -750,6 +825,11 @@ export async function loadProjectTreeFromCloud(projectId) {
   const targetUuid = resolveCloudProjectId(projectId);
   if (!isSupabaseConfigured() || !sb || !isValidUUID(targetUuid)) return null;
 
+  if (inFlightTreeLoadByProject.has(targetUuid)) {
+    return inFlightTreeLoadByProject.get(targetUuid);
+  }
+
+  const reqPromise = (async () => {
   try {
     // 1. Obtener conceptos y metadatos de configuración (matrices vaciadas intencionalmente)
     const [{ data: concepts, error: cErr }, { data: projRow }] = await Promise.all([
@@ -844,6 +924,14 @@ export async function loadProjectTreeFromCloud(projectId) {
   } catch (err) {
     console.error('[CloudProjectService] Excepción al descargar árbol de conceptos:', err);
     return null;
+  }
+  })();
+
+  inFlightTreeLoadByProject.set(targetUuid, reqPromise);
+  try {
+    return await reqPromise;
+  } finally {
+    inFlightTreeLoadByProject.delete(targetUuid);
   }
 }
 
@@ -1195,7 +1283,10 @@ export async function updateCloudConcept(projectId, patchOrConcept) {
           }
         }
       } else if (!targetUid && typeof window !== 'undefined' && typeof window.triggerDebouncedCloudSync === 'function') {
-        window.triggerDebouncedCloudSync();
+        const projMeta = (typeof getProjectsList === 'function' ? getProjectsList() : []).find(p => p && (p.id === projectId || p.cloudId === targetUuid));
+        if (!projMeta?.isCloudSynced) {
+          window.triggerDebouncedCloudSync();
+        }
       }
       return;
     }
@@ -1511,6 +1602,7 @@ export async function deleteProjectFromCloud(projectId, opts = {}) {
       }
     }
 
+    invalidateCloudProjectsCache();
     return { success: true, deletedId: targetUuid || rawId };
   } catch (err) {
     console.warn('[CloudProjectService] Error al eliminar proyecto en la nube:', err);

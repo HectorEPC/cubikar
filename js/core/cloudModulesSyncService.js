@@ -1,9 +1,46 @@
-import { getActiveProjectId } from '../config/constants.js?v=20261116_cf14';
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf14';
-import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261116_cf14';
-import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261116_cf14';
+import { getActiveProjectId } from '../config/constants.js?v=20261116_cf15';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf15';
+import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261116_cf15';
+import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261116_cf15';
 
 const pendingTimers = new Map();
+const inFlightModuleHydrateByProject = new Map();
+const lastModuleHydrateAtByProject = new Map();
+const MODULE_HYDRATE_COOLDOWN_MS = 6000;
+const CHAT_MENSAJES_BASE_COLS = ['id', 'proyecto_id', 'autor_nombre', 'autor_email', 'mensaje', 'created_at'];
+const missingChatMensajeColumns = new Set();
+
+async function upsertChatRowsResilient(sb, rows) {
+  if (!sb || !Array.isArray(rows) || rows.length === 0) return { error: null };
+  const stripMissing = (list) => list.map((r) => {
+    const clean = { ...r };
+    missingChatMensajeColumns.forEach((col) => { delete clean[col]; });
+    return clean;
+  });
+  let payload = stripMissing(rows);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const res = await sb.from('chat_mensajes').upsert(payload, { onConflict: 'id' });
+    if (!res?.error) return res;
+    const msg = String(res.error.message || '');
+    const m = msg.match(/Could not find the ['"]([^'"]+)['"] column/i)
+      || msg.match(/column\s+["']?([a-z0-9_]+)["']?(?:\s+of\s+relation)?\s+does not exist/i);
+    if (m && m[1] && !CHAT_MENSAJES_BASE_COLS.includes(m[1])) {
+      missingChatMensajeColumns.add(m[1]);
+      payload = stripMissing(payload);
+      continue;
+    }
+    if ((res.error.code === 'PGRST204' || res.error.code === '42703') && attempt < 7) {
+      payload = rows.map((r) => {
+        const minRow = {};
+        CHAT_MENSAJES_BASE_COLS.forEach((c) => { if (r[c] !== undefined) minRow[c] = r[c]; });
+        return minRow;
+      });
+      continue;
+    }
+    return res;
+  }
+  return { error: new Error('No se pudo persistir chat_mensajes') };
+}
 
 function scopedRowId(projectId, localId) {
   const pid = String(projectId || 'default');
@@ -41,8 +78,15 @@ async function getCloudSyncContext(projectIdOverride = '') {
   const sb = await getSupabaseClient();
   if (!sb) return null;
 
-  const { data: userRes } = await sb.auth.getUser();
-  const user = userRes?.user || null;
+  let user = null;
+  try {
+    const { data: sessData } = await sb.auth.getSession();
+    user = sessData?.session?.user || null;
+  } catch (_) {}
+  if (!user) {
+    const { data: userRes } = await sb.auth.getUser();
+    user = userRes?.user || null;
+  }
   if (!user) return null;
 
   const projectId = String(projectIdOverride || getActiveProjectId() || '').trim();
@@ -487,7 +531,7 @@ export async function syncChatNow(projectIdOverride = '') {
     });
   if (rows.length === 0) return { ok: true, count: 0 };
 
-  const { error } = await ctx.sb.from('chat_mensajes').upsert(rows, { onConflict: 'id' });
+  const { error } = await upsertChatRowsResilient(ctx.sb, rows);
   if (error) {
     console.warn('[cloudModulesSyncService] Error sincronizando chat:', error.message || error);
     return { ok: false, error };
@@ -499,13 +543,26 @@ export async function syncChatNow(projectIdOverride = '') {
 // HIDRATACIÓN DESDE SUPABASE AL ABRIR PROYECTO
 // ============================================================================
 
-export async function hydrateProjectModulesFromCloud(projectIdOverride = '') {
-  const ctx = await getCloudSyncContext(projectIdOverride);
-  if (!ctx) return { ok: false, skipped: true };
+export async function hydrateProjectModulesFromCloud(projectIdOverride = '', opts = {}) {
+  const prePid = String(projectIdOverride || getActiveProjectId() || '').trim();
+  const now = Date.now();
+  if (prePid) {
+    const inFlight = inFlightModuleHydrateByProject.get(prePid);
+    if (inFlight) return inFlight;
+    const lastAt = lastModuleHydrateAtByProject.get(prePid) || 0;
+    if (!opts?.force && (now - lastAt) < MODULE_HYDRATE_COOLDOWN_MS) {
+      return { ok: true, projectId: prePid, cached: true };
+    }
+  }
 
-  const pid = ctx.projectId;
-  const queryPids = Array.from(new Set([pid, ctx.cloudUuid].filter(Boolean)));
-  const hydrated = {};
+  const runPromise = (async () => {
+    const ctx = await getCloudSyncContext(projectIdOverride);
+    if (!ctx) return { ok: false, skipped: true };
+
+    const pid = ctx.projectId;
+    lastModuleHydrateAtByProject.set(pid, Date.now());
+    const queryPids = Array.from(new Set([pid, ctx.cloudUuid].filter(Boolean)));
+    const hydrated = {};
 
   try {
     const [{ data: bCfg }, { data: bNotes }] = await Promise.all([
@@ -797,5 +854,15 @@ export async function hydrateProjectModulesFromCloud(projectIdOverride = '') {
     window.dispatchEvent(new CustomEvent('cubikar:cloud-modules-hydrated', { detail: { projectId: pid, hydrated } }));
   }
 
-  return { ok: true, projectId: pid, hydrated };
+    return { ok: true, projectId: pid, hydrated };
+  })();
+
+  if (prePid) {
+    inFlightModuleHydrateByProject.set(prePid, runPromise);
+  }
+  try {
+    return await runPromise;
+  } finally {
+    if (prePid) inFlightModuleHydrateByProject.delete(prePid);
+  }
 }

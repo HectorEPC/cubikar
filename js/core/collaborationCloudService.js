@@ -3,8 +3,8 @@
 // persistencia total de proyectos, anfitriones, invitaciones y membresías
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf14';
-import { syncProjectToCloud, fetchCloudProjects } from './cloudProjectService.js?v=20261116_cf14';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf15';
+import { syncProjectToCloud, fetchCloudProjects } from './cloudProjectService.js?v=20261116_cf15';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -20,21 +20,29 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261116_cf14';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf14';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf14';
+} from '../modules/portal/projectService.js?v=20261116_cf15';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf15';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf15';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
 let pendingCloudSync = false;
 let pendingCloudSyncUser = null;
 let lastCloudSyncSignature = '';
+let lastManifestSignature = '';
 let lastCloudUpdateAt = 0;
 let lastInternalCloudUpdateAt = 0;
 let consecutiveCloudUpdateFailures = 0;
 let nextCloudUpdateAllowedAt = 0;
 let startupSyncInFlightPromise = null;
+let startupSyncUserId = '';
 let lastStartupSyncAt = 0;
+let lastStartupSyncUserId = '';
+let inFlightReconcilePromise = null;
+let lastReconcileAt = 0;
+let nextReconcileAllowedAt = 0;
+const inFlightHostSyncByEmail = new Map();
+const lastHostSyncAtByEmail = new Map();
 
 const MIN_CLOUD_UPDATE_INTERVAL_MS = 12000;
 const BASE_FAILURE_BACKOFF_MS = 5000;
@@ -79,11 +87,23 @@ if (typeof window !== 'undefined') {
   });
 }
 
+function canonicalizeForSignature(val) {
+  if (Array.isArray(val)) return val.map(canonicalizeForSignature);
+  if (val && typeof val === 'object') {
+    const out = {};
+    for (const k of Object.keys(val).sort()) {
+      if (val[k] !== undefined) out[k] = canonicalizeForSignature(val[k]);
+    }
+    return out;
+  }
+  return val;
+}
+
 function computeCloudStateSignature(cloudState) {
   if (!cloudState || typeof cloudState !== 'object') return '';
   try {
     const { updatedAt: _ignored, ...rest } = cloudState;
-    return JSON.stringify(rest);
+    return JSON.stringify(canonicalizeForSignature(rest));
   } catch (_) {
     return '';
   }
@@ -93,7 +113,7 @@ export function markInternalCloudAuthUpdate() {
   lastInternalCloudUpdateAt = Date.now();
 }
 
-export function isRecentInternalCloudAuthUpdate(windowMs = 8000) {
+export function isRecentInternalCloudAuthUpdate(windowMs = 12000) {
   return lastInternalCloudUpdateAt > 0 && (Date.now() - lastInternalCloudUpdateAt) < windowMs;
 }
 
@@ -191,6 +211,7 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
     const remoteSignature = computeCloudStateSignature(remoteState);
     const hasLegacyV1Remote = Boolean(sessionUser?.user_metadata?.cubikar_collaboration_v1 || currentUser?.user_metadata?.cubikar_collaboration_v1);
 
+    let didWriteAny = false;
     if (!hasLegacyV1Remote && nextSignature && (nextSignature === lastCloudSyncSignature || nextSignature === remoteSignature)) {
       lastCloudSyncSignature = nextSignature;
       if (currentUser && remoteState) {
@@ -204,13 +225,14 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
       // Enfriamiento mínimo entre escrituras a Supabase Auth para evitar saturación de red
       return false;
     } else {
-      lastInternalCloudUpdateAt = Date.now();
+      markInternalCloudAuthUpdate();
       const { error } = await sb.auth.updateUser({
         data: {
           cubikar_collaboration_v1: null,
           cubikar_cloud_state_v2: cloudPayload
         }
       });
+      markInternalCloudAuthUpdate();
       if (currentUser?.user_metadata && 'cubikar_collaboration_v1' in currentUser.user_metadata) {
         delete currentUser.user_metadata.cubikar_collaboration_v1;
       }
@@ -226,6 +248,7 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
         return false;
       }
 
+      didWriteAny = true;
       consecutiveCloudUpdateFailures = 0;
       nextCloudUpdateAllowedAt = 0;
       lastCloudUpdateAt = Date.now();
@@ -254,6 +277,7 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
           p.isCloudSynced = true;
           if (res.projectId) p.cloudId = res.projectId;
           localProjectsUpdated = true;
+          didWriteAny = true;
         }
       } catch (e) {
         console.warn('[CloudSync] Aviso al sincronizar proyecto individual con PostgreSQL:', e);
@@ -263,14 +287,17 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
       saveProjectsList(allProjects, { skipCloudSync: true });
     }
 
-    // Publicar manifiesto de proyectos activos del anfitrión en Supabase para sincronización inter-usuarios
+    // Publicar manifiesto de proyectos activos del anfitrión en Supabase para sincronización inter-usuarios (solo si cambió)
     if (myEmail) {
       try {
-        await recordHostActiveManifest(myEmail, myOwnedActiveProjects.map(p => p.cloudId || p.id));
+        const manifestUpdated = await recordHostActiveManifest(myEmail, myOwnedActiveProjects.map(p => p.cloudId || p.id));
+        if (manifestUpdated) didWriteAny = true;
       } catch (_) {}
     }
 
-    console.info(`[CloudSync] Estado respaldado en la nube con éxito (${myOwnedActiveProjects.length} propias activas, ${myPlanInvs.length} anfitriones).`);
+    if (didWriteAny) {
+      console.info(`[CloudSync] Estado respaldado en la nube con éxito (${myOwnedActiveProjects.length} propias activas, ${myPlanInvs.length} anfitriones).`);
+    }
     return true;
   } catch (err) {
     syncFailed = true;
@@ -574,6 +601,26 @@ export function restoreUserCollaborationFromCloud(user = null) {
   return hasChanges;
 }
 
+async function upsertChatAuxRowSafe(sb, row) {
+  let payload = { ...row };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await sb.from('chat_mensajes').upsert(payload, { onConflict: 'id' });
+    if (!res?.error) return true;
+    const msg = String(res.error?.message || '');
+    const missingMatch = msg.match(/Could not find the '([^']+)' column/i);
+    if (missingMatch && missingMatch[1] && Object.prototype.hasOwnProperty.call(payload, missingMatch[1])) {
+      delete payload[missingMatch[1]];
+      continue;
+    }
+    if (/payload_json/i.test(msg) && Object.prototype.hasOwnProperty.call(payload, 'payload_json')) {
+      delete payload.payload_json;
+      continue;
+    }
+    return false;
+  }
+  return false;
+}
+
 /**
  * Registrar lápida (tombstone) de proyecto eliminado en Supabase (tabla chat_mensajes)
  * para asegurar que usuarios desconectados o en otros navegadores lo eliminen al reconectar.
@@ -606,7 +653,7 @@ export async function recordDeletedProjectTombstone(projectId, ownerEmail = null
       console.warn('[CloudSync] Aviso al registrar en proyectos_eliminados:', peErr.message || peErr);
     }
 
-    await sb.from('chat_mensajes').upsert({
+    await upsertChatAuxRowSafe(sb, {
       id: rowId,
       proyecto_id: '__cubikar_tombstones__',
       autor_nombre: user?.name || 'Sistema',
@@ -619,7 +666,7 @@ export async function recordDeletedProjectTombstone(projectId, ownerEmail = null
         deletedAt: nowIso
       },
       created_at: nowIso
-    }, { onConflict: 'id' });
+    });
     return true;
   } catch (err) {
     console.warn('[CloudSync] Error al registrar lápida de eliminación:', err);
@@ -631,7 +678,7 @@ export async function recordDeletedProjectTombstone(projectId, ownerEmail = null
  * Publicar manifiesto de proyectos activos del anfitrión en Supabase (tabla chat_mensajes).
  * Contiene la lista autoritativa de IDs de proyectos vigentes de este anfitrión.
  */
-export async function recordHostActiveManifest(ownerEmail, activeProjectIds = []) {
+export async function recordHostActiveManifest(ownerEmail, activeProjectIds = [], opts = {}) {
   if (!ownerEmail) return false;
   const sb = getSupabaseClient();
   if (!sb || typeof sb.from !== 'function') return false;
@@ -639,9 +686,13 @@ export async function recordHostActiveManifest(ownerEmail, activeProjectIds = []
   const oEmail = ownerEmail.toLowerCase().trim();
   const rowId = `__manifest__${oEmail}`;
   const ids = Array.isArray(activeProjectIds) ? activeProjectIds : [];
+  const manifestSig = `${oEmail}|${[...ids].sort().join(',')}`;
+  if (!opts?.force && manifestSig === lastManifestSignature) {
+    return false;
+  }
 
   try {
-    await sb.from('chat_mensajes').upsert({
+    const ok = await upsertChatAuxRowSafe(sb, {
       id: rowId,
       proyecto_id: '__cubikar_host_manifest__',
       autor_nombre: 'Manifiesto de Proyectos',
@@ -654,8 +705,9 @@ export async function recordHostActiveManifest(ownerEmail, activeProjectIds = []
         updatedAt: new Date().toISOString()
       },
       created_at: new Date().toISOString()
-    }, { onConflict: 'id' });
-    return true;
+    });
+    if (ok) lastManifestSignature = manifestSig;
+    return ok;
   } catch (err) {
     console.warn('[CloudSync] Error al registrar manifiesto del anfitrión:', err);
     return false;
@@ -672,10 +724,20 @@ export async function syncHostWorkspaceProjects(hostEmail) {
   if (!sb || typeof sb.from !== 'function') return false;
 
   const targetHost = hostEmail.toLowerCase().trim();
-  const user = getCurrentUser();
-  const myEmail = (user?.email || '').toLowerCase().trim();
+  if (inFlightHostSyncByEmail.has(targetHost)) {
+    return inFlightHostSyncByEmail.get(targetHost);
+  }
+  const prevAt = lastHostSyncAtByEmail.get(targetHost) || 0;
+  if (prevAt > 0 && (Date.now() - prevAt) < 6000) {
+    return false;
+  }
 
-  try {
+  const reqPromise = (async () => {
+    lastHostSyncAtByEmail.set(targetHost, Date.now());
+    const user = getCurrentUser();
+    const myEmail = (user?.email || '').toLowerCase().trim();
+
+    try {
     // Consultar proyectos del anfitrión directamente desde la tabla public.proyectos en Supabase.
     // RLS de Supabase devuelve únicamente las obras de este anfitrión donde el usuario
     // actual tiene permiso activo aceptado.
@@ -804,20 +866,43 @@ export async function syncHostWorkspaceProjects(hostEmail) {
     console.warn('[HostWorkspaceSync] Error al sincronizar proyectos del anfitrión:', err);
   }
   return false;
+  })();
+  inFlightHostSyncByEmail.set(targetHost, reqPromise);
+  try {
+    return await reqPromise;
+  } finally {
+    inFlightHostSyncByEmail.delete(targetHost);
+  }
 }
 
 /**
  * Reconciliar lápidas globales de proyectos eliminados en la nube
  */
-export async function reconcileDeletedProjectsWithCloud() {
+export async function reconcileDeletedProjectsWithCloud(opts = {}) {
   const sb = getSupabaseClient();
   if (!sb || typeof sb.from !== 'function') return false;
 
+  const force = Boolean(opts?.force);
+  if (inFlightReconcilePromise) {
+    return inFlightReconcilePromise;
+  }
+  const now = Date.now();
+  if (!force && ((nextReconcileAllowedAt > now) || (lastReconcileAt > 0 && (now - lastReconcileAt) < 15000))) {
+    return false;
+  }
+
+  inFlightReconcilePromise = (async () => {
   try {
+    lastReconcileAt = Date.now();
     const [{ data: cloudDeletedRows, error: cdErr }, { data: tombstones, error: tErr }] = await Promise.all([
       sb.from('proyectos_eliminados').select('proyecto_id, owner_email, deleted_by_email, deleted_at').limit(500),
       sb.from('chat_mensajes').select('mensaje, payload_json').eq('proyecto_id', '__cubikar_tombstones__').limit(500)
     ]);
+
+    if (cdErr && tErr) {
+      nextReconcileAllowedAt = Date.now() + 8000;
+      return false;
+    }
 
     let changed = false;
     const newlyDeletedIds = [];
@@ -881,8 +966,9 @@ export async function reconcileDeletedProjectsWithCloud() {
         saveCurrentUser(user);
         if (hadLegacyV1 || hadLegacyArrays || hadBloatedDelIds) {
           try {
-            lastInternalCloudUpdateAt = Date.now();
+            markInternalCloudAuthUpdate();
             await sb.auth.updateUser({ data: { cubikar_collaboration_v1: null, cubikar_cloud_state_v2: cs } });
+            markInternalCloudAuthUpdate();
           } catch (_) {}
         }
       }
@@ -893,29 +979,46 @@ export async function reconcileDeletedProjectsWithCloud() {
     }
     return changed;
   } catch (err) {
+    nextReconcileAllowedAt = Date.now() + 8000;
     console.warn('[CloudSync] Error al reconciliar lápidas:', err);
     return false;
+  }
+  })();
+
+  try {
+    return await inFlightReconcilePromise;
+  } finally {
+    inFlightReconcilePromise = null;
   }
 }
 
 /**
- * Sincronización automática de arranque (con deduplicación single-flight y cooldown de 15s)
+ * Sincronización automática de arranque (con deduplicación single-flight estricta y cooldown de 15s)
  */
 export async function autoSyncCollaborationOnStartup(user = null, opts = {}) {
   const force = Boolean(opts?.force);
-  if (isCloudSyncInFlight || isRecentInternalCloudAuthUpdate(3000)) return;
-  if (!force && startupSyncInFlightPromise) return startupSyncInFlightPromise;
-  const now = Date.now();
-  if (!force && lastStartupSyncAt > 0 && (now - lastStartupSyncAt) < 15000) return;
+  const manual = Boolean(opts?.manual);
+  if (isCloudSyncInFlight || isRecentInternalCloudAuthUpdate(4000)) return;
 
   const currentUser = user || getCurrentUser();
   if (!currentUser || !currentUser.email) return;
+  const uid = String(currentUser.id || currentUser.email);
+
+  if (startupSyncInFlightPromise && startupSyncUserId === uid) {
+    return startupSyncInFlightPromise;
+  }
+  const now = Date.now();
+  if (!manual && lastStartupSyncUserId === uid && lastStartupSyncAt > 0 && (now - lastStartupSyncAt) < 15000) {
+    return;
+  }
 
   lastStartupSyncAt = now;
+  lastStartupSyncUserId = uid;
+  startupSyncUserId = uid;
   startupSyncInFlightPromise = (async () => {
     // Paso 1: Reconciliar lápidas de proyectos eliminados en la nube
     try {
-      await reconcileDeletedProjectsWithCloud();
+      await reconcileDeletedProjectsWithCloud({ force: manual });
     } catch (_) {}
 
     // Paso 2: Restaurar de la nube (public.proyectos + invitaciones)
@@ -948,10 +1051,11 @@ export async function autoSyncCollaborationOnStartup(user = null, opts = {}) {
       await syncUserCollaborationToCloud(currentUser, { force });
     }
     if (typeof window !== 'undefined' && typeof window.hydrateAllUserProjectsChatFromCloud === 'function') {
-      window.hydrateAllUserProjectsChatFromCloud(true).catch(() => {});
+      window.hydrateAllUserProjectsChatFromCloud(false).catch(() => {});
     }
   })().finally(() => {
     startupSyncInFlightPromise = null;
+    startupSyncUserId = '';
   });
 
   return startupSyncInFlightPromise;

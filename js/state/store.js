@@ -1,10 +1,10 @@
-import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261116_cf14';
-import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261116_cf14';
-import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261116_cf14';
-import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261116_cf14';
-import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261116_cf14';
-import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261116_cf14';
-import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261116_cf14';
+import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261116_cf15';
+import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261116_cf15';
+import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261116_cf15';
+import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261116_cf15';
+import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261116_cf15';
+import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261116_cf15';
+import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261116_cf15';
 
 // Estado global reactivo y centralizado de la aplicación
 export const state = {
@@ -167,7 +167,6 @@ export function initStore() {
             state.treeData = cloudTree;
             localStorage.setItem(getStorageKey(activePId), incomingJson);
             if (typeof window !== 'undefined') {
-              if (typeof window.recalculateClaves === 'function') window.recalculateClaves(state.treeData);
               if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
               if (typeof window.renderTAB1 === 'function') window.renderTAB1();
             }
@@ -302,6 +301,7 @@ export function triggerDebouncedCloudSync() {
     if (!project) return;
     if (typeof isProjectMarkedDeleted === 'function' && project.cloudId && isProjectMarkedDeleted(project.cloudId)) return;
     let syncSuccess = false;
+    const wasCloudSynced = Boolean(project.isCloudSynced);
     try {
       const syncRes = await syncProjectToCloud(project, state.settings, state.treeData);
       syncSuccess = Boolean(syncRes && syncRes.success);
@@ -337,7 +337,7 @@ export function triggerDebouncedCloudSync() {
       }
     }
     try {
-      if (typeof window !== 'undefined' && typeof window.triggerDebouncedCloudStateSync === 'function') {
+      if (syncSuccess && !wasCloudSynced && typeof window !== 'undefined' && typeof window.triggerDebouncedCloudStateSync === 'function') {
         window.triggerDebouncedCloudStateSync();
       }
     } catch (_) {}

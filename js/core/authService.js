@@ -1,10 +1,10 @@
 // js/core/authService.js
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
-import { STORAGE_KEY_USER } from '../config/constants.js?v=20261116_cf14';
-import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261116_cf14';
-import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261116_cf14';
-import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261116_cf14';
+import { STORAGE_KEY_USER } from '../config/constants.js?v=20261116_cf15';
+import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261116_cf15';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261116_cf15';
+import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261116_cf15';
 import {
   writeSharedSsoCookie,
   clearSharedSsoCookie,
@@ -14,7 +14,7 @@ import {
   scrubSsoHashParams,
   hasPendingIncomingSso,
   getLastSignOutTimestamp
-} from './ssoHelper.js?v=20261116_cf14';
+} from './ssoHelper.js?v=20261116_cf15';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -222,7 +222,7 @@ export function hasOversizedLocalJwt() {
   try {
     const localTok = readLocalSupabaseTokens();
     const uid = extractJwtSub(localTok?.accessToken || '') || (getCurrentUser()?.id || '');
-    if (localTok?.accessToken && isUserOnCompactCooldown(uid, localTok.accessToken.length)) {
+    if (uid && isUserOnCompactCooldown(uid, localTok?.accessToken?.length || 0)) {
       return false;
     }
     if (localTok?.accessToken && localTok.accessToken.length > MAX_SAFE_JWT_CHARS) return true;
@@ -1068,15 +1068,12 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
     if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
       refreshProjectsGridUI();
     }
-    const shouldTriggerInitialSync = Boolean(force) || !initialSyncedUserIds.has(user.id);
+    const shouldTriggerInitialSync = Boolean(force && explicitAuthDepth > 0) || !initialSyncedUserIds.has(user.id);
     if (shouldTriggerInitialSync) {
       initialSyncedUserIds.add(user.id);
       setTimeout(() => {
-        try {
-          restoreUserCollaborationFromCloud(user);
-        } catch (_) {}
-        autoSyncCollaborationOnStartup(user, { force: Boolean(force) });
-        import('../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf14')
+        autoSyncCollaborationOnStartup(user, { force: Boolean(force && explicitAuthDepth > 0) });
+        import('../modules/ai/aiQuotaAndCacheService.js?v=20261116_cf15')
           .then(m => m.syncAiQuotaFromSupabase())
           .catch(() => {});
       }, 50);
@@ -1309,7 +1306,7 @@ export function initAuthListener(onAuthChangeCallback) {
       }
 
       const isInternalSync = (event === 'USER_UPDATED' && isRecentInternalCloudAuthUpdate());
-      const isExplicitLogin = (event === 'SIGNED_IN' || (event === 'USER_UPDATED' && !isInternalSync) || isOAuthRedirect);
+      const isExplicitLogin = !isInternalSync && (event === 'SIGNED_IN' || event === 'USER_UPDATED' || isOAuthRedirect);
       const rememberPref = isExplicitInteractive ? explicitAuthRemember : null;
       const shouldKeepSsoCookie = rememberPref !== null ? rememberPref : resolveRememberPreference(null);
 
@@ -1331,7 +1328,7 @@ export function initAuthListener(onAuthChangeCallback) {
 
           if (!isInternalSync && event !== 'TOKEN_REFRESHED') {
             try {
-              autoSyncCollaborationOnStartup(cleanSession.user, { force: isExplicitInteractive });
+              autoSyncCollaborationOnStartup(cleanSession.user, { force: explicitAuthDepth > 0 });
             } catch (e) {}
           }
           if (onAuthChangeCallback) onAuthChangeCallback(event, cleanSession, initialPerfil);
@@ -1363,7 +1360,7 @@ export function initAuthListener(onAuthChangeCallback) {
       setTimeout(() => {
         if (!isInternalSync && event !== 'TOKEN_REFRESHED') {
           try {
-            autoSyncCollaborationOnStartup(session.user, { force: isExplicitInteractive });
+            autoSyncCollaborationOnStartup(session.user, { force: explicitAuthDepth > 0 });
           } catch (e) {}
         }
         if (onAuthChangeCallback) onAuthChangeCallback(event, session, initialPerfil);

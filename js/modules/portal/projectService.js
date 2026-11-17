@@ -15,14 +15,14 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261116_cf14';
+} from '../../config/constants.js?v=20261116_cf15';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf14';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf14';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf14';
-import { deleteProjectFromCloud } from '../../core/cloudProjectService.js?v=20261116_cf14';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf14';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261116_cf15';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261116_cf15';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261116_cf15';
+import { deleteProjectFromCloud } from '../../core/cloudProjectService.js?v=20261116_cf15';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261116_cf15';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -588,7 +588,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261116_cf14').then(m => {
+            import('../../core/supabaseClient.js?v=20261116_cf15').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -1934,7 +1934,7 @@ export function syncActiveProjectSummary(projectId, treeData, settings) {
   list[idx].conceptCount = countTreeConcepts(treeData);
   list[idx].partidasCount = countTreePartidas(treeData);
 
-  saveProjectsList(list);
+  saveProjectsList(list, { skipCloudSync: true });
 }
 
 // ==========================================

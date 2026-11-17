@@ -3,8 +3,8 @@
 // conectada con Partidas de Nivel 1 (icono de alta visibilidad fa-comments),
 // Usuarios Asignados (@), Estimaciones (#), Reportes (!) y Notificaciones de Menciones en la barra lateral izquierda.
 
-import { state } from '../../state/store.js?v=20261116_cf14';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf14';
+import { state } from '../../state/store.js?v=20261116_cf15';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf15';
 import {
   getProjectById,
   getProjectsList,
@@ -20,15 +20,15 @@ import {
   getStoredPlanInvitations,
   saveStoredPlanInvitations,
   getDeletedProjectsList
-} from '../portal/projectService.js?v=20261116_cf14';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf14';
-import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261116_cf14';
-import { getExpensesRecords } from '../compras/expensesModel.js?v=20261116_cf14';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf14';
-import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261116_cf14';
-import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261116_cf14';
-import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf14';
-import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261116_cf14';
+} from '../portal/projectService.js?v=20261116_cf15';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf15';
+import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261116_cf15';
+import { getExpensesRecords } from '../compras/expensesModel.js?v=20261116_cf15';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf15';
+import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261116_cf15';
+import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261116_cf15';
+import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261116_cf15';
+import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261116_cf15';
 
 let isChatDockExpanded = false; // Inicia como pequeño círculo flotante abajo a la derecha
 let isChatMaximized = false; // Permite maximizar o restaurar el tamaño de la ventana del chat
@@ -236,6 +236,10 @@ export function markActiveProjectChatMessagesAsRead(projectId = null) {
 
     const nextMsgs = msgs.map(m => {
       if (!m) return m;
+      const authorEmail = String(m.authorEmail || m.autorEmail || m.autor_email || '').toLowerCase().trim();
+      if (myEmail && authorEmail && authorEmail === myEmail) {
+        return m;
+      }
       const cleanId = normalizeChatMsgId(m.id);
       const k1 = `${pid}:${cleanId}`;
       if (!readSet.has(k1)) {
@@ -737,6 +741,9 @@ export function syncNotificationStateToCloud() {
           cubikar_read_mentions: readIds
         }
       });
+      if (typeof window.markInternalCloudAuthUpdate === 'function') {
+        window.markInternalCloudAuthUpdate();
+      }
 
       if (error) {
         consecutiveNotifSyncFailures++;

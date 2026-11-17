@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf14';
-import { state } from '../state/store.js?v=20261116_cf14';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf15';
+import { state } from '../state/store.js?v=20261116_cf15';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -17,10 +17,10 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261116_cf14';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf14';
-import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261116_cf14';
-import { showToast } from '../ui/notifications.js?v=20261116_cf14';
+} from '../modules/portal/projectService.js?v=20261116_cf15';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261116_cf15';
+import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261116_cf15';
+import { showToast } from '../ui/notifications.js?v=20261116_cf15';
 
 let activeChannel = null;
 let currentSubscribedProjectId = null;
@@ -858,9 +858,6 @@ export function handleIncomingProjectUpdate(data) {
         } catch (_) {}
         if (isCurrentActive) {
           state.treeData = JSON.parse(JSON.stringify(cloudTree));
-          if (typeof window.recalculateClaves === 'function') {
-            try { window.recalculateClaves(state.treeData); } catch (_) {}
-          }
           if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
           if (typeof window.renderTAB1 === 'function') window.renderTAB1();
           if (state.activeSelectedId) {
@@ -887,8 +884,12 @@ export function handleIncomingProjectUpdate(data) {
   }
 
   // Si el usuario tiene actualmente abierta esta misma obra en el espacio de trabajo
+  const isStructuralChange = (
+    ['row_added', 'row_deleted', 'row_moved', 'partida_added', 'concept_added', 'node_deleted', 'tree_replaced', 'import'].includes(String(data.changeType || ''))
+    || ['add_root_row', 'add_child_row', 'add_node', 'delete_node', 'delete_nodes', 'duplicate_node', 'paste_node', 'move_node', 'replace_tree', 'insert_node'].includes(String(data.patch?.type || ''))
+  );
   if (isCurrentActive) {
-    if (typeof window.recalculateClaves === 'function' && Array.isArray(state.treeData)) {
+    if (isStructuralChange && typeof window.recalculateClaves === 'function' && Array.isArray(state.treeData)) {
       try { window.recalculateClaves(state.treeData); } catch (_) {}
     }
     if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
@@ -917,16 +918,6 @@ export function handleIncomingProjectUpdate(data) {
   const authorName = data.author?.name || data.author?.email || 'Un colaborador';
   const desc = data.changeDescription || 'cambios en el catálogo';
   showThrottledToast(`🔄 ${authorName} actualizó ${desc} en tiempo real`, 'info', authorEmail);
-
-  // Si somos el anfitrión/propietario, respaldar automáticamente el nuevo estado en la nube
-  const isOwner = proj && (proj.ownerEmail || '').toLowerCase().trim() === myEmail;
-  if (isOwner) {
-    try {
-      if (typeof window.triggerDebouncedCloudStateSync === 'function') {
-        window.triggerDebouncedCloudStateSync();
-      }
-    } catch (_) {}
-  }
 }
 
 const LOCAL_CLIENT_SESSION_ID = `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1072,7 +1063,7 @@ function handleIncomingConceptUpdate(data, eventType = 'UPDATE') {
     }
   }
   if (updated) {
-    if (typeof window.recalculateClaves === 'function' && Array.isArray(state.treeData)) {
+    if (eventType === 'INSERT' && typeof window.recalculateClaves === 'function' && Array.isArray(state.treeData)) {
       try { window.recalculateClaves(state.treeData); } catch (_) {}
     }
     try {
@@ -2074,6 +2065,10 @@ function handlePeerSyncRequest({ email }) {
   }
 }
 
+let lastPeerDeletedCheckAt = 0;
+let lastPeerDeletedSet = new Set();
+let inFlightPeerDeletedPromise = null;
+
 async function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
   const currentUser = getCurrentUser();
   if (!currentUser || !currentUser.email) return;
@@ -2102,19 +2097,32 @@ async function handlePeerSyncResponse({ targetEmail, invitations, projects }) {
     const incomingIds = Array.from(new Set(
       projects.flatMap(p => [p?.id, p?.cloudId]).filter(Boolean).map(v => String(v).trim())
     ));
-    const cloudDeletedSet = new Set();
+    const cloudDeletedSet = new Set(lastPeerDeletedSet);
     try {
       const sb = getSupabaseClient();
-      if (sb && isSupabaseConfigured() && incomingIds.length > 0) {
-        const { data: delRows } = await sb
-          .from('proyectos_eliminados')
-          .select('proyecto_id')
-          .in('proyecto_id', incomingIds);
-        if (Array.isArray(delRows)) {
-          delRows.forEach(r => {
-            if (r?.proyecto_id) cloudDeletedSet.add(String(r.proyecto_id).trim());
-          });
+      const nowDel = Date.now();
+      if (sb && isSupabaseConfigured() && incomingIds.length > 0 && (nowDel - lastPeerDeletedCheckAt) >= 8000) {
+        if (!inFlightPeerDeletedPromise) {
+          inFlightPeerDeletedPromise = sb
+            .from('proyectos_eliminados')
+            .select('proyecto_id')
+            .in('proyecto_id', incomingIds)
+            .then(({ data: delRows }) => {
+              lastPeerDeletedCheckAt = Date.now();
+              if (Array.isArray(delRows)) {
+                delRows.forEach(r => {
+                  if (r?.proyecto_id) lastPeerDeletedSet.add(String(r.proyecto_id).trim());
+                });
+              }
+              return lastPeerDeletedSet;
+            })
+            .finally(() => { inFlightPeerDeletedPromise = null; });
         }
+        const refreshed = await inFlightPeerDeletedPromise;
+        if (refreshed) refreshed.forEach(id => cloudDeletedSet.add(id));
+      } else if (inFlightPeerDeletedPromise) {
+        const refreshed = await inFlightPeerDeletedPromise;
+        if (refreshed) refreshed.forEach(id => cloudDeletedSet.add(id));
       }
     } catch (_) {}
 
@@ -2602,11 +2610,50 @@ export function broadcastChatDelete(projectId, messageId) {
   deleteChatMessageFromHostCloud(pId, messageId);
 }
 
+const CHAT_MENSAJES_BASE_COLS = ['id', 'proyecto_id', 'autor_nombre', 'autor_email', 'mensaje', 'created_at'];
+const missingChatMensajeColumns = new Set();
+const inFlightChatHydrateByProject = new Map();
+const lastChatHydrateAtByProject = new Map();
+let inFlightAllChatHydratePromise = null;
+
+async function upsertChatRowsResilient(sb, rowOrRows) {
+  const rows = Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows];
+  if (!sb || typeof sb.from !== 'function' || rows.length === 0) return { error: null };
+  const stripMissing = (list) => list.map((r) => {
+    const clean = { ...r };
+    missingChatMensajeColumns.forEach((col) => { delete clean[col]; });
+    return clean;
+  });
+  let payload = stripMissing(rows);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const body = (!Array.isArray(rowOrRows) && payload.length === 1) ? payload[0] : payload;
+    const res = await sb.from('chat_mensajes').upsert(body, { onConflict: 'id' });
+    if (!res?.error) return res;
+    const msg = String(res.error.message || '');
+    const m = msg.match(/Could not find the ['"]([^'"]+)['"] column/i)
+      || msg.match(/column\s+["']?([a-z0-9_]+)["']?(?:\s+of\s+relation)?\s+does not exist/i);
+    if (m && m[1] && !CHAT_MENSAJES_BASE_COLS.includes(m[1])) {
+      missingChatMensajeColumns.add(m[1]);
+      payload = stripMissing(payload);
+      continue;
+    }
+    if ((res.error.code === 'PGRST204' || res.error.code === '42703') && attempt < 7) {
+      payload = rows.map((r) => {
+        const minRow = {};
+        CHAT_MENSAJES_BASE_COLS.forEach((c) => { if (r[c] !== undefined) minRow[c] = r[c]; });
+        return minRow;
+      });
+      continue;
+    }
+    return res;
+  }
+  return { error: new Error('No se pudo persistir en chat_mensajes') };
+}
+
 export async function persistChatMessageToHostCloud(projectId, message, proj) {
   const sb = getSupabaseClient();
   const allProjects = proj ? [proj] : getProjectsList();
   const targetProj = proj || allProjects.find(p => p.id === projectId || p.cloudId === projectId);
-  const ownerEmail = (targetProj?.ownerEmail || message?.ownerEmail || getCurrentUser()?.email || '').toLowerCase().trim();
   if (!projectId || !message) return;
 
   const isUuid = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s || '').trim());
@@ -2614,7 +2661,7 @@ export async function persistChatMessageToHostCloud(projectId, message, proj) {
     ? String(targetProj.cloudId).trim()
     : (isUuid(targetProj?.id) ? String(targetProj.id).trim() : String(projectId).trim());
 
-  // 1. Guardar en tabla Supabase 'chat_mensajes' usando columnas exactas del esquema
+  // 1. Guardar en tabla Supabase 'chat_mensajes' usando columnas resilientes
   const cleanMsgId = String(message.id || '').replace(/^.*?(?:__|::)/, '');
   const msgToPersist = sanitizeChatMsgForCloud({
     ...message,
@@ -2626,7 +2673,7 @@ export async function persistChatMessageToHostCloud(projectId, message, proj) {
     try {
       const rowId = `${canonicalPid}__${cleanMsgId}`;
       markLocalConceptPush(rowId);
-      const { error } = await sb.from('chat_mensajes').upsert({
+      const { error } = await upsertChatRowsResilient(sb, {
         id: rowId,
         proyecto_id: canonicalPid,
         autor_nombre: msgToPersist.authorName || 'Colaborador',
@@ -2637,23 +2684,13 @@ export async function persistChatMessageToHostCloud(projectId, message, proj) {
         etiquetas: Array.isArray(msgToPersist.mentions) ? msgToPersist.mentions : [],
         payload_json: msgToPersist,
         created_at: msgToPersist.createdAt || new Date().toISOString()
-      }, { onConflict: 'id' });
+      });
       if (error) {
         console.warn('[Realtime] Error al persistir mensaje en chat_mensajes:', error.message || error);
       }
     } catch (err) {
       console.warn('[Realtime] Excepción al persistir mensaje en chat_mensajes:', err);
     }
-  }
-
-  // 2. Si el usuario actual es el anfitrión, respaldar en su estado en la nube
-  const currentUser = getCurrentUser();
-  if (currentUser && (currentUser.email || '').toLowerCase().trim() === ownerEmail) {
-    try {
-      if (typeof window !== 'undefined' && typeof window.triggerDebouncedCloudStateSync === 'function') {
-        window.triggerDebouncedCloudStateSync(currentUser);
-      }
-    } catch (_) {}
   }
 }
 
@@ -2678,88 +2715,104 @@ export async function deleteChatMessageFromHostCloud(projectId, messageId) {
   }
 }
 
-export async function hydrateProjectChatFromCloud(projectId) {
+export async function hydrateProjectChatFromCloud(projectId, opts = {}) {
   const sb = getSupabaseClient();
   if (!sb || !projectId || typeof sb.from !== 'function') return;
   if (String(projectId).startsWith('__')) return;
-  try {
-    const allProjects = getProjectsList();
-    const targetProj = allProjects.find(p => p.id === projectId || p.cloudId === projectId);
-    const effectivePid = targetProj?.id || projectId;
-    const idsToQuery = Array.from(new Set([effectivePid, projectId, targetProj?.cloudId].filter(v => v && !String(v).startsWith('__'))));
+  const allProjects = getProjectsList();
+  const targetProj = allProjects.find(p => p.id === projectId || p.cloudId === projectId);
+  const effectivePid = targetProj?.id || projectId;
 
-    const { data, error } = await sb
-      .from('chat_mensajes')
-      .select('*')
-      .in('proyecto_id', idsToQuery)
-      .order('created_at', { ascending: true });
+  const existingInFlight = inFlightChatHydrateByProject.get(effectivePid);
+  if (existingInFlight) return existingInFlight;
 
-    if (error) {
-      console.warn('[Realtime] Aviso hidratando chat_mensajes:', error.message || error);
-      return;
-    }
+  const now = Date.now();
+  const lastAt = lastChatHydrateAtByProject.get(effectivePid) || 0;
+  if (!opts?.force && (now - lastAt) < 5000) return;
+  lastChatHydrateAtByProject.set(effectivePid, now);
 
-    if (Array.isArray(data) && data.length > 0) {
-      const chatKey = resolveChatStorageKey(effectivePid);
-      let localMessages = [];
-      try {
-        const raw = localStorage.getItem(chatKey);
-        if (raw) localMessages = JSON.parse(raw);
-      } catch (_) {}
-      if (!Array.isArray(localMessages)) localMessages = [];
+  const runPromise = (async () => {
+    try {
+      const idsToQuery = Array.from(new Set([effectivePid, projectId, targetProj?.cloudId].filter(v => v && !String(v).startsWith('__'))));
 
-      const map = new Map();
-      localMessages.forEach(m => {
-        if (m && m.id) {
-          const cid = String(m.id || '').replace(/^.*?(?:__|::)/, '');
-          map.set(cid, { ...m, id: cid });
-        }
-      });
-      data.forEach(row => {
-        if (!row || (row.id && String(row.id).startsWith('__'))) return;
-        const cleanId = String(row.payload_json?.id || row.id || '').replace(/^.*?(?:__|::)/, '');
-        if (!cleanId) return;
-        const msg = (row.payload_json && typeof row.payload_json === 'object' && row.payload_json.id)
-          ? {
-              ...row.payload_json,
-              id: cleanId,
-              mentions: (Array.isArray(row.payload_json.mentions) && row.payload_json.mentions.length > 0)
-                ? row.payload_json.mentions
-                : (Array.isArray(row.etiquetas) ? row.etiquetas : [])
-            }
-          : {
-              id: cleanId,
-              text: row.mensaje || '',
-              mentions: Array.isArray(row.etiquetas) ? row.etiquetas : [],
-              authorName: row.autor_nombre || 'Colaborador',
-              authorEmail: row.autor_email || '',
-              authorAvatar: row.autor_avatar_url || '',
-              createdAt: row.created_at || new Date().toISOString(),
-              time: row.created_at ? new Date(row.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''
-            };
-        const prev = map.get(cleanId);
-        map.set(cleanId, mergeRemoteChatMessage(prev, msg, row.etiquetas));
-      });
+      const { data, error } = await sb
+        .from('chat_mensajes')
+        .select('*')
+        .in('proyecto_id', idsToQuery)
+        .order('created_at', { ascending: true });
 
-      const merged = Array.from(map.values()).sort((a, b) => {
-        const tA = new Date(a.createdAt || 0).getTime();
-        const tB = new Date(b.createdAt || 0).getTime();
-        return tA - tB;
-      });
+      if (error) {
+        console.warn('[Realtime] Aviso hidratando chat_mensajes:', error.message || error);
+        return;
+      }
 
-      localStorage.setItem(chatKey, JSON.stringify(merged));
-      if (typeof window !== 'undefined') {
-        if (typeof window.renderProjectChatDock === 'function') {
-          window.renderProjectChatDock();
-        }
-        if (typeof window.renderSidebarNotificationsUI === 'function') {
-          window.renderSidebarNotificationsUI();
+      if (Array.isArray(data) && data.length > 0) {
+        const chatKey = resolveChatStorageKey(effectivePid);
+        let localMessages = [];
+        try {
+          const raw = localStorage.getItem(chatKey);
+          if (raw) localMessages = JSON.parse(raw);
+        } catch (_) {}
+        if (!Array.isArray(localMessages)) localMessages = [];
+
+        const map = new Map();
+        localMessages.forEach(m => {
+          if (m && m.id) {
+            const cid = String(m.id || '').replace(/^.*?(?:__|::)/, '');
+            map.set(cid, { ...m, id: cid });
+          }
+        });
+        data.forEach(row => {
+          if (!row || (row.id && String(row.id).startsWith('__'))) return;
+          const cleanId = String(row.payload_json?.id || row.id || '').replace(/^.*?(?:__|::)/, '');
+          if (!cleanId) return;
+          const msg = (row.payload_json && typeof row.payload_json === 'object' && row.payload_json.id)
+            ? {
+                ...row.payload_json,
+                id: cleanId,
+                mentions: (Array.isArray(row.payload_json.mentions) && row.payload_json.mentions.length > 0)
+                  ? row.payload_json.mentions
+                  : (Array.isArray(row.etiquetas) ? row.etiquetas : [])
+              }
+            : {
+                id: cleanId,
+                text: row.mensaje || '',
+                mentions: Array.isArray(row.etiquetas) ? row.etiquetas : [],
+                authorName: row.autor_nombre || 'Colaborador',
+                authorEmail: row.autor_email || '',
+                authorAvatar: row.autor_avatar_url || '',
+                createdAt: row.created_at || new Date().toISOString(),
+                time: row.created_at ? new Date(row.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''
+              };
+          const prev = map.get(cleanId);
+          map.set(cleanId, mergeRemoteChatMessage(prev, msg, row.etiquetas));
+        });
+
+        const merged = Array.from(map.values()).sort((a, b) => {
+          const tA = new Date(a.createdAt || 0).getTime();
+          const tB = new Date(b.createdAt || 0).getTime();
+          return tA - tB;
+        });
+
+        localStorage.setItem(chatKey, JSON.stringify(merged));
+        if (typeof window !== 'undefined') {
+          if (typeof window.renderProjectChatDock === 'function') {
+            window.renderProjectChatDock();
+          }
+          if (typeof window.renderSidebarNotificationsUI === 'function') {
+            window.renderSidebarNotificationsUI();
+          }
         }
       }
+    } catch (err) {
+      console.warn('[Realtime] Error hidratando chat desde Supabase:', err);
+    } finally {
+      inFlightChatHydrateByProject.delete(effectivePid);
     }
-  } catch (err) {
-    console.warn('[Realtime] Error hidratando chat desde Supabase:', err);
-  }
+  })();
+
+  inFlightChatHydrateByProject.set(effectivePid, runPromise);
+  return runPromise;
 }
 
 let lastAllChatHydrateAt = 0;
@@ -2769,102 +2822,111 @@ export async function hydrateAllUserProjectsChatFromCloud(force = false) {
   const user = getCurrentUser();
   if (!sb || !isSupabaseConfigured() || !user || !user.email || typeof sb.from !== 'function') return false;
 
+  if (inFlightAllChatHydratePromise) return inFlightAllChatHydratePromise;
+
   const now = Date.now();
-  if (!force && (now - lastAllChatHydrateAt) < 15000) return false;
+  const minCooldownMs = force ? 4000 : 15000;
+  if ((now - lastAllChatHydrateAt) < minCooldownMs) return false;
 
-  try {
-    const projects = getProjectsList() || [];
-    const projByAnyId = new Map();
-    const idsToQuery = [];
-    const idSet = new Set();
-    projects.forEach(p => {
-      if (!p) return;
-      [p.id, p.cloudId].forEach(pid => {
-        if (pid && !String(pid).startsWith('__') && !idSet.has(String(pid))) {
-          idSet.add(String(pid));
-          idsToQuery.push(String(pid));
-          projByAnyId.set(String(pid), p);
-        }
+  inFlightAllChatHydratePromise = (async () => {
+    try {
+      const projects = getProjectsList() || [];
+      const projByAnyId = new Map();
+      const idsToQuery = [];
+      const idSet = new Set();
+      projects.forEach(p => {
+        if (!p) return;
+        [p.id, p.cloudId].forEach(pid => {
+          if (pid && !String(pid).startsWith('__') && !idSet.has(String(pid))) {
+            idSet.add(String(pid));
+            idsToQuery.push(String(pid));
+            projByAnyId.set(String(pid), p);
+          }
+        });
       });
-    });
-    if (idsToQuery.length === 0) return false;
-    lastAllChatHydrateAt = now;
+      if (idsToQuery.length === 0) return false;
+      lastAllChatHydrateAt = Date.now();
 
-    const { data, error } = await sb
-      .from('chat_mensajes')
-      .select('*')
-      .in('proyecto_id', idsToQuery.slice(0, 60))
-      .order('created_at', { ascending: true });
+      const { data, error } = await sb
+        .from('chat_mensajes')
+        .select('*')
+        .in('proyecto_id', idsToQuery.slice(0, 60))
+        .order('created_at', { ascending: true });
 
-    if (error || !Array.isArray(data) || data.length === 0) return false;
+      if (error || !Array.isArray(data) || data.length === 0) return false;
 
-    const rowsByProj = new Map();
-    data.forEach(row => {
-      if (!row || !row.proyecto_id || String(row.proyecto_id).startsWith('__')) return;
-      if (row.id && String(row.id).startsWith('__')) return;
-      const proj = projByAnyId.get(String(row.proyecto_id));
-      const canonicalPid = proj?.id || String(row.proyecto_id);
-      if (!rowsByProj.has(canonicalPid)) rowsByProj.set(canonicalPid, []);
-      rowsByProj.get(canonicalPid).push(row);
-    });
-
-    let updatedAny = false;
-    rowsByProj.forEach((rows, canonicalPid) => {
-      const chatKey = resolveChatStorageKey(canonicalPid);
-      let localMessages = [];
-      try {
-        const raw = localStorage.getItem(chatKey);
-        if (raw) localMessages = JSON.parse(raw);
-      } catch (_) {}
-      if (!Array.isArray(localMessages)) localMessages = [];
-
-      const map = new Map();
-      localMessages.forEach(m => {
-        if (m && m.id) {
-          const normId = String(m.id).replace(/^.*?(?:__|::)/, '');
-          if (normId.startsWith('seed_msg_')) return;
-          map.set(normId, { ...m, id: normId });
-        }
-      });
-      rows.forEach(row => {
-        const rawPayload = (row.payload_json && typeof row.payload_json === 'object') ? row.payload_json : null;
-        const cleanId = String(rawPayload?.id || row.id || '').replace(/^.*?(?:__|::)/, '');
-        if (!cleanId || cleanId.startsWith('seed_msg_')) return;
-        const msg = rawPayload && rawPayload.id
-          ? {
-              ...rawPayload,
-              id: cleanId,
-              mentions: (Array.isArray(rawPayload.mentions) && rawPayload.mentions.length > 0)
-                ? rawPayload.mentions
-                : (Array.isArray(row.etiquetas) ? row.etiquetas : [])
-            }
-          : {
-              id: cleanId,
-              text: row.mensaje || '',
-              mentions: Array.isArray(row.etiquetas) ? row.etiquetas : [],
-              authorName: row.autor_nombre || 'Colaborador',
-              authorEmail: row.autor_email || '',
-              authorAvatar: row.autor_avatar_url || '',
-              createdAt: row.created_at || new Date().toISOString(),
-              time: row.created_at ? new Date(row.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''
-            };
-        map.set(cleanId, mergeRemoteChatMessage(map.get(cleanId), msg, row.etiquetas));
+      const rowsByProj = new Map();
+      data.forEach(row => {
+        if (!row || !row.proyecto_id || String(row.proyecto_id).startsWith('__')) return;
+        if (row.id && String(row.id).startsWith('__')) return;
+        const proj = projByAnyId.get(String(row.proyecto_id));
+        const canonicalPid = proj?.id || String(row.proyecto_id);
+        if (!rowsByProj.has(canonicalPid)) rowsByProj.set(canonicalPid, []);
+        rowsByProj.get(canonicalPid).push(row);
       });
 
-      const merged = Array.from(map.values()).sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
-      localStorage.setItem(chatKey, JSON.stringify(merged));
-      updatedAny = true;
-    });
+      let updatedAny = false;
+      rowsByProj.forEach((rows, canonicalPid) => {
+        const chatKey = resolveChatStorageKey(canonicalPid);
+        let localMessages = [];
+        try {
+          const raw = localStorage.getItem(chatKey);
+          if (raw) localMessages = JSON.parse(raw);
+        } catch (_) {}
+        if (!Array.isArray(localMessages)) localMessages = [];
 
-    if (updatedAny && typeof window !== 'undefined') {
-      if (typeof window.renderProjectChatDock === 'function') window.renderProjectChatDock();
-      if (typeof window.renderSidebarNotificationsUI === 'function') window.renderSidebarNotificationsUI();
+        const map = new Map();
+        localMessages.forEach(m => {
+          if (m && m.id) {
+            const normId = String(m.id).replace(/^.*?(?:__|::)/, '');
+            if (normId.startsWith('seed_msg_')) return;
+            map.set(normId, { ...m, id: normId });
+          }
+        });
+        rows.forEach(row => {
+          const rawPayload = (row.payload_json && typeof row.payload_json === 'object') ? row.payload_json : null;
+          const cleanId = String(rawPayload?.id || row.id || '').replace(/^.*?(?:__|::)/, '');
+          if (!cleanId || cleanId.startsWith('seed_msg_')) return;
+          const msg = rawPayload && rawPayload.id
+            ? {
+                ...rawPayload,
+                id: cleanId,
+                mentions: (Array.isArray(rawPayload.mentions) && rawPayload.mentions.length > 0)
+                  ? rawPayload.mentions
+                  : (Array.isArray(row.etiquetas) ? row.etiquetas : [])
+              }
+            : {
+                id: cleanId,
+                text: row.mensaje || '',
+                mentions: Array.isArray(row.etiquetas) ? row.etiquetas : [],
+                authorName: row.autor_nombre || 'Colaborador',
+                authorEmail: row.autor_email || '',
+                authorAvatar: row.autor_avatar_url || '',
+                createdAt: row.created_at || new Date().toISOString(),
+                time: row.created_at ? new Date(row.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''
+              };
+          map.set(cleanId, mergeRemoteChatMessage(map.get(cleanId), msg, row.etiquetas));
+        });
+
+        const merged = Array.from(map.values()).sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+        localStorage.setItem(chatKey, JSON.stringify(merged));
+        updatedAny = true;
+      });
+
+      if (updatedAny && typeof window !== 'undefined') {
+        if (typeof window.renderProjectChatDock === 'function') window.renderProjectChatDock();
+        if (typeof window.renderSidebarNotificationsUI === 'function') window.renderSidebarNotificationsUI();
+      }
+      return updatedAny;
+    } catch (err) {
+      console.warn('[Realtime] Error hidratando chats del usuario:', err);
+      return false;
+    } finally {
+      inFlightAllChatHydratePromise = null;
     }
-    return updatedAny;
-  } catch (err) {
-    console.warn('[Realtime] Error hidratando chats del usuario:', err);
-    return false;
-  }
+  })();
+
+  return inFlightAllChatHydratePromise;
 }
 
 if (typeof window !== 'undefined') {

@@ -2,17 +2,21 @@
 // Servicio unificado de cuotas mensuales de IA (Estándar vs Google Search Grounding)
 // y caché inteligente de precios de insumos para proteger la rentabilidad de Cubikar.
 
-import { state } from '../../state/store.js?v=20261116_cf14';
-import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf14';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf14';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf14';
-import { getMonthlyAiQuotaUsage, recordAiUsageDetailed, syncMonthlyAiQuotaFromServer, getCurrentMonthKey } from '../admin/cubikarAdmin.js?v=20261116_cf14';
-import { generateLocalMatrix } from './localMatrixEngine.js?v=20261116_cf14';
-import { buildLocalGenerationContext } from './localEstimator.js?v=20261116_cf14';
+import { state } from '../../state/store.js?v=20261116_cf15';
+import { getActiveProjectId } from '../../config/constants.js?v=20261116_cf15';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf15';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261116_cf15';
+import { getMonthlyAiQuotaUsage, recordAiUsageDetailed, syncMonthlyAiQuotaFromServer, getCurrentMonthKey } from '../admin/cubikarAdmin.js?v=20261116_cf15';
+import { generateLocalMatrix } from './localMatrixEngine.js?v=20261116_cf15';
+import { buildLocalGenerationContext } from './localEstimator.js?v=20261116_cf15';
 
 export const STORAGE_KEY_SUPPLY_PRICE_CACHE = 'cubikar_insumo_price_cache_v1';
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
 const MAX_CACHE_ENTRIES = 2500;
+let inFlightAiQuotaSyncPromise = null;
+let lastAiQuotaSyncAt = 0;
+let lastAiQuotaSyncResult = null;
+const AI_QUOTA_SYNC_COOLDOWN_MS = 15000;
 
 export function normalizeSupplyText(str = '') {
   return String(str || '')
@@ -324,31 +328,50 @@ export function applyServerQuotaSnapshot(ownerEmail = '', quotaSnapshot = null) 
   return syncMonthlyAiQuotaFromServer(targetOwner, quotaSnapshot);
 }
 
-export async function syncAiQuotaFromSupabase() {
-  try {
-    const sb = getSupabaseClient();
-    if (!sb || !isSupabaseConfigured()) return null;
-    const { data: sessionData } = await sb.auth.getSession();
-    const user = sessionData?.session?.user;
-    if (!user?.id) return null;
-    const monthKey = getCurrentMonthKey();
-    const { data, error } = await sb
-      .from('consumo_mensual_ia')
-      .select('standard_calls, search_grounding_calls, plan_id, month_key')
-      .eq('user_id', user.id)
-      .eq('month_key', monthKey)
-      .maybeSingle();
-    if (error || !data) return null;
-    const userEmail = (user.email || '').toLowerCase().trim();
-    return syncMonthlyAiQuotaFromServer(userEmail, {
-      monthKey: data.month_key || monthKey,
-      standardUsed: data.standard_calls,
-      searchUsed: data.search_grounding_calls,
-      planId: data.plan_id
-    });
-  } catch (_) {
-    return null;
+export async function syncAiQuotaFromSupabase(opts = {}) {
+  const now = Date.now();
+  if (!opts?.force && lastAiQuotaSyncResult && (now - lastAiQuotaSyncAt) < AI_QUOTA_SYNC_COOLDOWN_MS) {
+    return lastAiQuotaSyncResult;
   }
+  if (!opts?.force && (now - lastAiQuotaSyncAt) < 5000 && lastAiQuotaSyncAt > 0) {
+    return lastAiQuotaSyncResult;
+  }
+  if (inFlightAiQuotaSyncPromise) {
+    return inFlightAiQuotaSyncPromise;
+  }
+  inFlightAiQuotaSyncPromise = (async () => {
+    try {
+      const sb = getSupabaseClient();
+      if (!sb || !isSupabaseConfigured()) return null;
+      const { data: sessionData } = await sb.auth.getSession();
+      const user = sessionData?.session?.user;
+      if (!user?.id) return null;
+      const monthKey = getCurrentMonthKey();
+      const { data, error } = await sb
+        .from('consumo_mensual_ia')
+        .select('standard_calls, search_grounding_calls, plan_id, month_key')
+        .eq('user_id', user.id)
+        .eq('month_key', monthKey)
+        .maybeSingle();
+      lastAiQuotaSyncAt = Date.now();
+      if (error || !data) return null;
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const synced = syncMonthlyAiQuotaFromServer(userEmail, {
+        monthKey: data.month_key || monthKey,
+        standardUsed: data.standard_calls,
+        searchUsed: data.search_grounding_calls,
+        planId: data.plan_id
+      });
+      lastAiQuotaSyncResult = synced;
+      return synced;
+    } catch (_) {
+      lastAiQuotaSyncAt = Date.now();
+      return null;
+    } finally {
+      inFlightAiQuotaSyncPromise = null;
+    }
+  })();
+  return inFlightAiQuotaSyncPromise;
 }
 
 /**

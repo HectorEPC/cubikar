@@ -1,15 +1,15 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261116_cf14';
-import { saveState } from '../../state/history.js?v=20261116_cf14';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf14';
-import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261116_cf14';
-import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf14';
-import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261116_cf14';
-import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261116_cf14';
-import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf14';
+import { state, persistLocalData } from '../../state/store.js?v=20261116_cf15';
+import { saveState } from '../../state/history.js?v=20261116_cf15';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf15';
+import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261116_cf15';
+import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf15';
+import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261116_cf15';
+import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261116_cf15';
+import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261116_cf15';
 export { countTreeConcepts };
-import { getFactorSobrecosto, round2 } from '../../core/calculations.js?v=20261116_cf14';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf14';
-import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261116_cf14';
+import { getFactorSobrecosto, round2 } from '../../core/calculations.js?v=20261116_cf15';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261116_cf15';
+import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261116_cf15';
 
 function createNodeUuid() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -113,11 +113,20 @@ export function getNodeHierarchyPath(nodes, targetId, path = []) {
 }
 
 // Renumeración jerárquica de claves (1, 1.1, 1.1.1...)
-export function recalculateClaves(nodes, parentClave = '') {
+export function recalculateClaves(nodes, parentClave = '', options = {}) {
+  if (!Array.isArray(nodes)) return;
+  const force = Boolean(options && options.force);
   nodes.forEach((node, idx) => {
-    node.clave = parentClave ? `${parentClave}.${idx + 1}` : `${idx + 1}`;
+    if (!node || typeof node !== 'object') return;
+    const computedClave = parentClave ? `${parentClave}.${idx + 1}` : `${idx + 1}`;
+    const existingClave = typeof node.clave === 'string' ? node.clave.trim() : '';
+    const hasCustomAlphanumericClave = Boolean(existingClave && !/^\d+(\.\d+)*$/.test(existingClave));
+    if (force || !hasCustomAlphanumericClave) {
+      node.clave = computedClave;
+    }
     if (node.children && node.children.length > 0) {
-      recalculateClaves(node.children, node.clave);
+      const nextParentClave = (force || !hasCustomAlphanumericClave) ? node.clave : computedClave;
+      recalculateClaves(node.children, nextParentClave, options);
     }
   });
 }

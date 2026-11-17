@@ -11,10 +11,10 @@ import {
   addFeaturedProfile,
   getActiveWorkspaceData,
   getUserPlanId
-} from './projectService.js?v=20261116_cf14';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf14';
-import { isNightMode } from '../../ui/themeController.js?v=20261116_cf14';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf14';
+} from './projectService.js?v=20261116_cf15';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf15';
+import { isNightMode } from '../../ui/themeController.js?v=20261116_cf15';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf15';
 
 export const STORAGE_KEY_SUBSCRIPTION = 'adm_const_subscription';
 
@@ -219,63 +219,109 @@ export function getCurrentSubscription() {
   };
 }
 
+let inFlightSubSyncPromise = null;
+let lastSubSyncEmail = '';
+let lastSubSyncAt = 0;
+let lastSubSyncResult = null;
+const SUB_SYNC_TTL_MS = 12000;
+
 export async function syncSubscriptionFromCloud(targetEmail = null) {
-  try {
-    const sb = getSupabaseClient();
-    if (!sb || !isSupabaseConfigured()) return null;
+  const user = getCurrentUser();
+  const email = (targetEmail || user?.email || '').toLowerCase().trim();
+  if (!email) return null;
 
-    const user = getCurrentUser();
-    const email = (targetEmail || user?.email || '').toLowerCase().trim();
-    if (!email) return null;
-
-    const { data: { user: authUser } } = await sb.auth.getUser();
-    if (authUser && (authUser.email || '').toLowerCase().trim() === email) {
-      let resolvedPlanId = null;
-      const resolvedCycle = authUser.user_metadata?.subscription?.billingCycle === 'annual' ? 'annual' : 'monthly';
-      let resolvedUpdatedAt = new Date().toISOString();
-
-      try {
-        const { data: perfil } = await sb
-          .from('perfiles')
-          .select('empresa_id, empresas(id, plan, plan_const, acceso_const, estado_suscripcion, periodo_fin_const, periodo_fin)')
-          .eq('id', authUser.id)
-          .maybeSingle();
-        const emp = perfil?.empresas;
-        if (emp) {
-          const candidatePlan = emp.plan_const || emp.plan || 'free';
-          const statusOk = !emp.estado_suscripcion || emp.estado_suscripcion === 'active' || emp.estado_suscripcion === 'trialing';
-          resolvedPlanId = (candidatePlan !== 'free' && !statusOk) ? 'free' : candidatePlan;
-        }
-      } catch (_) {}
-
-      if (!resolvedPlanId && authUser.user_metadata?.subscription?.planId) {
-        resolvedPlanId = authUser.user_metadata.subscription.planId;
-        resolvedUpdatedAt = authUser.user_metadata.subscription.updatedAt || resolvedUpdatedAt;
-      }
-
-      if (resolvedPlanId) {
-        const validPlan = getPlanById(resolvedPlanId);
-        const resolved = {
-          planId: validPlan.id,
-          billingCycle: resolvedCycle,
-          updatedAt: resolvedUpdatedAt
-        };
-        localStorage.setItem(`adm_const_subscription_${email}`, JSON.stringify(resolved));
-        if (user && (user.email || '').toLowerCase().trim() === email) {
-          user.subscription = resolved;
-          saveCurrentUser(user);
-          updateSubscriptionBadgesUI();
-          if (typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
-            try { window.refreshProjectsGridUI(); } catch (_) {}
-          }
-        }
-        return resolved;
-      }
-    }
-  } catch (e) {
-    console.warn('[Subscription] Error al sincronizar desde la nube:', e);
+  const now = Date.now();
+  if (lastSubSyncEmail === email && lastSubSyncResult && (now - lastSubSyncAt) < SUB_SYNC_TTL_MS) {
+    return lastSubSyncResult;
   }
-  return null;
+  if (inFlightSubSyncPromise && lastSubSyncEmail === email) {
+    return inFlightSubSyncPromise;
+  }
+
+  lastSubSyncEmail = email;
+  inFlightSubSyncPromise = (async () => {
+    try {
+      const sb = getSupabaseClient();
+      if (!sb || !isSupabaseConfigured()) return null;
+
+      let authUser = null;
+      try {
+        const { data: sessData } = await sb.auth.getSession();
+        authUser = sessData?.session?.user || null;
+      } catch (_) {}
+      if (!authUser) {
+        const { data: userData } = await sb.auth.getUser();
+        authUser = userData?.user || null;
+      }
+
+      if (authUser && (authUser.email || '').toLowerCase().trim() === email) {
+        let resolvedPlanId = null;
+        const resolvedCycle = authUser.user_metadata?.subscription?.billingCycle === 'annual' ? 'annual' : 'monthly';
+        let resolvedUpdatedAt = new Date().toISOString();
+
+        try {
+          const { data: perfil, error: perfilErr } = await sb
+            .from('perfiles')
+            .select('empresa_id, empresas(id, plan, plan_const, acceso_const, estado_suscripcion, periodo_fin_const, periodo_fin)')
+            .eq('id', authUser.id)
+            .maybeSingle();
+          const emp = !perfilErr ? perfil?.empresas : null;
+          if (emp) {
+            const candidatePlan = emp.plan_const || emp.plan || 'free';
+            const statusOk = !emp.estado_suscripcion || emp.estado_suscripcion === 'active' || emp.estado_suscripcion === 'trialing';
+            resolvedPlanId = (candidatePlan !== 'free' && !statusOk) ? 'free' : candidatePlan;
+          }
+        } catch (_) {}
+
+        if (!resolvedPlanId && authUser.user_metadata?.subscription?.planId) {
+          resolvedPlanId = authUser.user_metadata.subscription.planId;
+          resolvedUpdatedAt = authUser.user_metadata.subscription.updatedAt || resolvedUpdatedAt;
+        }
+
+        if (resolvedPlanId) {
+          const validPlan = getPlanById(resolvedPlanId);
+          const resolved = {
+            planId: validPlan.id,
+            billingCycle: resolvedCycle,
+            updatedAt: resolvedUpdatedAt
+          };
+          let prevLocalPlanId = null;
+          let prevLocalCycle = null;
+          try {
+            const prevRaw = localStorage.getItem(`adm_const_subscription_${email}`);
+            if (prevRaw) {
+              const prevParsed = JSON.parse(prevRaw);
+              prevLocalPlanId = prevParsed?.planId || null;
+              prevLocalCycle = prevParsed?.billingCycle || null;
+            }
+          } catch (_) {}
+          localStorage.setItem(`adm_const_subscription_${email}`, JSON.stringify(resolved));
+          lastSubSyncAt = Date.now();
+          lastSubSyncResult = resolved;
+          const freshUser = getCurrentUser();
+          if (freshUser && (freshUser.email || '').toLowerCase().trim() === email) {
+            const subChanged = freshUser.subscription?.planId !== resolved.planId
+              || freshUser.subscription?.billingCycle !== resolved.billingCycle
+              || prevLocalPlanId !== resolved.planId
+              || prevLocalCycle !== resolved.billingCycle;
+            freshUser.subscription = resolved;
+            saveCurrentUser(freshUser);
+            updateSubscriptionBadgesUI({ refreshGrid: false });
+            if (subChanged && typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+              try { window.refreshProjectsGridUI(); } catch (_) {}
+            }
+          }
+          return resolved;
+        }
+      }
+    } catch (e) {
+      console.warn('[Subscription] Error al sincronizar desde la nube:', e);
+    } finally {
+      inFlightSubSyncPromise = null;
+    }
+    return null;
+  })();
+  return inFlightSubSyncPromise;
 }
 
 export function saveSubscription(planId, billingCycle = activeBillingCycle) {
