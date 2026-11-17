@@ -1521,6 +1521,7 @@ RETURNS TABLE (
     estado_invitacion TEXT,
     updated_at TIMESTAMPTZ
 ) AS $$
+#variable_conflict use_column
 DECLARE
     u_email TEXT;
 BEGIN
@@ -1609,7 +1610,7 @@ BEGIN
               WHERE pe.proyecto_id = p.id::text
           )
       )
-    ON CONFLICT (proyecto_id, email_colaborador) DO UPDATE
+    ON CONFLICT ON CONSTRAINT uq_proyecto_colaborador DO UPDATE
     SET estado_invitacion = CASE
             WHEN LOWER(TRIM(COALESCE(public.proyecto_colaboradores.estado_invitacion, ''))) = 'rejected' THEN 'rejected'
             ELSE 'accepted'
@@ -1659,7 +1660,7 @@ BEGIN
                   WHERE pe.proyecto_id = p.id::text
               )
           )
-        ON CONFLICT (proyecto_id, email_colaborador) DO UPDATE
+        ON CONFLICT ON CONSTRAINT uq_proyecto_colaborador DO UPDATE
         SET estado_invitacion = CASE
                 WHEN LOWER(TRIM(COALESCE(public.proyecto_colaboradores.estado_invitacion, ''))) = 'rejected' THEN 'rejected'
                 ELSE 'accepted'

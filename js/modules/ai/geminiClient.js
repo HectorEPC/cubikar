@@ -1,12 +1,12 @@
-import { state, persistSettings, persistLocalData } from '../../state/store.js?v=20261116_cf18';
-import { saveState } from '../../state/history.js?v=20261116_cf18';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf18';
-import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf18';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf18';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf18';
-import { closeAiGeneratorModal, openAiGeneratorModal, aiModalTargetMode, aiModalSingleNodeId } from '../../ui/modalController.js?v=20261116_cf18';
-import { round2, getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf18';
-import { round5 } from '../../core/formatters.js?v=20261116_cf18';
+import { state, persistSettings, persistLocalData } from '../../state/store.js?v=20261116_cf19';
+import { saveState } from '../../state/history.js?v=20261116_cf19';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf19';
+import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261116_cf19';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf19';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261116_cf19';
+import { closeAiGeneratorModal, openAiGeneratorModal, aiModalTargetMode, aiModalSingleNodeId } from '../../ui/modalController.js?v=20261116_cf19';
+import { round2, getFactorSobrecosto } from '../../core/calculations.js?v=20261116_cf19';
+import { round5 } from '../../core/formatters.js?v=20261116_cf19';
 import {
   tryResolveConceptLocally,
   setCachedSupplyPrices,
@@ -17,7 +17,7 @@ import {
   applyServerQuotaSnapshot,
   resolveActiveAiExecutionContext,
   callGeminiProxyApi
-} from './aiQuotaAndCacheService.js?v=20261116_cf18';
+} from './aiQuotaAndCacheService.js?v=20261116_cf19';
 
 // Extractor robusto de JSON para respuestas de Gemini
 export function extractJsonFromAiResponse(text) {

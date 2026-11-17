@@ -2,12 +2,12 @@
 // Servicio de Almacenamiento Unificado (AWS S3 + Caché IndexedDB + Cuotas) para Comprobantes de Compras y Gastos.
 // Reemplaza por completo la antigua integración con Google Drive.
 
-import { showToast } from '../../ui/notifications.js?v=20261116_cf18';
+import { showToast } from '../../ui/notifications.js?v=20261116_cf19';
 import {
   deleteManagedFile,
   resolveManagedFileUrl,
   uploadManagedFile
-} from '../../services/s3StorageService.js?v=20261116_cf18';
+} from '../../services/s3StorageService.js?v=20261116_cf19';
 
 /**
  * Procesa, comprime (imágenes <canvas> 1280px @ 75%) o conserva intactos (PDF/XML),

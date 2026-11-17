@@ -3,8 +3,8 @@
 // persistencia total de proyectos, anfitriones, invitaciones y membresías
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf18';
-import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache } from './cloudProjectService.js?v=20261116_cf18';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf19';
+import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache } from './cloudProjectService.js?v=20261116_cf19';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -20,9 +20,9 @@ import {
   markProjectDeleted,
   isProjectMarkedDeleted,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261116_cf18';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf18';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf18';
+} from '../modules/portal/projectService.js?v=20261116_cf19';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf19';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf19';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
@@ -95,16 +95,22 @@ function compactCloudStatePayload(rawPayload) {
   return payload;
 }
 
+let rpcWorkspacesFailUntil = 0;
+
 async function fetchMyCloudCollaborationWorkspaces(sb, myEmail) {
   if (!sb || !myEmail || !isSupabaseConfigured()) return { ok: false, rows: [] };
   if (typeof window !== 'undefined' && window.__cubikarOversizedJwtBlocked) {
     return { ok: false, rows: [] };
   }
   try {
-    if (typeof sb.rpc === 'function') {
+    if (typeof sb.rpc === 'function' && Date.now() >= rpcWorkspacesFailUntil) {
       const { data: rpcRows, error: rpcErr } = await sb.rpc('get_my_collaboration_workspaces');
       if (!rpcErr && Array.isArray(rpcRows)) {
+        rpcWorkspacesFailUntil = 0;
         return { ok: true, rows: rpcRows, fromRpc: true };
+      }
+      if (rpcErr) {
+        rpcWorkspacesFailUntil = Date.now() + 60000;
       }
     }
     const { data: pcRows, error: pcErr } = await sb
@@ -473,17 +479,12 @@ export function restoreUserCollaborationFromCloud(user = null) {
     } catch (_) {}
   }
 
-  // 1B. Restaurar lista de IDs de proyectos eliminados desde user_metadata antes de reconciliar con Supabase
-  if (Array.isArray(state.deletedProjectIds) && state.deletedProjectIds.length > 0 && typeof markProjectDeleted === 'function') {
-    state.deletedProjectIds.forEach(delId => {
-      if (delId) markProjectDeleted(delId);
-    });
-  }
-
   // Usar únicamente public.proyectos + public.proyectos_eliminados como fuente de verdad
-  // (no reinyectar state.ownedProjects ni state.collaboratedProjects desde user_metadata).
-  const deletedList = typeof getDeletedProjectsList === 'function' ? getDeletedProjectsList() : [];
-  const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
+  // (no reinyectar state.ownedProjects, state.collaboratedProjects ni state.deletedProjectIds desde user_metadata).
+  const isDeleted = (id) => {
+    if (!id) return false;
+    return typeof isProjectMarkedDeleted === 'function' ? isProjectMarkedDeleted(id) : false;
+  };
 
   // Limpiar copias obsoletas en localStorage según lápidas conocidas
   try {
@@ -1055,15 +1056,17 @@ export async function syncHostWorkspaceProjects(hostEmail) {
       } catch (_) {}
     }
 
-    if (typeof window !== 'undefined') {
-      if (!window.__hostActiveManifest) window.__hostActiveManifest = {};
-      window.__hostActiveManifest[targetHost] = Array.from(activeIdsSet);
-    }
-    try {
-      if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem(`cubikar_host_manifest_${targetHost}`, JSON.stringify(Array.from(activeIdsSet)));
+    if (activeIdsSet.size > 0) {
+      if (typeof window !== 'undefined') {
+        if (!window.__hostActiveManifest) window.__hostActiveManifest = {};
+        window.__hostActiveManifest[targetHost] = Array.from(activeIdsSet);
       }
-    } catch (_) {}
+      try {
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem(`cubikar_host_manifest_${targetHost}`, JSON.stringify(Array.from(activeIdsSet)));
+        }
+      } catch (_) {}
+    }
 
     const currentList = getProjectsList();
     let changedCount = 0;

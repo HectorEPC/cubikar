@@ -2,10 +2,10 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf18';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf18';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261116_cf18';
-import { showToast } from '../ui/notifications.js?v=20261116_cf18';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf19';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf19';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261116_cf19';
+import { showToast } from '../ui/notifications.js?v=20261116_cf19';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -735,9 +735,32 @@ export async function fetchCloudProjects(opts = {}) {
       }
     } catch (_) {}
 
+    // Si un proyecto existe activamente en public.proyectos y NO está en public.proyectos_eliminados,
+    // limpiar cualquier lápida local espuria (falso positivo previo en cubikar_deleted_projects_v1).
+    const activeInProyectosSet = new Set(
+      cloudList
+        .map(cp => cp?.id ? String(cp.id).trim() : '')
+        .filter(id => id && !cloudDeletedIds.has(id))
+    );
+    if (activeInProyectosSet.size > 0 && Array.isArray(deletedList) && deletedList.some(id => activeInProyectosSet.has(String(id || '').trim()))) {
+      deletedList = deletedList.filter(id => !activeInProyectosSet.has(String(id || '').trim()));
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('cubikar_deleted_projects_v1', JSON.stringify(deletedList));
+        }
+      } catch (_) {}
+      try {
+        if (user?.user_metadata?.cubikar_cloud_state_v2 && Array.isArray(user.user_metadata.cubikar_cloud_state_v2.deletedProjectIds)) {
+          user.user_metadata.cubikar_cloud_state_v2.deletedProjectIds =
+            user.user_metadata.cubikar_cloud_state_v2.deletedProjectIds.filter(id => !activeInProyectosSet.has(String(id || '').trim()));
+          saveCurrentUser(user);
+        }
+      } catch (_) {}
+    }
+
     const isDeleted = (id) => {
       const sid = String(id || '').trim();
-      return (Array.isArray(deletedList) && deletedList.includes(sid)) || cloudDeletedIds.has(sid);
+      return cloudDeletedIds.has(sid);
     };
 
     const mapped = cloudList
