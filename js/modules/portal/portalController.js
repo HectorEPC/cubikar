@@ -6,7 +6,7 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261117_cf27';
+} from '../../config/constants.js?v=20261117_cf30';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -22,6 +22,7 @@ import {
   getStoredPlanInvitations,
   saveStoredPlanInvitations,
   getProjectById,
+  getProjectByIdReadOnly,
   getDeletedProjectsList,
   markProjectDeleted,
   isProjectMarkedDeleted,
@@ -73,15 +74,15 @@ import {
   isProjectTrashedLocal,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261117_cf27';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf27';
-import { persistLocalData, state, initStore } from '../../state/store.js?v=20261117_cf27';
-import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261117_cf27';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf27';
-import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261117_cf27';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261117_cf27';
-import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261117_cf27';
-import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261117_cf27';
+} from './projectService.js?v=20261117_cf30';
+import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
+import { persistLocalData, state, initStore } from '../../state/store.js?v=20261117_cf30';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261117_cf30';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf30';
+import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261117_cf30';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261117_cf30';
+import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261117_cf30';
+import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261117_cf30';
 import {
   signUp,
   signInWithPassword,
@@ -91,25 +92,25 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js?v=20261117_cf27';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261117_cf27';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261117_cf27';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261117_cf27';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261117_cf27';
+} from '../../core/authService.js?v=20261117_cf30';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261117_cf30';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261117_cf30';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261117_cf30';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261117_cf30';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
   openCubikarAdminModal
-} from '../admin/cubikarAdmin.js?v=20261117_cf27';
-import { syncProjectToCloud, fetchCloudProjects, getTrashedCloudProjectIds } from '../../core/cloudProjectService.js?v=20261117_cf27';
+} from '../admin/cubikarAdmin.js?v=20261117_cf30';
+import { syncProjectToCloud, fetchCloudProjects, getTrashedCloudProjectIds } from '../../core/cloudProjectService.js?v=20261117_cf30';
 import {
   isProjectHostOwner,
   fetchTrashedProjectsForHost,
   getCachedTrashCount,
   updateTrashBadgeUI,
   openTrashModal
-} from './trashService.js?v=20261117_cf27';
-import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261117_cf27';
+} from './trashService.js?v=20261117_cf30';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261117_cf30';
 
 function readStoredJson(key) {
   try {
@@ -328,7 +329,7 @@ function showWorkspaceView(user, project) {
               email: myEmail,
               avatar: user.avatar || AVATARS_BY_SEX['Masculino'],
               role: 'editar',
-              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
+              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'],
               status: 'active'
             });
             memUpdated = true;
@@ -4987,6 +4988,15 @@ export function setInviteTabCheckboxes(checkAll) {
   cbs.forEach(cb => { cb.checked = !!checkAll; });
 }
 
+// Preconfigurar invitación con perfil exclusivo de Bodeguero (Rol Escribir + solo Almacén)
+export function applyBodegueroInvitePreset() {
+  const roleEscribir = document.querySelector('input[name="invite-role"][value="escribir"]');
+  if (roleEscribir) roleEscribir.checked = true;
+  const cbs = document.querySelectorAll('input[name="invite-tab-access"]');
+  cbs.forEach(cb => { cb.checked = cb.value === 'almacen'; });
+  showToast('Preset aplicado: Bodeguero (Rol Escribir con acceso exclusivo a Almacén)', 'info');
+}
+
 // Quitar o poner autorización de una pestaña específica para un colaborador invitado
 export function toggleMemberTabPermission(memberId, tabKey) {
   if (!activeInviteProjectId) {
@@ -4998,7 +5008,7 @@ export function toggleMemberTabPermission(memberId, tabKey) {
   const mem = members.find(m => m.id === memberId);
   if (!mem) return;
 
-  const currentTabs = Array.isArray(mem.allowedTabs) ? [...mem.allowedTabs] : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
+  const currentTabs = Array.isArray(mem.allowedTabs) ? [...mem.allowedTabs] : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'];
   const hasTab = currentTabs.includes(tabKey);
   const newTabs = hasTab ? currentTabs.filter(t => t !== tabKey) : [...currentTabs, tabKey];
 
@@ -5027,7 +5037,7 @@ export function setMemberAllTabsPermission(memberId, grantAll) {
   const mem = members.find(m => m.id === memberId);
   if (!mem) return;
 
-  const newTabs = grantAll ? ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'] : [];
+  const newTabs = grantAll ? ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'] : [];
   const ok = updateProjectMemberTabs(activeInviteProjectId, memberId, newTabs);
   if (ok) {
     showToast(grantAll ? `Todas las pestañas autorizadas para ${mem.name}` : `Todas las pestañas retiradas para ${mem.name}`, !grantAll);
@@ -5152,7 +5162,7 @@ export function renderInviteModalMembersList() {
     simulateSelect.innerHTML = `
       <option value="admin" ${!simUser ? 'selected' : ''}>👑 Tú (Tu sesión real - Todas)</option>
       ${members.map(m => {
-        const tabList = (m.allowedTabs || ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']).map(t => TAB_METADATA[t]?.name).filter(Boolean).join(', ');
+        const tabList = (m.allowedTabs || ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen']).map(t => TAB_METADATA[t]?.name).filter(Boolean).join(', ');
         return `<option value="${m.email}" ${simEmail && simEmail === (m.email || '').toLowerCase().trim() ? 'selected' : ''}>${m.name} (${tabList || 'Sin acceso'})</option>`;
       }).join('')}
     `;
@@ -5178,13 +5188,14 @@ export function renderInviteModalMembersList() {
     { id: 'cat', label: 'Catálogo', icon: 'fa-list-check', activeBg: 'bg-blue-50 text-blue-700 border-blue-400 hover:bg-blue-100', iconColor: 'text-blue-600' },
     { id: 'insumos', label: 'Insumos', icon: 'fa-boxes-stacked', activeBg: 'bg-purple-50 text-purple-700 border-purple-400 hover:bg-purple-100', iconColor: 'text-purple-600' },
     { id: 'calendario', label: 'Calendario', icon: 'fa-calendar-days', activeBg: 'bg-amber-50 text-amber-700 border-amber-400 hover:bg-amber-100', iconColor: 'text-amber-500' },
-    { id: 'estimaciones', label: 'Estimaciones', icon: 'fa-file-invoice-dollar', activeBg: 'bg-emerald-50 text-emerald-700 border-emerald-400 hover:bg-emerald-100', iconColor: 'text-emerald-600' },
     { id: 'compras', label: 'Compras', icon: 'fa-cart-shopping', activeBg: 'bg-indigo-50 text-indigo-700 border-indigo-400 hover:bg-indigo-100', iconColor: 'text-indigo-600' },
+    { id: 'almacen', label: 'Almacén', icon: 'fa-warehouse', activeBg: 'bg-sky-50 text-sky-700 border-sky-400 hover:bg-sky-100', iconColor: 'text-sky-600' },
+    { id: 'estimaciones', label: 'Estimaciones', icon: 'fa-file-invoice-dollar', activeBg: 'bg-emerald-50 text-emerald-700 border-emerald-400 hover:bg-emerald-100', iconColor: 'text-emerald-600' },
     { id: 'bitacora', label: 'Bitácora', icon: 'fa-book-bookmark', activeBg: 'bg-teal-50 text-teal-700 border-teal-400 hover:bg-teal-100', iconColor: 'text-teal-600' }
   ];
 
   container.innerHTML = members.map(m => {
-    const tabs = Array.isArray(m.allowedTabs) ? m.allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
+    const tabs = Array.isArray(m.allowedTabs) ? m.allowedTabs : ['cat', 'insumos', 'calendario', 'compras', 'almacen', 'estimaciones', 'bitacora'];
     return `
       <div class="flex flex-col gap-2 p-3 bg-white hover:bg-slate-50/90 rounded-2xl border border-slate-200 shadow-2xs transition">
         <!-- Fila Superior: Perfil + Rol + Eliminar -->
@@ -5303,8 +5314,9 @@ export const TAB_METADATA = {
   cat: { id: 'cat', name: 'Catálogo Base', icon: 'fa-solid fa-list-check', color: 'blue' },
   insumos: { id: 'insumos', name: 'Insumos Base', icon: 'fa-solid fa-boxes-stacked', color: 'purple' },
   calendario: { id: 'calendario', name: 'Calendario de Obra', icon: 'fa-solid fa-calendar-days', color: 'amber' },
-  estimaciones: { id: 'estimaciones', name: 'Estimaciones', icon: 'fa-solid fa-file-invoice-dollar', color: 'emerald' },
   compras: { id: 'compras', name: 'Compras y Pagos', icon: 'fa-solid fa-cart-shopping', color: 'indigo' },
+  almacen: { id: 'almacen', name: 'Almacén', icon: 'fa-solid fa-warehouse', color: 'sky' },
+  estimaciones: { id: 'estimaciones', name: 'Estimaciones', icon: 'fa-solid fa-file-invoice-dollar', color: 'emerald' },
   bitacora: { id: 'bitacora', name: 'Bitácora de Obra', icon: 'fa-solid fa-book-bookmark', color: 'teal' }
 };
 
@@ -5314,7 +5326,7 @@ let activeConfiguringTabId = null;
 export function canCurrentUserAccessTab(tabId) {
   const user = getCurrentUser();
   const pId = getActiveOrFallbackProjectId();
-  const proj = getProjectById(pId);
+  const proj = getProjectByIdReadOnly(pId);
 
   if (!user || !user.email) {
     return !proj || !proj.ownerEmail;
@@ -5350,9 +5362,10 @@ export function updateNavigationTabsAccess() {
     calendario: 'tab-btn-calendario',
     estimaciones: 'tab-btn-estimaciones',
     compras: 'tab-btn-compras',
-    bitacora: 'tab-btn-bitacora'
+    bitacora: 'tab-btn-bitacora',
+    almacen: 'tab-btn-almacen'
   };
-  const tabs = ['presupuesto', 'cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
+  const tabs = ['presupuesto', 'cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'];
   tabs.forEach(tabId => {
     const btn = document.getElementById(tabDomMap[tabId] || `tab-btn-${tabId}`);
     if (!btn) return;
@@ -5423,7 +5436,7 @@ export function renderTabAssignedAvatars(tabId) {
 
 // Renderizar todos los widgets de miembros asignados a cada pestaña
 export function renderAllTabAssignedMembers() {
-  ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'].forEach(tabId => {
+  ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'].forEach(tabId => {
     renderTabAssignedAvatars(tabId);
   });
 }
@@ -5553,6 +5566,15 @@ export function simulateUserView(emailOrRole) {
     const realUser = getCurrentUser(true);
     updateWorkspaceHeaderUser(realUser);
     updateNavigationTabsAccess();
+    if (typeof window.ensureValidInitialTabForUser === 'function') {
+      window.ensureValidInitialTabForUser();
+    }
+    if (typeof window.renderProjectChatDock === 'function') {
+      window.renderProjectChatDock();
+    }
+    if (typeof window.renderSidebarNotificationsUI === 'function') {
+      window.renderSidebarNotificationsUI();
+    }
     showToast('👁️ Vista restablecida a tu usuario real (Acceso completo)', 'info');
     return;
   }
@@ -5573,6 +5595,15 @@ export function simulateUserView(emailOrRole) {
     setSimulatedUserView(simUser);
     updateWorkspaceHeaderUser(simUser);
     updateNavigationTabsAccess();
+    if (typeof window.ensureValidInitialTabForUser === 'function') {
+      window.ensureValidInitialTabForUser();
+    }
+    if (typeof window.renderProjectChatDock === 'function') {
+      window.renderProjectChatDock();
+    }
+    if (typeof window.renderSidebarNotificationsUI === 'function') {
+      window.renderSidebarNotificationsUI();
+    }
     const tabNames = (mem.allowedTabs || []).map(t => TAB_METADATA[t]?.name).join(', ') || 'Ninguna pestaña';
     showToast(`🎭 Simulación en memoria: ${mem.name} (Pestañas accesibles: ${tabNames})`, 'info');
   }
@@ -5596,4 +5627,5 @@ if (typeof window !== 'undefined') {
   window.removeWizardSignature = removeWizardSignature;
   window.onWizardSignatureChange = onWizardSignatureChange;
   window.resetWizardDefaultSignatures = resetWizardDefaultSignatures;
+  window.applyBodegueroInvitePreset = applyBodegueroInvitePreset;
 }

@@ -1,20 +1,21 @@
-import { state, persistLocalData, persistSettings } from '../state/store.js?v=20261117_cf27';
-import { defaultTreeData } from '../config/defaultData.js?v=20261117_cf27';
-import { saveState, updateUndoRedoButtons } from '../state/history.js?v=20261117_cf27';
-import { showToast } from './notifications.js?v=20261117_cf27';
-import { formatQty, round2, round5 } from '../core/formatters.js?v=20261117_cf27';
-import { getFactorSobrecosto } from '../core/calculations.js?v=20261117_cf27';
-import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../modules/catalog/treeService.js?v=20261117_cf27';
-import { renderTAB1, closeApuPanel } from '../modules/catalog/catalogView.js?v=20261117_cf27';
-import { renderAPUInsumos } from '../modules/apu/apuView.js?v=20261117_cf27';
-import { renderInsumosGenerales } from '../modules/insumosGenerales/insumosView.js?v=20261117_cf27';
-import { renderCalendarioObra } from '../modules/calendario/calendarioView.js?v=20261117_cf27';
-import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView.js?v=20261117_cf27';
-import { renderExpensesView } from '../modules/compras/expensesView.js?v=20261117_cf27';
-import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js?v=20261117_cf27';
-import { renderBrandingUI } from './brandingController.js?v=20261117_cf27';
-import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js?v=20261117_cf27';
-import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js?v=20261117_cf27';
+import { state, persistLocalData, persistSettings } from '../state/store.js?v=20261117_cf30';
+import { defaultTreeData } from '../config/defaultData.js?v=20261117_cf30';
+import { saveState, updateUndoRedoButtons } from '../state/history.js?v=20261117_cf30';
+import { showToast } from './notifications.js?v=20261117_cf30';
+import { formatQty, round2, round5 } from '../core/formatters.js?v=20261117_cf30';
+import { getFactorSobrecosto } from '../core/calculations.js?v=20261117_cf30';
+import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../modules/catalog/treeService.js?v=20261117_cf30';
+import { renderTAB1, closeApuPanel } from '../modules/catalog/catalogView.js?v=20261117_cf30';
+import { renderAPUInsumos } from '../modules/apu/apuView.js?v=20261117_cf30';
+import { renderInsumosGenerales } from '../modules/insumosGenerales/insumosView.js?v=20261117_cf30';
+import { renderCalendarioObra } from '../modules/calendario/calendarioView.js?v=20261117_cf30';
+import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView.js?v=20261117_cf30';
+import { renderExpensesView } from '../modules/compras/expensesView.js?v=20261117_cf30';
+import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js?v=20261117_cf30';
+import { renderAlmacenView } from '../modules/almacen/almacenView.js?v=20261117_cf30';
+import { renderBrandingUI } from './brandingController.js?v=20261117_cf30';
+import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js?v=20261117_cf30';
+import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js?v=20261117_cf30';
 
 // Modo de destino del modal Google IA: 'single' (solo concepto activo en matriz) o 'batch' (conceptos con casilla)
 export let aiModalTargetMode = 'single';
@@ -491,6 +492,8 @@ export function switchPresupuestoSubTab(subTab) {
   updateUndoRedoButtons();
 }
 
+let activeWorkspaceMainTab = null;
+
 export function switchTab(tab) {
   // Soporte directo para 'cat' e 'insumos' redirigiendo a la pestaña unificada 'presupuesto'
   let targetTab = tab;
@@ -513,11 +516,12 @@ export function switchTab(tab) {
     const tabNames = {
       presupuesto: 'Presupuesto',
       cat: 'Catálogo Base y APU',
-      insumos: 'Insumos Generales',
+      insumos: 'Insumos Base',
       calendario: 'Calendario de Obra',
       estimaciones: 'Estimaciones de Obra',
       compras: 'Compras y Pagos',
-      bitacora: 'Bitácora de Obra'
+      bitacora: 'Bitácora de Obra',
+      almacen: 'Almacén'
     };
     showToast(`🔒 No tienes permiso asignado para acceder a la pestaña "${tabNames[accessCheckKey] || accessCheckKey}". Esta pestaña está restringida solo a los miembros autorizados por el administrador.`, 'warning');
     return;
@@ -529,6 +533,7 @@ export function switchTab(tab) {
   const viewEstimaciones = document.getElementById('view-estimaciones');
   const viewCompras = document.getElementById('view-compras');
   const viewBitacora = document.getElementById('view-bitacora');
+  const viewAlmacen = document.getElementById('view-almacen');
 
   const btnPresupuesto = document.getElementById('tab-btn-presupuesto') || document.getElementById('tab-btn-cat');
   const btnInsumos = document.getElementById('tab-btn-insumos');
@@ -536,9 +541,10 @@ export function switchTab(tab) {
   const btnEstimaciones = document.getElementById('tab-btn-estimaciones');
   const btnCompras = document.getElementById('tab-btn-compras');
   const btnBitacora = document.getElementById('tab-btn-bitacora');
+  const btnAlmacen = document.getElementById('tab-btn-almacen');
 
-  const activeClass = "px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white transition flex items-center gap-1.5 cursor-pointer shadow-xs";
-  const inactiveClass = "px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer";
+  const activeClass = "px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-blue-600 text-white transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0";
+  const inactiveClass = "px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer shrink-0";
 
   if (viewCat) viewCat.classList.add('hidden');
   if (viewInsumos) viewInsumos.classList.add('hidden');
@@ -546,6 +552,7 @@ export function switchTab(tab) {
   if (viewEstimaciones) viewEstimaciones.classList.add('hidden');
   if (viewCompras) viewCompras.classList.add('hidden');
   if (viewBitacora) viewBitacora.classList.add('hidden');
+  if (viewAlmacen) viewAlmacen.classList.add('hidden');
 
   if (btnPresupuesto) btnPresupuesto.className = inactiveClass;
   if (btnInsumos) btnInsumos.className = inactiveClass;
@@ -553,6 +560,7 @@ export function switchTab(tab) {
   if (btnEstimaciones) btnEstimaciones.className = inactiveClass;
   if (btnCompras) btnCompras.className = inactiveClass;
   if (btnBitacora) btnBitacora.className = inactiveClass;
+  if (btnAlmacen) btnAlmacen.className = inactiveClass;
 
   if (targetTab === 'presupuesto') {
     if (btnPresupuesto) btnPresupuesto.className = activeClass;
@@ -581,6 +589,14 @@ export function switchTab(tab) {
     if (viewBitacora) viewBitacora.classList.remove('hidden');
     if (btnBitacora) btnBitacora.className = activeClass;
     renderBitacoraView();
+  } else if (tab === 'almacen') {
+    if (viewAlmacen) viewAlmacen.classList.remove('hidden');
+    if (btnAlmacen) btnAlmacen.className = activeClass;
+    renderAlmacenView();
+  }
+  activeWorkspaceMainTab = targetTab;
+  if (typeof window !== 'undefined') {
+    window.__cubikarActiveTab = targetTab;
   }
   updateUndoRedoButtons();
   if (typeof renderAllTabAssignedMembers === 'function') {
@@ -590,6 +606,48 @@ export function switchTab(tab) {
     try {
       window.onGlobalActiveTabChange(tab);
     } catch (e) {}
+  }
+}
+
+export function getFirstAllowedTabForCurrentUser() {
+  if (typeof canCurrentUserAccessTab !== 'function') return 'presupuesto';
+  if (canCurrentUserAccessTab('cat') || canCurrentUserAccessTab('insumos')) return 'presupuesto';
+  const order = ['calendario', 'compras', 'almacen', 'estimaciones', 'bitacora'];
+  for (const t of order) {
+    if (canCurrentUserAccessTab(t)) return t;
+  }
+  return null;
+}
+
+export function ensureValidInitialTabForUser(requestedTab = null, options = {}) {
+  const force = Boolean(options && options.force);
+  if (!force && activeWorkspaceMainTab && typeof canCurrentUserAccessTab === 'function') {
+    const activeCheckKey = activeWorkspaceMainTab === 'presupuesto'
+      ? (canCurrentUserAccessTab('cat') ? 'cat' : 'insumos')
+      : activeWorkspaceMainTab;
+    const normReq = (requestedTab === 'cat' || requestedTab === 'insumos') ? 'presupuesto' : requestedTab;
+    if (canCurrentUserAccessTab(activeCheckKey) && (!normReq || normReq === activeWorkspaceMainTab)) {
+      return;
+    }
+  }
+  if (requestedTab && typeof canCurrentUserAccessTab === 'function') {
+    const checkKey = requestedTab === 'presupuesto'
+      ? (canCurrentUserAccessTab('cat') ? 'cat' : 'insumos')
+      : requestedTab;
+    if (canCurrentUserAccessTab(checkKey)) {
+      switchTab(requestedTab);
+      return;
+    }
+  }
+  const firstAllowed = getFirstAllowedTabForCurrentUser();
+  if (firstAllowed && firstAllowed !== 'presupuesto') {
+    switchTab(firstAllowed);
+  } else if (firstAllowed === 'presupuesto') {
+    switchTab('presupuesto');
+  } else {
+    // Sin acceso a ninguna pestaña: ocultar catálogo por seguridad
+    const viewCat = document.getElementById('view-cat');
+    if (viewCat) viewCat.classList.add('hidden');
   }
 }
 

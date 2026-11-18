@@ -15,15 +15,15 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261117_cf27';
+} from '../../config/constants.js?v=20261117_cf30';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
 export const STORAGE_KEY_TRASHED_PROJECTS = 'cubikar_trashed_project_ids_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261117_cf27';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261117_cf27';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261117_cf27';
-import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261117_cf27';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261117_cf27';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261117_cf30';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261117_cf30';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261117_cf30';
+import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261117_cf30';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261117_cf30';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -641,7 +641,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261117_cf27').then(m => {
+            import('../../core/supabaseClient.js?v=20261117_cf30').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -950,11 +950,11 @@ export function isProjectTrashedLocal(projectId) {
 // ==========================================
 // GESTIÓN DE PROYECTOS
 // ==========================================
-let projectsListCache = { key: null, json: null };
+let projectsListCache = { key: null, json: null, readList: null };
 let lastGoodProjectsJson = null;
 
 function invalidateProjectsListCache() {
-  projectsListCache = { key: null, json: null };
+  projectsListCache = { key: null, json: null, readList: null };
 }
 
 function readUserCacheTag() {
@@ -1075,7 +1075,7 @@ function normalizeProjectsList(parsed) {
     changed = true;
   }
 
-  const fullTabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
+  const fullTabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'];
   const tabsMatch = (a, b) => Array.isArray(a) && a.length === b.length && b.every((v, idx) => a[idx] === v);
   const assignClean = (p, field) => {
     if (!p[field]) return;
@@ -1157,6 +1157,45 @@ function normalizeProjectsList(parsed) {
   return { list, changed };
 }
 
+export function getProjectsListReadOnly() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PROJECTS);
+    if (raw) {
+      const key = buildProjectsCacheKey(raw);
+      if (projectsListCache.key === key && Array.isArray(projectsListCache.readList)) {
+        return projectsListCache.readList;
+      }
+      const { list, changed } = normalizeProjectsList(JSON.parse(raw));
+      const json = JSON.stringify(list);
+      let storedRaw = raw;
+      if (changed) {
+        try {
+          localStorage.setItem(STORAGE_KEY_PROJECTS, json);
+          storedRaw = json;
+        } catch (_) {}
+      }
+      projectsListCache = { key: buildProjectsCacheKey(storedRaw), json, readList: list };
+      lastGoodProjectsJson = json;
+      return list;
+    }
+  } catch (e) {
+    console.error('Error leyendo proyectos:', e);
+    try {
+      return lastGoodProjectsJson ? JSON.parse(lastGoodProjectsJson) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+  const currentUser = getCurrentUser();
+  if (currentUser && currentUser.email && !SYSTEM_EXCLUDED_EMAILS.has(currentUser.email.toLowerCase().trim())) {
+    try {
+      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify([]));
+    } catch (_) {}
+    return [];
+  }
+  return initializeDefaultProjects();
+}
+
 export function getProjectsList() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PROJECTS);
@@ -1174,9 +1213,9 @@ export function getProjectsList() {
           storedRaw = json;
         } catch (_) {}
       }
-      projectsListCache = { key: buildProjectsCacheKey(storedRaw), json };
+      projectsListCache = { key: buildProjectsCacheKey(storedRaw), json, readList: list };
       lastGoodProjectsJson = json;
-      return list;
+      return JSON.parse(json);
     }
   } catch (e) {
     console.error('Error leyendo proyectos:', e);
@@ -1296,6 +1335,12 @@ export function getProjectsForUser(user) {
     }
     return false;
   });
+}
+
+export function getProjectByIdReadOnly(id) {
+  if (!id) return null;
+  const list = getProjectsListReadOnly();
+  return list.find(p => p.id === id || p.cloudId === id) || null;
 }
 
 export function getProjectById(id) {
@@ -1826,7 +1871,7 @@ function remapIdsInJson(rawJson, idMap) {
 // GESTIÓN DE COLABORADORES / USUARIOS DE PROYECTO
 // ==========================================
 export function getProjectMembers(projectId) {
-  const p = getProjectById(projectId);
+  const p = getProjectByIdReadOnly(projectId);
   return (p && Array.isArray(p.members)) ? p.members : [];
 }
 
@@ -1853,7 +1898,7 @@ export function addProjectMember(projectId, memberData) {
     email: memberData.email.trim(),
     avatar: memberData.avatar || AVATARS_BY_SEX['Masculino'],
     role: memberData.role || 'editar', // 'editar', 'escribir', 'leer'
-    allowedTabs: Array.isArray(memberData.allowedTabs) ? memberData.allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
+    allowedTabs: Array.isArray(memberData.allowedTabs) ? memberData.allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'],
     ...(memberData.pendingCloudAdd ? { pendingCloudAdd: true } : {})
   };
 
@@ -1980,7 +2025,7 @@ export function setTabAssignedMembers(projectId, tabId, memberIds) {
   const tabsMap = {};
   proj.members.forEach(m => {
     if (!Array.isArray(m.allowedTabs)) {
-      m.allowedTabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
+      m.allowedTabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'];
     }
     if (idSet.has(m.id)) {
       if (!m.allowedTabs.includes(tabId)) {
@@ -2017,7 +2062,7 @@ export function getTabAssignedMembers(projectId, tabId) {
 // Enviar proyecto a la Papelera (retención 7 días - solo Anfitrión)
 export async function deleteProject(projectId) {
   if (!projectId) return { success: false, reason: 'Proyecto no especificado' };
-  const { moveProjectToTrash } = await import('./trashService.js?v=20261117_cf27');
+  const { moveProjectToTrash } = await import('./trashService.js?v=20261117_cf30');
   const res = await moveProjectToTrash(projectId);
   return (res && typeof res === 'object') ? res : { success: Boolean(res) };
 }
@@ -2357,7 +2402,7 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
     email: emailClean,
     name: (name || emailClean.split('@')[0]).trim(),
     role: role || 'editar',
-    allowedTabs: Array.isArray(allowedTabs) ? allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
+    allowedTabs: Array.isArray(allowedTabs) ? allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'],
     invitedBy: invitedBy ? {
       name: invitedBy.name || 'Administrador',
       email: invitedBy.email || ''
@@ -2602,7 +2647,7 @@ export async function acceptProjectInvitation(invitationId, currentUser = null) 
           email: targetInv.email || userEmail,
           avatar: user?.avatar || AVATARS_BY_SEX['Masculino'],
           role: targetInv.role || 'editar',
-          allowedTabs: targetInv.allowedTabs || ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
+          allowedTabs: targetInv.allowedTabs || ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'],
           status: 'active'
         });
       }
@@ -2684,7 +2729,7 @@ export async function acceptProjectInvitation(invitationId, currentUser = null) 
           email: userEmail,
           avatar: user?.avatar || AVATARS_BY_SEX['Masculino'],
           role: targetPlanInv.role || 'editar',
-          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
+          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'],
           status: 'active'
         });
       }
@@ -3749,7 +3794,7 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
           email: cleanEmail,
           avatar: newInv.avatar,
           role: newInv.role,
-          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
+          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'],
           status: 'pending',
           pendingCloudAdd: true
         });
@@ -3779,7 +3824,7 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
           email: cleanEmail,
           name: newInv.name,
           role: newInv.role,
-          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
+          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'],
           status: 'pending',
           createdAt: new Date().toISOString()
         };

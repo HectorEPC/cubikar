@@ -3,10 +3,10 @@
 // y por Estimación Individual en la pestaña Estimaciones.
 // Cuando está bloqueado, solo permite consultar e imprimir la información (sin cambiar, mover ni editar).
 
-import { getActiveProjectId } from '../config/constants.js?v=20261117_cf27';
-import { showToast } from './notifications.js?v=20261117_cf27';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261117_cf27';
-import { isEstimacionLocked, toggleActiveEstimacionLockState, setEstimacionLocked } from '../modules/estimaciones/estimacionesModel.js?v=20261117_cf27';
+import { getActiveProjectId } from '../config/constants.js?v=20261117_cf30';
+import { showToast } from './notifications.js?v=20261117_cf30';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261117_cf30';
+import { isEstimacionLocked, toggleActiveEstimacionLockState, setEstimacionLocked } from '../modules/estimaciones/estimacionesModel.js?v=20261117_cf30';
 
 const STORAGE_KEY_TAB_LOCKS_PREFIX = 'adm_const_tab_locks_';
 
@@ -16,7 +16,8 @@ const TAB_LABELS = {
   calendario: 'Calendario de Obra',
   estimaciones: 'Estimaciones',
   compras: 'Compras y Pagos',
-  bitacora: 'Bitácora de Obra'
+  bitacora: 'Bitácora de Obra',
+  almacen: 'Almacén'
 };
 
 let lockRenderCallback = null;
@@ -40,13 +41,14 @@ export function loadProjectTabLocks(projectId = null) {
         insumos: Boolean(parsed?.insumos),
         calendario: Boolean(parsed?.calendario),
         compras: Boolean(parsed?.compras),
-        bitacora: Boolean(parsed?.bitacora)
+        bitacora: Boolean(parsed?.bitacora),
+        almacen: Boolean(parsed?.almacen)
       };
     }
   } catch (err) {
     console.warn('Error al leer bloqueo de pestañas:', err);
   }
-  return { cat: false, insumos: false, calendario: false, compras: false, bitacora: false };
+  return { cat: false, insumos: false, calendario: false, compras: false, bitacora: false, almacen: false };
 }
 
 export function saveProjectTabLocks(locks, projectId = null) {
@@ -56,13 +58,14 @@ export function saveProjectTabLocks(locks, projectId = null) {
       insumos: Boolean(locks?.insumos),
       calendario: Boolean(locks?.calendario),
       compras: Boolean(locks?.compras),
-      bitacora: Boolean(locks?.bitacora)
+      bitacora: Boolean(locks?.bitacora),
+      almacen: Boolean(locks?.almacen)
     };
     localStorage.setItem(getTabLocksStorageKey(projectId), JSON.stringify(clean));
     return clean;
   } catch (err) {
     console.warn('Error al guardar bloqueo de pestañas:', err);
-    return { cat: false, insumos: false, calendario: false, compras: false, bitacora: false };
+    return { cat: false, insumos: false, calendario: false, compras: false, bitacora: false, almacen: false };
   }
 }
 

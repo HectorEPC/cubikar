@@ -3,8 +3,8 @@
 // persistencia total de proyectos, anfitriones, invitaciones y membresías
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf27';
-import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache, getTrashedCloudProjectIds } from './cloudProjectService.js?v=20261117_cf27';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf30';
+import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache, getTrashedCloudProjectIds } from './cloudProjectService.js?v=20261117_cf30';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -23,9 +23,9 @@ import {
   isProjectMarkedDeleted,
   isProjectTrashedLocal,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261117_cf27';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261117_cf27';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261117_cf27';
+} from '../modules/portal/projectService.js?v=20261117_cf30';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261117_cf30';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261117_cf30';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
@@ -286,7 +286,7 @@ async function resolveForeignOwnedLocalProject(sb, p, myEmail, currentUser, allP
     email: myEmail,
     role,
     status: 'accepted',
-    allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
+    allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen']
   });
   p.members = mems;
 
@@ -898,7 +898,7 @@ export function restoreUserCollaborationFromCloud(user = null) {
           email: ownerEm,
           role: 'editar',
           status: 'active',
-          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
+          allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen']
         }];
         pInvs.forEach(inv => {
           const gEm = (inv.email || '').toLowerCase().trim();
@@ -909,7 +909,7 @@ export function restoreUserCollaborationFromCloud(user = null) {
               email: gEm,
               role: inv.role || 'editar',
               status: 'accepted',
-              allowedTabs: Array.isArray(inv.allowedTabs) ? inv.allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
+              allowedTabs: Array.isArray(inv.allowedTabs) ? inv.allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen']
             });
           }
         });
@@ -1118,7 +1118,7 @@ export function restoreUserCollaborationFromCloud(user = null) {
                   email: myEmail,
                   role,
                   status: pendingInviteProjectIds.has(projId) ? 'pending' : 'accepted',
-                  allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
+                  allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen']
                 }]
               });
             }

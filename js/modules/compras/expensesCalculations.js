@@ -1,14 +1,15 @@
 // js/modules/compras/expensesCalculations.js
 // Motor de cálculos financieros, KPIs de obra y cruce con la Explosión de Insumos
 
-import { state } from '../../state/store.js?v=20261117_cf27';
-import { round2, round5 } from '../../core/formatters.js?v=20261117_cf27';
-import { getFactorSobrecosto } from '../../core/calculations.js?v=20261117_cf27';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf27';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261117_cf27';
-import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261117_cf27';
-import { loadEstimacionesData, getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261117_cf27';
-import { getExpensesRecords, getExpensesConfig } from './expensesModel.js?v=20261117_cf27';
+import { state } from '../../state/store.js?v=20261117_cf30';
+import { round2, round5 } from '../../core/formatters.js?v=20261117_cf30';
+import { getFactorSobrecosto } from '../../core/calculations.js?v=20261117_cf30';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf30';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261117_cf30';
+import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261117_cf30';
+import { loadEstimacionesData, getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261117_cf30';
+import { getExpensesRecords, getExpensesConfig } from './expensesModel.js?v=20261117_cf30';
+import { getWarehouseNetConsumptionMap } from '../almacen/almacenModel.js?v=20261117_cf30';
 
 /**
  * Obtener Monto Total Contratado / Presupuestado de la obra
@@ -163,6 +164,53 @@ export function getExpensesKpiMetrics() {
     }
   }
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let porPagarVencido = 0;
+  let porPagarVencidoCount = 0;
+  let porPagarProximo = 0;
+
+  records.forEach(rec => {
+    if (rec.paymentStatus !== 'pending') return;
+    const total = parseFloat(rec.total) || 0;
+    const paid = parseFloat(rec.amountPaid) || 0;
+    const balance = round2(Math.max(0, total - paid));
+    if (rec.dueDate && balance > 0) {
+      if (rec.dueDate < todayStr) {
+        porPagarVencido = round2(porPagarVencido + balance);
+        porPagarVencidoCount++;
+      } else {
+        const dueMs = Date.parse(rec.dueDate);
+        const nowMs = Date.parse(todayStr);
+        if (!isNaN(dueMs) && !isNaN(nowMs) && (dueMs - nowMs) <= 7 * 86400000) {
+          porPagarProximo = round2(porPagarProximo + balance);
+        }
+      }
+    }
+  });
+
+  // Estimar valor económico del stock físico aún guardado en Almacén
+  let valorInventarioBodega = 0;
+  try {
+    const whMap = getWarehouseNetConsumptionMap();
+    const budgetExplosion = getAllBudgetInsumosExplosion();
+    const budgetByKey = new Map(budgetExplosion.map(b => [b.key, b]));
+    const lastPriceByKey = new Map();
+    records.forEach(rec => {
+      if (rec.paymentStatus === 'cancelled') return;
+      const k = rec.insumoId || '';
+      const up = parseFloat(rec.unitPrice) || 0;
+      if (k && up > 0 && !lastPriceByKey.has(k)) {
+        lastPriceByKey.set(k, up);
+      }
+    });
+    for (const whItem of whMap.rawItems || []) {
+      const stk = Math.max(0, Number(whItem.availableStock) || 0);
+      if (stk <= 0) continue;
+      const pu = lastPriceByKey.get(whItem.insumoKey) || budgetByKey.get(whItem.insumoKey)?.puPresupuestado || 0;
+      valorInventarioBodega = round2(valorInventarioBodega + (stk * pu));
+    }
+  } catch (_) {}
+
   return {
     presupuestoContratado: totalPresupuesto,
     costoDirectoPresupuestado: totalDirecto,
@@ -176,7 +224,11 @@ export function getExpensesKpiMetrics() {
     byType: byType,
     semaforo: semaforo,
     totalRegistros: records.length,
-    currency: config.currency || 'MXN'
+    currency: config.currency || 'MXN',
+    valorInventarioBodega,
+    porPagarVencido,
+    porPagarVencidoCount,
+    porPagarProximo
   };
 }
 
@@ -288,11 +340,67 @@ export function getAllBudgetInsumosExplosion() {
 
 /**
  * Comparativa Presupuestado vs. Real por Insumo (Desviación Presupuestal)
- * Cruza la explosión de insumos con los registros de compra/gasto
+ * Cruza la explosión de insumos con los registros de compra/gasto, salidas de almacén y avance teórico
  */
 export function getInsumosBudgetVsActualComparison() {
   const budgetInsumos = getAllBudgetInsumosExplosion();
   const records = getExpensesRecords();
+  const whNetMap = getWarehouseNetConsumptionMap();
+
+  // Calcular consumo teórico acumulado al avance real (Estimaciones + Requisiciones por Concepto)
+  const theoreticalMap = new Map();
+  try {
+    const estData = loadEstimacionesData();
+    const estByConcept = new Map();
+    (estData?.estimaciones || []).forEach(est => {
+      if (est.numero === 0 || !est.conceptos) return;
+      for (const [cid, qty] of Object.entries(est.conceptos)) {
+        const val = parseFloat(qty) || 0;
+        if (val > 0) estByConcept.set(cid, round2((estByConcept.get(cid) || 0) + val));
+      }
+    });
+
+    const reqByConcept = new Map();
+    records.forEach(rec => {
+      if (rec.paymentStatus === 'cancelled') return;
+      if (Array.isArray(rec.conceptLinks) && rec.conceptLinks.length > 0) {
+        rec.conceptLinks.forEach(cl => {
+          if (cl.conceptId && cl.moveType !== 'replacement') {
+            const q = parseFloat(cl.qtyCovered) || 0;
+            if (q > 0) reqByConcept.set(cl.conceptId, Math.max(reqByConcept.get(cl.conceptId) || 0, q));
+          }
+        });
+      } else if (rec.conceptId && rec.conceptMoveType !== 'replacement') {
+        const q = parseFloat(rec.conceptCoverageQty) || 0;
+        if (q > 0) reqByConcept.set(rec.conceptId, round2((reqByConcept.get(rec.conceptId) || 0) + q));
+      }
+    });
+
+    function walkConceptProgress(nodes) {
+      if (!Array.isArray(nodes)) return;
+      nodes.forEach(node => {
+        const isParent = Boolean(node.children && node.children.length > 0);
+        if (!isParent) {
+          const cantPres = Math.max(0, Number(node.cantidad) || 0);
+          const estQty = estByConcept.get(node.id) || 0;
+          const reqQty = reqByConcept.get(node.id) || 0;
+          const executedQty = Math.min(cantPres > 0 ? cantPres : Infinity, Math.max(estQty, reqQty));
+          if (executedQty > 0 && Array.isArray(node.insumos)) {
+            node.insumos.forEach(ins => {
+              const tipo = resolveInsumoTipo(ins);
+              const key = getInsumoConsolidationKey({ ...ins, tipo });
+              const cantUnit = round5(ins.cantidad || 0);
+              const theo = round2(cantUnit * executedQty);
+              theoreticalMap.set(key, round2((theoreticalMap.get(key) || 0) + theo));
+            });
+          }
+        } else {
+          walkConceptProgress(node.children);
+        }
+      });
+    }
+    walkConceptProgress(state.treeData);
+  } catch (_) {}
 
   // Indexar insumos presupuestados por key y por clave normalizada
   const comparisonMap = new Map();
@@ -301,6 +409,12 @@ export function getInsumosBudgetVsActualComparison() {
     comparisonMap.set(ins.key, {
       ...ins,
       cantidadComprada: 0,
+      cantidadCompradaDirecta: 0,
+      cantidadCompradaAlmacen: 0,
+      cantidadUsadaEnObra: 0,
+      stockEnBodega: 0,
+      cantidadTeoricaAvance: theoreticalMap.get(ins.key) || 0,
+      desviacionAlAvance: 0,
       importeComprado: 0,
       puRealPromedio: 0,
       saldoDisponible: ins.cantidadPresupuestada,
@@ -351,6 +465,11 @@ export function getInsumosBudgetVsActualComparison() {
 
     if (matchedItem) {
       matchedItem.cantidadComprada = round2(matchedItem.cantidadComprada + qty);
+      if (rec.destination === 'warehouse') {
+        matchedItem.cantidadCompradaAlmacen = round2(matchedItem.cantidadCompradaAlmacen + qty);
+      } else {
+        matchedItem.cantidadCompradaDirecta = round2(matchedItem.cantidadCompradaDirecta + qty);
+      }
       matchedItem.importeComprado = round2(matchedItem.importeComprado + sub);
       matchedItem.comprasCount++;
     } else {
@@ -358,28 +477,47 @@ export function getInsumosBudgetVsActualComparison() {
     }
   });
 
-  // Procesar cálculos derivados para insumos del presupuesto
+  // Procesar cálculos derivados para insumos del presupuesto (integrando salidas físicas de Almacén)
   for (const item of comparisonMap.values()) {
-    item.saldoDisponible = round2(item.cantidadPresupuestada - item.cantidadComprada);
+    const wh = whNetMap.byKey.get(item.key)
+      || (item.clave ? whNetMap.byClave.get(item.clave.trim().toLowerCase()) : null)
+      || (item.descripcion ? whNetMap.byDesc.get(normalizeInsumoText(item.descripcion)) : null);
+
+    if (wh && (item.cantidadCompradaAlmacen > 0 || wh.netExitedToSiteQty > 0 || wh.stockEnBodega > 0)) {
+      item.stockEnBodega = round2(wh.stockEnBodega);
+      item.cantidadUsadaEnObra = round2(item.cantidadCompradaDirecta + wh.netExitedToSiteQty);
+    } else {
+      item.stockEnBodega = 0;
+      item.cantidadUsadaEnObra = item.cantidadComprada;
+    }
+
+    item.saldoDisponible = round2(item.cantidadPresupuestada - item.cantidadUsadaEnObra);
+    item.desviacionAlAvance = item.cantidadTeoricaAvance > 0
+      ? round2(item.cantidadUsadaEnObra - item.cantidadTeoricaAvance)
+      : 0;
+
     item.puRealPromedio = item.cantidadComprada > 0 ? round2(item.importeComprado / item.cantidadComprada) : 0;
     item.variacionPrecio = item.puRealPromedio > 0 ? round2(item.puRealPromedio - item.puPresupuestado) : 0;
     item.desviacionImporte = round2(item.importeComprado - (item.puPresupuestado * item.cantidadComprada));
     item.pctConsumido = item.cantidadPresupuestada > 0 
-      ? round2((item.cantidadComprada / item.cantidadPresupuestada) * 100) 
+      ? round2((item.cantidadUsadaEnObra / item.cantidadPresupuestada) * 100) 
       : 0;
 
     // Clasificación de alerta
-    if (item.cantidadComprada > item.cantidadPresupuestada) {
+    if (item.cantidadUsadaEnObra > item.cantidadPresupuestada) {
       item.alertLevel = 'danger'; // Sobrepaso de cantidad
       item.alertReason = 'Exceso de volumen físico';
     } else if (item.variacionPrecio > 0 && (item.variacionPrecio / (item.puPresupuestado || 1)) > 0.05) {
       item.alertLevel = 'danger'; // Sobrecosto en P.U. > 5%
       item.alertReason = 'P.U. comprado mayor al estimado';
+    } else if (item.cantidadTeoricaAvance > 0 && item.cantidadUsadaEnObra > (item.cantidadTeoricaAvance * 1.15)) {
+      item.alertLevel = 'warning'; // Desvío anticipado frente al avance actual
+      item.alertReason = 'Desvío vs. avance actual';
     } else if (item.pctConsumido >= 90) {
       item.alertLevel = 'warning'; // Casi agotado (90-100%)
       item.alertReason = 'Consumo próximo al límite';
-    } else if (item.cantidadComprada > 0) {
-      item.alertLevel = 'success'; // Comprado dentro de margen
+    } else if (item.cantidadComprada > 0 || item.cantidadUsadaEnObra > 0) {
+      item.alertLevel = 'success'; // Comprado/usado dentro de margen
       item.alertReason = 'En orden';
     } else {
       item.alertLevel = 'neutral'; // Sin compras aún
@@ -424,6 +562,10 @@ export function getInsumosBudgetVsActualComparison() {
         cantidadPresupuestada: 0,
         importePresupuestado: 0,
         cantidadComprada: 0,
+        cantidadUsadaEnObra: 0,
+        stockEnBodega: 0,
+        cantidadTeoricaAvance: 0,
+        desviacionAlAvance: 0,
         importeComprado: 0,
         puRealPromedio: 0,
         saldoDisponible: 0,
@@ -439,6 +581,7 @@ export function getInsumosBudgetVsActualComparison() {
 
     const item = extraItemsMap.get(key);
     item.cantidadComprada = round2(item.cantidadComprada + qty);
+    item.cantidadUsadaEnObra = item.cantidadComprada;
     item.importeComprado = round2(item.importeComprado + sub);
     item.saldoDisponible = round2(-item.cantidadComprada);
     item.desviacionImporte = round2(item.importeComprado);

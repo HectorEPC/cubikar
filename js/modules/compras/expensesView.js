@@ -2,10 +2,10 @@ let isExpensesPrintingBusy = false;
 // js/modules/compras/expensesView.js
 // Renderizador y controlador de eventos para la pestaña COMPRAS Y PAGOS (Control de Gastos y ERP Financiero)
 
-import { state } from '../../state/store.js?v=20261117_cf27';
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261117_cf27';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf27';
-import { normalizeInsumoText } from '../insumosGenerales/insumosConsolidator.js?v=20261117_cf27';
+import { state } from '../../state/store.js?v=20261117_cf30';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261117_cf30';
+import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
+import { normalizeInsumoText } from '../insumosGenerales/insumosConsolidator.js?v=20261117_cf30';
 import {
   loadExpensesData,
   saveExpensesData,
@@ -22,33 +22,51 @@ import {
   updateExpensesConfig,
   getDefaultExpensesSignatures,
   getExpensesSignatures,
-  saveExpensesSignatures
-} from './expensesModel.js?v=20261117_cf27';
+  saveExpensesSignatures,
+  getUnitFactorForInsumo,
+  saveUnitFactorForInsumo,
+  findDuplicateCfdiUuid,
+  registerExpensePaymentInstallment
+} from './expensesModel.js?v=20261117_cf30';
+import { parseMexicanCfdiXml } from './xmlCfdiParser.js?v=20261117_cf30';
+import {
+  getLeafConceptsCatalogSummary,
+  getSupplierPriceHistoryForInsumo
+} from './conceptExplosionHelper.js?v=20261117_cf30';
+import {
+  resetConceptExplosionPanel,
+  renderConceptExplosionPanel,
+  saveConceptExplosionOrders,
+  renderComparativaByConceptView
+} from './conceptExplosionUI.js?v=20261117_cf30';
 import {
   getExpensesKpiMetrics,
   getAllBudgetInsumosExplosion,
   getInsumosBudgetVsActualComparison
-} from './expensesCalculations.js?v=20261117_cf27';
+} from './expensesCalculations.js?v=20261117_cf30';
 import {
   processExpenseEvidenceUpload,
   openExpenseEvidence,
   deleteExpenseEvidence
-} from './driveExpenseService.js?v=20261117_cf27';
-import { resolveHostStorageContext } from '../../services/storageQuotaService.js?v=20261117_cf27';
+} from './driveExpenseService.js?v=20261117_cf30';
+import { resolveHostStorageContext } from '../../services/storageQuotaService.js?v=20261117_cf30';
 import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
   printExpensesActiveReport
-} from './expensesExporter.js?v=20261117_cf27';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261117_cf27';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261117_cf27';
-import { isNightMode } from '../../ui/themeController.js?v=20261117_cf27';
+} from './expensesExporter.js?v=20261117_cf30';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261117_cf30';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261117_cf30';
+import { isNightMode } from '../../ui/themeController.js?v=20261117_cf30';
 
 function isAdvancedExpensesAllowed() {
   return true;
 }
 
 let activeExpensesSubTab = 'tablero'; // 'tablero' | 'bitacora' | 'comparativa'
+let comparativaViewMode = 'insumos'; // 'insumos' | 'conceptos'
+let activeExpenseModalMode = 'direct'; // 'direct' | 'concept'
+let pendingPurchaseConversion = null; // { purchaseUnit, purchaseQty, unitFactor }
 let expensesSearchTerm = '';
 let expensesTypeFilter = 'all';
 let expensesStatusFilter = 'all';
@@ -67,7 +85,7 @@ function getSubTabButtonClass(targetTab) {
   const isActive = activeExpensesSubTab === targetTab;
   return isActive 
     ? 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-700 border-2 border-blue-600 shadow-sm transition flex items-center gap-2 cursor-pointer'
-    : 'px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white/90 text-slate-700 border border-slate-300 hover:border-slate-400 hover:bg-white hover:text-slate-900 shadow-2xs transition flex items-center gap-2 cursor-pointer';
+    : 'px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-50 text-slate-700 border border-slate-300 hover:border-slate-400 hover:bg-white hover:text-slate-900 shadow-2xs transition flex items-center gap-2 cursor-pointer';
 }
 
 /**
@@ -86,13 +104,13 @@ export function renderExpensesView() {
       <div class="px-4 py-2.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
         <!-- Pestañas Internas Enmarcadas de Compras y Pagos -->
         <div class="inline-flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border-2 border-slate-300/90 shadow-xs">
-          <button onclick="switchExpensesSubTab('tablero')" id="subtab-btn-tablero" class="${getSubTabButtonClass('tablero')}" title="Dashboard Financiero ERP">
+          <button onclick="switchExpensesSubTab('tablero')" id="subtab-btn-tablero" class="${getSubTabButtonClass('tablero')}" title="Resumen (Dashboard)">
             <i class="fa-solid fa-chart-pie text-xs ${activeExpensesSubTab === 'tablero' ? 'text-blue-600' : 'text-slate-500'}"></i>
-            <span>Tablero Resumen (Dashboard)</span>
+            <span>Resumen (Dashboard)</span>
           </button>
-          <button onclick="switchExpensesSubTab('bitacora')" id="subtab-btn-bitacora" class="${getSubTabButtonClass('bitacora')}" title="Bitácora de Órdenes de Compra & Gastos">
+          <button onclick="switchExpensesSubTab('bitacora')" id="subtab-btn-bitacora" class="${getSubTabButtonClass('bitacora')}" title="Órdenes de Compra">
             <i class="fa-solid fa-receipt text-xs ${activeExpensesSubTab === 'bitacora' ? 'text-blue-600' : 'text-slate-500'}"></i>
-            <span>Bitácora de Egresos & Órdenes</span>
+            <span>Órdenes de Compra</span>
           </button>
           <button onclick="switchExpensesSubTab('comparativa')" id="subtab-btn-comparativa" class="${getSubTabButtonClass('comparativa')}" title="Comparativa Presupuesto Base vs. Real">
             <i class="fa-solid fa-scale-balanced text-xs ${activeExpensesSubTab === 'comparativa' ? 'text-blue-600' : 'text-slate-500'}"></i>
@@ -307,29 +325,31 @@ function renderTableroDashboardView(kpis) {
     'Indirecto': { label: 'Indirectos', color: '#64748b', grad: 'from-slate-500 to-slate-600', icon: 'fa-file-lines', textColor: isNight ? 'text-slate-400' : 'text-slate-700' }
   };
 
-  // Clases semánticas compartidas para armonía Día / Noche
+  // Clases semánticas compartidas para armonía Día / Noche (En Día: fondo azul Cubikar con tarjetas blancas flotantes)
   const containerClass = isNight
     ? 'bg-[#0b1329] text-slate-100 border-slate-800 shadow-xl'
-    : 'bg-white text-slate-800 border-slate-200/90 shadow-sm';
+    : 'bg-gradient-to-br from-blue-950 via-blue-800 to-slate-900 text-white border-blue-700/60 shadow-xl';
 
   const cardClass = isNight
     ? 'bg-[#121c38] border-slate-800/90 hover:border-cyan-500/40 shadow-lg'
-    : 'bg-slate-50/70 border-slate-200 hover:border-slate-300 shadow-2xs';
+    : 'bg-white text-slate-800 border-blue-200/50 hover:border-cyan-300 shadow-lg shadow-slate-950/20';
 
   const panelClass = isNight
     ? 'bg-[#121c38] border-slate-800/90 shadow-lg'
-    : 'bg-white border-slate-200 shadow-2xs';
+    : 'bg-white text-slate-800 border-blue-200/50 shadow-lg shadow-slate-950/20';
 
   const subBoxClass = isNight
     ? 'bg-[#0e162e] border-slate-800'
-    : 'bg-slate-50 border-slate-200';
+    : 'bg-slate-50 border-slate-200/90';
 
   const subBoxHoverClass = isNight
     ? 'bg-[#0e162e] hover:bg-[#152042] border-slate-800/90'
-    : 'bg-slate-50 hover:bg-slate-100/90 border-slate-200';
+    : 'bg-slate-50 hover:bg-blue-50/60 border-slate-200/90 hover:border-blue-300';
 
   const borderDivider = isNight ? 'border-slate-800/70' : 'border-slate-200';
-  const headerBorder = isNight ? 'border-slate-800/80' : 'border-slate-200';
+  const headerBorder = isNight ? 'border-slate-800/80' : 'border-white/15';
+  const headerTitleText = 'text-white';
+  const headerMutedText = isNight ? 'text-slate-400' : 'text-blue-100/85';
   const titleText = isNight ? 'text-white' : 'text-slate-900';
   const mutedText = isNight ? 'text-slate-400' : 'text-slate-500';
 
@@ -338,8 +358,8 @@ function renderTableroDashboardView(kpis) {
   const totalBudgetDirecto = categories.reduce((sum, c) => sum + (c.totalPresupuestado || 0), 0);
   const chartBasis = totalSpendComprometido > 0 ? totalSpendComprometido : (totalBudgetDirecto > 0 ? totalBudgetDirecto : 1);
 
-  // Generar segmentos SVG del Donut Chart (r=52, C ≈ 326.72)
-  const donutR = 52;
+  // Generar segmentos SVG del Donut Chart (r=72, C ≈ 452.39, ocupa casi todo el viewBox sin invadir el entorno)
+  const donutR = 72;
   const donutC = 2 * Math.PI * donutR;
   let accumulatedDonutLen = 0;
 
@@ -355,7 +375,7 @@ function renderTableroDashboardView(kpis) {
 
     if (arcLen <= 0.5) return '';
     return `
-      <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="${meta.color}" stroke-width="18"
+      <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="${meta.color}" stroke-width="26"
               stroke-dasharray="${strokeDash}" stroke-dashoffset="${strokeOffset}" stroke-linecap="butt"
               class="transition-all duration-700 hover:opacity-80">
         <title>${cat.label}: ${formatCurrency(val)} (${round2(share * 100)}%)</title>
@@ -423,25 +443,25 @@ function renderTableroDashboardView(kpis) {
     <div class="space-y-4 max-w-7xl mx-auto ${containerClass} p-4 sm:p-5 rounded-2xl border">
       
       <!-- ENCABEZADO DEL DASHBOARD EJECUTIVO -->
-      <div class="flex flex-wrap items-center justify-between gap-3 pb-3 ${headerBorder}">
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b ${headerBorder}">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
             <i class="fa-solid fa-chart-pie text-white text-sm"></i>
           </div>
           <div>
-            <h2 class="text-sm font-extrabold ${titleText} tracking-wide flex items-center gap-2">
+            <h2 class="text-sm font-extrabold ${headerTitleText} tracking-wide flex items-center gap-2">
               <span>TABLERO RESUMEN FINANCIERO ERP</span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${isNight ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'}">En Tiempo Real</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${isNight ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' : 'bg-white/15 text-cyan-200 border border-white/25'}">En Tiempo Real</span>
             </h2>
-            <p class="text-[11px] ${mutedText} font-medium">Control ejecutivo de costos, presupuesto contratado, ingresos por estimación y egresos por rubro</p>
+            <p class="text-[11px] ${headerMutedText} font-medium">Control ejecutivo de costos, presupuesto contratado, ingresos por estimación y egresos por rubro</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <button onclick="switchExpensesSubTab('comparativa')" class="px-3 py-1.5 rounded-lg ${isNight ? 'bg-[#182348] hover:bg-[#202e5c] text-cyan-300 border border-cyan-500/30' : 'bg-slate-50 hover:bg-slate-100 text-blue-700 border border-blue-200 font-bold'} text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs">
+          <button onclick="switchExpensesSubTab('comparativa')" class="px-3 py-1.5 rounded-lg ${isNight ? 'bg-[#182348] hover:bg-[#202e5c] text-cyan-300 border border-cyan-500/30' : 'bg-white hover:bg-blue-50 text-blue-800 border border-white/90 font-bold'} text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-sm">
             <i class="fa-solid fa-scale-balanced text-xs"></i>
             <span>Ver Comparativa Insumos</span>
           </button>
-          <button onclick="openNewExpenseModal()" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-cyan-600/20">
+          <button onclick="openNewExpenseModal()" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-slate-950/25 border border-cyan-300/30">
             <i class="fa-solid fa-plus text-xs"></i>
             <span>Registrar Compra</span>
           </button>
@@ -618,20 +638,20 @@ function renderTableroDashboardView(kpis) {
           </div>
 
           <!-- Cuerpo: Donut Chart al lado de la leyenda interactiva -->
-          <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center py-2">
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center py-1 flex-1">
             
             <!-- Donut SVG (cols 5/12) -->
-            <div class="sm:col-span-5 flex flex-col items-center justify-center relative">
-              <svg viewBox="0 0 180 180" class="w-40 h-40 transform -rotate-90">
-                <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="${isNight ? '#1e293b' : '#f1f5f9'}" stroke-width="18"/>
+            <div class="sm:col-span-5 flex items-center justify-center relative w-full min-w-0">
+              <svg viewBox="0 0 180 180" class="w-full max-w-[235px] sm:max-w-[250px] aspect-square h-auto transform -rotate-90">
+                <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="${isNight ? '#1e293b' : '#e2e8f0'}" stroke-width="26"/>
                 ${donutSlicesSvg}
               </svg>
               <!-- Centro del Donut -->
-              <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                <span class="text-xs font-black font-mono ${titleText} leading-tight">
+              <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-6">
+                <span class="text-sm sm:text-[15px] font-black font-mono ${titleText} leading-tight">
                   ${totalSpendComprometido > 0 ? formatCurrency(totalSpendComprometido) : formatCurrency(totalBudgetDirecto)}
                 </span>
-                <span class="text-[9px] font-bold uppercase tracking-wider ${isNight ? 'text-cyan-400' : 'text-blue-600'}">
+                <span class="text-[10px] font-bold uppercase tracking-wider ${isNight ? 'text-cyan-400' : 'text-blue-600'} mt-0.5">
                   ${comp.resumen.totalInsumos} INSUMOS
                 </span>
               </div>
@@ -710,7 +730,7 @@ function renderTableroDashboardView(kpis) {
                       </span>
                     </div>
                   </div>
-                  <div class="w-full ${isNight ? 'bg-[#0e162e] border-slate-800' : 'bg-slate-100 border-slate-200'} h-2 rounded-full overflow-hidden p-0.5 border">
+                  <div class="w-full ${isNight ? 'bg-[#0e162e] border-slate-800' : 'bg-slate-100 border-slate-300/80'} h-2 rounded-full overflow-hidden p-0.5 border">
                     <div class="h-full rounded-full bg-gradient-to-r ${meta.grad} transition-all duration-700" style="width: ${Math.min(100, pctUsed)}%"></div>
                   </div>
                 </div>
@@ -786,7 +806,7 @@ function renderTableroDashboardView(kpis) {
 
           <!-- Acciones Rápidas del Tablero -->
           <div class="pt-2 border-t ${borderDivider} flex items-center justify-between gap-2">
-            <button onclick="switchExpensesSubTab('bitacora')" class="flex-1 py-1.5 px-3 rounded-lg ${isNight ? 'bg-[#0e162e] hover:bg-[#172348] border-slate-800 text-slate-300 hover:text-white' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900 font-bold'} text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer border">
+            <button onclick="switchExpensesSubTab('bitacora')" class="flex-1 py-1.5 px-3 rounded-lg ${isNight ? 'bg-[#0e162e] hover:bg-[#172348] border-slate-800 text-slate-300 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800 hover:text-slate-950 font-bold'} text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer border">
               <i class="fa-solid fa-receipt text-xs ${isNight ? 'text-blue-400' : 'text-blue-600'}"></i>
               <span>Ver Bitácora de Gastos</span>
             </button>
@@ -859,17 +879,28 @@ function renderBitacoraEgresosView() {
   };
   const activeRubroDesc = rubroTitleMap[expensesTypeFilter] ? ` | Filtrado por rubro: ${rubroTitleMap[expensesTypeFilter]}` : ' | Todos los rubros';
 
+  const kpis = getExpensesKpiMetrics();
+  const hasDueAlert = (kpis.porPagarVencido || 0) > 0 || (kpis.porPagarProximo || 0) > 0;
+
   return `
     <div class="space-y-3.5 max-w-7xl mx-auto">
       
       <!-- Título de Sección y Alcance -->
-      <div class="flex items-center justify-between text-xs text-slate-700 px-1">
+      <div class="flex flex-wrap items-center justify-between text-xs text-slate-700 px-1 gap-2">
         <div class="flex items-center gap-2">
           <span class="font-extrabold text-slate-800 uppercase tracking-wide">
             ${expensesTypeFilter === 'labor' ? 'Control Semanal de Raya & Destajos' : (expensesStatusFilter === 'paid' ? 'Historial de Egresos & Cuentas Liquidadas' : 'Bitácora de Órdenes de Compra & Historial de Egresos')}
           </span>
           <span class="text-[11px] text-slate-500 font-normal hidden sm:inline">${activeRubroDesc}</span>
         </div>
+        ${hasDueAlert ? `
+          <div class="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-300 text-[11px] text-amber-900 font-semibold">
+            <i class="fa-solid fa-clock text-amber-600"></i>
+            ${kpis.porPagarVencido > 0 ? `<span class="text-rose-700 font-bold">Vencido: ${formatCurrency(kpis.porPagarVencido)}</span>` : ''}
+            ${kpis.porPagarVencido > 0 && kpis.porPagarProximo > 0 ? '<span class="text-slate-300">|</span>' : ''}
+            ${kpis.porPagarProximo > 0 ? `<span>Próx. 7 días: <strong>${formatCurrency(kpis.porPagarProximo)}</strong></span>` : ''}
+          </div>
+        ` : ''}
       </div>
 
       <!-- Barra de Filtros, Búsqueda y Barra de Rubros -->
@@ -1070,13 +1101,26 @@ function renderExpenseRowHtml(r) {
        </button>`
     : `<span class="text-[10px] text-slate-300 italic">Sin archivo</span>`;
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const amountPaid = parseFloat(r.amountPaid) || 0;
+  const pendingBalance = round2(Math.max(0, (parseFloat(r.total) || 0) - amountPaid));
+  const isOverdue = !isPaid && !isCancelled && r.dueDate && r.dueDate < todayStr;
+  const conceptBadge = r.conceptClave
+    ? `<span class="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold text-[9.5px]" title="${escapeHtml(r.conceptDesc || '')}">${escapeHtml(r.conceptClave)}${r.conceptCoverageQty > 0 ? ` · ${formatNumber(r.conceptCoverageQty)}` : ''}</span>`
+    : '';
+  const destBadge = r.destination === 'warehouse'
+    ? `<span class="px-1.5 py-0.2 rounded bg-sky-50 text-sky-700 border border-sky-200 font-bold text-[9.5px]" title="Enviado a inventario físico en Almacén">📦 Almacén</span>`
+    : '';
+
   return `
     <tr class="hover:bg-blue-50/40 transition">
       <td class="py-2.5 px-3 font-mono font-bold text-blue-700">
-        ${escapeHtml(r.id)}
+        <div>${escapeHtml(r.orderGroupId || r.id)}</div>
+        ${r.orderGroupId ? `<div class="text-[9px] text-slate-400 font-normal">${escapeHtml(r.id)}</div>` : ''}
       </td>
       <td class="py-2.5 px-3 text-slate-600 font-mono">
-        ${escapeHtml(r.date || '---')}
+        <div>${escapeHtml(r.date || '---')}</div>
+        ${r.dueDate && !isPaid && !isCancelled ? `<div class="text-[9px] ${isOverdue ? 'text-rose-600 font-bold' : 'text-amber-700'}">Vence: ${escapeHtml(r.dueDate)}</div>` : ''}
       </td>
       <td class="py-2.5 px-3">
         <span class="px-1.5 py-0.5 rounded text-[10px] font-bold border ${tCfg.bg}">
@@ -1085,9 +1129,11 @@ function renderExpenseRowHtml(r) {
       </td>
       <td class="py-2.5 px-3">
         <div class="font-bold text-slate-900">${escapeHtml(r.description || 'Sin descripción')}</div>
-        <div class="text-[10px] text-slate-400 flex items-center gap-2">
+        <div class="text-[10px] text-slate-400 flex flex-wrap items-center gap-1.5 mt-0.5">
           ${r.insumoClave ? `<span class="font-mono text-blue-600 font-semibold">${escapeHtml(r.insumoClave)}</span>` : ''}
           ${r.category ? `<span>• ${escapeHtml(r.category)}</span>` : ''}
+          ${destBadge}
+          ${conceptBadge}
         </div>
       </td>
       <td class="py-2.5 px-3 text-slate-700 font-medium">
@@ -1098,6 +1144,7 @@ function renderExpenseRowHtml(r) {
       </td>
       <td class="py-2.5 px-3 text-right font-mono">
         <strong>${formatNumber(r.quantity)}</strong> <span class="text-slate-400 text-[10px] font-sans">${escapeHtml(r.unit || 'pza')}</span>
+        ${r.purchaseUnit && r.purchaseQty > 0 ? `<div class="text-[9.5px] text-indigo-600">${formatNumber(r.purchaseQty)} ${escapeHtml(r.purchaseUnit)}</div>` : ''}
       </td>
       <td class="py-2.5 px-3 text-right font-mono text-slate-600">
         ${formatCurrency(r.unitPrice)}
@@ -1106,10 +1153,14 @@ function renderExpenseRowHtml(r) {
         ${formatCurrency(r.subtotal)}
       </td>
       <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-        ${formatCurrency(r.total)}
+        <div>${formatCurrency(r.total)}</div>
+        ${!isPaid && !isCancelled && amountPaid > 0 ? `<div class="text-[9px] text-amber-700 font-semibold">Resta: ${formatCurrency(pendingBalance)}</div>` : ''}
       </td>
       <td class="py-2.5 px-3 text-center">
-        ${statusBadge}
+        <div class="flex flex-col items-center gap-1">
+          ${statusBadge}
+          ${!isPaid && !isCancelled ? `<button type="button" onclick="abonarExpenseAction('${r.id}')" class="text-[9.5px] text-blue-600 hover:underline font-bold cursor-pointer">Abonar</button>` : ''}
+        </div>
       </td>
       <td class="py-2.5 px-3 text-center">
         ${evidenceBtn}
@@ -1244,15 +1295,26 @@ function renderComparativaInsumosView() {
   return `
     <div class="space-y-2.5 max-w-7xl mx-auto">
       
-      <!-- Título de Sección -->
+      <!-- Título de Sección y Selector Vista Insumo vs Concepto -->
       <div class="flex flex-wrap items-center justify-between text-xs text-slate-700 px-1 gap-2">
         <div class="flex items-center gap-2">
           <span class="font-extrabold text-slate-900 uppercase tracking-wide">
             Presupuesto Base Directo vs. Compras & Control de Costos
           </span>
-          <span class="text-[11px] text-slate-500 font-normal hidden sm:inline">| Cruce con Explosión de Insumos dividida por Rubro</span>
+          <span class="text-[11px] text-slate-500 font-normal hidden sm:inline">${comparativaViewMode === 'conceptos' ? '| Seguimiento físico y económico por Concepto' : '| Cruce con Explosión de Insumos dividida por Rubro'}</span>
+        </div>
+
+        <div class="inline-flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs shrink-0">
+          <button type="button" onclick="switchComparativaViewMode('insumos')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${comparativaViewMode === 'insumos' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'}">
+            Por Insumo (Global)
+          </button>
+          <button type="button" onclick="switchComparativaViewMode('conceptos')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${comparativaViewMode === 'conceptos' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-100'}">
+            Por Concepto (Explosiones)
+          </button>
         </div>
       </div>
+
+      ${comparativaViewMode === 'conceptos' ? renderComparativaByConceptView() : `
 
       <!-- Barra Resumen de Alertas Presupuestales (Versión Compacta) -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1469,6 +1531,7 @@ function renderComparativaInsumosView() {
         `;
       }).join('')}
 
+    `}
     </div>
   `;
 }
@@ -1491,6 +1554,10 @@ function renderComparativaRowHtml(item) {
 
   const variacionColor = item.variacionPrecio > 0 ? 'text-rose-600 font-bold' : item.variacionPrecio < 0 ? 'text-emerald-600 font-bold' : 'text-slate-500';
 
+  const usedQty = item.cantidadUsadaEnObra !== undefined ? item.cantidadUsadaEnObra : item.cantidadComprada;
+  const hasWarehouseStock = (item.stockEnBodega || 0) > 0;
+  const hasTheo = (item.cantidadTeoricaAvance || 0) > 0;
+
   return `
     <tr class="${rowClass} transition">
       <td class="py-2 px-3 font-mono font-bold text-blue-700">
@@ -1499,6 +1566,7 @@ function renderComparativaRowHtml(item) {
       <td class="py-2 px-3 font-medium text-slate-900">
         <div>${escapeHtml(item.descripcion || 'Sin descripción')}</div>
         ${item.isExtraordinario ? `<span class="text-[9.5px] font-bold text-rose-600 uppercase">Gasto Extraordinario</span>` : ''}
+        ${hasTheo ? `<div class="text-[9.5px] text-indigo-700 font-medium">Teórico al avance actual: <strong>${formatNumber(item.cantidadTeoricaAvance)} ${escapeHtml(item.unidad)}</strong>${item.desviacionAlAvance > 0 ? ` <span class="text-rose-600 font-bold">(+${formatNumber(item.desviacionAlAvance)})</span>` : ''}</div>` : ''}
       </td>
       <td class="py-2 px-3 text-center text-slate-500 font-mono text-[11px]">
         ${escapeHtml(item.unidad || 'pza')}
@@ -1507,7 +1575,8 @@ function renderComparativaRowHtml(item) {
         ${formatNumber(item.cantidadPresupuestada)}
       </td>
       <td class="py-2 px-3 text-right font-mono font-bold text-slate-900">
-        ${formatNumber(item.cantidadComprada)}
+        <div>${formatNumber(usedQty)}</div>
+        ${hasWarehouseStock ? `<div class="text-[9px] text-sky-700 font-semibold">+${formatNumber(item.stockEnBodega)} en bodega</div>` : ''}
       </td>
       <td class="py-2 px-3 text-right font-mono ${item.saldoDisponible < 0 ? 'text-rose-600 font-bold' : 'text-emerald-700 font-semibold'}">
         ${formatNumber(item.saldoDisponible)}
@@ -1642,9 +1711,84 @@ export function openEvidenceAction(recordId) {
 // MODAL 1: NUEVA COMPRA / GASTO
 // ==========================================
 
-export function openNewExpenseModal(editId = null) {
+export function switchComparativaViewMode(mode) {
+  comparativaViewMode = mode === 'conceptos' ? 'conceptos' : 'insumos';
+  const container = document.getElementById('expenses-subview-container');
+  if (container && activeExpensesSubTab === 'comparativa') {
+    container.innerHTML = renderComparativaInsumosView();
+  }
+}
+
+export function refreshComparativaSubView() {
+  const container = document.getElementById('expenses-subview-container');
+  if (container && activeExpensesSubTab === 'comparativa') {
+    container.innerHTML = renderComparativaInsumosView();
+  }
+}
+
+export function abonarExpenseAction(recordId) {
+  const rec = getExpenseRecordById(recordId);
+  if (!rec) return;
+  const total = parseFloat(rec.total) || 0;
+  const paid = parseFloat(rec.amountPaid) || 0;
+  const remaining = round2(Math.max(0, total - paid));
+  const raw = prompt(`Registrar abono / pago parcial para ${rec.id}\n\nTotal: ${formatCurrency(total)}\nPagado: ${formatCurrency(paid)}\nSaldo pendiente: ${formatCurrency(remaining)}\n\nIngresa el monto a abonar hoy:`, String(remaining));
+  if (raw === null) return;
+  const amt = parseFloat(raw);
+  if (!Number.isFinite(amt) || amt <= 0) {
+    showToast('Ingresa un monto válido mayor a 0.', 'warning');
+    return;
+  }
+  const updated = registerExpensePaymentInstallment(recordId, amt);
+  if (updated) {
+    showToast(updated.paymentStatus === 'paid' ? `✅ Registro ${updated.id} liquidado completamente.` : `Abono guardado. Nuevo pagado: ${formatCurrency(updated.amountPaid)}`, 'success');
+    renderExpensesView();
+  }
+}
+
+export function openNewExpenseModalForConcept(conceptId) {
+  openNewExpenseModal(null, { mode: 'concept', conceptId });
+}
+
+export function switchExpenseModalMode(mode) {
+  activeExpenseModalMode = mode === 'concept' ? 'concept' : 'direct';
+  const directPanel = document.getElementById('expense-mode-direct-panel');
+  const conceptPanel = document.getElementById('expense-mode-concept-panel');
+  const btnDirect = document.getElementById('btn-expense-mode-direct');
+  const btnConcept = document.getElementById('btn-expense-mode-concept');
+  const xmlWrap = document.getElementById('expense-xml-autofill-wrap');
+  const saveLabel = document.getElementById('btn-save-expense-modal-label');
+
+  if (directPanel) directPanel.classList.toggle('hidden', activeExpenseModalMode !== 'direct');
+  if (conceptPanel) conceptPanel.classList.toggle('hidden', activeExpenseModalMode !== 'concept');
+  if (xmlWrap) xmlWrap.classList.toggle('hidden', activeExpenseModalMode !== 'direct');
+  if (saveLabel) saveLabel.textContent = activeExpenseModalMode === 'concept' ? 'Generar Orden(es) de Compra' : 'Guardar Registro';
+
+  if (btnDirect && btnConcept) {
+    if (activeExpenseModalMode === 'concept') {
+      btnConcept.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 text-white shadow-2xs transition cursor-pointer flex items-center gap-1.5';
+      btnDirect.className = 'px-3 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer flex items-center gap-1.5';
+      renderConceptExplosionPanel();
+    } else {
+      btnDirect.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-2xs transition cursor-pointer flex items-center gap-1.5';
+      btnConcept.className = 'px-3 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer flex items-center gap-1.5';
+    }
+  }
+}
+
+function populateExpenseConceptSelect(selectedConceptId = '') {
+  const sel = document.getElementById('expense-form-concept-select');
+  if (!sel) return;
+  const concepts = getLeafConceptsCatalogSummary();
+  sel.innerHTML = `<option value="">-- Sin asignar a concepto específico --</option>` + concepts.map(c =>
+    `<option value="${escapeHtml(c.id)}" ${c.id === selectedConceptId ? 'selected' : ''}>[${escapeHtml(c.clave)}] ${escapeHtml(c.descripcion.slice(0, 44))} (Disp: ${formatNumber(c.cantidadDisponible)} ${escapeHtml(c.unidad)})</option>`
+  ).join('');
+}
+
+export function openNewExpenseModal(editId = null, options = {}) {
   activeEditingExpenseId = editId;
   currentTempEvidence = null;
+  pendingPurchaseConversion = null;
 
   const modal = document.getElementById('modal-nueva-compra');
   if (!modal) return;
@@ -1654,6 +1798,11 @@ export function openNewExpenseModal(editId = null) {
 
   if (titleEl) {
     titleEl.textContent = existing ? `Editar Compra / Gasto (${existing.id})` : 'Nueva Compra / Registro de Gasto';
+  }
+
+  const modeBar = document.getElementById('expense-modal-mode-bar');
+  if (modeBar) {
+    modeBar.classList.toggle('hidden', Boolean(existing));
   }
 
   // Resetear campo de búsqueda de insumos
@@ -1668,20 +1817,29 @@ export function openNewExpenseModal(editId = null) {
   // Cargar lista de proveedores
   populateSuppliersDropdown(existing?.supplierId || '');
 
+  // Cargar selector opcional de concepto destino
+  populateExpenseConceptSelect(existing?.conceptId || '');
+
   // Llenar campos
   const today = new Date().toISOString().slice(0, 10);
   document.getElementById('expense-form-date').value = existing?.date || today;
   document.getElementById('expense-form-type').value = existing?.type || 'material';
   document.getElementById('expense-form-category').value = existing?.category || '';
+  const destEl = document.getElementById('expense-form-destination');
+  if (destEl) destEl.value = existing?.destination === 'warehouse' ? 'warehouse' : 'direct';
   const descInput = document.getElementById('expense-form-desc');
   if (descInput) {
     descInput.value = existing?.description || '';
     descInput.dataset.autoInsumoDesc = '';
   }
   document.getElementById('expense-form-invoice').value = existing?.invoiceNumber || '';
+  const uuidEl = document.getElementById('expense-form-cfdi-uuid');
+  if (uuidEl) uuidEl.value = existing?.cfdiUuid || '';
   document.getElementById('expense-form-quantity').value = existing ? existing.quantity : 1;
   document.getElementById('expense-form-unit').value = existing?.unit || 'pza';
   document.getElementById('expense-form-price').value = existing ? existing.unitPrice : 0;
+  const dueEl = document.getElementById('expense-form-due-date');
+  if (dueEl) dueEl.value = existing?.dueDate || '';
   const applyTaxEl = document.getElementById('expense-form-apply-tax');
   if (applyTaxEl) {
     applyTaxEl.checked = existing
@@ -1695,17 +1853,27 @@ export function openNewExpenseModal(editId = null) {
   document.getElementById('expense-form-method').value = existing?.paymentMethod || 'transfer';
   document.getElementById('expense-form-notes').value = existing?.notes || '';
 
+  const convBox = document.getElementById('expense-form-conversion-box');
+  if (convBox) convBox.classList.add('hidden');
+
   // Actualizar tarjeta del lado izquierdo de Cantidad y Unidad de Proyecto
   const insSelect = document.getElementById('expense-form-insumo-select');
   if (insSelect) {
     updateProjectQtyDisplay(insSelect.options[insSelect.selectedIndex]);
   }
+  checkExpensePriceAlert();
 
   // Evidencia
   currentTempEvidence = existing?.evidence || null;
   updateEvidenceUI();
 
   calculateExpenseModalTotals();
+
+  const initialMode = (!existing && options?.mode === 'concept') ? 'concept' : 'direct';
+  if (initialMode === 'concept') {
+    resetConceptExplosionPanel(options?.conceptId || null);
+  }
+  switchExpenseModalMode(initialMode);
 
   modal.classList.remove('hidden');
   modal.classList.add('flex');
@@ -1934,7 +2102,198 @@ export function onExpenseInsumoSelectChange(selectEl) {
     document.getElementById('expense-form-type').value = typeMap[tipo];
   }
 
+  // Cargar factor de conversión comercial recordado para este insumo (si existe)
+  const savedFactor = getUnitFactorForInsumo(opt.value);
+  const convUnitEl = document.getElementById('expense-conv-unit');
+  const convFactorEl = document.getElementById('expense-conv-factor');
+  if (savedFactor && convUnitEl && convFactorEl) {
+    convUnitEl.value = savedFactor.purchaseUnit || '';
+    convFactorEl.value = savedFactor.factorToCatalog || 1;
+  }
+
   calculateExpenseModalTotals();
+  checkExpensePriceAlert();
+}
+
+export function checkExpensePriceAlert() {
+  const zone = document.getElementById('expense-form-pu-history-zone');
+  if (!zone) return;
+
+  const insSelect = document.getElementById('expense-form-insumo-select');
+  const opt = insSelect?.options[insSelect.selectedIndex];
+  const insumoKey = opt?.value && opt.value !== 'EXTRA' ? opt.value : '';
+  const insumoClave = opt?.getAttribute('data-clave') || '';
+  const desc = opt?.getAttribute('data-desc') || document.getElementById('expense-form-desc')?.value || '';
+  const puBudget = insumoKey ? (parseFloat(opt?.getAttribute('data-pu')) || 0) : 0;
+  const currentPu = parseFloat(document.getElementById('expense-form-price')?.value) || 0;
+
+  const history = (insumoKey || desc) ? getSupplierPriceHistoryForInsumo(insumoKey, insumoClave, desc) : [];
+  const overBudget = puBudget > 0 && currentPu > (puBudget * 1.001);
+  const diffPct = overBudget ? round2(((currentPu - puBudget) / puBudget) * 100) : 0;
+
+  if (!overBudget && history.length === 0 && puBudget <= 0) {
+    zone.classList.add('hidden');
+    zone.innerHTML = '';
+    return;
+  }
+
+  const histHtml = history.slice(0, 4).map(h => `
+    <button type="button" onclick="applyHistoricalSupplierPrice('${escapeHtml(h.supplierId)}', ${h.lastPrice})"
+            class="px-2 py-0.5 rounded bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-800 text-[10px] font-semibold cursor-pointer transition">
+      ${escapeHtml(h.supplierName)}: <strong>${formatCurrency(h.lastPrice)}</strong> <span class="text-slate-400">(${escapeHtml(h.lastDate || 'hist')})</span>
+    </button>
+  `).join('');
+
+  zone.innerHTML = `
+    <div class="p-2.5 rounded-lg border ${overBudget ? 'bg-rose-50 border-rose-300' : 'bg-white border-slate-200'} space-y-1.5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        ${puBudget > 0 ? `<span class="text-[10.5px] font-semibold text-slate-600">P.U. en Presupuesto Base: <strong class="font-mono text-slate-900">${formatCurrency(puBudget)}</strong></span>` : '<span></span>'}
+        ${overBudget ? `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[10px]"><i class="fa-solid fa-triangle-exclamation mr-1"></i>+${diffPct}% arriba de tu presupuesto</span>` : ''}
+      </div>
+      ${history.length > 0 ? `
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-[10px] font-bold text-slate-500">Histórico por proveedor (clic para usar):</span>
+          ${histHtml}
+        </div>
+      ` : ''}
+    </div>
+  `;
+  zone.classList.remove('hidden');
+}
+
+export function applyHistoricalSupplierPrice(supplierId, price) {
+  const priceEl = document.getElementById('expense-form-price');
+  if (priceEl) priceEl.value = price;
+  const supEl = document.getElementById('expense-form-supplier-select');
+  if (supEl && supplierId) {
+    supEl.value = supplierId;
+  }
+  calculateExpenseModalTotals();
+  checkExpensePriceAlert();
+}
+
+export function toggleUnitConversionHelper() {
+  const box = document.getElementById('expense-form-conversion-box');
+  if (!box) return;
+  box.classList.toggle('hidden');
+}
+
+export function applyUnitConversionToQuantity() {
+  const commercialQty = Math.max(0, parseFloat(document.getElementById('expense-conv-qty')?.value) || 0);
+  const commercialUnit = document.getElementById('expense-conv-unit')?.value.trim() || '';
+  const factor = Math.max(0, parseFloat(document.getElementById('expense-conv-factor')?.value) || 0);
+  if (commercialQty > 0 && factor > 0) {
+    const converted = round2(commercialQty * factor);
+    const qtyEl = document.getElementById('expense-form-quantity');
+    if (qtyEl) qtyEl.value = converted;
+    pendingPurchaseConversion = {
+      purchaseQty: commercialQty,
+      purchaseUnit: commercialUnit || 'empaque',
+      unitFactor: factor
+    };
+    calculateExpenseModalTotals();
+  }
+}
+
+export function saveCurrentUnitConversionRule() {
+  applyUnitConversionToQuantity();
+  const insSelect = document.getElementById('expense-form-insumo-select');
+  const key = insSelect?.value;
+  const unit = document.getElementById('expense-conv-unit')?.value.trim();
+  const factor = parseFloat(document.getElementById('expense-conv-factor')?.value) || 0;
+  if (key && key !== 'EXTRA' && unit && factor > 0) {
+    saveUnitFactorForInsumo(key, { purchaseUnit: unit, factorToCatalog: factor });
+    showToast(`Factor guardado: 1 ${unit} = ${factor} del catálogo.`, 'success');
+  } else {
+    showToast('Conversión aplicada al campo Cantidad a Comprar.', 'info');
+  }
+}
+
+export function onExpenseStatusSelectChange(statusVal) {
+  const dueEl = document.getElementById('expense-form-due-date');
+  if (dueEl && statusVal === 'pending' && !dueEl.value) {
+    const dt = new Date();
+    dt.setDate(dt.getDate() + 15);
+    dueEl.value = dt.toISOString().slice(0, 10);
+  }
+}
+
+export async function onCfdiXmlQuickUpload(inputEl) {
+  const file = inputEl?.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = parseMexicanCfdiXml(text);
+
+    if (parsed.uuid) {
+      const dup = findDuplicateCfdiUuid(parsed.uuid, activeEditingExpenseId);
+      if (dup) {
+        showToast(`⚠️ Atención: Ya existe el registro ${dup.id} con el mismo UUID CFDI (${parsed.uuid.slice(0, 8)}...).`, 'warning');
+      }
+    }
+
+    // Buscar o crear proveedor por RFC / Nombre
+    const suppliers = getExpensesSuppliers();
+    let matchedSup = suppliers.find(s => parsed.rfcEmisor && (s.rfc || '').trim().toUpperCase() === parsed.rfcEmisor)
+      || suppliers.find(s => parsed.nombreEmisor && (s.name || '').trim().toLowerCase() === parsed.nombreEmisor.toLowerCase());
+
+    if (!matchedSup && (parsed.nombreEmisor || parsed.rfcEmisor)) {
+      matchedSup = saveSupplier({
+        name: parsed.nombreEmisor || `Proveedor ${parsed.rfcEmisor}`,
+        rfc: parsed.rfcEmisor || '',
+        phone: '',
+        email: '',
+        contactPerson: '',
+        address: ''
+      });
+      populateSuppliersDropdown(matchedSup.id);
+    } else if (matchedSup) {
+      populateSuppliersDropdown(matchedSup.id);
+    }
+
+    if (parsed.fecha) document.getElementById('expense-form-date').value = parsed.fecha;
+    if (parsed.invoiceNumber) document.getElementById('expense-form-invoice').value = parsed.invoiceNumber;
+    const uuidEl = document.getElementById('expense-form-cfdi-uuid');
+    if (uuidEl) uuidEl.value = parsed.uuid || '';
+
+    const descEl = document.getElementById('expense-form-desc');
+    if (descEl && parsed.conceptos.length > 0) {
+      const joined = parsed.conceptos.map(c => `${c.cantidad} ${c.unidad} ${c.descripcion}`).join(' + ');
+      descEl.value = joined.slice(0, 220);
+    }
+
+    if (parsed.conceptos.length === 1) {
+      document.getElementById('expense-form-quantity').value = parsed.conceptos[0].cantidad || 1;
+      document.getElementById('expense-form-unit').value = parsed.conceptos[0].unidad || 'pza';
+      document.getElementById('expense-form-price').value = parsed.conceptos[0].valorUnitario || parsed.subtotal;
+    } else {
+      document.getElementById('expense-form-quantity').value = 1;
+      document.getElementById('expense-form-unit').value = 'lote';
+      document.getElementById('expense-form-price').value = parsed.subtotal || parsed.total;
+    }
+
+    const applyTaxEl = document.getElementById('expense-form-apply-tax');
+    if (applyTaxEl) applyTaxEl.checked = (parsed.tax || 0) > 0;
+    document.getElementById('expense-form-status').value = parsed.paymentStatus || 'paid';
+    document.getElementById('expense-form-method').value = parsed.paymentMethod || 'transfer';
+    calculateExpenseModalTotals();
+    checkExpensePriceAlert();
+
+    // Respaldar también el XML como comprobante
+    try {
+      const projectName = state.settings?.projectName || 'Obra';
+      const uploaded = await processExpenseEvidenceUpload(file, projectName, activeEditingExpenseId || '');
+      uploaded.__isNewTempUpload = true;
+      currentTempEvidence = uploaded;
+      updateEvidenceUI();
+    } catch (_) {}
+
+    showToast(`✅ XML CFDI leído: ${parsed.nombreEmisor || 'Factura'} (${formatCurrency(parsed.total)})`, 'success');
+  } catch (err) {
+    showToast(`No se pudo leer el XML CFDI: ${err.message}`, 'error');
+  } finally {
+    if (inputEl) inputEl.value = '';
+  }
 }
 
 function populateSuppliersDropdown(selectedId = '') {
@@ -2049,6 +2408,18 @@ function updateEvidenceUI() {
   }
 }
 
+export function saveExpenseModalActiveMode() {
+  if (activeExpenseModalMode === 'concept' && !activeEditingExpenseId) {
+    const ok = saveConceptExplosionOrders();
+    if (ok) {
+      closeNewExpenseModal(false);
+      renderExpensesView();
+    }
+    return;
+  }
+  saveExpenseModalForm();
+}
+
 export function saveExpenseModalForm() {
   const desc = document.getElementById('expense-form-desc')?.value.trim();
   if (!desc) {
@@ -2066,9 +2437,18 @@ export function saveExpenseModalForm() {
   const supplierId = supplierSelect?.value || '';
   const supplierObj = supplierId ? getSupplierById(supplierId) : null;
 
+  const destination = document.getElementById('expense-form-destination')?.value === 'warehouse' ? 'warehouse' : 'direct';
+  const conceptId = document.getElementById('expense-form-concept-select')?.value || '';
+  const conceptMeta = conceptId ? getLeafConceptsCatalogSummary().find(c => c.id === conceptId) : null;
+  const dueDate = document.getElementById('expense-form-due-date')?.value || '';
+  const cfdiUuid = document.getElementById('expense-form-cfdi-uuid')?.value || '';
+  const paymentStatus = document.getElementById('expense-form-status')?.value || 'paid';
+
   const recordData = {
     id: activeEditingExpenseId || undefined,
+    destination,
     date: document.getElementById('expense-form-date')?.value || new Date().toISOString().slice(0, 10),
+    dueDate: paymentStatus === 'pending' ? dueDate : '',
     type: document.getElementById('expense-form-type')?.value || 'material',
     category: document.getElementById('expense-form-category')?.value.trim() || 'General',
     insumoId: insumoId,
@@ -2077,15 +2457,20 @@ export function saveExpenseModalForm() {
     supplierId: supplierId,
     supplierName: supplierObj ? supplierObj.name : 'Varios',
     invoiceNumber: document.getElementById('expense-form-invoice')?.value.trim() || '',
+    cfdiUuid,
     quantity: parseFloat(document.getElementById('expense-form-quantity')?.value) || 1,
     unit: document.getElementById('expense-form-unit')?.value.trim() || 'pza',
     unitPrice: parseFloat(document.getElementById('expense-form-price')?.value) || 0,
     subtotal: parseFloat(document.getElementById('expense-form-subtotal')?.value) || 0,
     tax: parseFloat(document.getElementById('expense-form-tax')?.value) || 0,
     total: parseFloat(document.getElementById('expense-form-total')?.value) || 0,
-    paymentStatus: document.getElementById('expense-form-status')?.value || 'paid',
+    paymentStatus,
     paymentMethod: document.getElementById('expense-form-method')?.value || 'transfer',
     applyTax: document.getElementById('expense-form-apply-tax')?.checked !== false,
+    conceptId: conceptMeta ? conceptMeta.id : '',
+    conceptClave: conceptMeta ? conceptMeta.clave : '',
+    conceptDesc: conceptMeta ? conceptMeta.descripcion : '',
+    ...(pendingPurchaseConversion || {}),
     notes: document.getElementById('expense-form-notes')?.value.trim() || '',
     evidence: currentTempEvidence
       ? (({ __isNewTempUpload, ...clean }) => clean)(currentTempEvidence)
@@ -2093,7 +2478,12 @@ export function saveExpenseModalForm() {
   };
 
   const saved = saveExpenseRecord(recordData);
-  showToast(`¡Registro ${saved.id} guardado exitosamente!`, 'success');
+  showToast(
+    destination === 'warehouse'
+      ? `✅ Orden ${saved.id} guardada y enviada a Recepción en Almacén.`
+      : `¡Registro ${saved.id} guardado exitosamente!`,
+    'success'
+  );
   closeNewExpenseModal(false);
   renderExpensesView();
 }
@@ -2387,8 +2777,21 @@ if (typeof window !== 'undefined') {
   window.agruparComprasAction = agruparComprasAction;
   window.desagruparComprasAction = desagruparComprasAction;
   window.openNewExpenseModal = openNewExpenseModal;
+  window.openNewExpenseModalForConcept = openNewExpenseModalForConcept;
+  window.switchExpenseModalMode = switchExpenseModalMode;
   window.closeNewExpenseModal = closeNewExpenseModal;
   window.saveExpenseModalForm = saveExpenseModalForm;
+  window.saveExpenseModalActiveMode = saveExpenseModalActiveMode;
+  window.switchComparativaViewMode = switchComparativaViewMode;
+  window.refreshComparativaSubView = refreshComparativaSubView;
+  window.abonarExpenseAction = abonarExpenseAction;
+  window.checkExpensePriceAlert = checkExpensePriceAlert;
+  window.applyHistoricalSupplierPrice = applyHistoricalSupplierPrice;
+  window.toggleUnitConversionHelper = toggleUnitConversionHelper;
+  window.applyUnitConversionToQuantity = applyUnitConversionToQuantity;
+  window.saveCurrentUnitConversionRule = saveCurrentUnitConversionRule;
+  window.onExpenseStatusSelectChange = onExpenseStatusSelectChange;
+  window.onCfdiXmlQuickUpload = onCfdiXmlQuickUpload;
   window.calculateExpenseModalTotals = calculateExpenseModalTotals;
   window.onExpenseInsumoSelectChange = onExpenseInsumoSelectChange;
   window.onEvidenceFileInputChange = onEvidenceFileInputChange;

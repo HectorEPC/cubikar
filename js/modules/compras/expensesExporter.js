@@ -1,16 +1,17 @@
 // js/modules/compras/expensesExporter.js
 // Exportación a Excel (.xlsx) y generación de formatos imprimibles oficiales de Orden de Compra y Reportes
 
-import { state } from '../../state/store.js?v=20261117_cf27';
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261117_cf27';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf27';
-import { openPrintWindow } from '../io/printService.js?v=20261117_cf27';
-import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesSignatures } from './expensesModel.js?v=20261117_cf27';
-import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261117_cf27';
-import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf27';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261117_cf27';
-import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261117_cf27';
-import { isNightMode } from '../../ui/themeController.js?v=20261117_cf27';
+import { state } from '../../state/store.js?v=20261117_cf30';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261117_cf30';
+import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
+import { openPrintWindow } from '../io/printService.js?v=20261117_cf30';
+import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesSignatures, getExpenseRecordsByOrderGroup } from './expensesModel.js?v=20261117_cf30';
+import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261117_cf30';
+import { getConceptCostTrackingReport } from './conceptExplosionHelper.js?v=20261117_cf30';
+import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf30';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261117_cf30';
+import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261117_cf30';
+import { isNightMode } from '../../ui/themeController.js?v=20261117_cf30';
 
 /**
  * Renderizar bloque dinámico de firmas configuradas para los reportes de Compras y Pagos
@@ -75,9 +76,12 @@ export function exportExpensesToExcel() {
   const recordsRows = [
     [
       'Folio / ID',
+      'Orden Agrupada (OC)',
       'Fecha',
+      'Destino',
       'Tipo de Gasto',
       'Categoría / Partida',
+      'Concepto Vinculado',
       'Clave Insumo',
       'Descripción del Insumo / Gasto',
       'Proveedor',
@@ -89,6 +93,7 @@ export function exportExpensesToExcel() {
       'IVA (16%)',
       'Total Egresos',
       'Estatus de Pago',
+      'Vencimiento Crédito',
       'Método de Pago',
       'Comprobante AWS S3 / Archivo',
       'Notas y Observaciones'
@@ -98,7 +103,10 @@ export function exportExpensesToExcel() {
   const typeLabels = {
     material: 'Material',
     labor: 'Mano de Obra / Raya',
-    equipment: 'Equipo / Maquinaria',
+    tool: 'Herramienta',
+    equipment: 'Equipo / Fletes',
+    machinery: 'Maquinaria',
+    subcontract: 'Subcontrato',
     indirect: 'Gasto Indirecto'
   };
 
@@ -115,11 +123,20 @@ export function exportExpensesToExcel() {
       ? `S3: ${r.evidence.fileName || r.evidence.s3Key}`
       : (r.evidence?.fileName ? `Adjunto (${r.evidence.fileName})` : 'Sin comprobante');
 
+    const conceptRef = r.conceptClave
+      ? `[${r.conceptClave}] ${r.conceptDesc || ''}${r.conceptCoverageQty > 0 ? ` (${r.conceptCoverageQty})` : ''}`
+      : (Array.isArray(r.conceptLinks) && r.conceptLinks.length > 0
+        ? r.conceptLinks.map(c => `[${c.conceptClave}] (${c.qtyCovered})`).join(' + ')
+        : '');
+
     recordsRows.push([
       r.id || '',
+      r.orderGroupId || '',
       r.date || '',
+      r.destination === 'warehouse' ? 'Almacén / Bodega' : 'Consumo Directo Obra',
       typeLabels[r.type] || r.type || 'Material',
       r.category || '',
+      conceptRef,
       r.insumoClave || r.insumoId || '',
       r.description || '',
       supName,
@@ -131,6 +148,7 @@ export function exportExpensesToExcel() {
       parseFloat(r.tax) || 0,
       parseFloat(r.total) || 0,
       statusLabels[r.paymentStatus] || r.paymentStatus || 'PAGADO',
+      r.dueDate || '',
       r.paymentMethod || 'Transferencia',
       driveLink,
       r.notes || ''
@@ -146,6 +164,9 @@ export function exportExpensesToExcel() {
       'Unidad',
       'Cant. Presupuestada',
       'Cant. Comprada',
+      'Usado Real en Obra',
+      'En Bodega (Almacén)',
+      'Teórico al Avance',
       'Saldo Disponible',
       'P.U. Presupuestado',
       'P.U. Real Promedio',
@@ -166,6 +187,9 @@ export function exportExpensesToExcel() {
       i.unidad || '',
       parseFloat(i.cantidadPresupuestada) || 0,
       parseFloat(i.cantidadComprada) || 0,
+      parseFloat(i.cantidadUsadaEnObra ?? i.cantidadComprada) || 0,
+      parseFloat(i.stockEnBodega) || 0,
+      parseFloat(i.cantidadTeoricaAvance) || 0,
       parseFloat(i.saldoDisponible) || 0,
       parseFloat(i.puPresupuestado) || 0,
       parseFloat(i.puRealPromedio) || 0,
@@ -178,7 +202,30 @@ export function exportExpensesToExcel() {
     ]);
   });
 
-  // 3. Hoja 3: Directorio de Proveedores
+  // 3. Hoja 3: Seguimiento por Concepto (Explosiones y Materiales Aplicados)
+  const conceptReport = getConceptCostTrackingReport();
+  const conceptRows = [
+    ['Clave Concepto', 'Descripción Concepto', 'Partida', 'Unidad', 'Cant. Presupuestada', 'Requisitado / Comprado', 'Surtido Almacén', 'Disponible Físico', 'Estimado (Cobro)', 'Presup. Costo Directo ($)', 'Costo Real Acumulado ($)', 'Materiales Registrados']
+  ];
+  conceptReport.forEach(c => {
+    const matSummary = (c.materialsUsed || []).map(m => `${m.descripcion} (${m.cantidadTotal} ${m.unidad})`).join('; ');
+    conceptRows.push([
+      c.clave || '',
+      c.descripcion || '',
+      c.partida || '',
+      c.unidad || '',
+      c.cantidadPresupuestada || 0,
+      c.cantidadRequisitada || 0,
+      c.cantidadSurtidaAlmacen || 0,
+      c.cantidadDisponible || 0,
+      c.cantidadEstimada || 0,
+      c.importePresupuestadoCD || 0,
+      c.costoRealAcumulado || 0,
+      matSummary
+    ]);
+  });
+
+  // 4. Hoja 4: Directorio de Proveedores
   const supRows = [
     ['ID Proveedor', 'Razón Social / Nombre', 'RFC', 'Teléfono', 'Correo Electrónico', 'Persona de Contacto', 'Dirección']
   ];
@@ -200,10 +247,12 @@ export function exportExpensesToExcel() {
 
   const wsRecords = XLSX.utils.aoa_to_sheet(recordsRows);
   const wsComp = XLSX.utils.aoa_to_sheet(compRows);
+  const wsConcepts = XLSX.utils.aoa_to_sheet(conceptRows);
   const wsSups = XLSX.utils.aoa_to_sheet(supRows);
 
   XLSX.utils.book_append_sheet(wb, wsRecords, 'Bitácora Egresos');
   XLSX.utils.book_append_sheet(wb, wsComp, 'Presupuesto vs Real');
+  XLSX.utils.book_append_sheet(wb, wsConcepts, 'Control por Concepto');
   XLSX.utils.book_append_sheet(wb, wsSups, 'Proveedores');
 
   const cleanName = projectName.replace(/[\\/:*?"<>|]/g, '_');
@@ -221,13 +270,35 @@ export function exportExpensesToExcel() {
 }
 
 /**
- * Imprimir formato corporativo oficial de Orden de Compra
+ * Imprimir Orden de Compra Oficial (soporta automáticamente 1 partida o múltiples partidas del mismo orderGroupId)
  */
+export function printGroupedOrdenCompra(orderGroupId) {
+  const groupItems = getExpenseRecordsByOrderGroup(orderGroupId);
+  if (groupItems.length === 0) {
+    showToast('No se encontraron partidas para esta Orden de Compra.', 'warning');
+    return;
+  }
+  printOrdenCompraItems(groupItems, orderGroupId);
+}
+
 export function printSingleOrdenCompra(record) {
   if (!record) {
     showToast('Selecciona una orden de compra para imprimir.', 'warning');
     return;
   }
+  if (record.orderGroupId) {
+    const groupItems = getExpenseRecordsByOrderGroup(record.orderGroupId).filter(r => r.paymentStatus !== 'cancelled');
+    if (groupItems.length > 1) {
+      printOrdenCompraItems(groupItems, record.orderGroupId);
+      return;
+    }
+  }
+  printOrdenCompraItems([record], record.orderGroupId || record.id);
+}
+
+function printOrdenCompraItems(items = [], folioTitle = '') {
+  const primary = items[0];
+  if (!primary) return;
 
   const branding = resolveActivePrintBranding(state.settings);
   const companyName = branding.companyName;
@@ -236,15 +307,42 @@ export function printSingleOrdenCompra(record) {
   const projectLocation = state.settings?.projectLocation || 'En sitio';
   const currency = state.settings?.currency || 'MXN';
 
-  const sup = record.supplierId ? getSupplierById(record.supplierId) : null;
-  const supName = sup ? sup.name : (record.supplierName || 'Proveedor General');
+  const sup = primary.supplierId ? getSupplierById(primary.supplierId) : null;
+  const supName = sup ? sup.name : (primary.supplierName || 'Proveedor General');
   const supRfc = sup?.rfc || 'XAXX010101000';
   const supPhone = sup?.phone || 'Sin registrar';
   const supEmail = sup?.email || 'Sin registrar';
   const supAddress = sup?.address || 'Domicilio conocido';
   const supContact = sup?.contactPerson || 'Representante de Ventas';
 
-  const docTitle = `Orden de Compra - ${record.id} - ${supName}`;
+  const folioDisplay = folioTitle || primary.orderGroupId || primary.id;
+  const docTitle = `Orden de Compra - ${folioDisplay} - ${supName}`;
+
+  const totalSubtotal = round2(items.reduce((a, b) => a + (parseFloat(b.subtotal) || 0), 0));
+  const totalTax = round2(items.reduce((a, b) => a + (parseFloat(b.tax) || 0), 0));
+  const totalGrand = round2(items.reduce((a, b) => a + (parseFloat(b.total) || 0), 0));
+
+  const conceptRef = primary.conceptClave
+    ? `[${primary.conceptClave}] ${primary.conceptDesc || ''}${primary.conceptCoverageQty > 0 ? ` (${formatNumber(primary.conceptCoverageQty)})` : ''}`
+    : (Array.isArray(primary.conceptLinks) && primary.conceptLinks.length > 0
+      ? primary.conceptLinks.map(c => `[${c.conceptClave}] (${formatNumber(c.qtyCovered)})`).join(' + ')
+      : '');
+
+  const rowsHtml = items.map((rec, idx) => `
+    <tr style="border-bottom: 1px solid #cbd5e1;">
+      <td style="padding: 8px; border: 1px solid #cbd5e1; text-align:center; font-weight:bold;">${idx + 1}</td>
+      <td style="padding: 8px; border: 1px solid #cbd5e1; font-family:monospace; font-weight:bold; color:#2563eb;">${rec.insumoClave || rec.insumoId || 'MAT-01'}</td>
+      <td style="padding: 8px; border: 1px solid #cbd5e1;">
+        <div style="font-weight: 700; color:#0f172a;">${rec.description || 'Suministro de insumos'}</div>
+        ${rec.purchaseUnit && rec.purchaseQty > 0 ? `<div style="font-size:10px; color:#0284c7; margin-top:2px;">Presentación comercial: <strong>${formatNumber(rec.purchaseQty)} ${rec.purchaseUnit}</strong></div>` : ''}
+        ${rec.notes ? `<div style="font-size:10px; color:#64748b; margin-top:2px; font-style:italic;">Nota: ${rec.notes}</div>` : ''}
+      </td>
+      <td style="padding: 8px; border: 1px solid #cbd5e1; text-align:center; font-weight:600;">${rec.unit || 'pza'}</td>
+      <td style="padding: 8px; border: 1px solid #cbd5e1; text-align:right; font-family:monospace; font-weight:bold;">${formatNumber(rec.quantity)}</td>
+      <td style="padding: 8px; border: 1px solid #cbd5e1; text-align:right; font-family:monospace;">${formatCurrency(rec.unitPrice)}</td>
+      <td style="padding: 8px; border: 1px solid #cbd5e1; text-align:right; font-family:monospace; font-weight:bold;">${formatCurrency(rec.subtotal)}</td>
+    </tr>
+  `).join('');
 
   const bodyContent = `
     <!-- Encabezado Corporativo Oficial -->
@@ -252,8 +350,8 @@ export function printSingleOrdenCompra(record) {
       ${renderExpensesBrandHeaderBlock(companyName, companyLogo, projectName, projectLocation, false)}
       <div style="text-align: right; border: 1.5px solid #0f172a; border-radius: 8px; padding: 8px 14px; background: #f8fafc;">
         <div style="font-size: 14px; font-weight: 900; color: #0f172a; letter-spacing: 1px;">ORDEN DE COMPRA</div>
-        <div style="font-size: 15px; font-weight: 800; color: #2563eb; font-family: monospace;">FOLIO: ${record.id}</div>
-        <div style="font-size: 11px; color: #475569; margin-top: 2px;">FECHA: <strong>${record.date || new Date().toISOString().slice(0, 10)}</strong></div>
+        <div style="font-size: 15px; font-weight: 800; color: #2563eb; font-family: monospace;">FOLIO: ${folioDisplay}</div>
+        <div style="font-size: 11px; color: #475569; margin-top: 2px;">FECHA: <strong>${primary.date || new Date().toISOString().slice(0, 10)}</strong> · ${items.length} partida(s)</div>
       </div>
     </div>
 
@@ -278,18 +376,18 @@ export function printSingleOrdenCompra(record) {
           CONDICIONES DE LA COMPRA Y ENTREGA
         </div>
         <table style="width: 100%; font-size: 11px; line-height: 1.4;">
-          <tr><td style="color:#64748b; width:95px;">Tipo de Gasto:</td><td><strong style="text-transform:uppercase;">${record.type || 'MATERIAL'}</strong></td></tr>
-          <tr><td style="color:#64748b;">Partida / Rubro:</td><td>${record.category || 'General de Obra'}</td></tr>
-          <tr><td style="color:#64748b;">Método Pago:</td><td><span style="text-transform:capitalize;">${record.paymentMethod || 'Transferencia'}</span></td></tr>
-          <tr><td style="color:#64748b;">Estado Pago:</td><td><strong style="color:${record.paymentStatus === 'paid' ? '#059669' : '#d97706'};">${record.paymentStatus === 'paid' ? 'PAGADO' : 'POR PAGAR / CRÉDITO'}</strong></td></tr>
-          <tr><td style="color:#64748b;">Factura / Rem.:</td><td style="font-family:monospace; font-weight:bold;">${record.invoiceNumber || 'Pendiente'}</td></tr>
-          <tr><td style="color:#64748b;">Moneda:</td><td>${currency}</td></tr>
+          <tr><td style="color:#64748b; width:95px;">Destino Entrega:</td><td><strong>${primary.destination === 'warehouse' ? 'ALMACÉN / BODEGA DE OBRA' : 'FRENTE DIRECTO EN OBRA'}</strong></td></tr>
+          <tr><td style="color:#64748b;">Partida / Rubro:</td><td>${primary.category || 'General de Obra'}</td></tr>
+          ${conceptRef ? `<tr><td style="color:#64748b;">Concepto(s):</td><td><strong>${conceptRef}</strong></td></tr>` : ''}
+          <tr><td style="color:#64748b;">Método Pago:</td><td><span style="text-transform:capitalize;">${primary.paymentMethod || 'Transferencia'}</span></td></tr>
+          <tr><td style="color:#64748b;">Estado Pago:</td><td><strong style="color:${primary.paymentStatus === 'paid' ? '#059669' : '#d97706'};">${primary.paymentStatus === 'paid' ? 'PAGADO' : 'POR PAGAR / CRÉDITO'}</strong></td></tr>
+          <tr><td style="color:#64748b;">Factura / Rem.:</td><td style="font-family:monospace; font-weight:bold;">${primary.invoiceNumber || 'Pendiente'} · ${currency}</td></tr>
         </table>
       </div>
     </div>
 
     <!-- Tabla de Conceptos / Insumos Suministrados -->
-    <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px;">
+    <table class="report-table" style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 10.5px;">
       <thead>
         <tr style="background: #0f172a; color: #ffffff; text-align: left;">
           <th style="padding: 7px 8px; border: 1px solid #0f172a; width: 35px; text-align:center;">#</th>
@@ -302,18 +400,7 @@ export function printSingleOrdenCompra(record) {
         </tr>
       </thead>
       <tbody>
-        <tr style="border-bottom: 1px solid #cbd5e1;">
-          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align:center; font-weight:bold;">1</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; font-family:monospace; font-weight:bold; color:#2563eb;">${record.insumoClave || record.insumoId || 'MAT-01'}</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1;">
-            <div style="font-weight: 700; color:#0f172a;">${record.description || 'Suministro de insumos'}</div>
-            ${record.notes ? `<div style="font-size:10px; color:#64748b; margin-top:2px; font-style:italic;">Nota: ${record.notes}</div>` : ''}
-          </td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align:center; font-weight:600;">${record.unit || 'pza'}</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align:right; font-family:monospace; font-weight:bold;">${formatNumber(record.quantity)}</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align:right; font-family:monospace;">${formatCurrency(record.unitPrice)}</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; text-align:right; font-family:monospace; font-weight:bold;">${formatCurrency(record.subtotal)}</td>
-        </tr>
+        ${rowsHtml}
       </tbody>
     </table>
 
@@ -323,15 +410,15 @@ export function printSingleOrdenCompra(record) {
         <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
           <tr style="background:#f8fafc; border-bottom: 1px solid #e2e8f0;">
             <td style="padding: 6px 10px; font-weight:bold; color:#475569;">SUBTOTAL:</td>
-            <td style="padding: 6px 10px; text-align:right; font-family:monospace; font-weight:bold;">${formatCurrency(record.subtotal)}</td>
+            <td style="padding: 6px 10px; text-align:right; font-family:monospace; font-weight:bold;">${formatCurrency(totalSubtotal)}</td>
           </tr>
           <tr style="background:#f8fafc; border-bottom: 1px solid #0f172a;">
-            <td style="padding: 6px 10px; font-weight:bold; color:#475569;">I.V.A. (16%):</td>
-            <td style="padding: 6px 10px; text-align:right; font-family:monospace; font-weight:bold;">${formatCurrency(record.tax)}</td>
+            <td style="padding: 6px 10px; font-weight:bold; color:#475569;">I.V.A.:</td>
+            <td style="padding: 6px 10px; text-align:right; font-family:monospace; font-weight:bold;">${formatCurrency(totalTax)}</td>
           </tr>
           <tr style="background:#0f172a; color:#ffffff;">
             <td style="padding: 8px 10px; font-size: 12px; font-weight:900;">TOTAL M.N.:</td>
-            <td style="padding: 8px 10px; text-align:right; font-size: 13px; font-family:monospace; font-weight:900; color:#38bdf8;">${formatCurrency(record.total)}</td>
+            <td style="padding: 8px 10px; text-align:right; font-size: 13px; font-family:monospace; font-weight:900; color:#38bdf8;">${formatCurrency(totalGrand)}</td>
           </tr>
         </table>
       </div>
@@ -341,9 +428,9 @@ export function printSingleOrdenCompra(record) {
     <div style="border: 1px dashed #94a3b8; border-radius: 6px; padding: 8px 12px; margin-bottom: 30px; font-size: 10px; color: #475569; background: #f8fafc;">
       <strong>CLÁUSULAS Y CONDICIONES DE RECEPCIÓN:</strong>
       <ol style="margin: 4px 0 0 16px; padding: 0;">
-        <li>Todo material debe entregarse a pie de obra debidamente empacado y con su nota de remisión o factura original.</li>
+        <li>Todo material debe entregarse en obra debidamente empacado y con su nota de remisión o factura original.</li>
         <li>No se recibirán materiales dañados, caducos o con especificaciones distintas a las indicadas en esta orden.</li>
-        <li>Indispensable citar el Folio <strong>${record.id}</strong> en su factura electrónica (CFDI).</li>
+        <li>Indispensable citar el Folio <strong>${folioDisplay}</strong> en su factura electrónica (CFDI).</li>
       </ol>
     </div>
 
@@ -389,22 +476,22 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
 
   const containerClass = isNight
     ? 'bg-[#0b1329] text-slate-100 border-slate-800 shadow-xl'
-    : 'bg-white text-slate-800 border-slate-200/90 shadow-none';
+    : 'bg-slate-100/90 text-slate-800 border-slate-300 shadow-none';
 
   const cardClass = isNight
     ? 'bg-[#121c38] border-slate-800'
-    : 'bg-slate-50/70 border-slate-200';
+    : 'bg-white border-slate-300/90 shadow-2xs';
 
   const panelClass = isNight
     ? 'bg-[#121c38] border-slate-800'
-    : 'bg-white border-slate-200';
+    : 'bg-white border-slate-300/90 shadow-2xs';
 
   const subBoxClass = isNight
     ? 'bg-[#0e162e] border-slate-800'
-    : 'bg-slate-50 border-slate-200';
+    : 'bg-slate-100/80 border-slate-300/80';
 
   const borderDivider = isNight ? 'border-slate-800/70' : 'border-slate-200';
-  const headerBorder = isNight ? 'border-slate-800/80' : 'border-slate-200';
+  const headerBorder = isNight ? 'border-slate-800/80' : 'border-slate-300/90';
   const titleText = isNight ? 'text-white' : 'text-slate-900';
   const mutedText = isNight ? 'text-slate-400' : 'text-slate-500';
 
@@ -413,7 +500,7 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
   const chartBasis = totalSpendComprometido > 0 ? totalSpendComprometido : (totalBudgetDirecto > 0 ? totalBudgetDirecto : 1);
 
   // Generar SVG Donut
-  const donutR = 52;
+  const donutR = 72;
   const donutC = 2 * Math.PI * donutR;
   let accumulatedDonutLen = 0;
 
@@ -429,7 +516,7 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
 
     if (arcLen <= 0.5) return '';
     return `
-      <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="${meta.color}" stroke-width="18"
+      <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="${meta.color}" stroke-width="26"
               stroke-dasharray="${strokeDash}" stroke-dashoffset="${strokeOffset}" stroke-linecap="butt">
       </circle>
     `;
@@ -496,7 +583,7 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
   const todayStr = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
 
   return `
-    <div class="space-y-3.5 max-w-full mx-auto ${containerClass} p-4 sm:p-5 rounded-2xl border" style="font-family: system-ui, -apple-system, sans-serif;">
+    <div id="printable-expenses-dashboard" class="space-y-3.5 max-w-full mx-auto ${containerClass} p-4 sm:p-5 rounded-2xl border" style="font-family: system-ui, -apple-system, sans-serif;">
       
       <!-- ENCABEZADO INSTITUCIONAL Y DEL DASHBOARD EJECUTIVO -->
       <div class="flex items-center justify-between gap-4 pb-3 border-b ${headerBorder}">
@@ -688,15 +775,15 @@ export function renderPrintableExecutiveDashboardHTML(kpis, branding, customIsNi
           <div class="grid grid-cols-12 gap-3 items-center py-1.5">
             <!-- Donut SVG (cols 5/12) -->
             <div class="col-span-5 flex flex-col items-center justify-center relative">
-              <svg viewBox="0 0 180 180" class="w-36 h-36 transform -rotate-90">
-                <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="${isNight ? '#1e293b' : '#f1f5f9'}" stroke-width="18"/>
+              <svg viewBox="0 0 180 180" class="w-44 h-44 transform -rotate-90">
+                <circle cx="90" cy="90" r="${donutR}" fill="none" stroke="${isNight ? '#1e293b' : '#e2e8f0'}" stroke-width="26"/>
                 ${donutSlicesSvg}
               </svg>
-              <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span class="text-[11px] font-black font-mono ${titleText} leading-tight">
+              <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+                <span class="text-xs font-black font-mono ${titleText} leading-tight">
                   ${totalSpendComprometido > 0 ? formatCurrency(totalSpendComprometido) : formatCurrency(totalBudgetDirecto)}
                 </span>
-                <span class="text-[8.5px] font-bold uppercase tracking-wider ${isNight ? 'text-cyan-400' : 'text-blue-600'}">
+                <span class="text-[9px] font-bold uppercase tracking-wider ${isNight ? 'text-cyan-400' : 'text-blue-600'}">
                   ${comp?.resumen?.totalInsumos || 0} INSUMOS
                 </span>
               </div>
@@ -866,6 +953,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
 
     openPrintWindow(docTitle, bodyContent, 'landscape', {
       theme: isNight ? 'dark' : 'light',
+      includeTailwind: true,
       extraStyles: `
         @media print {
           @page {
@@ -884,6 +972,11 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
             margin: 0 !important;
             max-width: 100% !important;
             box-shadow: none !important;
+          }
+          #printable-expenses-dashboard {
+            zoom: 0.84;
+            break-inside: avoid;
+            page-break-inside: avoid;
           }
         }
       `
@@ -929,7 +1022,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
         </div>
       </div>
 
-      <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 16px;">
+      <table class="report-table" style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 16px;">
         <thead>
           <tr style="background: #0f172a; color: #ffffff;">
             <th style="padding: 6px; border: 1px solid #0f172a; width: 25px;">#</th>
@@ -974,7 +1067,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
           <td style="padding: 4px 6px; border: 1px solid #cbd5e1; font-weight: 600;">${i.descripcion || 'Sin descripción'}</td>
           <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: center;">${i.unidad || 'pza'}</td>
           <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatNumber(i.cantidadPresupuestada)}</td>
-          <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-weight: bold;">${formatNumber(i.cantidadComprada)}</td>
+          <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-weight: bold;">${formatNumber(i.cantidadUsadaEnObra ?? i.cantidadComprada)}${i.stockEnBodega > 0 ? `<div style="font-size:8px;color:#0284c7;">(+${formatNumber(i.stockEnBodega)} bod.)</div>` : ''}</td>
           <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; color: ${i.saldoDisponible < 0 ? '#dc2626' : '#059669'}; font-weight: bold;">${formatNumber(i.saldoDisponible)}</td>
           <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${formatCurrency(i.puPresupuestado)}</td>
           <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${i.cantidadComprada > 0 ? formatCurrency(i.puRealPromedio) : '---'}</td>
@@ -990,7 +1083,7 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
           <span>${cat.label.toUpperCase()} (${cat.items.length} insumos)</span>
           <span>Presupuesto: ${formatCurrency(cat.totalPresupuestado)} | Real: ${formatCurrency(cat.totalComprado)} | Saldo: ${formatCurrency(cat.saldoDisponible)}</span>
         </div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 9.5px; margin-bottom: 8px;">
+        <table class="report-table" style="width: 100%; border-collapse: collapse; font-size: 8.5px; margin-bottom: 8px;">
           <thead>
             <tr style="background: #f1f5f9; color: #334155; font-size: 9px;">
               <th style="padding: 4px 6px; border: 1px solid #cbd5e1; width: 25px;">#</th>
@@ -1059,4 +1152,5 @@ export function printExpensesActiveReport(activeSubTab = 'tablero') {
 // Exponer función de impresión de compras globalmente
 if (typeof window !== 'undefined') {
   window.printExpensesActiveReport = printExpensesActiveReport;
+  window.printGroupedOrdenCompra = printGroupedOrdenCompra;
 }

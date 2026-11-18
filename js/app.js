@@ -54,20 +54,20 @@ import {
   runCalendarioGeminiAiProposal,
   applyCalendarioAiProposal,
   selectCalendarioRow
-} from './modules/calendario/calendarioView.js?v=20261117_cf27';
-import { initStore, state, syncClipboardFromStorage } from './state/store.js?v=20261117_cf27';
-import { STORAGE_KEY_CLIPBOARD, getActiveProjectId } from './config/constants.js?v=20261117_cf27';
-import { undoAction, redoAction, updateUndoRedoButtons, setHistoryRenderCallback } from './state/history.js?v=20261117_cf27';
-import { showToast } from './ui/notifications.js?v=20261117_cf27';
-import { formatMoney, formatQty } from './core/formatters.js?v=20261117_cf27';
-import { getFactorSobrecosto, updateSobrecostoBadge, updateGrandTotal } from './core/calculations.js?v=20261117_cf27';
-import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalRealtimeSync, requestPeerSync } from './core/realtimeSync.js?v=20261117_cf27';
-import { hydrateProjectModulesFromCloud } from './core/cloudModulesSyncService.js?v=20261117_cf27';
-import { syncPendingMediaUploads } from './services/s3StorageService.js?v=20261117_cf27';
-import { initAuthListener, hasPendingIncomingSsoSession, hydrateIncomingSsoSession, isSsoHydrationPending, syncLocalUserSession, hasOversizedLocalJwt, ensureCompactAuthSession } from './core/authService.js?v=20261117_cf27';
-import { isRecentInternalCloudAuthUpdate, syncHostWorkspaceProjects } from './core/collaborationCloudService.js?v=20261117_cf27';
-import { getCurrentUser } from './modules/portal/projectService.js?v=20261117_cf27';
-import { initAppSwitcher } from './ui/appSwitcher.js?v=20261117_cf27';
+} from './modules/calendario/calendarioView.js?v=20261117_cf30';
+import { initStore, state, syncClipboardFromStorage } from './state/store.js?v=20261117_cf30';
+import { STORAGE_KEY_CLIPBOARD, getActiveProjectId } from './config/constants.js?v=20261117_cf30';
+import { undoAction, redoAction, updateUndoRedoButtons, setHistoryRenderCallback } from './state/history.js?v=20261117_cf30';
+import { showToast } from './ui/notifications.js?v=20261117_cf30';
+import { formatMoney, formatQty } from './core/formatters.js?v=20261117_cf30';
+import { getFactorSobrecosto, updateSobrecostoBadge, updateGrandTotal } from './core/calculations.js?v=20261117_cf30';
+import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalRealtimeSync, requestPeerSync } from './core/realtimeSync.js?v=20261117_cf30';
+import { hydrateProjectModulesFromCloud } from './core/cloudModulesSyncService.js?v=20261117_cf30';
+import { syncPendingMediaUploads } from './services/s3StorageService.js?v=20261117_cf30';
+import { initAuthListener, hasPendingIncomingSsoSession, hydrateIncomingSsoSession, isSsoHydrationPending, syncLocalUserSession, hasOversizedLocalJwt, ensureCompactAuthSession } from './core/authService.js?v=20261117_cf30';
+import { isRecentInternalCloudAuthUpdate, syncHostWorkspaceProjects } from './core/collaborationCloudService.js?v=20261117_cf30';
+import { getCurrentUser } from './modules/portal/projectService.js?v=20261117_cf30';
+import { initAppSwitcher } from './ui/appSwitcher.js?v=20261117_cf30';
 
 import {
   renderExpensesView,
@@ -115,15 +115,18 @@ import {
   updateDraftExpensesSignature,
   resetDefaultExpensesSignatures,
   saveExpensesSignaturesModal
-} from './modules/compras/expensesView.js?v=20261117_cf27';
+} from './modules/compras/expensesView.js?v=20261117_cf30';
 import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
   printExpensesActiveReport
-} from './modules/compras/expensesExporter.js?v=20261117_cf27';
+} from './modules/compras/expensesExporter.js?v=20261117_cf30';
 import {
   openExpenseEvidence
-} from './modules/compras/driveExpenseService.js?v=20261117_cf27';
+} from './modules/compras/driveExpenseService.js?v=20261117_cf30';
+import {
+  renderAlmacenView
+} from './modules/almacen/almacenView.js?v=20261117_cf30';
 import {
   renderBitacoraView,
   openBitacoraConfigModal,
@@ -162,7 +165,7 @@ import {
   onBitacoraDownloadsSearchChange,
   onBitacoraDownloadsStatusFilterChange,
   onBitacoraDownloadsTypeFilterChange
-} from './modules/bitacora/bitacoraView.js?v=20261117_cf27';
+} from './modules/bitacora/bitacoraView.js?v=20261117_cf30';
 
 import {
   findNodeById,
@@ -193,7 +196,7 @@ import {
   autoColorRows,
   toggleSelectNode,
   toggleSelectAll
-} from './modules/catalog/treeService.js?v=20261117_cf27';
+} from './modules/catalog/treeService.js?v=20261117_cf30';
 
 import {
   openImportConceptsModal,
@@ -205,9 +208,9 @@ import {
   toggleMatrixPreviewAccordion,
   quickCopyPasteSingleConcept,
   importSelectedConceptsToCurrentProject
-} from './modules/catalog/importFromProjectModal.js?v=20261117_cf27';
+} from './modules/catalog/importFromProjectModal.js?v=20261117_cf30';
 
-import { renderTAB1, selectRow, highlightCatalogRowInPlace, closeApuPanel, toggleDropdownMenu, closeAllDropdownMenus } from './modules/catalog/catalogView.js?v=20261117_cf27';
+import { renderTAB1, selectRow, highlightCatalogRowInPlace, closeApuPanel, toggleDropdownMenu, closeAllDropdownMenus } from './modules/catalog/catalogView.js?v=20261117_cf30';
 
 import {
   openPresupuestoSignaturesModal,
@@ -218,7 +221,7 @@ import {
   resetDefaultPresupuestoSignatures,
   savePresupuestoSignatures,
   getBudgetSignatures
-} from './modules/catalog/signaturesModal.js?v=20261117_cf27';
+} from './modules/catalog/signaturesModal.js?v=20261117_cf30';
 
 import {
   addInsumo,
@@ -228,14 +231,14 @@ import {
   filterInsumos,
   limpiarMatrizConceptoSeleccionado,
   limpiarMatricesCasillas
-} from './modules/apu/apuService.js?v=20261117_cf27';
+} from './modules/apu/apuService.js?v=20261117_cf30';
 
 import {
   renderAPUInsumos,
   renderInsumosUnitarios,
   dismissGroundingBox,
   toggleApuSection
-} from './modules/apu/apuView.js?v=20261117_cf27';
+} from './modules/apu/apuView.js?v=20261117_cf30';
 
 import {
   openMatrizModal,
@@ -245,7 +248,7 @@ import {
   updateModalInsumo,
   addModalInsumo,
   removeModalInsumo
-} from './modules/apu/matrizModal.js?v=20261117_cf27';
+} from './modules/apu/matrizModal.js?v=20261117_cf30';
 
 import {
   renderInsumosGenerales,
@@ -268,7 +271,7 @@ import {
   actualizarTodosLosInsumosSeleccionadosConIA,
   actualizarInsumosConBusquedaWeb,
   selectInsumoBaseRow
-} from './modules/insumosGenerales/insumosView.js?v=20261117_cf27';
+} from './modules/insumosGenerales/insumosView.js?v=20261117_cf30';
 
 import {
   testGeminiConnection,
@@ -277,7 +280,7 @@ import {
   generarMatrizConceptoActivoGoogleIA,
   generarMatrizConBusquedaWebActiva,
   generarMatrizCasillasConBusquedaWeb
-} from './modules/ai/geminiClient.js?v=20261117_cf27';
+} from './modules/ai/geminiClient.js?v=20261117_cf30';
 import {
   executeLocalGeneration,
   openLocalCatalogSelectorModal,
@@ -287,7 +290,7 @@ import {
   confirmAndExecuteLocalGeneration,
   generarMatrizCasillasLocal,
   getSelectedLeafConcepts
-} from './modules/ai/localEstimator.js?v=20261117_cf27';
+} from './modules/ai/localEstimator.js?v=20261117_cf30';
 import {
   exportData,
   importData,
@@ -299,9 +302,9 @@ import {
   exportCatalogOpus,
   exportCatalogNeodata,
   exportCatalogCsv
-} from './modules/io/csvHandler.js?v=20261117_cf27';
-import { initPanelResizer } from './ui/resizer.js?v=20261117_cf27';
-import { toggleAiSplitMenu, closeAiSplitMenu } from './ui/aiSplitMenu.js?v=20261117_cf27';
+} from './modules/io/csvHandler.js?v=20261117_cf30';
+import { initPanelResizer } from './ui/resizer.js?v=20261117_cf30';
+import { toggleAiSplitMenu, closeAiSplitMenu } from './ui/aiSplitMenu.js?v=20261117_cf30';
 
 import {
   openImportModal,
@@ -314,7 +317,7 @@ import {
   onZoneSelectChange,
   calculateParsedBudgetTotal,
   loadCasaLauraOpusDirectly
-} from './modules/io/universalImporter.js?v=20261117_cf27';
+} from './modules/io/universalImporter.js?v=20261117_cf30';
 
 import {
   printTab1Catalog,
@@ -322,7 +325,7 @@ import {
   printInsumosGenerales,
   printCalendarioObraFormat,
   printEstimacionesFormat
-} from './modules/io/printService.js?v=20261117_cf27';
+} from './modules/io/printService.js?v=20261117_cf30';
 
 import {
   openMasterCatalogModal,
@@ -333,7 +336,7 @@ import {
   switchMasterCatalogTab,
   handleDeleteCatalog,
   refreshMasterCatalogList
-} from './modules/reference/masterCatalogModal.js?v=20261117_cf27';
+} from './modules/reference/masterCatalogModal.js?v=20261117_cf30';
 
 import {
   openApuReferenceModal,
@@ -342,14 +345,14 @@ import {
   onApuAssistantSearchInput,
   triggerApuAssistantSearch,
   addInsumoToApuMatrix
-} from './modules/reference/apuAssistantModal.js?v=20261117_cf27';
+} from './modules/reference/apuAssistantModal.js?v=20261117_cf30';
 
-import { installPresetCatalog, installAllPresets, ensureDefaultMasterCatalogs } from './modules/reference/presetCatalogs.js?v=20261117_cf27';
+import { installPresetCatalog, installAllPresets, ensureDefaultMasterCatalogs } from './modules/reference/presetCatalogs.js?v=20261117_cf30';
 
-import { openReferenceDb } from './modules/reference/referenceDb.js?v=20261117_cf27';
+import { openReferenceDb } from './modules/reference/referenceDb.js?v=20261117_cf30';
 
 // Motor de Autocorrección y Revisor Ortográfico estilo Microsoft Word (F7)
-import { wordAutocorrectService } from './core/wordAutocorrectService.js?v=20261117_cf27';
+import { wordAutocorrectService } from './core/wordAutocorrectService.js?v=20261117_cf30';
 import {
   openSpellCheckModal,
   closeSpellCheckModal,
@@ -359,7 +362,7 @@ import {
   ignoreAllSpellCheckWord,
   addCurrentToDictionary,
   rescanSpellCheck
-} from './ui/spellCheckModal.js?v=20261117_cf27';
+} from './ui/spellCheckModal.js?v=20261117_cf30';
 
 import {
   openAiGeneratorModal,
@@ -384,8 +387,10 @@ import {
   clearAllData,
   switchTab,
   switchPresupuestoSubTab,
+  ensureValidInitialTabForUser,
+  getFirstAllowedTabForCurrentUser,
   initFloatingWindowOutsideClose
-} from './ui/modalController.js?v=20261117_cf27';
+} from './ui/modalController.js?v=20261117_cf30';
 
 import {
   initBranding,
@@ -406,7 +411,7 @@ import {
   resetLogoPosition,
   setLogoBgMode,
   applyAdjustedLogo
-} from './ui/brandingController.js?v=20261117_cf27';
+} from './ui/brandingController.js?v=20261117_cf30';
 
 import {
   STORAGE_KEY_THEME,
@@ -415,7 +420,7 @@ import {
   applyThemeMode,
   isNightMode,
   setThemeRenderCallback
-} from './ui/themeController.js?v=20261117_cf27';
+} from './ui/themeController.js?v=20261117_cf30';
 
 import {
   isTabLocked,
@@ -424,7 +429,7 @@ import {
   guardTabUnlocked,
   applyTabLocksToDOM,
   setTabLockRenderCallback
-} from './ui/tabLockController.js?v=20261117_cf27';
+} from './ui/tabLockController.js?v=20261117_cf30';
 
 import {
   startInteractiveTour,
@@ -433,18 +438,18 @@ import {
   isTourDismissed,
   resetTourDismissedStatus,
   checkAndResumeTourOnLoad
-} from './ui/interactiveTour.js?v=20261117_cf27';
+} from './ui/interactiveTour.js?v=20261117_cf30';
 
 import {
   openVideoSimulatorModal,
   closeVideoSimulatorModal,
   toggleVoiceNarration
-} from './ui/videoSimulatorModal.js?v=20261117_cf27';
+} from './ui/videoSimulatorModal.js?v=20261117_cf30';
 
 import {
   openTutorialHubModal,
   closeTutorialHubModal
-} from './ui/tutorialHubModal.js?v=20261117_cf27';
+} from './ui/tutorialHubModal.js?v=20261117_cf30';
 
 import {
   toggleProjectChatDock,
@@ -472,7 +477,7 @@ import {
   renderSidebarNotificationsUI,
   handleAcceptInvitationAction,
   handleRejectInvitationAction
-} from './modules/chat/projectChat.js?v=20261117_cf27';
+} from './modules/chat/projectChat.js?v=20261117_cf30';
 
 import {
   initPortal,
@@ -597,7 +602,7 @@ import {
   resetFilters,
   exportProjectToExcelAction,
   logoutAllDevices
-} from './modules/portal/portalController.js?v=20261117_cf27';
+} from './modules/portal/portalController.js?v=20261117_cf30';
 import {
   openTrashModal,
   closeTrashModal,
@@ -607,7 +612,7 @@ import {
   backupTrashedProjectAction,
   backupAllTrashedProjectsAction,
   emptyTrashAction
-} from './modules/portal/trashService.js?v=20261117_cf27';
+} from './modules/portal/trashService.js?v=20261117_cf30';
 
 import {
   openCubikarAdminModal,
@@ -631,7 +636,7 @@ import {
   closeCloudConfigModal,
   saveCloudConfigFromModal,
   copySupabaseSqlScript
-} from './modules/admin/cubikarAdmin.js?v=20261117_cf27';
+} from './modules/admin/cubikarAdmin.js?v=20261117_cf30';
 import {
   openSubscriptionModal,
   closeSubscriptionModal,
@@ -641,7 +646,7 @@ import {
   updateSubscriptionBadgesUI,
   getCurrentSubscription,
   syncSubscriptionFromCloud
-} from './modules/portal/subscriptionModal.js?v=20261117_cf27';
+} from './modules/portal/subscriptionModal.js?v=20261117_cf30';
 
 import {
   renderEstimacionesView,
@@ -679,7 +684,7 @@ import {
   onAnticipoZeroFieldChange,
   openFacturaModal,
   closeFacturaModal
-} from './modules/estimaciones/estimacionesView.js?v=20261117_cf27';
+} from './modules/estimaciones/estimacionesView.js?v=20261117_cf30';
 
 // Exponer funciones públicas al objeto global window para compatibilidad total con eventos inline del HTML
 Object.assign(window, {
@@ -690,6 +695,9 @@ Object.assign(window, {
   // Tabs & Views
   switchTab,
   switchPresupuestoSubTab,
+  ensureValidInitialTabForUser,
+  getFirstAllowedTabForCurrentUser,
+  renderAlmacenView,
   toggleThemeMode,
   applyThemeMode,
   isNightMode,
@@ -1391,6 +1399,10 @@ setTabLockRenderCallback((tabKey) => {
     renderEstimacionesView();
   } else if (tabKey === 'bitacora') {
     renderBitacoraView();
+  } else if (tabKey === 'almacen') {
+    renderAlmacenView();
+  } else if (tabKey === 'compras') {
+    renderExpensesView();
   }
 });
 
@@ -1435,6 +1447,10 @@ setThemeRenderCallback(() => {
   const viewCompras = document.getElementById('view-compras');
   if (viewCompras && !viewCompras.classList.contains('hidden')) {
     renderExpensesView();
+  }
+  const viewAlmacen = document.getElementById('view-almacen');
+  if (viewAlmacen && !viewAlmacen.classList.contains('hidden')) {
+    renderAlmacenView();
   }
   const subModal = document.getElementById('modal-suscripcion-usuario');
   if (subModal && !subModal.classList.contains('hidden')) {
@@ -1552,9 +1568,7 @@ function bootWorkspaceModules() {
   updateClipboardUI();
   try {
     const initialTab = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab');
-    if (initialTab && typeof switchTab === 'function') {
-      switchTab(initialTab);
-    }
+    ensureValidInitialTabForUser(initialTab);
   } catch (_) {}
   try {
     renderSidebarNotificationsUI();
@@ -1571,12 +1585,7 @@ function bootWorkspaceModules() {
     } catch (e) {
       console.warn('[Realtime] Aviso al conectar canal de obra:', e);
     }
-    hydrateProjectModulesFromCloud(activePId).then((res) => {
-      if (res?.hydrated && Object.keys(res.hydrated).length > 0) {
-        try { renderProjectChatDock(); } catch (_) {}
-        try { renderSidebarNotificationsUI(); } catch (_) {}
-      }
-    }).catch(() => {});
+    hydrateProjectModulesFromCloud(activePId).catch(() => {});
     syncPendingMediaUploads(activePId).catch(() => {});
   }
 
@@ -1678,12 +1687,9 @@ if (typeof document !== 'undefined') {
 
   try {
     const urlTab = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab');
-    if (urlTab && typeof switchTab === 'function') {
-      switchTab(urlTab);
-      setTimeout(() => switchTab(urlTab), 100);
-      setTimeout(() => switchTab(urlTab), 350);
-      setTimeout(() => switchTab(urlTab), 800);
-    }
+    ensureValidInitialTabForUser(urlTab);
+    setTimeout(() => ensureValidInitialTabForUser(null), 150);
+    setTimeout(() => ensureValidInitialTabForUser(null), 500);
   } catch (_) {}
 }
 
@@ -1855,7 +1861,10 @@ window.openVideoSimulatorModal = openVideoSimulatorModal;
 window.toggleVoiceNarration = toggleVoiceNarration;
 
 setProjectChatRefreshCallback(() => {
-  renderTAB1();
+  const viewCat = document.getElementById('view-cat');
+  if (viewCat && !viewCat.classList.contains('hidden')) {
+    renderTAB1();
+  }
   const viewCalendario = document.getElementById('view-calendario');
   if (viewCalendario && !viewCalendario.classList.contains('hidden')) {
     renderCalendarioObra();
@@ -1872,13 +1881,41 @@ setProjectChatRefreshCallback(() => {
   if (viewCompras && !viewCompras.classList.contains('hidden')) {
     renderExpensesView();
   }
+  const viewAlmacen = document.getElementById('view-almacen');
+  if (viewAlmacen && !viewAlmacen.classList.contains('hidden')) {
+    renderAlmacenView();
+  }
 });
 
-// Auto-activación inmediata de pestaña por parámetro de URL (ej. ?tab=bitacora)
+window.onRemoteComprasOrAlmacenChange = async (projectId) => {
+  try {
+    const activePid = String(getActiveProjectId() || '').trim();
+    const targetPid = String(projectId || activePid).trim();
+    if (!targetPid || (activePid && targetPid !== activePid)) return;
+    await hydrateProjectModulesFromCloud(targetPid, { force: true });
+  } catch (err) {
+    console.warn('[Realtime] Error al refrescar Compras/Almacén remoto:', err);
+  }
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('cubikar:cloud-modules-hydrated', (ev) => {
+    const hydrated = ev?.detail?.hydrated || {};
+    if (!('expenses' in hydrated) && !('almacen' in hydrated)) return;
+    const vc = document.getElementById('view-compras');
+    if (vc && !vc.classList.contains('hidden')) renderExpensesView();
+    const va = document.getElementById('view-almacen');
+    if (va && !va.classList.contains('hidden')) renderAlmacenView();
+  });
+}
+
+// Auto-activación inmediata de pestaña respetando permisos por usuario y parámetro URL (ej. ?tab=bitacora)
 try {
   const pUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const reqTab = pUrl ? pUrl.get('tab') : null;
-  if (reqTab && typeof switchTab === 'function') {
+  if (typeof ensureValidInitialTabForUser === 'function') {
+    ensureValidInitialTabForUser(reqTab);
+  } else if (reqTab && typeof switchTab === 'function') {
     switchTab(reqTab);
   }
 } catch (_) {}

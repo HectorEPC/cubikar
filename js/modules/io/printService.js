@@ -1,13 +1,13 @@
 // js/modules/io/printService.js
 // Servicio de Impresión de Formatos Profesionales para TAB1-CAT-BASE y MATRIZ / INSUMOS UNITARIOS
 
-import { state } from '../../state/store.js?v=20261117_cf27';
-import { formatMoney, formatCurrency, formatQty, formatMatrixQty, getCurrencySymbol, getCurrencyCode, round2, round5 } from '../../core/formatters.js?v=20261117_cf27';
-import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal } from '../../core/calculations.js?v=20261117_cf27';
-import { findNodeById } from '../catalog/treeService.js?v=20261117_cf27';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf27';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf27';
-import { getConsolidatedDataMap } from '../insumosGenerales/insumosConsolidator.js?v=20261117_cf27';
+import { state } from '../../state/store.js?v=20261117_cf30';
+import { formatMoney, formatCurrency, formatQty, formatMatrixQty, getCurrencySymbol, getCurrencyCode, round2, round5 } from '../../core/formatters.js?v=20261117_cf30';
+import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal } from '../../core/calculations.js?v=20261117_cf30';
+import { findNodeById } from '../catalog/treeService.js?v=20261117_cf30';
+import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf30';
+import { getConsolidatedDataMap } from '../insumosGenerales/insumosConsolidator.js?v=20261117_cf30';
 import {
   extractScheduleItems,
   getScheduleSettings,
@@ -22,11 +22,11 @@ import {
   getWorkdaysSettings,
   getDateWorkdayInfo,
   getProjectCreationDate
-} from '../calendario/calendarioModel.js?v=20261117_cf27';
-import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261117_cf27';
-import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js?v=20261117_cf27';
-import { resolveActivePrintBranding } from './printBrandingService.js?v=20261117_cf27';
-import { getBudgetSignatures } from '../catalog/signaturesModal.js?v=20261117_cf27';
+} from '../calendario/calendarioModel.js?v=20261117_cf30';
+import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261117_cf30';
+import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js?v=20261117_cf30';
+import { resolveActivePrintBranding } from './printBrandingService.js?v=20261117_cf30';
+import { getBudgetSignatures } from '../catalog/signaturesModal.js?v=20261117_cf30';
 
 // Escapar caracteres especiales en texto HTML
 function escapeHtml(str) {
@@ -127,16 +127,39 @@ const PRINT_BASE_STYLES = `
   @media print {
     body {
       background-color: #ffffff !important;
+      margin: 0 !important;
+      padding: 0 !important;
     }
     .no-print {
       display: none !important;
     }
     .page-container {
       max-width: 100% !important;
+      width: 100% !important;
       margin: 0 !important;
       padding: 0 !important;
       box-shadow: none !important;
       border-radius: 0 !important;
+    }
+    table {
+      max-width: 100% !important;
+      border-collapse: collapse;
+    }
+    table thead {
+      display: table-header-group;
+    }
+    table tfoot {
+      display: table-row-group;
+    }
+    table tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .summary-card,
+    .concept-card,
+    .signatures-grid {
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .page-break {
       page-break-before: always;
@@ -154,9 +177,17 @@ const PRINT_BASE_STYLES = `
   table.report-table thead {
     display: table-header-group;
   }
+  table.report-table tfoot {
+    display: table-row-group;
+  }
   table.report-table tr {
     page-break-inside: avoid;
     break-inside: avoid;
+  }
+  table.report-table th,
+  table.report-table td {
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
   table.report-table th {
     background-color: #f1f5f9 !important;
@@ -197,14 +228,15 @@ const PRINT_BASE_STYLES = `
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 14px;
   }
   .doc-title {
-    font-size: 12pt;
+    font-size: 11.5pt;
     font-weight: 900;
     color: #0f172a;
     margin: 0;
     letter-spacing: -0.01em;
-    white-space: nowrap;
+    overflow-wrap: break-word;
   }
   .doc-subtitle {
     font-size: 10pt;
@@ -217,6 +249,7 @@ const PRINT_BASE_STYLES = `
     font-size: 8pt;
     color: #64748b;
     line-height: 1.4;
+    flex-shrink: 0;
   }
   .meta-tag {
     display: inline-block;
@@ -261,7 +294,9 @@ const PRINT_BASE_STYLES = `
   .summary-card {
     margin-top: 10px;
     margin-left: auto;
-    width: 320px;
+    width: 295px;
+    max-width: 100%;
+    flex-shrink: 0;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
     overflow: hidden;
@@ -313,6 +348,7 @@ export function buildPrintableHtmlDocument(docTitle, bodyContent, orientation = 
   const extraHeadHtml = options.extraHeadHtml || '';
   const extraStyles = options.extraStyles || '';
   const isDark = options.theme === 'dark';
+  const needsTailwind = isDark || Boolean(options.includeTailwind);
   const shouldAutoPrint = options.autoPrint !== false;
   const branding = options.branding || resolveActivePrintBranding(state?.settings, options.projectId || null);
 
@@ -346,15 +382,15 @@ export function buildPrintableHtmlDocument(docTitle, bodyContent, orientation = 
   <meta charset="UTF-8">
   <title>${escapeHtml(docTitle)}</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  ${isDark ? '<script src="https://cdn.tailwindcss.com"></script>' : ''}
+  ${needsTailwind ? '<script src="https://cdn.tailwindcss.com"></script>' : ''}
   ${extraHeadHtml}
   <style>
     ${PRINT_BASE_STYLES}
     ${branding.watermarkCss || ''}
     ${darkThemeCss}
-    ${orientation === 'landscape' 
-      ? '@page { size: letter landscape !important; margin: 4mm 5mm 4mm 5mm !important; } .page-container { max-width: 100% !important; padding: 10px 14px !important; margin: 0 auto !important; } @media print { .page-container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; } }'
-      : '@page { size: letter portrait !important; margin: 12mm 12mm 15mm 12mm !important; } .page-container { max-width: 960px !important; padding: 30px 35px !important; }'}
+    ${orientation === 'landscape'
+      ? '@page { size: letter landscape !important; margin: 5mm 6mm 6mm 6mm !important; } .page-container { max-width: 100% !important; padding: 10px 14px !important; margin: 0 auto !important; } @media print { .page-container { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; border-radius: 0 !important; } }'
+      : '@page { size: letter portrait !important; margin: 11mm 11mm 14mm 11mm !important; } .page-container { max-width: 960px !important; padding: 28px 32px !important; } @media print { .page-container { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; border-radius: 0 !important; } }'}
     ${extraStyles}
   </style>
 </head>
@@ -398,10 +434,11 @@ export function buildPrintableHtmlDocument(docTitle, bodyContent, orientation = 
         console.warn('Error al ejecutar window.print():', err);
       }
     }
+    const __waitBeforePrintMs = ${needsTailwind ? '650' : '400'};
     if (document.readyState === 'complete') {
-      setTimeout(autoTriggerNativePrint, 400);
+      setTimeout(autoTriggerNativePrint, __waitBeforePrintMs);
     } else {
-      window.addEventListener('load', () => setTimeout(autoTriggerNativePrint, 400), { once: true });
+      window.addEventListener('load', () => setTimeout(autoTriggerNativePrint, __waitBeforePrintMs), { once: true });
     }
     ` : `
     window.addEventListener('DOMContentLoaded', () => {
@@ -600,7 +637,7 @@ export function printTab1Catalog() {
             ${escapeHtml(companyName)}
           </div>
           <!-- Fila 2: CATÁLOGO Y PRESUPUESTO DE OBRA BASE -->
-          <h1 class="doc-title" style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em; white-space: nowrap;">
+          <h1 class="doc-title" style="font-size: 11.5pt; font-weight: 900; color: #0f172a; margin: 0; line-height: 1.2; letter-spacing: -0.01em;">
             CATÁLOGO Y PRESUPUESTO DE OBRA BASE
           </h1>
           <!-- Fila 3: Nombre de Proyecto -->
@@ -642,8 +679,8 @@ export function printTab1Catalog() {
     </table>
 
     <!-- Resumen Económico Final -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14px;">
-      <div style="font-size: 8pt; color: #64748b; max-width: 480px; line-height: 1.5;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-top: 14px;">
+      <div style="font-size: 8pt; color: #64748b; flex: 1; min-width: 0; line-height: 1.5;">
         <p style="margin: 0 0 4px 0;"><strong>Notas generales:</strong></p>
         <p style="margin: 0;">• Los importes expresados incluyen todos los materiales, mano de obra, equipo, herramienta y cargos directos e indirectos correspondientes para la correcta ejecución de los trabajos según catálogo de conceptos.</p>
         <p style="margin: 3px 0 0 0;">• Total de partidas y conceptos procesados: <strong>${flatItems.length}</strong> registros.</p>
@@ -929,8 +966,8 @@ export function printApuMatrix() {
     </table>
 
     <!-- Resumen Analítico del Precio Unitario -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 8px;">
-      <div style="font-size: 8pt; color: #64748b; max-width: 460px; line-height: 1.45;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-top: 8px;">
+      <div style="font-size: 8pt; color: #64748b; flex: 1; min-width: 0; line-height: 1.45;">
         <p style="margin: 0;">• Rendimientos y consumos analizados estrictamente para producir <strong>1 ${escapeHtml(conceptoUnidad)}</strong> del concepto justificado arriba.</p>
         <p style="margin: 3px 0 0 0;">• Total de insumos intervinientes en la matriz: <strong>${insumos.length}</strong> insumos.</p>
       </div>
@@ -1165,8 +1202,8 @@ export function printInsumosGenerales() {
     </table>
 
     <!-- Resumen Económico Final -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14px;">
-      <div style="font-size: 8pt; color: #64748b; max-width: 480px; line-height: 1.5;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-top: 14px;">
+      <div style="font-size: 8pt; color: #64748b; flex: 1; min-width: 0; line-height: 1.5;">
         <p style="margin: 0 0 4px 0;"><strong>Notas del consolidado de insumos:</strong></p>
         <p style="margin: 0;">• Las cantidades totales representan la multiplicación de los rendimientos unitarios analizados en las matrices de precios por los volúmenes totales presupuestados de cada concepto.</p>
         <p style="margin: 3px 0 0 0;">• Este reporte consolida compras globales de materiales, asignación de cuadrillas y requerimientos de maquinaria para la obra.</p>
@@ -1890,7 +1927,7 @@ function buildFinancialPrintHtml({
     const FIXED_RIGHT_COLS_WIDTH = 48 + 28; // 76px (solo en última hoja)
     const periodColEstWidth = isVeryCompact ? 38 : (isCompact ? 42 : 48);
     const estimatedTableWidth = FIXED_LEFT_COLS_WIDTH + (isLastSheet ? FIXED_RIGHT_COLS_WIDTH : 0) + (numSheetPeriods * periodColEstWidth);
-    const availableWidth = 1015;
+    const availableWidth = 990;
     const zoomFactor = estimatedTableWidth > availableWidth
       ? Math.min(1.0, Math.max(0.70, Math.floor((availableWidth / estimatedTableWidth) * 100) / 100))
       : 1.0;
@@ -2752,7 +2789,7 @@ export function renderPrintEstimacionZeroHTML(data, companyLogo, companyName, pr
   const totalConIva = Math.round((subtotalAnticipo + ivaAnticipo + Number.EPSILON) * 100) / 100;
 
   return `
-    <div id="seccion-anticipo-cero" style="page-break-after: always; padding-bottom: 20px;">
+    <div id="seccion-anticipo-cero" style="padding-bottom: 10px;">
       <!-- Encabezado Institucional -->
       <div class="doc-header">
         <div style="display: flex; align-items: center; gap: 14px;">
@@ -2852,6 +2889,8 @@ export function renderPrintEstimacionZeroHTML(data, companyLogo, companyName, pr
           <span>Saldo Pendiente de Amortizar: <strong style="color: ${anticipoKpi.saldoPendiente <= 0 ? '#86efac' : '#f87171'}; font-family: monospace;">${formatMoney(anticipoKpi.saldoPendiente)}</strong></span>
         </div>
       </div>
+
+      ${renderInstitutionalSignaturesHtml(14)}
     </div>
   `;
 }
@@ -3060,11 +3099,11 @@ export async function printEstimacionesFormat() {
               <span>FOTOGRAFÍA ${numSlot} — CLAVE ${escapeHtml(row.clave)}</span>
               <span style="color: #94a3b8; font-weight: 600; font-size: 6.8pt;">${escapeHtml(activeEst.nombre)}</span>
             </div>
-            <div style="height: 295px; background-color: #f8fafc; display: flex; align-items: center; justify-content: center; padding: 6px; overflow: hidden;">
+            <div style="height: 230px; background-color: #f8fafc; display: flex; align-items: center; justify-content: center; padding: 6px; overflow: hidden;">
               <img src="${escapeHtml(fotoObj.displayUrl)}"
                    referrerpolicy="no-referrer"
                    alt="Evidencia Fotográfica ${numSlot} - ${escapeHtml(row.clave)}"
-                   style="max-width: 100%; max-height: 280px; width: auto; height: auto; object-fit: contain; border-radius: 4px;">
+                   style="max-width: 100%; max-height: 218px; width: auto; height: auto; object-fit: contain; border-radius: 4px;">
             </div>
             <div style="padding: 6px 10px; border-top: 1px solid #e2e8f0; background-color: #f8fafc; font-size: 7.5pt; color: #1e293b; min-height: 28px;">
               <strong>Descripción / Pie de foto ${numSlot}:</strong> ${escapeHtml(fotoObj.nota || `Evidencia de ejecución del concepto ${row.clave} en ${activeEst.nombre}`)}
@@ -3078,7 +3117,7 @@ export async function printEstimacionesFormat() {
             <span>FOTOGRAFÍA ${numSlot} — CLAVE ${escapeHtml(row.clave)}</span>
             <span style="font-size: 6.8pt; color: #cbd5e1;">Espacio de evidencia</span>
           </div>
-          <div style="height: 295px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 8pt; padding: 12px; text-align: center;">
+          <div style="height: 230px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 8pt; padding: 12px; text-align: center;">
             <span>Sin enlace fotográfico asignado en Fotografía ${numSlot}</span>
           </div>
           <div style="padding: 6px 10px; border-top: 1px solid #e2e8f0; background-color: #ffffff; font-size: 7.5pt; color: #64748b; min-height: 28px;">
@@ -3172,7 +3211,7 @@ export async function printEstimacionesFormat() {
               ];
           const sigCols = Math.min(Math.max(customSigs.length, 1), 5);
           return `
-            <div class="signatures-grid" style="grid-template-columns: repeat(${sigCols}, 1fr); margin-top: 14px;">
+            <div class="signatures-grid" style="grid-template-columns: repeat(${sigCols}, 1fr); margin-top: 10px;">
               ${customSigs.map(sig => `
                 <div class="signature-box">
                   <strong>${escapeHtml(sig.rol || 'FIRMA')}</strong>
@@ -3279,6 +3318,17 @@ export async function printEstimacionesFormat() {
         }
         .preview-divider-banner {
           display: none !important;
+        }
+        .hoja-concepto-fotografico {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        #seccion-catalogo-completo-estimacion .estimacion-print-table {
+          zoom: 0.90;
+        }
+        .estimacion-print-table th,
+        .estimacion-print-table td {
+          padding: 3px 3px !important;
         }
       }
       .estimacion-print-table th, .estimacion-print-table td {
@@ -3438,8 +3488,8 @@ export async function printEstimacionesFormat() {
       </table>
 
       <!-- Resumen Económico y Notas del Resumen de la Estimación -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 12px;">
-        <div style="font-size: 7.5pt; color: #64748b; max-width: 580px; line-height: 1.45;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-top: 12px;">
+        <div style="font-size: 7.5pt; color: #64748b; flex: 1; min-width: 0; line-height: 1.45;">
           <p style="margin: 0 0 3px 0;"><strong>Notas del Resumen de la Estimación:</strong></p>
           <p style="margin: 0;">• El presente resumen incluye únicamente los <strong>${executedLeafCount} concepto(s)</strong> que registran volumen ejecutado en la columna <strong>"Esta Estimación (Actual) — Cantidad Eje"</strong> durante el período del <strong>${escapeHtml(activeEst.fechaInicio)}</strong> al <strong>${escapeHtml(activeEst.fechaFin)}</strong>.</p>
           <p style="margin: 2px 0 0 0;">• Los conceptos sin movimiento en este período se omiten en este resumen ejecutivo para facilitar la revisión y autorización de pago.</p>

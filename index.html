@@ -22,7 +22,7 @@
       }
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=20261117_cf30">
 </head>
 <body class="bg-slate-100 font-sans h-screen flex flex-col text-slate-800">
 
@@ -380,20 +380,23 @@
           </div>
 
           <!-- Navigation Tabs: PRESUPUESTO (Catálogo e Insumos) -->
-          <nav class="flex bg-slate-800/90 p-1 rounded-xl border border-slate-700/80 shadow-inner shrink-0 gap-1">
-            <button id="tab-btn-presupuesto" onclick="switchTab('presupuesto')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white transition flex items-center gap-1.5 cursor-pointer shadow-xs">
+          <nav class="flex bg-slate-800/90 p-1 rounded-xl border border-slate-700/80 shadow-inner shrink-0 gap-0.5 sm:gap-1 overflow-x-auto">
+            <button id="tab-btn-presupuesto" onclick="switchTab('presupuesto')" class="px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-blue-600 text-white transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0">
               <i class="fa-solid fa-coins"></i> PRESUPUESTO
             </button>
-            <button id="tab-btn-calendario" onclick="switchTab('calendario')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer">
+            <button id="tab-btn-calendario" onclick="switchTab('calendario')" class="px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer shrink-0">
               <i class="fa-solid fa-calendar-days"></i> CALENDARIO DE OBRA
             </button>
-            <button id="tab-btn-estimaciones" onclick="switchTab('estimaciones')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer" title="Estimaciones de avance de obra basadas en Catálogo Base">
-              <i class="fa-solid fa-file-invoice-dollar"></i> ESTIMACIONES
-            </button>
-            <button id="tab-btn-compras" onclick="switchTab('compras')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer" title="Control de Gastos, Compras y Dashboard Financiero ERP">
+            <button id="tab-btn-compras" onclick="switchTab('compras')" class="px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer shrink-0" title="Control de Gastos, Compras y Dashboard Financiero ERP">
               <i class="fa-solid fa-cart-shopping"></i> COMPRAS Y PAGOS
             </button>
-            <button id="tab-btn-bitacora" onclick="switchTab('bitacora')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer" title="Bitácora de Obra Digital y Legal (LOPSRM / BESOP)">
+            <button id="tab-btn-almacen" onclick="switchTab('almacen')" class="px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer shrink-0" title="Almacén Físico, Recepciones y Vales de Salida (Aislado de precios para Bodeguero)">
+              <i class="fa-solid fa-warehouse"></i> ALMACÉN
+            </button>
+            <button id="tab-btn-estimaciones" onclick="switchTab('estimaciones')" class="px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer shrink-0" title="Estimaciones de avance de obra basadas en Catálogo Base">
+              <i class="fa-solid fa-file-invoice-dollar"></i> ESTIMACIONES
+            </button>
+            <button id="tab-btn-bitacora" onclick="switchTab('bitacora')" class="px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer shrink-0" title="Bitácora de Obra Digital y Legal (LOPSRM / BESOP)">
               <i class="fa-solid fa-book-bookmark"></i> BITÁCORA DE OBRA
             </button>
           </nav>
@@ -649,13 +652,11 @@
     <div id="apu-panel" class="w-[480px] min-w-[320px] max-w-full bg-white rounded-lg shadow border border-slate-200 flex flex-col hidden shrink-0 overflow-hidden">
       
       <!-- APU Header -->
-      <div class="p-2.5 bg-slate-800 text-white rounded-t-lg flex justify-between items-center shrink-0">
-        <div class="overflow-hidden pr-2">
-          <div class="flex items-center gap-1.5">
-            <span class="bg-amber-400 text-slate-900 font-bold text-[9px] px-1 py-0.5 rounded font-mono" id="apu-clave">---</span>
-            <h2 class="font-bold text-xs text-slate-100 truncate" id="apu-title">Matriz de Precio Unitario</h2>
-          </div>
-          <p class="text-[10px] text-slate-300 mt-0.5 truncate italic" id="apu-desc">Sin concepto seleccionado</p>
+      <div class="p-2.5 bg-slate-800 text-white rounded-t-lg flex justify-between items-center gap-2 shrink-0">
+        <div class="flex flex-col items-start min-w-0 flex-1 overflow-hidden pr-2">
+          <span class="inline-block w-fit whitespace-nowrap bg-amber-400 text-slate-950 font-extrabold text-[10px] leading-none px-2 py-0.5 rounded-md font-mono shrink-0" id="apu-clave">---</span>
+          <h2 class="w-full font-bold text-xs text-slate-100 truncate mt-1" id="apu-title">Matriz de Precio Unitario</h2>
+          <p class="w-full text-[10px] text-slate-300 mt-0.5 truncate italic" id="apu-desc">Sin concepto seleccionado</p>
         </div>
         
         <!-- Botones de Acción APU -->
@@ -1416,6 +1417,11 @@
   <div id="view-bitacora" class="flex-1 flex flex-col overflow-hidden p-3 hidden">
     <!-- El contenido se renderiza dinámicamente mediante renderBitacoraView() -->
   </div>
+
+  <!-- Pestaña 7: ALMACÉN FÍSICO DE OBRA (Opcional / Bodeguero) -->
+  <div id="view-almacen" class="flex-1 flex flex-col overflow-hidden p-3 hidden">
+    <!-- El contenido se renderiza dinámicamente mediante renderAlmacenView() -->
+  </div>
       </div> <!-- /#workspace-main-content -->
   </div> <!-- /#workspace-container -->
 
@@ -1610,7 +1616,7 @@
       <!-- Modal Header -->
       <div class="bg-slate-900 text-white px-5 py-3 flex justify-between items-center shrink-0">
         <div class="flex items-center gap-3 overflow-hidden pr-3">
-          <span class="bg-amber-400 text-slate-900 font-bold text-xs px-2 py-0.5 rounded font-mono shrink-0" id="modal-matriz-clave">---</span>
+          <span class="bg-amber-400 text-slate-950 font-bold text-xs px-2 py-0.5 rounded-md font-mono whitespace-nowrap shrink-0" id="modal-matriz-clave">---</span>
           <div class="overflow-hidden">
             <h3 class="font-bold text-sm text-slate-100 truncate flex items-center gap-2">
               <i class="fa-solid fa-calculator text-blue-400"></i> Matriz de Precio Unitario (APU) - Vista Ampliada
@@ -4266,15 +4272,19 @@
 
               <!-- Selección de Pestañas Autorizadas para este Colaborador -->
               <div>
-                <div class="flex items-center justify-between mb-1.5">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                   <label class="block font-semibold text-slate-700">Pestañas Autorizadas Iniciales *</label>
                   <div class="flex items-center gap-1.5 text-[10px]">
+                    <button type="button" onclick="applyBodegueroInvitePreset()" class="px-2 py-0.5 rounded bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 font-bold cursor-pointer" title="Asigna rol Escribir con acceso exclusivo a Almacén (sin precios ni finanzas)">
+                      <i class="fa-solid fa-warehouse text-[9px] mr-0.5"></i> Preset: Bodeguero
+                    </button>
+                    <span class="text-slate-300">|</span>
                     <button type="button" onclick="setInviteTabCheckboxes(true)" class="text-blue-600 hover:underline font-bold cursor-pointer">Todas</button>
                     <span class="text-slate-300">|</span>
                     <button type="button" onclick="setInviteTabCheckboxes(false)" class="text-slate-500 hover:text-rose-600 font-bold cursor-pointer">Ninguna</button>
                   </div>
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-2">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                   <label class="flex items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50/50 text-xs transition">
                     <input type="checkbox" name="invite-tab-access" value="cat" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
                     <span class="font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-list-check text-blue-600 text-[10px]"></i> Catálogo</span>
@@ -4287,13 +4297,17 @@
                     <input type="checkbox" name="invite-tab-access" value="calendario" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
                     <span class="font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-calendar-days text-amber-500 text-[10px]"></i> Calendario</span>
                   </label>
-                  <label class="flex items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-emerald-50/50 text-xs transition">
-                    <input type="checkbox" name="invite-tab-access" value="estimaciones" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
-                    <span class="font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-file-invoice-dollar text-emerald-600 text-[10px]"></i> Estimaciones</span>
-                  </label>
                   <label class="flex items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-indigo-50/50 text-xs transition">
                     <input type="checkbox" name="invite-tab-access" value="compras" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
                     <span class="font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-cart-shopping text-indigo-600 text-[10px]"></i> Compras</span>
+                  </label>
+                  <label class="flex items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-sky-50/50 text-xs transition">
+                    <input type="checkbox" name="invite-tab-access" value="almacen" class="rounded text-sky-600 focus:ring-sky-500 cursor-pointer">
+                    <span class="font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-warehouse text-sky-600 text-[10px]"></i> Almacén</span>
+                  </label>
+                  <label class="flex items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-emerald-50/50 text-xs transition">
+                    <input type="checkbox" name="invite-tab-access" value="estimaciones" class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+                    <span class="font-bold text-slate-700 flex items-center gap-1"><i class="fa-solid fa-file-invoice-dollar text-emerald-600 text-[10px]"></i> Estimaciones</span>
                   </label>
                   <label class="flex items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-teal-50/50 text-xs transition">
                     <input type="checkbox" name="invite-tab-access" value="bitacora" class="rounded text-teal-600 focus:ring-teal-500 cursor-pointer">
@@ -5333,7 +5347,7 @@
 
   <!-- MODAL: NUEVA COMPRA / GASTO / ORDEN DE COMPRA -->
   <div id="modal-nueva-compra" style="z-index: 100000;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 hidden items-center justify-center p-3 sm:p-4">
-    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-fade-in">
+    <div id="modal-nueva-compra-card" class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-fade-in">
       
       <!-- Encabezado Modal -->
       <div class="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
@@ -5343,7 +5357,7 @@
           </div>
           <div>
             <h3 id="modal-expense-title" class="font-extrabold text-sm leading-tight text-white">Nueva Compra / Registro de Gasto</h3>
-            <p class="text-[11px] text-blue-200/80">Control de egresos, orden de compra y cruce con explosión de insumos</p>
+            <p class="text-[11px] text-blue-200/80">Por Insumo Directo, Lectura XML CFDI o Explosión por Concepto(s) Semanales</p>
           </div>
         </div>
         <button type="button" onclick="closeNewExpenseModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center justify-center cursor-pointer">
@@ -5351,185 +5365,264 @@
         </button>
       </div>
 
+      <!-- Selector de Modo (Por Insumo Directo vs Explosión por Concepto) -->
+      <div id="expense-modal-mode-bar" class="px-5 py-2 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div class="inline-flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+          <button type="button" id="btn-expense-mode-direct" onclick="switchExpenseModalMode('direct')" class="px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-2xs transition cursor-pointer flex items-center gap-1.5">
+            <i class="fa-solid fa-box text-[11px]"></i>
+            <span>Por Insumo Directo</span>
+          </button>
+          <button type="button" id="btn-expense-mode-concept" onclick="switchExpenseModalMode('concept')" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer flex items-center gap-1.5">
+            <i class="fa-solid fa-cubes-stacked text-[11px] text-indigo-600"></i>
+            <span>Explosión por Concepto(s)</span>
+          </button>
+        </div>
+
+        <div id="expense-xml-autofill-wrap" class="flex items-center gap-1.5">
+          <input type="file" id="expense-form-xml-quick-file" accept=".xml,text/xml,application/xml" onchange="onCfdiXmlQuickUpload(this)" class="hidden">
+          <button type="button" onclick="document.getElementById('expense-form-xml-quick-file').click()" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs" title="Importar factura XML CFDI para llenar proveedor, RFC, montos y folio automáticamente">
+            <i class="fa-solid fa-file-code text-emerald-600"></i>
+            <span>Autocompletar con XML CFDI</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Cuerpo del Formulario -->
       <div class="p-5 overflow-y-auto custom-scroll space-y-4 text-xs">
         
-        <!-- Vinculación con Insumo del Presupuesto Base -->
-        <div class="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
-          <div class="flex items-center justify-between">
-            <label class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-              <i class="fa-solid fa-link text-blue-600"></i> Vincular a Insumo del Catálogo Base:
-            </label>
-            <span id="expense-form-insumos-count-badge" class="text-[10px] text-blue-700 font-semibold">Cruce automático vs Presupuesto</span>
-          </div>
+        <!-- MODO A: POR INSUMO DIRECTO -->
+        <div id="expense-mode-direct-panel" class="space-y-4">
+          <!-- Vinculación con Insumo del Presupuesto Base -->
+          <div class="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                <i class="fa-solid fa-link text-blue-600"></i> Vincular a Insumo del Catálogo Base:
+              </label>
+              <span id="expense-form-insumos-count-badge" class="text-[10px] text-blue-700 font-semibold">Cruce automático vs Presupuesto</span>
+            </div>
 
-          <!-- Buscador para filtrar el nombre del insumo -->
-          <div class="relative">
-            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <input type="text" id="expense-form-insumo-search" oninput="filterInsumosDropdown(this.value)" placeholder="Buscar insumo por nombre, clave o material (ej: cemento, varilla, arena)..." class="w-full pl-8 pr-7 py-1.5 bg-white border border-blue-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-2xs">
-            <button type="button" id="expense-form-insumo-search-clear" onclick="clearInsumoSearch()" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 hidden px-1 text-xs cursor-pointer" title="Limpiar búsqueda">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-
-          <!-- Menú Desplegable -->
-          <select id="expense-form-insumo-select" onchange="onExpenseInsumoSelectChange(this)" class="w-full bg-white border border-blue-200 rounded-lg p-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-600 shadow-2xs">
-            <option value="">-- Seleccionar Insumo del Presupuesto (Opcional) --</option>
-          </select>
-        </div>
-
-        <!-- Fila 1: Fecha, Tipo de Gasto, Partida/Categoría -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Fecha:</label>
-            <input type="date" id="expense-form-date" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Tipo de Gasto:</label>
-            <select id="expense-form-type" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:bg-white">
-              <option value="material">📦 Materiales de Construcción</option>
-              <option value="labor">👷 Mano de Obra / Raya y Destajo</option>
-              <option value="tool">🛠️ Herramienta Menor y Especializada</option>
-              <option value="equipment">🚛 Equipo de Apoyo y Transporte</option>
-              <option value="machinery">🚜 Maquinaria Pesada y Renta</option>
-              <option value="subcontract">🤝 Subcontrato de Obra</option>
-              <option value="indirect">📑 Gasto Indirecto y Varios</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Partida / Categoría:</label>
-            <input type="text" id="expense-form-category" placeholder="Ej: Cimentación, Estructura" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
-          </div>
-        </div>
-
-        <!-- Fila 2: Descripción detallada -->
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">Descripción del Insumo / Concepto de Gasto: <span class="text-rose-500">*</span></label>
-          <input type="text" id="expense-form-desc" placeholder="Ej: 100 bultos de Cemento Gris Portland Tolteca 50kg" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:bg-white">
-        </div>
-
-        <!-- Fila 3: Proveedor y Factura -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="sm:col-span-2">
-            <div class="flex items-center justify-between mb-1">
-              <label class="block font-bold text-slate-700">Proveedor / Destajista:</label>
-              <button type="button" onclick="openSupplierModal()" class="text-[10px] text-blue-600 hover:text-blue-700 font-bold flex items-center gap-1 cursor-pointer">
-                <i class="fa-solid fa-plus text-[9px]"></i> Nuevo Proveedor
+            <!-- Buscador para filtrar el nombre del insumo -->
+            <div class="relative">
+              <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+              <input type="text" id="expense-form-insumo-search" oninput="filterInsumosDropdown(this.value)" placeholder="Buscar insumo por nombre, clave o material (ej: cemento, varilla, arena)..." class="w-full pl-8 pr-7 py-1.5 bg-white border border-blue-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-2xs">
+              <button type="button" id="expense-form-insumo-search-clear" onclick="clearInsumoSearch()" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 hidden px-1 text-xs cursor-pointer" title="Limpiar búsqueda">
+                <i class="fa-solid fa-xmark"></i>
               </button>
             </div>
-            <select id="expense-form-supplier-select" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
-              <option value="">-- Seleccionar Proveedor --</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">No. Factura / Remisión:</label>
-            <input type="text" id="expense-form-invoice" placeholder="Ej: F-84920" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
-          </div>
-        </div>
 
-        <!-- Fila 4: Cantidad y Unidad de Proyecto, Cantidad a Comprar, Unidad, Precio Unitario, Subtotal, IVA, Total -->
-        <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            
-            <!-- Cantidad y Unidad contemplada en el proyecto (lado izquierdo) -->
-            <div class="p-2.5 bg-blue-50/90 border border-blue-200 rounded-xl flex flex-col justify-between shadow-2xs">
-              <div class="flex items-center justify-between text-blue-800">
-                <span class="text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1">
-                  <i class="fa-solid fa-cubes text-blue-600"></i> En Proyecto:
-                </span>
-                <button type="button" onclick="copyProjectQtyToInput()" class="text-[9.5px] text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Copiar cantidad presupuestada al campo de compra">
-                  Usar
+            <!-- Menú Desplegable -->
+            <select id="expense-form-insumo-select" onchange="onExpenseInsumoSelectChange(this)" class="w-full bg-white border border-blue-200 rounded-lg p-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-600 shadow-2xs">
+              <option value="">-- Seleccionar Insumo del Presupuesto (Opcional) --</option>
+            </select>
+
+            <!-- Destino de la Compra (Consumo Directo vs Almacén) + Concepto Opcional -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-700 mb-0.5">Destino en Obra:</label>
+                <select id="expense-form-destination" class="w-full bg-white border border-blue-200 rounded-lg p-1.5 text-[11px] font-bold text-slate-800 focus:outline-none focus:border-blue-600">
+                  <option value="direct">🏗️ Consumo Directo a Obra (Predeterminado)</option>
+                  <option value="warehouse">📦 Enviar a Almacén / Bodega</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-700 mb-0.5">Concepto de Obra Destino (Opcional):</label>
+                <select id="expense-form-concept-select" class="w-full bg-white border border-blue-200 rounded-lg p-1.5 text-[11px] text-slate-800 focus:outline-none focus:border-blue-600">
+                  <option value="">-- Sin asignar a concepto específico --</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fila 1: Fecha, Tipo de Gasto, Partida/Categoría -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Fecha:</label>
+              <input type="date" id="expense-form-date" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Tipo de Gasto:</label>
+              <select id="expense-form-type" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:bg-white">
+                <option value="material">📦 Materiales de Construcción</option>
+                <option value="labor">👷 Mano de Obra / Raya y Destajo</option>
+                <option value="tool">🛠️ Herramienta Menor y Especializada</option>
+                <option value="equipment">🚛 Equipo de Apoyo y Transporte</option>
+                <option value="machinery">🚜 Maquinaria Pesada y Renta</option>
+                <option value="subcontract">🤝 Subcontrato de Obra</option>
+                <option value="indirect">📑 Gasto Indirecto y Varios</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Partida / Categoría:</label>
+              <input type="text" id="expense-form-category" placeholder="Ej: Cimentación, Estructura" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+            </div>
+          </div>
+
+          <!-- Fila 2: Descripción detallada -->
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Descripción del Insumo / Concepto de Gasto: <span class="text-rose-500">*</span></label>
+            <input type="text" id="expense-form-desc" placeholder="Ej: 100 bultos de Cemento Gris Portland Tolteca 50kg" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 focus:bg-white">
+          </div>
+
+          <!-- Fila 3: Proveedor y Factura -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2">
+              <div class="flex items-center justify-between mb-1">
+                <label class="block font-bold text-slate-700">Proveedor / Destajista:</label>
+                <button type="button" onclick="openSupplierModal()" class="text-[10px] text-blue-600 hover:text-blue-700 font-bold flex items-center gap-1 cursor-pointer">
+                  <i class="fa-solid fa-plus text-[9px]"></i> Nuevo Proveedor
                 </button>
               </div>
-              <div class="my-1 flex items-baseline gap-1.5">
-                <span id="expense-form-project-qty" class="text-sm font-black font-mono text-blue-950">---</span>
-                <span id="expense-form-project-unit" class="text-xs font-bold text-blue-700 uppercase"></span>
-              </div>
-              <div id="expense-form-project-saldo" class="text-[9.5px] text-blue-600/90 font-medium truncate">
-                Sin vincular
-              </div>
+              <select id="expense-form-supplier-select" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+                <option value="">-- Seleccionar Proveedor --</option>
+              </select>
             </div>
-
-            <!-- Cantidad a comprar -->
             <div>
-              <label class="block font-bold text-slate-700 mb-1">Cantidad a Comprar:</label>
-              <input type="number" id="expense-form-quantity" value="1" min="0" step="any" oninput="calculateExpenseModalTotals()" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-900 font-bold text-right focus:outline-none focus:border-blue-500 shadow-2xs">
-            </div>
-
-            <!-- Unidad -->
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Unidad:</label>
-              <input type="text" id="expense-form-unit" value="pza" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-800 text-center focus:outline-none focus:border-blue-500 shadow-2xs">
-            </div>
-
-            <!-- Precio Unitario -->
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Precio Unitario ($):</label>
-              <input type="number" id="expense-form-price" value="0.00" min="0" step="any" oninput="calculateExpenseModalTotals()" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-900 font-bold text-right focus:outline-none focus:border-blue-500 shadow-2xs">
+              <label class="block font-bold text-slate-700 mb-1">No. Factura / Remisión:</label>
+              <input type="text" id="expense-form-invoice" placeholder="Ej: F-84920" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+              <input type="hidden" id="expense-form-cfdi-uuid" value="">
             </div>
           </div>
 
-          <div class="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-            <div>
-              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Subtotal:</label>
-              <input type="number" id="expense-form-subtotal" readonly class="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-700 text-right">
-            </div>
-            <div>
-              <div class="flex items-center justify-between mb-1">
-                <label class="text-[11px] font-semibold text-slate-600 flex items-center gap-1 cursor-pointer">
-                  <input type="checkbox" id="expense-form-apply-tax" checked onchange="calculateExpenseModalTotals()" class="rounded text-blue-600 focus:ring-blue-500">
-                  <span>I.V.A. (16%)</span>
-                </label>
+          <!-- Fila 4: Cantidad y Unidad de Proyecto, Cantidad a Comprar, Unidad, Precio Unitario, Conversión, Subtotal, IVA, Total -->
+          <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              
+              <!-- Cantidad y Unidad contemplada en el proyecto (lado izquierdo) -->
+              <div class="p-2.5 bg-blue-50/90 border border-blue-200 rounded-xl flex flex-col justify-between shadow-2xs">
+                <div class="flex items-center justify-between text-blue-800">
+                  <span class="text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1">
+                    <i class="fa-solid fa-cubes text-blue-600"></i> En Proyecto:
+                  </span>
+                  <button type="button" onclick="copyProjectQtyToInput()" class="text-[9.5px] text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Copiar cantidad presupuestada al campo de compra">
+                    Usar
+                  </button>
+                </div>
+                <div class="my-1 flex items-baseline gap-1.5">
+                  <span id="expense-form-project-qty" class="text-sm font-black font-mono text-blue-950">---</span>
+                  <span id="expense-form-project-unit" class="text-xs font-bold text-blue-700 uppercase"></span>
+                </div>
+                <div id="expense-form-project-saldo" class="text-[9.5px] text-blue-600/90 font-medium truncate">
+                  Sin vincular
+                </div>
               </div>
-              <input type="number" id="expense-form-tax" readonly class="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-700 text-right">
+
+              <!-- Cantidad a comprar -->
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="font-bold text-slate-700">Cant. a Comprar:</label>
+                  <button type="button" onclick="toggleUnitConversionHelper()" class="text-[9.5px] text-indigo-600 hover:underline font-bold cursor-pointer" title="Convertir presentación comercial (ej. bultos/piezas a ton/kg)">
+                    Empaque
+                  </button>
+                </div>
+                <input type="number" id="expense-form-quantity" value="1" min="0" step="any" oninput="calculateExpenseModalTotals()" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-900 font-bold text-right focus:outline-none focus:border-blue-500 shadow-2xs">
+              </div>
+
+              <!-- Unidad -->
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Unidad:</label>
+                <input type="text" id="expense-form-unit" value="pza" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-800 text-center focus:outline-none focus:border-blue-500 shadow-2xs">
+              </div>
+
+              <!-- Precio Unitario -->
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">Precio Unitario ($):</label>
+                <input type="number" id="expense-form-price" value="0.00" min="0" step="any" oninput="calculateExpenseModalTotals(); checkExpensePriceAlert();" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono text-slate-900 font-bold text-right focus:outline-none focus:border-blue-500 shadow-2xs">
+              </div>
             </div>
-            <div>
-              <label class="block text-[11px] font-black text-slate-900 mb-1">Total Egreso:</label>
-              <input type="number" id="expense-form-total" readonly class="w-full bg-blue-50 border border-blue-300 rounded-lg p-1.5 text-sm font-mono font-black text-blue-900 text-right">
+
+            <!-- Zona de Conversión Comercial Opcional -->
+            <div id="expense-form-conversion-box" class="hidden p-2.5 bg-indigo-50/80 border border-indigo-200 rounded-lg grid grid-cols-1 sm:grid-cols-4 gap-2 items-end text-[11px]">
+              <div>
+                <label class="block font-bold text-indigo-900 mb-0.5">Cant. Comercial:</label>
+                <input type="number" id="expense-conv-qty" value="" min="0" step="any" placeholder="Ej: 20" oninput="applyUnitConversionToQuantity()" class="w-full bg-white border border-indigo-200 rounded px-2 py-1 font-mono font-bold text-right">
+              </div>
+              <div>
+                <label class="block font-bold text-indigo-900 mb-0.5">Unidad Empaque:</label>
+                <input type="text" id="expense-conv-unit" value="bulto" placeholder="bulto / pza" class="w-full bg-white border border-indigo-200 rounded px-2 py-1 text-center font-mono">
+              </div>
+              <div>
+                <label class="block font-bold text-indigo-900 mb-0.5">Factor a Catálogo:</label>
+                <input type="number" id="expense-conv-factor" value="0.05" min="0" step="any" placeholder="0.05" oninput="applyUnitConversionToQuantity()" class="w-full bg-white border border-indigo-200 rounded px-2 py-1 font-mono text-right" title="Ej: 1 bulto 50kg = 0.05 ton">
+              </div>
+              <div>
+                <button type="button" onclick="saveCurrentUnitConversionRule()" class="w-full py-1.5 px-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10.5px] cursor-pointer">
+                  Aplicar y Recordar
+                </button>
+              </div>
+            </div>
+
+            <!-- Alerta Preventiva de Sobreprecio + Histórico por Proveedor -->
+            <div id="expense-form-pu-history-zone" class="hidden text-[11px]"></div>
+
+            <div class="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Subtotal:</label>
+                <input type="number" id="expense-form-subtotal" readonly class="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-700 text-right">
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-[11px] font-semibold text-slate-600 flex items-center gap-1 cursor-pointer">
+                    <input type="checkbox" id="expense-form-apply-tax" checked onchange="calculateExpenseModalTotals()" class="rounded text-blue-600 focus:ring-blue-500">
+                    <span>I.V.A. (16%)</span>
+                  </label>
+                </div>
+                <input type="number" id="expense-form-tax" readonly class="w-full bg-slate-100 border border-slate-200 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-700 text-right">
+              </div>
+              <div>
+                <label class="block text-[11px] font-black text-slate-900 mb-1">Total Egreso:</label>
+                <input type="number" id="expense-form-total" readonly class="w-full bg-blue-50 border border-blue-300 rounded-lg p-1.5 text-sm font-mono font-black text-blue-900 text-right">
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Fila 5: Estado de Pago y Método de Pago -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Fila 5: Estado de Pago, Vencimiento Crédito y Método de Pago -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Estado del Pago:</label>
+              <select id="expense-form-status" onchange="onExpenseStatusSelectChange(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-bold focus:outline-none focus:border-blue-500 focus:bg-white">
+                <option value="paid" class="text-emerald-700 font-bold">✅ Pagado / Liquidado</option>
+                <option value="pending" class="text-amber-700 font-bold">⏳ Por Pagar / A Crédito</option>
+                <option value="cancelled" class="text-slate-500">❌ Cancelado</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Vencimiento Crédito:</label>
+              <input type="date" id="expense-form-due-date" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white" title="Fecha límite de pago si es a crédito">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Método de Pago:</label>
+              <select id="expense-form-method" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
+                <option value="transfer">Transferencia Electrónica (SPEI)</option>
+                <option value="cash">Efectivo</option>
+                <option value="card">Tarjeta Débito / Crédito</option>
+                <option value="check">Cheque</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Fila 6: Comprobante en AWS S3 -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="font-bold text-slate-700 flex items-center gap-1.5">
+                <i class="fa-solid fa-paperclip text-indigo-600"></i> Comprobante (Factura / Nota de remisión):
+              </label>
+              <span class="text-[10.5px] text-slate-500 flex items-center gap-1">
+                <i class="fa-solid fa-cloud-arrow-up text-indigo-600"></i> Respaldo seguro AWS S3
+              </span>
+            </div>
+            <input type="file" id="expense-form-evidence-file" accept=".pdf,.xml,.jpg,.jpeg,.png,.webp" onchange="onEvidenceFileInputChange(this)" class="hidden">
+            <div id="expense-evidence-preview-zone"></div>
+          </div>
+
+          <!-- Fila 7: Notas y Observaciones -->
           <div>
-            <label class="block font-bold text-slate-700 mb-1">Estado del Pago:</label>
-            <select id="expense-form-status" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 font-bold focus:outline-none focus:border-blue-500 focus:bg-white">
-              <option value="paid" class="text-emerald-700 font-bold">✅ Pagado / Liquidado</option>
-              <option value="pending" class="text-amber-700 font-bold">⏳ Por Pagar / A Crédito</option>
-              <option value="cancelled" class="text-slate-500">❌ Cancelado</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Método de Pago:</label>
-            <select id="expense-form-method" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white">
-              <option value="transfer">Transferencia Electrónica (SPEI)</option>
-              <option value="cash">Efectivo</option>
-              <option value="card">Tarjeta Débito / Crédito</option>
-              <option value="check">Cheque</option>
-            </select>
+            <label class="block font-bold text-slate-700 mb-1">Notas y Observaciones de Entrega:</label>
+            <textarea id="expense-form-notes" rows="2" placeholder="Ej: Entregado a pie de obra por chofer Don Ramiro; verificar nivel de resistencia del concreto" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"></textarea>
           </div>
         </div>
 
-        <!-- Fila 6: Comprobante en AWS S3 -->
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between">
-            <label class="font-bold text-slate-700 flex items-center gap-1.5">
-              <i class="fa-solid fa-paperclip text-indigo-600"></i> Comprobante (Factura / Nota de remisión):
-            </label>
-            <span class="text-[10.5px] text-slate-500 flex items-center gap-1">
-              <i class="fa-solid fa-cloud-arrow-up text-indigo-600"></i> Respaldo seguro AWS S3
-            </span>
-          </div>
-          <input type="file" id="expense-form-evidence-file" accept=".pdf,.xml,.jpg,.jpeg,.png,.webp" onchange="onEvidenceFileInputChange(this)" class="hidden">
-          <div id="expense-evidence-preview-zone"></div>
-        </div>
-
-        <!-- Fila 7: Notas y Observaciones -->
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">Notas y Observaciones de Entrega:</label>
-          <textarea id="expense-form-notes" rows="2" placeholder="Ej: Entregado a pie de obra por chofer Don Ramiro; verificar nivel de resistencia del concreto" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"></textarea>
-        </div>
+        <!-- MODO B: EXPLOSIÓN POR CONCEPTO(S) -->
+        <div id="expense-mode-concept-panel" class="hidden"></div>
 
       </div>
 
@@ -5538,9 +5631,9 @@
         <button type="button" onclick="closeNewExpenseModal()" class="px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs transition cursor-pointer">
           Cancelar
         </button>
-        <button type="button" onclick="saveExpenseModalForm()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition shadow-md flex items-center gap-2 cursor-pointer">
+        <button type="button" id="btn-save-expense-modal" onclick="saveExpenseModalActiveMode()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition shadow-md flex items-center gap-2 cursor-pointer">
           <i class="fa-solid fa-floppy-disk text-xs"></i>
-          <span>Guardar Registro</span>
+          <span id="btn-save-expense-modal-label">Guardar Registro</span>
         </button>
       </div>
 
@@ -5840,8 +5933,9 @@
   <!-- MENÚ CONTEXTUAL FLOTANTE ESTILO MICROSOFT WORD PARA CORRECCIÓN ORTOGRÁFICA (CLIC DERECHO) -->
   <div id="word-spell-context-menu" class="fixed hidden z-[100010] bg-white rounded-xl shadow-2xl border border-slate-200/90 py-1.5 min-w-[220px] max-w-[290px] text-xs font-sans select-none backdrop-blur-sm" style="display: none;"></div>
 
-  <!-- CONTENEDOR RAÍZ DE MODALES DE BITÁCORA DE OBRA -->
+  <!-- CONTENEDOR RAÍZ DE MODALES DE BITÁCORA DE OBRA Y ALMACÉN -->
   <div id="bitacora-modals-root"></div>
+  <div id="almacen-modals-root"></div>
 
   <!-- Entrada Modular Principal ES6 -->
   <script>
@@ -5867,10 +5961,10 @@
       setInterval(purgeInvalidScopeOptions, 300);
     })();
   </script>
-  <script type="module" src="js/app.js?v=20261117_cf27"></script>
+  <script type="module" src="js/app.js?v=20261117_cf30"></script>
   <script type="module">
-    import { switchTab } from './js/ui/modalController.js?v=20261117_cf27';
-    import { renderBitacoraView } from './js/modules/bitacora/bitacoraView.js?v=20261117_cf27';
+    import { switchTab } from './js/ui/modalController.js?v=20261117_cf30';
+    import { renderBitacoraView } from './js/modules/bitacora/bitacoraView.js?v=20261117_cf30';
 
     try {
       const p = new URLSearchParams(window.location.search);

@@ -1,7 +1,7 @@
-import { getActiveProjectId } from '../config/constants.js?v=20261117_cf27';
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf27';
-import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261117_cf27';
-import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261117_cf27';
+import { getActiveProjectId } from '../config/constants.js?v=20261117_cf30';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf30';
+import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261117_cf30';
+import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261117_cf30';
 
 const pendingTimers = new Map();
 const inFlightModuleHydrateByProject = new Map();
@@ -304,7 +304,7 @@ export async function syncExpensesNow(projectIdOverride = '') {
       tipo: String(r.type || 'compra'),
       categoria: String(r.category || 'Material'),
       descripcion: String(r.description || ''),
-      folio_factura: String(r.invoiceFolio || r.folio || ''),
+      folio_factura: String(r.invoiceFolio || r.folio || r.invoiceNumber || ''),
       subtotal: Number(r.subtotal || 0),
       iva: Number(r.tax || 0),
       total: Number(r.total || 0),
@@ -320,10 +320,24 @@ export async function syncExpensesNow(projectIdOverride = '') {
   if (recordRows.length > 0) {
     await ctx.sb.from('compras_gastos').upsert(recordRows, { onConflict: 'id' });
   } else {
-    await ctx.sb.from('compras_gastos').delete().eq('proyecto_id', targetPid);
+    const { data: nonAlmRows } = await ctx.sb
+      .from('compras_gastos')
+      .select('id')
+      .eq('proyecto_id', targetPid);
+    if (Array.isArray(nonAlmRows)) {
+      const idsToDel = nonAlmRows
+        .map((row) => row.id)
+        .filter((id) => {
+          const u = unscopeRowId(targetPid, id);
+          return u && !u.startsWith('alm__');
+        });
+      if (idsToDel.length > 0) {
+        await ctx.sb.from('compras_gastos').delete().in('id', idsToDel);
+      }
+    }
   }
 
-  // Limpiar registros eliminados en este proyecto
+  // Limpiar registros de compras eliminados (sin tocar registros reservados alm__ de Almacén)
   const { data: existingRemote } = await ctx.sb
     .from('compras_gastos')
     .select('id')
@@ -331,13 +345,87 @@ export async function syncExpensesNow(projectIdOverride = '') {
 
   if (Array.isArray(existingRemote)) {
     const activeSet = new Set(recordRows.map((row) => row.id));
-    const toDelete = existingRemote.map((row) => row.id).filter((id) => !activeSet.has(id));
+    const toDelete = existingRemote
+      .map((row) => row.id)
+      .filter((id) => {
+        const u = unscopeRowId(targetPid, id);
+        return !u.startsWith('alm__') && !activeSet.has(id);
+      });
     if (toDelete.length > 0) {
       await ctx.sb.from('compras_gastos').delete().in('id', toDelete);
     }
   }
 
   return { ok: true, suppliers: supplierRows.length, records: recordRows.length };
+}
+
+// ============================================================================
+// 2B. ALMACÉN DE OBRA (Recepciones, Vales de Salida, Herramienta y Ajustes)
+// ============================================================================
+
+export function scheduleAlmacenCloudSync(projectId = '') {
+  const pid = String(projectId || getActiveProjectId() || '').trim();
+  if (!pid) return;
+  scheduleDebouncedTask(`almacen:${pid}`, 800, () => syncAlmacenNow(pid));
+}
+
+export async function syncAlmacenNow(projectIdOverride = '') {
+  const ctx = await getCloudSyncContext(projectIdOverride);
+  if (!ctx) return { ok: false, skipped: true };
+
+  const targetPid = ctx.cloudUuid || ctx.projectId;
+  const raw = localStorage.getItem(`adm_const_almacen_${ctx.projectId}`);
+  if (!raw) return { ok: true, empty: true };
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return { ok: false };
+  }
+
+  const syncTs = new Date().toISOString();
+  const cleanPayload = {
+    config: data?.config || {},
+    receptions: (Array.isArray(data?.receptions) ? data.receptions : []).map((r) =>
+      r?.evidence ? { ...r, evidence: stripInlineBinaryPayloads(r.evidence) } : r
+    ),
+    movements: (Array.isArray(data?.movements) ? data.movements : []).map((m) =>
+      m?.evidence ? { ...m, evidence: stripInlineBinaryPayloads(m.evidence) } : m
+    ),
+    updatedAt: data?.updatedAt || syncTs
+  };
+
+  const row = {
+    id: scopedRowId(targetPid, 'alm__bundle'),
+    proyecto_id: targetPid,
+    empresa_id: ctx.empresaId || null,
+    owner_email: ctx.ownerEmail,
+    proveedor_id: '',
+    concepto_id: '',
+    fecha: syncTs.slice(0, 10),
+    tipo: 'almacen_bundle',
+    categoria: 'Almacén',
+    descripcion: 'Inventario, Recepciones y Vales de Salida de Almacén',
+    folio_factura: '',
+    subtotal: 0,
+    iva: 0,
+    total: 0,
+    metodo_pago: '',
+    estado: 'activo',
+    evidencia_s3_key: '',
+    evidencia_archivo_id: null,
+    evidencia_json: {},
+    payload_json: cleanPayload
+  };
+
+  const { error } = await ctx.sb.from('compras_gastos').upsert(row, { onConflict: 'id' });
+  if (error) {
+    console.warn('[cloudModulesSyncService] Error sincronizando almacén:', error.message || error);
+    return { ok: false, error };
+  }
+
+  return { ok: true, receptions: cleanPayload.receptions.length, movements: cleanPayload.movements.length };
 }
 
 // ============================================================================
@@ -641,12 +729,25 @@ export async function hydrateProjectModulesFromCloud(projectIdOverride = '', opt
       if (Array.isArray(recRows)) {
         const localRecMap = new Map();
         (localObj.records || []).forEach((rec) => {
-          if (rec && rec.id && !String(rec.id).startsWith('__')) localRecMap.set(rec.id, rec);
+          if (rec && rec.id && !String(rec.id).startsWith('__') && !String(rec.id).startsWith('alm__')) {
+            localRecMap.set(rec.id, rec);
+          }
         });
         const mergedRecMap = new Map();
+        let remoteAlmacenBundle = null;
+
         for (const row of recRows) {
           const cid = unscopeRowId(pid, row.id);
           if (!cid || cid.startsWith('__')) continue;
+          if (cid.startsWith('alm__')) {
+            if (cid === 'alm__bundle' && row.payload_json && typeof row.payload_json === 'object') {
+              remoteAlmacenBundle = {
+                ...row.payload_json,
+                updatedAt: row.payload_json.updatedAt || row.updated_at || row.created_at || ''
+              };
+            }
+            continue;
+          }
           const remoteRec = {
             ...(row.payload_json || {}),
             id: cid,
@@ -667,6 +768,24 @@ export async function hydrateProjectModulesFromCloud(projectIdOverride = '', opt
           }
         }
         localObj.records = Array.from(mergedRecMap.values());
+
+        if (remoteAlmacenBundle) {
+          const localAlmRaw = localStorage.getItem(`adm_const_almacen_${pid}`);
+          let localAlm = null;
+          try { localAlm = localAlmRaw ? JSON.parse(localAlmRaw) : null; } catch { localAlm = null; }
+          const remoteTs = Date.parse(remoteAlmacenBundle.updatedAt || '') || 0;
+          const localTs = Date.parse(localAlm?.updatedAt || '') || 0;
+          const nextAlmacen = (!localAlm || remoteTs >= localTs)
+            ? remoteAlmacenBundle
+            : {
+                config: localAlm.config || remoteAlmacenBundle.config || {},
+                receptions: localAlm.receptions || remoteAlmacenBundle.receptions || [],
+                movements: localAlm.movements || remoteAlmacenBundle.movements || [],
+                updatedAt: localAlm.updatedAt || remoteAlmacenBundle.updatedAt
+              };
+          localStorage.setItem(`adm_const_almacen_${pid}`, JSON.stringify(nextAlmacen));
+          hydrated.almacen = (nextAlmacen.movements?.length || 0) + (nextAlmacen.receptions?.length || 0);
+        }
       }
 
       if (Array.isArray(supRows) && supRows.length > 0) {

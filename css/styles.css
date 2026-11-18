@@ -121,7 +121,13 @@ textarea.desc-input {
   background: #475569;
 }
 
-* {
+html,
+body,
+.custom-scroll,
+.custom-scroll-x,
+.overflow-y-auto,
+.overflow-x-auto,
+.overflow-auto {
   scrollbar-width: thin;
   scrollbar-color: #94a3b8 #e2e8f0;
 }
@@ -366,36 +372,83 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
     color: #e2e8f0;
   }
 
+  /* Variantes blancas translúcidas usadas en tarjetas/botones no activos (sin afectar puntos de arrastre pequeños) */
+  html.dark-mode .bg-white\/90:not(.w-1):not(.w-0\.5),
+  html.dark-mode .bg-white\/80:not(.w-1):not(.w-0\.5),
+  html.dark-mode .bg-white\/70:not(.w-1):not(.w-0\.5) {
+    background-color: #131c2e !important;
+    color: #cbd5e1 !important;
+  }
+
   /* Superficies secundarias: Barras de herramientas, encabezados de tabla y franjas KPI */
   html.dark-mode .bg-slate-50,
-  html.dark-mode [class*="bg-slate-50/"] {
+  html.dark-mode .bg-slate-50\/50,
+  html.dark-mode .bg-slate-50\/60,
+  html.dark-mode .bg-slate-50\/70,
+  html.dark-mode .bg-slate-50\/80,
+  html.dark-mode .bg-slate-50\/90 {
     background-color: #131c2e !important;
   }
 
   html.dark-mode .bg-slate-100,
-  html.dark-mode [class*="bg-slate-100/"] {
+  html.dark-mode .bg-slate-100\/50,
+  html.dark-mode .bg-slate-100\/80,
+  html.dark-mode .bg-slate-100\/90 {
     background-color: #172236 !important;
   }
 
   html.dark-mode .bg-slate-200,
-  html.dark-mode [class*="bg-slate-200/"] {
+  html.dark-mode .bg-slate-200\/70,
+  html.dark-mode .bg-slate-200\/80,
+  html.dark-mode .bg-slate-200\/90 {
     background-color: #1e293b !important;
+  }
+
+  html.dark-mode .bg-slate-300 {
+    background-color: #334155 !important;
+  }
+
+  /* Degradados claros en encabezados de Bitácora, Estimaciones, Importador y Modales */
+  html.dark-mode .bg-gradient-to-r.from-slate-50,
+  html.dark-mode .bg-gradient-to-br.from-slate-50,
+  html.dark-mode .bg-gradient-to-b.from-slate-50,
+  html.dark-mode .bg-gradient-to-r.from-white,
+  html.dark-mode .bg-gradient-to-b.from-white,
+  html.dark-mode .bg-gradient-to-br.from-white,
+  html.dark-mode .bg-gradient-to-r.via-white,
+  html.dark-mode .bg-gradient-to-r.to-white,
+  html.dark-mode .bg-gradient-to-r.from-blue-50,
+  html.dark-mode .bg-gradient-to-br.from-blue-50,
+  html.dark-mode .bg-gradient-to-b.from-blue-50,
+  html.dark-mode .bg-gradient-to-r.from-indigo-50,
+  html.dark-mode .bg-gradient-to-br.from-indigo-50,
+  html.dark-mode .bg-gradient-to-r.from-teal-50,
+  html.dark-mode .bg-gradient-to-br.from-teal-50,
+  html.dark-mode .bg-gradient-to-r.from-white:hover,
+  html.dark-mode .bg-gradient-to-b.from-white:hover {
+    background-image: none !important;
+    background-color: #131c2e !important;
+    color: #e2e8f0;
   }
 
   /* Controles interactivos elevados sobre barras y encabezados */
   html.dark-mode button.bg-white,
+  html.dark-mode button.bg-white\/90,
+  html.dark-mode button.bg-white\/80,
+  html.dark-mode button.bg-white\/70,
   html.dark-mode select.bg-white,
   html.dark-mode input.bg-white,
   html.dark-mode textarea.bg-white,
   html.dark-mode #calendario-scale-selector,
   html.dark-mode #gantt-zoom-controls,
   html.dark-mode #btn-open-signatures-modal,
-  html.dark-mode #btn-calendario-signatures-modal,
+  html.dark-mode #btn-open-compras-signatures-modal,
   html.dark-mode #tab-members-cat,
   html.dark-mode #tab-members-calendario,
   html.dark-mode #tab-members-estimaciones,
   html.dark-mode #tab-members-insumos,
   html.dark-mode #tab-members-compras,
+  html.dark-mode #tab-members-almacen,
   html.dark-mode #tab-members-bitacora,
   html.dark-mode .dropdown-menu {
     background-color: #1e293b !important;
@@ -403,8 +456,12 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
     color: #e2e8f0 !important;
   }
 
-  html.dark-mode button.bg-white:hover:not(:disabled) {
+  html.dark-mode button.bg-white:hover:not(:disabled),
+  html.dark-mode button.bg-white\/90:hover:not(:disabled),
+  html.dark-mode button.bg-white\/80:hover:not(:disabled),
+  html.dark-mode .hover\:bg-white:hover:not(:disabled) {
     background-color: #29374d !important;
+    color: #f8fafc !important;
   }
 
   /* Tarjetas KPI en Calendario y Estimaciones */
@@ -415,13 +472,18 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
 
   /* Hover de filas y botones secundarios */
   html.dark-mode .hover\:bg-slate-50:hover,
-  html.dark-mode [class*="hover:bg-slate-50/"]:hover {
+  html.dark-mode .hover\:bg-slate-50\/80:hover,
+  html.dark-mode .hover\:bg-slate-50\/90:hover {
     background-color: #172236 !important;
   }
 
   html.dark-mode .hover\:bg-slate-100:hover,
-  html.dark-mode [class*="hover:bg-slate-100/"]:hover,
-  html.dark-mode .hover\:bg-slate-200:hover {
+  html.dark-mode .hover\:bg-slate-100\/80:hover,
+  html.dark-mode .hover\:bg-slate-200:hover,
+  html.dark-mode .hover\:bg-slate-200\/50:hover,
+  html.dark-mode .hover\:bg-slate-200\/60:hover,
+  html.dark-mode .hover\:bg-slate-300:hover,
+  html.dark-mode .hover\:bg-slate-300\/80:hover {
     background-color: #243247 !important;
   }
 
@@ -454,7 +516,10 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
   }
 
   html.dark-mode .border-slate-200,
-  html.dark-mode [class*="border-slate-200/"] {
+  html.dark-mode .border-slate-200\/60,
+  html.dark-mode .border-slate-200\/70,
+  html.dark-mode .border-slate-200\/80,
+  html.dark-mode .border-slate-200\/90 {
     border-color: #26354d !important;
   }
 
@@ -479,25 +544,31 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
     background-color: #334155 !important;
   }
 
-  /* Jerarquía tipográfica sobre fondos oscuros (preservando badges amarillos brillantes) */
-  html.dark-mode .text-slate-900:not(.bg-amber-400):not(.bg-amber-300):not(.bg-yellow-300):not(.bg-yellow-400) {
+  /* Jerarquía tipográfica sobre fondos oscuros (preservando insignias/botones claros o dorados) */
+  html.dark-mode .text-slate-950,
+  html.dark-mode .text-slate-900,
+  html.dark-mode .hover\:text-slate-950:hover,
+  html.dark-mode .hover\:text-slate-900:hover {
     color: #f8fafc !important;
   }
 
-  html.dark-mode .text-slate-800 {
+  html.dark-mode .text-slate-800,
+  html.dark-mode .hover\:text-slate-800:hover {
     color: #f1f5f9 !important;
   }
 
-  html.dark-mode .text-slate-700 {
+  html.dark-mode .text-slate-700,
+  html.dark-mode .hover\:text-slate-700:hover {
     color: #cbd5e1 !important;
   }
 
-  html.dark-mode .text-slate-600 {
-    color: #94a3b8 !important;
+  html.dark-mode .text-slate-600,
+  html.dark-mode .hover\:text-slate-600:hover {
+    color: #a3b3c6 !important;
   }
 
   html.dark-mode .text-slate-500 {
-    color: #8496ae !important;
+    color: #94a3b8 !important;
   }
 
   /* Inputs, textareas y selects editables */
@@ -542,23 +613,52 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
     border-right-color: #475569 !important;
   }
 
-  /* Tintes semánticos de tarjetas APU, Insumos Generales, Calendario y Estimaciones */
+  /* Tintes semánticos de tarjetas APU, Insumos Generales, Calendario, Estimaciones, Almacén y Bitácora */
   /* Azul */
   html.dark-mode .bg-blue-50,
-  html.dark-mode [class*="bg-blue-50/"] {
-    background-color: rgba(37, 99, 235, 0.14) !important;
+  html.dark-mode .bg-blue-50\/10,
+  html.dark-mode .bg-blue-50\/15,
+  html.dark-mode .bg-blue-50\/20,
+  html.dark-mode .bg-blue-50\/25,
+  html.dark-mode .bg-blue-50\/30,
+  html.dark-mode .bg-blue-50\/40,
+  html.dark-mode .bg-blue-50\/50,
+  html.dark-mode .bg-blue-50\/60,
+  html.dark-mode .bg-blue-50\/70,
+  html.dark-mode .bg-blue-50\/80,
+  html.dark-mode .bg-blue-50\/90,
+  html.dark-mode .hover\:bg-blue-50:hover,
+  html.dark-mode .hover\:bg-blue-50\/40:hover,
+  html.dark-mode .hover\:bg-blue-50\/50:hover,
+  html.dark-mode .hover\:bg-blue-50\/60:hover {
+    background-color: rgba(37, 99, 235, 0.16) !important;
   }
-  html.dark-mode .bg-blue-100 {
-    background-color: rgba(59, 130, 246, 0.22) !important;
+  html.dark-mode .bg-blue-100,
+  html.dark-mode .bg-blue-100\/80,
+  html.dark-mode .bg-blue-200,
+  html.dark-mode .hover\:bg-blue-100:hover,
+  html.dark-mode .hover\:bg-blue-100\/60:hover,
+  html.dark-mode .hover\:bg-blue-100\/70:hover,
+  html.dark-mode .hover\:bg-blue-100\/90:hover {
+    background-color: rgba(59, 130, 246, 0.24) !important;
   }
   html.dark-mode .border-blue-100,
   html.dark-mode .border-blue-200,
-  html.dark-mode [class*="border-blue-200/"] {
-    border-color: rgba(96, 165, 250, 0.32) !important;
+  html.dark-mode .border-blue-300,
+  html.dark-mode .border-blue-200\/50,
+  html.dark-mode .border-blue-200\/60,
+  html.dark-mode .border-blue-200\/80 {
+    border-color: rgba(96, 165, 250, 0.34) !important;
   }
+  html.dark-mode .text-blue-950,
   html.dark-mode .text-blue-900,
   html.dark-mode .text-blue-800,
-  html.dark-mode .text-blue-700 {
+  html.dark-mode .text-blue-700,
+  html.dark-mode .text-blue-600,
+  html.dark-mode .hover\:text-blue-700:hover,
+  html.dark-mode .hover\:text-blue-800:hover,
+  html.dark-mode .hover\:text-blue-900:hover,
+  html.dark-mode .hover\:text-blue-950:hover {
     color: #60a5fa !important;
   }
   html.dark-mode .bg-blue-600.text-white,
@@ -568,124 +668,327 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
 
   /* Verde Esmeralda */
   html.dark-mode .bg-emerald-50,
-  html.dark-mode [class*="bg-emerald-50/"] {
-    background-color: rgba(16, 185, 129, 0.14) !important;
+  html.dark-mode .bg-emerald-50\/10,
+  html.dark-mode .bg-emerald-50\/20,
+  html.dark-mode .bg-emerald-50\/30,
+  html.dark-mode .bg-emerald-50\/40,
+  html.dark-mode .bg-emerald-50\/50,
+  html.dark-mode .bg-emerald-50\/60,
+  html.dark-mode .bg-emerald-50\/70,
+  html.dark-mode .bg-emerald-50\/80,
+  html.dark-mode .hover\:bg-emerald-50\/50:hover {
+    background-color: rgba(16, 185, 129, 0.15) !important;
   }
-  html.dark-mode .bg-emerald-100 {
-    background-color: rgba(16, 185, 129, 0.22) !important;
+  html.dark-mode .bg-emerald-100,
+  html.dark-mode .bg-emerald-100\/70,
+  html.dark-mode .bg-emerald-100\/80,
+  html.dark-mode .bg-emerald-200,
+  html.dark-mode .bg-emerald-200\/80,
+  html.dark-mode .hover\:bg-emerald-100:hover,
+  html.dark-mode .hover\:bg-emerald-100\/60:hover,
+  html.dark-mode .hover\:bg-emerald-100\/70:hover,
+  html.dark-mode .hover\:bg-emerald-100\/90:hover,
+  html.dark-mode .hover\:bg-emerald-200:hover {
+    background-color: rgba(16, 185, 129, 0.24) !important;
   }
   html.dark-mode .border-emerald-200,
   html.dark-mode .border-emerald-300 {
     border-color: rgba(52, 211, 153, 0.35) !important;
   }
+  html.dark-mode .text-emerald-950,
   html.dark-mode .text-emerald-900,
   html.dark-mode .text-emerald-800,
-  html.dark-mode .text-emerald-700 {
+  html.dark-mode .text-emerald-700,
+  html.dark-mode .text-emerald-600,
+  html.dark-mode .hover\:text-emerald-700:hover,
+  html.dark-mode .hover\:text-emerald-900:hover,
+  html.dark-mode .hover\:text-emerald-950:hover {
     color: #34d399 !important;
   }
 
   /* Ámbar */
   html.dark-mode .bg-amber-50,
-  html.dark-mode [class*="bg-amber-50/"] {
-    background-color: rgba(245, 158, 11, 0.14) !important;
+  html.dark-mode .bg-amber-50\/15,
+  html.dark-mode .bg-amber-50\/25,
+  html.dark-mode .bg-amber-50\/30,
+  html.dark-mode .bg-amber-50\/35,
+  html.dark-mode .bg-amber-50\/40,
+  html.dark-mode .bg-amber-50\/50,
+  html.dark-mode .bg-amber-50\/60,
+  html.dark-mode .bg-amber-50\/70,
+  html.dark-mode .bg-amber-50\/80,
+  html.dark-mode .bg-amber-50\/90,
+  html.dark-mode .hover\:bg-amber-50:hover,
+  html.dark-mode .hover\:bg-amber-50\/40:hover,
+  html.dark-mode .hover\:bg-amber-50\/50:hover {
+    background-color: rgba(245, 158, 11, 0.15) !important;
   }
-  html.dark-mode .bg-amber-100 {
-    background-color: rgba(245, 158, 11, 0.22) !important;
+  html.dark-mode .bg-amber-100,
+  html.dark-mode .bg-amber-100\/80,
+  html.dark-mode .bg-amber-200,
+  html.dark-mode .bg-amber-200\/80,
+  html.dark-mode .hover\:bg-amber-100:hover,
+  html.dark-mode .hover\:bg-amber-100\/60:hover,
+  html.dark-mode .hover\:bg-amber-100\/70:hover,
+  html.dark-mode .hover\:bg-amber-100\/80:hover,
+  html.dark-mode .hover\:bg-amber-100\/90:hover,
+  html.dark-mode .hover\:bg-amber-200:hover {
+    background-color: rgba(245, 158, 11, 0.24) !important;
   }
   html.dark-mode .border-amber-200,
   html.dark-mode .border-amber-300 {
     border-color: rgba(251, 191, 36, 0.35) !important;
   }
+  html.dark-mode .text-amber-950,
   html.dark-mode .text-amber-900,
   html.dark-mode .text-amber-800,
-  html.dark-mode .text-amber-700 {
+  html.dark-mode .text-amber-700,
+  html.dark-mode .text-amber-600,
+  html.dark-mode .hover\:text-amber-700:hover,
+  html.dark-mode .hover\:text-amber-800:hover,
+  html.dark-mode .hover\:text-amber-900:hover,
+  html.dark-mode .hover\:text-amber-950:hover {
     color: #fbbf24 !important;
   }
 
   /* Naranja (Herramienta) */
   html.dark-mode .bg-orange-50,
-  html.dark-mode [class*="bg-orange-50/"] {
-    background-color: rgba(249, 115, 22, 0.14) !important;
+  html.dark-mode .bg-orange-50\/40,
+  html.dark-mode .bg-orange-50\/60,
+  html.dark-mode .bg-orange-50\/70,
+  html.dark-mode .bg-orange-50\/80 {
+    background-color: rgba(249, 115, 22, 0.15) !important;
   }
-  html.dark-mode .border-orange-200 {
+  html.dark-mode .bg-orange-100,
+  html.dark-mode .bg-orange-100\/80,
+  html.dark-mode .hover\:bg-orange-100:hover,
+  html.dark-mode .hover\:bg-orange-100\/60:hover,
+  html.dark-mode .hover\:bg-orange-100\/70:hover,
+  html.dark-mode .hover\:bg-orange-100\/90:hover {
+    background-color: rgba(249, 115, 22, 0.24) !important;
+  }
+  html.dark-mode .border-orange-200,
+  html.dark-mode .border-orange-300 {
     border-color: rgba(251, 146, 60, 0.35) !important;
   }
+  html.dark-mode .text-orange-900,
   html.dark-mode .text-orange-800,
-  html.dark-mode .text-orange-700 {
+  html.dark-mode .text-orange-700,
+  html.dark-mode .text-orange-600,
+  html.dark-mode .text-orange-600\/70,
+  html.dark-mode .hover\:text-orange-900:hover {
     color: #fb923c !important;
   }
 
-  /* Púrpura / Violeta / Índigo */
+  /* Púrpura / Violeta / Índigo / Fucsia */
   html.dark-mode .bg-purple-50,
-  html.dark-mode [class*="bg-purple-50/"],
+  html.dark-mode .bg-purple-50\/10,
+  html.dark-mode .bg-purple-50\/15,
+  html.dark-mode .bg-purple-50\/20,
+  html.dark-mode .bg-purple-50\/25,
+  html.dark-mode .bg-purple-50\/40,
+  html.dark-mode .bg-purple-50\/60,
+  html.dark-mode .bg-purple-50\/70,
+  html.dark-mode .bg-purple-50\/80,
+  html.dark-mode .hover\:bg-purple-50\/40:hover,
+  html.dark-mode .hover\:bg-purple-50\/50:hover,
   html.dark-mode .bg-violet-50,
-  html.dark-mode .bg-indigo-50 {
-    background-color: rgba(139, 92, 246, 0.14) !important;
+  html.dark-mode .bg-violet-50\/70,
+  html.dark-mode .bg-fuchsia-50,
+  html.dark-mode .bg-indigo-50,
+  html.dark-mode .bg-indigo-50\/60,
+  html.dark-mode .bg-indigo-50\/70,
+  html.dark-mode .bg-indigo-50\/80,
+  html.dark-mode .hover\:bg-indigo-50:hover,
+  html.dark-mode .hover\:bg-indigo-50\/50:hover {
+    background-color: rgba(139, 92, 246, 0.15) !important;
   }
   html.dark-mode .bg-purple-100,
-  html.dark-mode .bg-indigo-100 {
-    background-color: rgba(139, 92, 246, 0.22) !important;
+  html.dark-mode .bg-purple-100\/80,
+  html.dark-mode .bg-purple-200,
+  html.dark-mode .bg-violet-100,
+  html.dark-mode .bg-indigo-100,
+  html.dark-mode .bg-indigo-200,
+  html.dark-mode .hover\:bg-purple-100:hover,
+  html.dark-mode .hover\:bg-purple-100\/60:hover,
+  html.dark-mode .hover\:bg-purple-100\/70:hover,
+  html.dark-mode .hover\:bg-purple-100\/90:hover,
+  html.dark-mode .hover\:bg-purple-200:hover,
+  html.dark-mode .hover\:bg-indigo-100:hover,
+  html.dark-mode .hover\:bg-indigo-200:hover {
+    background-color: rgba(139, 92, 246, 0.24) !important;
   }
   html.dark-mode .border-purple-100,
   html.dark-mode .border-purple-200,
-  html.dark-mode .border-indigo-200 {
+  html.dark-mode .border-purple-300,
+  html.dark-mode .border-indigo-200,
+  html.dark-mode .border-indigo-300 {
     border-color: rgba(167, 139, 250, 0.35) !important;
   }
+  html.dark-mode .text-purple-950,
   html.dark-mode .text-purple-900,
   html.dark-mode .text-purple-800,
-  html.dark-mode .text-purple-700 {
+  html.dark-mode .text-purple-700,
+  html.dark-mode .text-purple-600,
+  html.dark-mode .text-violet-700,
+  html.dark-mode .text-violet-600,
+  html.dark-mode .text-fuchsia-700,
+  html.dark-mode .hover\:text-purple-900:hover,
+  html.dark-mode .hover\:text-purple-950:hover {
     color: #c084fc !important;
   }
   html.dark-mode .text-indigo-950,
+  html.dark-mode .text-indigo-900,
   html.dark-mode .text-indigo-800,
-  html.dark-mode .text-indigo-700 {
+  html.dark-mode .text-indigo-700,
+  html.dark-mode .text-indigo-600,
+  html.dark-mode .hover\:text-indigo-700:hover,
+  html.dark-mode .hover\:text-indigo-800:hover,
+  html.dark-mode .hover\:text-indigo-950:hover {
     color: #818cf8 !important;
   }
 
   /* Cian / Cielo */
   html.dark-mode .bg-cyan-50,
-  html.dark-mode [class*="bg-cyan-50/"],
+  html.dark-mode .bg-cyan-50\/10,
+  html.dark-mode .bg-cyan-50\/15,
+  html.dark-mode .bg-cyan-50\/20,
+  html.dark-mode .bg-cyan-50\/25,
   html.dark-mode .bg-sky-50,
-  html.dark-mode [class*="bg-sky-50/"] {
-    background-color: rgba(6, 182, 212, 0.13) !important;
+  html.dark-mode .bg-sky-50\/70,
+  html.dark-mode .bg-sky-50\/80,
+  html.dark-mode .hover\:bg-sky-50:hover,
+  html.dark-mode .hover\:bg-sky-50\/40:hover,
+  html.dark-mode .hover\:bg-sky-50\/50:hover {
+    background-color: rgba(6, 182, 212, 0.14) !important;
+  }
+  html.dark-mode .bg-sky-100,
+  html.dark-mode .bg-sky-200,
+  html.dark-mode .bg-cyan-100,
+  html.dark-mode .hover\:bg-sky-100:hover,
+  html.dark-mode .hover\:bg-sky-200:hover {
+    background-color: rgba(14, 165, 233, 0.24) !important;
   }
   html.dark-mode .border-cyan-100,
   html.dark-mode .border-cyan-200,
-  html.dark-mode .border-sky-200 {
-    border-color: rgba(34, 211, 238, 0.32) !important;
+  html.dark-mode .border-cyan-300,
+  html.dark-mode .border-sky-200,
+  html.dark-mode .border-sky-300 {
+    border-color: rgba(34, 211, 238, 0.34) !important;
   }
   html.dark-mode .text-cyan-900,
   html.dark-mode .text-cyan-800,
   html.dark-mode .text-cyan-700,
+  html.dark-mode .text-cyan-600,
+  html.dark-mode .text-sky-950,
+  html.dark-mode .text-sky-900,
   html.dark-mode .text-sky-800,
-  html.dark-mode .text-sky-700 {
+  html.dark-mode .text-sky-700,
+  html.dark-mode .text-sky-600,
+  html.dark-mode .hover\:text-sky-700:hover,
+  html.dark-mode .hover\:text-sky-950:hover {
     color: #38bdf8 !important;
+  }
+
+  /* Verde Turquesa / Teal (Bitácora de Obra y Chat) */
+  html.dark-mode .bg-teal-50,
+  html.dark-mode .hover\:bg-teal-50\/50:hover {
+    background-color: rgba(20, 184, 166, 0.14) !important;
+  }
+  html.dark-mode .bg-teal-100,
+  html.dark-mode .hover\:bg-teal-100:hover {
+    background-color: rgba(20, 184, 166, 0.24) !important;
+  }
+  html.dark-mode .border-teal-200,
+  html.dark-mode .border-teal-300,
+  html.dark-mode .border-teal-400 {
+    border-color: rgba(45, 212, 191, 0.35) !important;
+  }
+  html.dark-mode .text-teal-900,
+  html.dark-mode .text-teal-800,
+  html.dark-mode .text-teal-700,
+  html.dark-mode .text-teal-600 {
+    color: #2dd4bf !important;
   }
 
   /* Rosa / Rojo */
   html.dark-mode .bg-rose-50,
-  html.dark-mode [class*="bg-rose-50/"],
-  html.dark-mode .bg-red-50 {
-    background-color: rgba(244, 63, 94, 0.14) !important;
+  html.dark-mode .bg-rose-50\/25,
+  html.dark-mode .bg-rose-50\/35,
+  html.dark-mode .bg-rose-50\/40,
+  html.dark-mode .bg-rose-50\/50,
+  html.dark-mode .bg-rose-50\/60,
+  html.dark-mode .bg-rose-50\/70,
+  html.dark-mode .bg-rose-50\/80,
+  html.dark-mode .bg-red-50,
+  html.dark-mode .hover\:bg-rose-50:hover,
+  html.dark-mode .hover\:bg-rose-50\/50:hover,
+  html.dark-mode .hover\:bg-rose-50\/65:hover,
+  html.dark-mode .hover\:bg-red-50:hover {
+    background-color: rgba(244, 63, 94, 0.15) !important;
   }
   html.dark-mode .bg-rose-100,
-  html.dark-mode .bg-red-100 {
-    background-color: rgba(244, 63, 94, 0.22) !important;
+  html.dark-mode .bg-rose-100\/80,
+  html.dark-mode .bg-red-100,
+  html.dark-mode .hover\:bg-rose-100:hover,
+  html.dark-mode .hover\:bg-rose-100\/60:hover,
+  html.dark-mode .hover\:bg-rose-100\/70:hover,
+  html.dark-mode .hover\:bg-rose-100\/90:hover,
+  html.dark-mode .hover\:bg-red-100:hover {
+    background-color: rgba(244, 63, 94, 0.24) !important;
   }
   html.dark-mode .border-rose-200,
+  html.dark-mode .border-rose-300,
   html.dark-mode .border-red-200 {
     border-color: rgba(251, 113, 133, 0.35) !important;
   }
   html.dark-mode .text-rose-900,
   html.dark-mode .text-rose-800,
   html.dark-mode .text-rose-700,
+  html.dark-mode .text-rose-600,
+  html.dark-mode .text-red-800,
   html.dark-mode .text-red-700,
-  html.dark-mode .text-red-600 {
+  html.dark-mode .text-red-600,
+  html.dark-mode .hover\:text-rose-600:hover,
+  html.dark-mode .hover\:text-rose-700:hover,
+  html.dark-mode .hover\:text-rose-800:hover,
+  html.dark-mode .hover\:text-rose-900:hover,
+  html.dark-mode .hover\:text-red-600:hover {
     color: #fb7185 !important;
   }
 
+  /* Preservar texto oscuro en insignias / botones de colores claros o dorados */
+  html.dark-mode .bg-amber-300,
+  html.dark-mode .bg-amber-300 > span,
+  html.dark-mode .bg-amber-300 > i,
+  html.dark-mode .bg-amber-400,
+  html.dark-mode .bg-amber-400 > span,
+  html.dark-mode .bg-amber-400 > i,
+  html.dark-mode .bg-amber-400 .text-slate-950,
+  html.dark-mode .bg-amber-400 .text-slate-900,
+  html.dark-mode .bg-amber-500.text-slate-950,
+  html.dark-mode .bg-amber-500.text-slate-950 > span,
+  html.dark-mode .bg-amber-500.text-slate-950 > i,
+  html.dark-mode .from-amber-500.text-slate-950,
+  html.dark-mode .from-amber-500.text-slate-950 > span,
+  html.dark-mode .from-amber-500.text-slate-950 > i,
+  html.dark-mode .from-amber-600.text-slate-950,
+  html.dark-mode .from-amber-600.text-slate-950 > span,
+  html.dark-mode .from-amber-600.text-slate-950 > i,
+  html.dark-mode .bg-yellow-300,
+  html.dark-mode .bg-yellow-300 > span,
+  html.dark-mode .bg-yellow-300 > i,
+  html.dark-mode .bg-yellow-400,
+  html.dark-mode .bg-yellow-400 > span,
+  html.dark-mode .bg-yellow-400 > i,
+  html.dark-mode .bg-\[\#22c55e\].text-slate-950,
+  html.dark-mode .bg-\[\#f59e0b\].text-slate-950 {
+    color: #020617 !important;
+  }
+
   /* Banner Google Search Grounding en modo nocturno */
-  html.dark-mode #apu-grounding-box {
+  html.dark-mode #apu-grounding-box,
+  html.dark-mode #modal-apu-grounding-box {
     background: linear-gradient(135deg, rgba(30, 58, 138, 0.35), rgba(49, 46, 129, 0.35), rgba(88, 28, 135, 0.30)) !important;
     border-color: rgba(96, 165, 250, 0.35) !important;
   }
@@ -752,7 +1055,13 @@ input[type="date"].text-rose-800::-webkit-calendar-picker-indicator:hover {
     background: #475569 !important;
   }
 
-  html.dark-mode *,
+  html.dark-mode,
+  html.dark-mode body,
+  html.dark-mode .custom-scroll,
+  html.dark-mode .custom-scroll-x,
+  html.dark-mode .overflow-y-auto,
+  html.dark-mode .overflow-x-auto,
+  html.dark-mode .overflow-auto,
   html.dark-mode #gantt-left-panel,
   html.dark-mode #gantt-timeline-panel,
   html.dark-mode #financial-table-panel,

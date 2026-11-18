@@ -2,10 +2,10 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf27';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261117_cf27';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261117_cf27';
-import { showToast } from '../ui/notifications.js?v=20261117_cf27';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf30';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261117_cf30';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261117_cf30';
+import { showToast } from '../ui/notifications.js?v=20261117_cf30';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -978,7 +978,7 @@ export async function fetchCloudProjects(opts = {}) {
         const cfg = { ...rawCfg };
         delete cfg.apiKey;
         const memberTabsMap = (cfg.memberTabs && typeof cfg.memberTabs === 'object') ? cfg.memberTabs : {};
-        const defaultTabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'];
+        const defaultTabs = ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'];
 
         const rawColabs = Array.isArray(cp.proyecto_colaboradores) ? cp.proyecto_colaboradores : [];
         const reconstructedMembers = rawColabs.map(c => {

@@ -17,7 +17,7 @@
  * 7. Regla de excepción inteligente: cotas, códigos, dimensiones y especificaciones con números nunca se marcan como error.
  */
 
-import { showToast } from '../ui/notifications.js?v=20261117_cf27';
+import { showToast } from '../ui/notifications.js?v=20261117_cf30';
 
 const STORAGE_KEY_CUSTOM_DICT = 'cubikar_custom_dictionary';
 const STORAGE_KEY_AUTOCORRECT_ENABLED = 'cubikar_autocorrect_enabled';
@@ -547,6 +547,10 @@ class WordAutocorrectService {
     this.enabled = true;
     this.highlightedElements = new Set();
     this.activeContextMenu = null;
+    this._pendingAttachEls = new Set();
+    this._attachFlushScheduled = false;
+    this._computedStyleCache = new Map();
+    this._observerInitialized = false;
 
     this.loadCustomDictionary();
     this.loadSettings();
@@ -1377,38 +1381,132 @@ class WordAutocorrectService {
   }
 
   /**
+   * Programa la conexión diferida por lotes para no causar layout thrashing al insertar decenas de filas.
+   */
+  _scheduleDeferredAttach(el) {
+    if (!el || el.__spellHighlighterAttached) return;
+    this._pendingAttachEls.add(el);
+    if (this._attachFlushScheduled) return;
+    this._attachFlushScheduled = true;
+
+    const raf = (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function')
+      ? window.requestAnimationFrame.bind(window)
+      : (cb) => setTimeout(cb, 0);
+
+    const flushBatch = () => {
+      if (this._pendingAttachEls.size === 0) {
+        this._attachFlushScheduled = false;
+        return;
+      }
+      const batch = [];
+      for (const item of this._pendingAttachEls) {
+        batch.push(item);
+        if (batch.length >= 40) break;
+      }
+      for (const item of batch) {
+        this._pendingAttachEls.delete(item);
+        if (item && document.body && document.body.contains(item) && !item.__spellHighlighterAttached) {
+          this.attachSpellHighlighter(item);
+        }
+      }
+      if (this._pendingAttachEls.size > 0) {
+        raf(flushBatch);
+      } else {
+        this._attachFlushScheduled = false;
+      }
+    };
+
+    raf(flushBatch);
+  }
+
+  /**
+   * Lee y almacena en caché las propiedades geométricas calculadas para alinear 1:1 sin forzar reflujos repetidos.
+   */
+  _getElementGeomStyles(element) {
+    const hasInlineStyle = Boolean(element.getAttribute('style'));
+    const cacheKey = hasInlineStyle ? null : `${element.tagName}|${element.className || ''}`;
+    if (cacheKey && this._computedStyleCache.has(cacheKey)) {
+      return this._computedStyleCache.get(cacheKey);
+    }
+    const cs = window.getComputedStyle(element);
+    const geom = {
+      fontFamily: cs.fontFamily,
+      fontSize: cs.fontSize,
+      fontWeight: cs.fontWeight,
+      lineHeight: cs.lineHeight,
+      letterSpacing: cs.letterSpacing,
+      textAlign: cs.textAlign,
+      paddingTop: cs.paddingTop,
+      paddingRight: cs.paddingRight,
+      paddingBottom: cs.paddingBottom,
+      paddingLeft: cs.paddingLeft,
+      borderTopWidth: cs.borderTopWidth,
+      borderRightWidth: cs.borderRightWidth,
+      borderBottomWidth: cs.borderBottomWidth,
+      borderLeftWidth: cs.borderLeftWidth,
+      boxSizing: cs.boxSizing
+    };
+    if (cacheKey) {
+      if (this._computedStyleCache.size > 150) this._computedStyleCache.clear();
+      this._computedStyleCache.set(cacheKey, geom);
+    }
+    return geom;
+  }
+
+  /**
    * Actualiza las marcas onduladas rojas en el backdrop de un elemento.
    */
   updateElementHighlight(element) {
     if (!element || !element.__spellBackdrop) return;
     const backdrop = element.__spellBackdrop;
     const text = element.value || '';
+    const renderKey = `${this.enabled ? '1' : '0'}:${text}`;
+    if (element.__lastSpellRenderKey === renderKey) {
+      backdrop.scrollTop = element.scrollTop;
+      backdrop.scrollLeft = element.scrollLeft;
+      return;
+    }
+    element.__lastSpellRenderKey = renderKey;
 
     if (!this.enabled || !text) {
-      backdrop.innerHTML = '';
+      if (backdrop.innerHTML !== '') backdrop.innerHTML = '';
       return;
     }
 
-    // Copiar estilos geométricos para alineación 1:1 exacta
-    const cs = window.getComputedStyle(element);
-    backdrop.style.fontFamily = cs.fontFamily;
-    backdrop.style.fontSize = cs.fontSize;
-    backdrop.style.fontWeight = cs.fontWeight;
-    backdrop.style.lineHeight = cs.lineHeight;
-    backdrop.style.letterSpacing = cs.letterSpacing;
-    backdrop.style.textAlign = cs.textAlign;
-    backdrop.style.paddingTop = cs.paddingTop;
-    backdrop.style.paddingRight = cs.paddingRight;
-    backdrop.style.paddingBottom = cs.paddingBottom;
-    backdrop.style.paddingLeft = cs.paddingLeft;
-    backdrop.style.borderTopWidth = cs.borderTopWidth;
-    backdrop.style.borderRightWidth = cs.borderRightWidth;
-    backdrop.style.borderBottomWidth = cs.borderBottomWidth;
-    backdrop.style.borderLeftWidth = cs.borderLeftWidth;
-    backdrop.style.boxSizing = cs.boxSizing;
+    const styleSig = element.getAttribute('style')
+      ? `__inline:${element.getAttribute('style')}`
+      : `${element.tagName}|${element.className || ''}`;
+    if (element.__lastSpellStyleKey !== styleSig) {
+      const geom = this._getElementGeomStyles(element);
+      backdrop.style.fontFamily = geom.fontFamily;
+      backdrop.style.fontSize = geom.fontSize;
+      backdrop.style.fontWeight = geom.fontWeight;
+      backdrop.style.lineHeight = geom.lineHeight;
+      backdrop.style.letterSpacing = geom.letterSpacing;
+      backdrop.style.textAlign = geom.textAlign;
+      backdrop.style.paddingTop = geom.paddingTop;
+      backdrop.style.paddingRight = geom.paddingRight;
+      backdrop.style.paddingBottom = geom.paddingBottom;
+      backdrop.style.paddingLeft = geom.paddingLeft;
+      backdrop.style.borderTopWidth = geom.borderTopWidth;
+      backdrop.style.borderRightWidth = geom.borderRightWidth;
+      backdrop.style.borderBottomWidth = geom.borderBottomWidth;
+      backdrop.style.borderLeftWidth = geom.borderLeftWidth;
+      backdrop.style.boxSizing = geom.boxSizing;
+      element.__lastSpellStyleKey = styleSig;
+    }
 
     const escape = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const errors = this.findSpellingErrorsInText(text);
+
+    if (errors.length === 0 && !text.endsWith('\n')) {
+      if (backdrop.textContent !== text || backdrop.childElementCount > 0) {
+        backdrop.textContent = text;
+      }
+      backdrop.scrollTop = element.scrollTop;
+      backdrop.scrollLeft = element.scrollLeft;
+      return;
+    }
 
     let html = '';
     let last = 0;
@@ -1431,6 +1529,8 @@ class WordAutocorrectService {
   refreshHighlighters() {
     this.highlightedElements.forEach(el => {
       if (document.body.contains(el)) {
+        el.__lastSpellRenderKey = null;
+        el.__lastSpellStyleKey = null;
         this.updateElementHighlight(el);
       } else {
         this.highlightedElements.delete(el);
@@ -1441,14 +1541,14 @@ class WordAutocorrectService {
   /**
    * Configura atributos de ortografía en un elemento (desactivando el subrayado nativo del navegador para evitar falsos positivos).
    */
-  enforceElementSpellcheck(el) {
-    if (!el || el.dataset?.spellcheckConfigured === 'true') return;
-
+  enforceElementSpellcheck(el, opts = {}) {
+    if (!el) return;
     const isText = (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'search' || !el.type)) ||
                    el.tagName === 'TEXTAREA' ||
                    el.isContentEditable;
+    if (!isText) return;
 
-    if (isText) {
+    if (el.dataset?.spellcheckConfigured !== 'true') {
       // DESACTIVAR spellcheck nativo del navegador para que no subraye todo en rojo por discrepancia de idioma del SO
       el.spellcheck = false;
       el.setAttribute('spellcheck', 'false');
@@ -1456,9 +1556,15 @@ class WordAutocorrectService {
       el.setAttribute('autocapitalize', 'sentences');
       el.setAttribute('lang', 'es');
       el.dataset.spellcheckConfigured = 'true';
+    }
 
-      if (el.tagName === 'TEXTAREA' || el.classList.contains('desc-input')) {
-        this.attachSpellHighlighter(el);
+    if (el.tagName === 'TEXTAREA' || el.classList.contains('desc-input')) {
+      if (!el.__spellHighlighterAttached) {
+        if (opts && opts.deferHighlight) {
+          this._scheduleDeferredAttach(el);
+        } else {
+          this.attachSpellHighlighter(el);
+        }
       }
     }
   }
@@ -1467,36 +1573,53 @@ class WordAutocorrectService {
    * Inicialización global del observador y escuchas de eventos.
    */
   initGlobalObserver() {
+    if (this._observerInitialized) return;
+    this._observerInitialized = true;
+
     // 1. Escuchar pulsaciones de teclas para autocorrección estilo Word
     document.addEventListener('keydown', (e) => this.handleKeydown(e), true);
+
+    // Invalidar caché geométrica al redimensionar pantalla
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('resize', () => {
+        this._computedStyleCache.clear();
+      });
+    }
 
     // 2. Inicializar menú contextual de clic derecho estilo Word
     this.initSpellContextMenu();
 
-    // 3. Interceptar foco para asegurar atributos y adjuntar resaltadores
+    // 3. Interceptar foco para asegurar atributos y adjuntar resaltadores de inmediato al enfocar
     document.addEventListener('focusin', (e) => {
-      if (e.target) this.enforceElementSpellcheck(e.target);
+      if (e.target) this.enforceElementSpellcheck(e.target, { deferHighlight: false });
     }, true);
 
-    // 4. Aplicar de inmediato a todos los inputs y textareas existentes
+    // 4. Aplicar atributos de inmediato y diferir el resaltado visual para no bloquear el arranque
     document.querySelectorAll('input[type="text"], input:not([type]), textarea, [contenteditable="true"]').forEach(el => {
-      this.enforceElementSpellcheck(el);
+      this.enforceElementSpellcheck(el, { deferHighlight: true });
     });
 
-    // 5. Observar mutaciones dinámicas (al desplegar nodos, modales, etc.)
+    // 5. Observar mutaciones dinámicas ignorando nuestros propios nodos backdrop/spellcheck
     const observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
-        if (m.type === 'childList') {
-          m.addedNodes.forEach(node => {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              if (node.matches && node.matches('input, textarea, [contenteditable]')) {
-                this.enforceElementSpellcheck(node);
-              }
-              const childInputs = node.querySelectorAll ? node.querySelectorAll('input, textarea, [contenteditable]') : [];
-              childInputs.forEach(el => this.enforceElementSpellcheck(el));
-            }
-          });
-        }
+        if (m.type !== 'childList' || !m.addedNodes || m.addedNodes.length === 0) continue;
+        m.addedNodes.forEach(node => {
+          if (!node || node.nodeType !== Node.ELEMENT_NODE) return;
+          if (
+            node.id === 'word-spell-context-menu' ||
+            (node.classList && (node.classList.contains('cubikar-spell-backdrop') || node.classList.contains('cubikar-spell-error')))
+          ) {
+            return;
+          }
+          if (node.matches && node.matches('input, textarea, [contenteditable]')) {
+            this.enforceElementSpellcheck(node, { deferHighlight: true });
+            return;
+          }
+          const childInputs = node.querySelectorAll ? node.querySelectorAll('input[type="text"], input:not([type]), textarea, [contenteditable="true"]') : null;
+          if (childInputs && childInputs.length > 0) {
+            childInputs.forEach(el => this.enforceElementSpellcheck(el, { deferHighlight: true }));
+          }
+        });
       }
     });
 

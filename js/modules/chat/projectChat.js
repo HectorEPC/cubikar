@@ -3,11 +3,13 @@
 // conectada con Partidas de Nivel 1 (icono de alta visibilidad fa-comments),
 // Usuarios Asignados (@), Estimaciones (#), Reportes (!) y Notificaciones de Menciones en la barra lateral izquierda.
 
-import { state } from '../../state/store.js?v=20261117_cf27';
-import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf27';
+import { state } from '../../state/store.js?v=20261117_cf30';
+import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf30';
 import {
   getProjectById,
+  getProjectByIdReadOnly,
   getProjectsList,
+  getProjectsListReadOnly,
   getCurrentUser,
   saveCurrentUser,
   getLastKnownUser,
@@ -20,32 +22,178 @@ import {
   getStoredPlanInvitations,
   saveStoredPlanInvitations,
   getDeletedProjectsList
-} from '../portal/projectService.js?v=20261117_cf27';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261117_cf27';
-import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261117_cf27';
-import { getExpensesRecords } from '../compras/expensesModel.js?v=20261117_cf27';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf27';
-import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261117_cf27';
-import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261117_cf27';
-import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261117_cf27';
-import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261117_cf27';
+} from '../portal/projectService.js?v=20261117_cf30';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261117_cf30';
+import { buildFallbackAvatarSvg } from '../../core/authService.js?v=20261117_cf30';
+import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261117_cf30';
+import { getExpensesRecords } from '../compras/expensesModel.js?v=20261117_cf30';
+import { getWarehouseStockSummary } from '../almacen/almacenModel.js?v=20261117_cf30';
+import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
+import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261117_cf30';
+import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261117_cf30';
+import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261117_cf30';
+import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261117_cf30';
+
+export const ALL_PROJECT_PERMISSION_TABS = ['cat', 'insumos', 'calendario', 'compras', 'almacen', 'estimaciones', 'bitacora'];
+
+export const CHAT_CHANNEL_META = {
+  todos: {
+    id: 'todos',
+    label: 'Todo',
+    icon: 'fa-layer-group',
+    iconColor: 'text-amber-400',
+    activeBtn: 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-200',
+    btnClass: 'bg-slate-700 hover:bg-slate-600',
+    dotClass: 'bg-slate-700',
+    badgeClass: 'bg-slate-700',
+    emptyBg: 'bg-slate-100 text-slate-700',
+    subtitle: 'Canal general del proyecto (Todos los invitados)',
+    placeholder: 'Escribe en Todo (visible para todos los invitados)...',
+    emptyDesc: 'Conversación general abierta para <strong>todos los colaboradores</strong> del proyecto.',
+    printTitle: 'BITÁCORA INTEGRAL DEL PROYECTO (TODOS LOS CANALES)',
+    printSubtitle: 'Presupuesto • Calendario • Compras • Almacén • Estimaciones • Bitácora',
+    filterBtnLabel: '! Reportes',
+    filterBtnColor: 'bg-slate-800 text-white'
+  },
+  presupuesto: {
+    id: 'presupuesto',
+    label: 'Presupuesto',
+    icon: 'fa-coins',
+    iconColor: 'text-blue-400',
+    activeBtn: 'bg-blue-600 text-white shadow-xs',
+    btnClass: 'bg-blue-600 hover:bg-blue-500',
+    dotClass: 'bg-blue-600',
+    badgeClass: 'bg-blue-700',
+    emptyBg: 'bg-blue-50 text-blue-600',
+    subtitle: 'Catálogo Base • Insumos Base • Matrices APU',
+    placeholder: 'Asiento de Presupuesto (Catálogo, Insumos, APU)...',
+    emptyDesc: 'Registra acuerdos sobre <strong>Catálogo Base</strong>, <strong>Matrices APU</strong> o <strong>Insumos</strong>.',
+    printTitle: 'BITÁCORA DE PRESUPUESTO BASE E INSUMOS',
+    printSubtitle: 'Catálogo Base • Matrices APU • Explosión General de Insumos',
+    filterBtnLabel: '! Plan de Obra',
+    filterBtnColor: 'bg-blue-600 text-white'
+  },
+  calendario: {
+    id: 'calendario',
+    label: 'Calendario',
+    icon: 'fa-calendar-days',
+    iconColor: 'text-amber-300',
+    activeBtn: 'bg-amber-600 text-white shadow-xs',
+    btnClass: 'bg-amber-600 hover:bg-amber-500',
+    dotClass: 'bg-amber-500',
+    badgeClass: 'bg-amber-700',
+    emptyBg: 'bg-amber-50 text-amber-600',
+    subtitle: 'Calendario de Obra • Cronograma Gantt',
+    placeholder: 'Asiento de Calendario de Obra / Gantt...',
+    emptyDesc: 'Registra acuerdos sobre <strong>Programación</strong>, <strong>Frentes</strong> y <strong>Ruta Crítica</strong>.',
+    printTitle: 'BITÁCORA DE CALENDARIO Y PROGRAMACIÓN DE OBRA',
+    printSubtitle: 'Cronograma Gantt • Frentes de Obra • Ruta Crítica',
+    filterBtnLabel: '! Calendario',
+    filterBtnColor: 'bg-amber-600 text-white'
+  },
+  compras: {
+    id: 'compras',
+    label: 'Compras',
+    icon: 'fa-cart-shopping',
+    iconColor: 'text-indigo-300',
+    activeBtn: 'bg-indigo-600 text-white shadow-xs',
+    btnClass: 'bg-indigo-600 hover:bg-indigo-500',
+    dotClass: 'bg-indigo-600',
+    badgeClass: 'bg-indigo-700',
+    emptyBg: 'bg-indigo-50 text-indigo-600',
+    subtitle: 'Compras y Pagos • Órdenes • Proveedores',
+    placeholder: 'Asiento de Compras, Órdenes de Compra o Pagos...',
+    emptyDesc: 'Registra autorizaciones de <strong>Órdenes de Compra</strong>, <strong>Proveedores</strong> y <strong>Pagos</strong>.',
+    printTitle: 'BITÁCORA DE COMPRAS, ÓRDENES Y PAGOS',
+    printSubtitle: 'Control de Egresos • Órdenes de Compra • Proveedores',
+    filterBtnLabel: '$ Compras / Pagos',
+    filterBtnColor: 'bg-indigo-600 text-white'
+  },
+  almacen: {
+    id: 'almacen',
+    label: 'Almacén',
+    icon: 'fa-warehouse',
+    iconColor: 'text-sky-300',
+    activeBtn: 'bg-sky-600 text-white shadow-xs',
+    btnClass: 'bg-sky-600 hover:bg-sky-500',
+    dotClass: 'bg-sky-600',
+    badgeClass: 'bg-sky-700',
+    emptyBg: 'bg-sky-50 text-sky-600',
+    subtitle: 'Almacén Físico • Recepciones • Vales de Salida',
+    placeholder: 'Asiento de Almacén (Recepciones, Vales de Salida, Stock)...',
+    emptyDesc: 'Registra recepciones, <strong>Vales de Salida</strong>, <strong>Resguardos de herramienta</strong> y existencias físicas.',
+    printTitle: 'BITÁCORA FÍSICA DE ALMACÉN Y BODEGA',
+    printSubtitle: 'Recepciones Físicas • Existencias en Bodega • Vales de Salida (Sin precios)',
+    filterBtnLabel: '📦 Materiales / Reporte',
+    filterBtnColor: 'bg-sky-600 text-white'
+  },
+  estimaciones: {
+    id: 'estimaciones',
+    label: 'Estimaciones',
+    icon: 'fa-file-invoice-dollar',
+    iconColor: 'text-emerald-300',
+    activeBtn: 'bg-emerald-600 text-white shadow-xs',
+    btnClass: 'bg-emerald-600 hover:bg-emerald-500',
+    dotClass: 'bg-emerald-600',
+    badgeClass: 'bg-emerald-700',
+    emptyBg: 'bg-emerald-50 text-emerald-600',
+    subtitle: 'Estimaciones de Avance • Generadores • Cobros',
+    placeholder: 'Asiento de Estimaciones de Obra...',
+    emptyDesc: 'Registra revisiones y autorizaciones de <strong>Estimaciones</strong> y <strong>Avances de Obra</strong>.',
+    printTitle: 'BITÁCORA DE ESTIMACIONES DE OBRA',
+    printSubtitle: 'Estimaciones de Avance • Volúmenes Cobrados',
+    filterBtnLabel: '# Estimaciones',
+    filterBtnColor: 'bg-emerald-600 text-white'
+  },
+  bitacora: {
+    id: 'bitacora',
+    label: 'Bitácora',
+    icon: 'fa-book-bookmark',
+    iconColor: 'text-teal-300',
+    activeBtn: 'bg-teal-600 text-white shadow-xs',
+    btnClass: 'bg-teal-600 hover:bg-teal-500',
+    dotClass: 'bg-teal-600',
+    badgeClass: 'bg-teal-700',
+    emptyBg: 'bg-teal-50 text-teal-600',
+    subtitle: 'Bitácora de Obra Digital y Legal',
+    placeholder: 'Comentario sobre notas de Bitácora de Obra...',
+    emptyDesc: 'Coordina observaciones de campo y seguimiento de <strong>Bitácora de Obra</strong>.',
+    printTitle: 'BITÁCORA DE SEGUIMIENTO DE OBRA (NOTAS DE CAMPO)',
+    printSubtitle: 'Bitácora de Obra Digital y Legal',
+    filterBtnLabel: '! Notas Bitácora',
+    filterBtnColor: 'bg-teal-600 text-white'
+  }
+};
 
 let isChatDockExpanded = false; // Inicia como pequeño círculo flotante abajo a la derecha
 let isChatMaximized = false; // Permite maximizar o restaurar el tamaño de la ventana del chat
-let activeChatSection = 'tecnico'; // 'tecnico' (Catálogo, Insumos, Calendario) | 'financiero' (Estimaciones, Compras y Pagos)
+let activeChatSection = 'presupuesto'; // 'todos' | 'presupuesto' | 'calendario' | 'compras' | 'almacen' | 'estimaciones' | 'bitacora'
+let lastSpecificChatSection = 'presupuesto';
+let userPinnedTodosSection = false;
+let todoComposeTargetSection = 'todos'; // Cuando está en 'todos', permite enviar solo a 'todos' o directo a un canal específico
 let activeChatFilter = 'all'; // 'all' | 'mentions' | 'estimaciones' | 'reportes'
 let activePartidaFilterId = null; // ID de Partida Nivel 1 cuando se filtra con el botón de comentarios
-let activeTagPickerKind = null; // 'user' | 'partida' | 'estimacion' | 'compra' | 'reporte' | null
+let activeTagPickerKind = null; // 'user' | 'partida' | 'estimacion' | 'compra' | 'almacen' | 'reporte' | null
 let selectedAuthorHandle = null;
 let selectedNotificationsHandle = '__self__'; // '__self__' (usuario actual), 'all' o @Usuario específico
 let isNotificationsPopoverOpen = false;
 let highlightedMessageId = null;
+let activeMentionAutocomplete = {
+  open: false,
+  query: '',
+  matchStart: -1,
+  matchEnd: -1,
+  highlightIdx: 0
+};
+let isChannelMenuOpen = false;
+let isTodoTargetMenuOpen = false;
 
 let pendingComposerTags = {
   partidaId: null,
   mentions: [],
   estimaciones: [],
   compras: [],
+  almacen: [],
   reportes: []
 };
 
@@ -82,7 +230,7 @@ function normalizeMentionToken(val) {
 function resolveCanonicalChatPid(projectId = null) {
   const rawPid = projectId || getActiveProjectId() || 'proj-default-01';
   try {
-    const projects = getProjectsList();
+    const projects = getProjectsListReadOnly();
     if (Array.isArray(projects)) {
       const match = projects.find(p => p && (p.id === rawPid || p.cloudId === rawPid));
       if (match && match.id) return match.id;
@@ -156,7 +304,7 @@ export function loadProjectChatMessages(projectId = null) {
   const pid = resolveCanonicalChatPid(projectId);
   const candidatePids = Array.from(new Set([pid, projectId || ''].filter(Boolean)));
   try {
-    const pObj = getProjectById(pid);
+    const pObj = getProjectByIdReadOnly(pid);
     if (pObj?.cloudId && !candidatePids.includes(pObj.cloudId)) candidatePids.push(pObj.cloudId);
   } catch (_) {}
   try {
@@ -227,15 +375,17 @@ export function markActiveProjectChatMessagesAsRead(projectId = null) {
     const currentUser = getCurrentUser() || getLastKnownUser();
     const myEmail = (currentUser?.email || '').toLowerCase().trim();
     const userKey = myEmail || '__local__';
-    const readList = getReadMentionIds();
-    const readSet = new Set(readList);
     const msgs = loadProjectChatMessages(pid);
     if (!Array.isArray(msgs) || msgs.length === 0) return false;
+    const allowedSet = new Set(getAllowedChatChannelsForUser(pid, currentUser));
+    if (allowedSet.size === 0) return false;
+    const readList = getReadMentionIds();
+    const readSet = new Set(readList);
     let changed = false;
     let readKeysAdded = false;
 
     const nextMsgs = msgs.map(m => {
-      if (!m) return m;
+      if (!m || !isChatMessageVisibleToUser(m, pid, currentUser, allowedSet)) return m;
       const authorEmail = String(m.authorEmail || m.autorEmail || m.autor_email || '').toLowerCase().trim();
       if (myEmail && authorEmail && authorEmail === myEmail) {
         return m;
@@ -252,15 +402,17 @@ export function markActiveProjectChatMessagesAsRead(projectId = null) {
         readList.push(cleanId);
         readKeysAdded = true;
       }
-      const nextReadBy = Array.isArray(m.readBy) ? m.readBy.filter(r => r !== '__all__') : [];
-      if (myEmail && !nextReadBy.some(r => String(r || '').toLowerCase().trim() === myEmail)) {
-        nextReadBy.push(myEmail);
-        changed = true;
-      }
+      const prevReadBy = Array.isArray(m.readBy) ? m.readBy : [];
+      const hadWildcard = prevReadBy.includes('__all__');
+      const needsEmail = Boolean(myEmail && !prevReadBy.some(r => r !== '__all__' && String(r || '').toLowerCase().trim() === myEmail));
       const prevLocalReadBy = (m.localReadBy && typeof m.localReadBy === 'object') ? m.localReadBy : {};
-      if (!prevLocalReadBy[userKey]) {
-        changed = true;
+      const needsLocalRead = !prevLocalReadBy[userKey];
+      if (!hadWildcard && !needsEmail && !needsLocalRead && m.perUserRead) {
+        return m;
       }
+      const nextReadBy = hadWildcard ? prevReadBy.filter(r => r !== '__all__') : [...prevReadBy];
+      if (needsEmail) nextReadBy.push(myEmail);
+      changed = true;
       return {
         ...m,
         perUserRead: true,
@@ -285,22 +437,82 @@ export function markActiveProjectChatMessagesAsRead(projectId = null) {
   }
 }
 
+let partidaCountsCache = null;
+
+function getPartidaChatCountsSnapshot(rawProjectId = null) {
+  const pid = resolveCanonicalChatPid(rawProjectId);
+  if (!pid) return null;
+  const currentUser = getCurrentUser() || getLastKnownUser();
+  const myEmail = (currentUser?.email || '').toLowerCase().trim();
+  const allowedChannels = getAllowedChatChannelsForUser(pid, currentUser);
+  if (allowedChannels.length === 0) return null;
+
+  let rawChat = '';
+  try {
+    const candidatePids = [pid];
+    const pObj = getProjectByIdReadOnly(pid);
+    if (pObj?.cloudId && pObj.cloudId !== pid) candidatePids.push(pObj.cloudId);
+    for (const cPid of candidatePids) {
+      const val = typeof localStorage !== 'undefined' ? localStorage.getItem(`adm_const_project_chat_${cPid}`) : '';
+      if (val) {
+        rawChat = val;
+        break;
+      }
+    }
+  } catch (_) {}
+
+  if (!rawChat) return null;
+
+  let rawRead = '';
+  try {
+    if (typeof localStorage !== 'undefined') {
+      rawRead = localStorage.getItem(getScopedNotifStorageKey(READ_MENTIONS_KEY)) || '';
+    }
+  } catch (_) {}
+
+  const cacheKey = `${pid}|${myEmail}|${allowedChannels.join(',')}|${rawRead}|${rawChat}`;
+  if (partidaCountsCache && partidaCountsCache.key === cacheKey) {
+    return partidaCountsCache;
+  }
+
+  const unreadByPartida = new Map();
+  const totalByPartida = new Map();
+  try {
+    const parsed = JSON.parse(rawChat);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const messages = dedupeChatMessages(parsed);
+      const allowedSet = new Set(allowedChannels);
+      const readSet = new Set(getReadMentionIds());
+      for (const m of messages) {
+        if (!m || m.partidaId === null || m.partidaId === undefined || m.partidaId === '') continue;
+        if (!isChatMessageVisibleToUser(m, pid, currentUser, allowedSet)) continue;
+        const k = String(m.partidaId);
+        totalByPartida.set(k, (totalByPartida.get(k) || 0) + 1);
+        if (!isChatMessageReadForCurrentUser(m, pid, myEmail, readSet)) {
+          unreadByPartida.set(k, (unreadByPartida.get(k) || 0) + 1);
+        }
+      }
+    }
+  } catch (_) {}
+
+  partidaCountsCache = { key: cacheKey, unreadByPartida, totalByPartida };
+  return partidaCountsCache;
+}
+
 export function getPartidaChatCount(partidaId) {
   if (!partidaId) return 0;
   const pid = getActiveProjectId();
   if (!pid) return 0;
-  const myEmail = ((getCurrentUser() || getLastKnownUser())?.email || '').toLowerCase().trim();
-  const readSet = new Set(getReadMentionIds());
-  const messages = loadProjectChatMessages(pid);
-  return messages.filter(m => String(m.partidaId) === String(partidaId) && !isChatMessageReadForCurrentUser(m, pid, myEmail, readSet)).length;
+  const snap = getPartidaChatCountsSnapshot(pid);
+  return snap ? (snap.unreadByPartida.get(String(partidaId)) || 0) : 0;
 }
 
 export function getPartidaTotalChatCount(partidaId) {
   if (!partidaId) return 0;
   const pid = getActiveProjectId();
   if (!pid) return 0;
-  const messages = loadProjectChatMessages(pid);
-  return messages.filter(m => String(m.partidaId) === String(partidaId)).length;
+  const snap = getPartidaChatCountsSnapshot(pid);
+  return snap ? (snap.totalByPartida.get(String(partidaId)) || 0) : 0;
 }
 
 export function isPartidaChatActive(partidaId) {
@@ -363,11 +575,29 @@ export function renderPartidaNivel1ChatButton(nodeId, clave = '', descripcion = 
   `;
 }
 
-// Obtener usuarios asignados al proyecto activo
+export function formatAbbreviatedUserName(fullName = '', email = '') {
+  const raw = String(fullName || '').trim() || String(email || '').split('@')[0] || 'Usuario';
+  const parts = raw.split(/\s+/).filter(Boolean).map(w =>
+    w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+  );
+  if (parts.length === 0) return 'Usuario';
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return `${parts[0]} ${parts[1].charAt(0)}.`;
+  const surnameCandidate = parts.length >= 4 ? parts[2] : parts[1];
+  return `${parts[0]} ${surnameCandidate.charAt(0)}.`;
+}
+
+export function buildShortMentionHandle(fullName = '', email = '') {
+  const shortDisp = formatAbbreviatedUserName(fullName, email);
+  return '@' + shortDisp.replace(/\.$/, '').replace(/\s+/g, '.').replace(/\.+/g, '.');
+}
+
+// Obtener usuarios asignados e invitados al proyecto (incluyendo foto de perfil, nombre abreviado y pestañas)
 function getAssignedProjectUsers(projectId = null) {
   const pid = resolveCanonicalChatPid(projectId);
-  const proj = getProjectById(pid);
+  const proj = getProjectByIdReadOnly(pid);
   const currentUser = getCurrentUser() || getLastKnownUser();
+  const curEmailLower = String(currentUser?.email || '').toLowerCase().trim();
   const seenEmails = new Set();
   const rawMembers = [];
 
@@ -381,45 +611,138 @@ function getAssignedProjectUsers(projectId = null) {
     rawMembers.push(m);
   };
 
+  if (proj && proj.ownerEmail) {
+    const ownerEm = String(proj.ownerEmail || '').toLowerCase().trim();
+    const ownerMatchesCur = curEmailLower && curEmailLower === ownerEm;
+    pushRawMember({
+      id: `mem-${proj.ownerEmail}`,
+      name: (ownerMatchesCur && currentUser?.name) || proj.ownerName || proj.ownerEmail.split('@')[0],
+      email: proj.ownerEmail,
+      avatar: (ownerMatchesCur && currentUser?.avatar) || proj.ownerAvatar || '',
+      role: 'editar',
+      isOwner: true,
+      status: 'accepted',
+      allowedTabs: [...ALL_PROJECT_PERMISSION_TABS]
+    });
+  }
   if (proj && Array.isArray(proj.members)) {
     proj.members.forEach(pushRawMember);
   }
-  if (proj && proj.ownerEmail) {
-    pushRawMember({
-      id: `mem-${proj.ownerEmail}`,
-      name: proj.ownerName || proj.ownerEmail.split('@')[0],
-      email: proj.ownerEmail,
-      role: 'editar'
+  // Complementar con invitaciones registradas aún pendientes de sincronizarse en proj.members
+  try {
+    const storedInvs = typeof getStoredInvitations === 'function' ? getStoredInvitations() : [];
+    (Array.isArray(storedInvs) ? storedInvs : []).forEach(inv => {
+      if (!inv || inv.status === 'rejected') return;
+      const invPid = resolveCanonicalChatPid(inv.projectId || '');
+      if (invPid !== pid && inv.projectId !== proj?.cloudId) return;
+      pushRawMember({
+        id: `inv-${inv.id || inv.toEmail || inv.email}`,
+        name: inv.toName || inv.name || (inv.toEmail || inv.email || 'Invitado').split('@')[0],
+        email: inv.toEmail || inv.email || '',
+        avatar: inv.avatar || '',
+        role: inv.role || 'escribir',
+        status: inv.status || 'pending',
+        allowedTabs: Array.isArray(inv.allowedTabs) ? [...inv.allowedTabs] : null
+      });
     });
-  }
+  } catch (_) {}
+
   if (rawMembers.length === 0) {
     pushRawMember({
       id: 'mem-owner',
       name: (currentUser && currentUser.name) || 'Administrador de Obra',
       email: (currentUser && currentUser.email) || 'admin@constructora.com',
-      avatar: (currentUser && currentUser.avatar) || AVATARS_BY_SEX['Masculino'],
-      role: 'editar'
+      avatar: (currentUser && currentUser.avatar) || '',
+      role: 'editar',
+      isOwner: true,
+      status: 'accepted',
+      allowedTabs: [...ALL_PROJECT_PERMISSION_TABS]
     });
   }
 
   return rawMembers.map(m => {
     const cleanName = (m.name || 'Usuario').trim();
-    const shortHandle = '@' + cleanName.replace(/\s+/g, '.');
+    const shortName = formatAbbreviatedUserName(cleanName, m.email);
+    const shortHandle = buildShortMentionHandle(cleanName, m.email);
+    const fullHandle = '@' + cleanName.replace(/\s+/g, '.');
     const parts = cleanName.split(/\s+/).filter(Boolean);
     const initials = parts.length >= 2
       ? (parts[0][0] + parts[1][0]).toUpperCase()
       : cleanName.slice(0, 2).toUpperCase();
-    const roleLabel = m.role === 'editar' ? 'Editar' : (m.role === 'escribir' ? 'Escribir' : 'Consultar');
+    const roleLabel = m.isOwner
+      ? 'Propietario'
+      : (m.role === 'editar' ? 'Editar' : (m.role === 'escribir' ? 'Escribir' : 'Consultar'));
+    const allowedTabs = Array.isArray(m.allowedTabs)
+      ? m.allowedTabs
+      : (m.role === 'editar' ? [...ALL_PROJECT_PERMISSION_TABS] : []);
+    const isFullMember = Boolean(m.isOwner) || ALL_PROJECT_PERMISSION_TABS.every(t =>
+      t === 'presupuesto'
+        ? (allowedTabs.includes('presupuesto') || allowedTabs.includes('cat') || allowedTabs.includes('insumos'))
+        : allowedTabs.includes(t)
+    );
+    const areaLabels = [];
+    if (allowedTabs.includes('cat') || allowedTabs.includes('insumos') || allowedTabs.includes('presupuesto')) areaLabels.push('Presupuesto');
+    if (allowedTabs.includes('calendario')) areaLabels.push('Calendario');
+    if (allowedTabs.includes('compras')) areaLabels.push('Compras');
+    if (allowedTabs.includes('almacen')) areaLabels.push('Almacén');
+    if (allowedTabs.includes('estimaciones')) areaLabels.push('Estimaciones');
+    if (allowedTabs.includes('bitacora')) areaLabels.push('Bitácora');
+
+    const emLower = String(m.email || '').toLowerCase().trim();
+    const resolvedAvatar = m.avatar ||
+      (curEmailLower && emLower === curEmailLower && currentUser?.avatar) ||
+      buildFallbackAvatarSvg(cleanName, m.email) ||
+      AVATARS_BY_SEX['Masculino'];
+
     return {
       id: m.id || m.email || cleanName,
       name: cleanName,
-      handle: shortHandle,
+      shortName,
+      shortHandle,
+      handle: fullHandle,
       email: m.email || '',
-      avatar: m.avatar || AVATARS_BY_SEX['Masculino'],
+      avatar: resolvedAvatar,
       initials,
-      roleLabel
+      role: m.role || 'leer',
+      roleLabel,
+      status: m.status || 'accepted',
+      isOwner: Boolean(m.isOwner),
+      allowedTabs,
+      isFullMember,
+      tabsSummary: isFullMember ? 'Todas' : (areaLabels.join(', ') || 'Sin pestañas')
     };
   });
+}
+
+// Usuarios autorizados o invitados específicamente en una pestaña / canal de chat
+export function getUsersForChatSection(section = null, projectId = null) {
+  const pid = resolveCanonicalChatPid(projectId);
+  const allUsers = getAssignedProjectUsers(pid);
+  const targetSection = section || activeChatSection || 'todos';
+  return allUsers.filter(u => {
+    if (u.status === 'rejected') return false;
+    if (targetSection === 'todos') return true;
+    if (u.isOwner) return true;
+    const tabs = Array.isArray(u.allowedTabs) ? u.allowedTabs : [];
+    if (targetSection === 'presupuesto') {
+      return tabs.includes('presupuesto') || tabs.includes('cat') || tabs.includes('insumos');
+    }
+    return tabs.includes(targetSection);
+  });
+}
+
+function sortChatMessagesChronologically(list = []) {
+  return [...(Array.isArray(list) ? list : [])]
+    .map((m, idx) => ({ m, idx, ts: getChatMsgTimestampMs(m) }))
+    .sort((a, b) => {
+      const aOk = !isNaN(a.ts);
+      const bOk = !isNaN(b.ts);
+      if (aOk && bOk && a.ts !== b.ts) return a.ts - b.ts;
+      if (aOk && !bOk) return -1;
+      if (!aOk && bOk) return 1;
+      return a.idx - b.idx;
+    })
+    .map(x => x.m);
 }
 
 // Obtener el @handle del usuario activo
@@ -465,14 +788,175 @@ function getAllCatalogNodes() {
   return result;
 }
 
-// Clasificar sección del mensaje ('tecnico' vs 'financiero')
-export function getMessageSection(msg) {
-  if (msg && msg.section) return msg.section;
-  // Compatibilidad retrospectiva con mensajes guardados anteriormente
-  if (msg && ((Array.isArray(msg.estimaciones) && msg.estimaciones.length > 0) || (Array.isArray(msg.compras) && msg.compras.length > 0))) {
-    return 'financiero';
+function evaluateProjTabAccess(proj, tabId, user) {
+  if (!user || !user.email) {
+    return !proj || !proj.ownerEmail;
   }
-  return 'tecnico';
+  const uEmail = String(user.email).toLowerCase().trim();
+  if (!proj) return false;
+
+  const ownerEmail = String(proj.ownerEmail || '').toLowerCase().trim();
+  if (ownerEmail && ownerEmail === uEmail) return true;
+
+  if (!Array.isArray(proj.members) || proj.members.length === 0) return false;
+  const mem = proj.members.find(m => m && m.email && String(m.email).toLowerCase().trim() === uEmail);
+  if (!mem || mem.status === 'pending' || mem.status === 'rejected') return false;
+
+  if (Array.isArray(mem.allowedTabs)) {
+    if (tabId === 'presupuesto') {
+      return mem.allowedTabs.includes('presupuesto') || mem.allowedTabs.includes('cat') || mem.allowedTabs.includes('insumos');
+    }
+    return mem.allowedTabs.includes(tabId);
+  }
+  return mem.role === 'editar';
+}
+
+// Validar acceso de un usuario a una pestaña del proyecto (consistente con portalController.canCurrentUserAccessTab)
+export function canUserAccessTabInProject(tabId, projectId = null, userOverride = null) {
+  const user = userOverride || getCurrentUser() || getLastKnownUser();
+  const pid = resolveCanonicalChatPid(projectId);
+  const proj = getProjectByIdReadOnly(pid);
+  return evaluateProjTabAccess(proj, tabId, user);
+}
+
+// El usuario solo tiene acceso a "Todo" el chat si posee acceso a TODAS las pestañas del proyecto
+export function hasFullChatAccess(projectId = null, userOverride = null) {
+  const user = userOverride || getCurrentUser() || getLastKnownUser();
+  const pid = resolveCanonicalChatPid(projectId);
+  const proj = getProjectByIdReadOnly(pid);
+
+  if (!user || !user.email) {
+    return !proj || !proj.ownerEmail;
+  }
+  const uEmail = String(user.email).toLowerCase().trim();
+  if (!proj) return false;
+
+  const ownerEmail = String(proj.ownerEmail || '').toLowerCase().trim();
+  if (ownerEmail && ownerEmail === uEmail) return true;
+
+  return ALL_PROJECT_PERMISSION_TABS.every(tabId => evaluateProjTabAccess(proj, tabId, user));
+}
+
+// Determina si el usuario es propietario o miembro/invitado del proyecto (habilitado para canal general "Todo")
+export function isUserProjectMemberOrOwner(projectId = null, userOverride = null) {
+  const user = userOverride || getCurrentUser() || getLastKnownUser();
+  const pid = resolveCanonicalChatPid(projectId);
+  const proj = getProjectByIdReadOnly(pid);
+
+  if (!user || !user.email) {
+    return !proj || !proj.ownerEmail;
+  }
+  const uEmail = String(user.email).toLowerCase().trim();
+  if (!proj) return false;
+
+  const ownerEmail = String(proj.ownerEmail || '').toLowerCase().trim();
+  if (ownerEmail && ownerEmail === uEmail) return true;
+
+  if (!Array.isArray(proj.members)) return false;
+  const mem = proj.members.find(m => m && m.email && String(m.email).toLowerCase().trim() === uEmail);
+  return Boolean(mem && mem.status !== 'pending' && mem.status !== 'rejected');
+}
+
+// Canales de chat permitidos para el usuario activo según sus pestañas asignadas
+// La pestaña "Todo" siempre está disponible para todo invitado/miembro del proyecto
+const CHANNEL_ORDER = ['todos', 'presupuesto', 'calendario', 'compras', 'almacen', 'estimaciones', 'bitacora'];
+const SPECIFIC_CHANNEL_TABS = ['presupuesto', 'calendario', 'compras', 'almacen', 'estimaciones', 'bitacora'];
+
+export function getAllowedChatChannelsForUser(projectId = null, userOverride = null) {
+  const pid = resolveCanonicalChatPid(projectId);
+  const user = userOverride || getCurrentUser() || getLastKnownUser();
+  const proj = getProjectByIdReadOnly(pid);
+
+  if (!user || !user.email) {
+    return (!proj || !proj.ownerEmail) ? [...CHANNEL_ORDER] : [];
+  }
+  if (!proj) return [];
+
+  const uEmail = String(user.email).toLowerCase().trim();
+  const ownerEmail = String(proj.ownerEmail || '').toLowerCase().trim();
+  if (ownerEmail && ownerEmail === uEmail) {
+    return [...CHANNEL_ORDER];
+  }
+
+  if (!Array.isArray(proj.members)) return [];
+  const mem = proj.members.find(m => m && m.email && String(m.email).toLowerCase().trim() === uEmail);
+  if (!mem || mem.status === 'pending' || mem.status === 'rejected') {
+    return [];
+  }
+
+  const channels = ['todos'];
+  if (Array.isArray(mem.allowedTabs)) {
+    const allowedSet = new Set(mem.allowedTabs);
+    if (allowedSet.has('presupuesto') || allowedSet.has('cat') || allowedSet.has('insumos')) {
+      channels.push('presupuesto');
+    }
+    for (let i = 1; i < SPECIFIC_CHANNEL_TABS.length; i++) {
+      const ch = SPECIFIC_CHANNEL_TABS[i];
+      if (allowedSet.has(ch)) channels.push(ch);
+    }
+  } else if (mem.role === 'editar') {
+    channels.push(...SPECIFIC_CHANNEL_TABS);
+  }
+  return channels;
+}
+
+export function ensureValidActiveChatSection(projectId = null) {
+  const pid = resolveCanonicalChatPid(projectId);
+  const allowed = getAllowedChatChannelsForUser(pid);
+  if (allowed.length === 0) return null;
+  if (!allowed.includes(activeChatSection)) {
+    const firstNonTodos = allowed.find(c => c !== 'todos');
+    activeChatSection = firstNonTodos || allowed[0];
+    userPinnedTodosSection = false;
+  }
+  return activeChatSection;
+}
+
+// Clasificar el canal/pestaña de chat al que pertenece cada mensaje (con retrocompatibilidad tecnico/financiero)
+export function getMessageSection(msg) {
+  const rawSec = String(msg?.section || '').trim().toLowerCase();
+  if (rawSec === 'todos' || rawSec === 'general') return 'todos';
+  if (['presupuesto', 'calendario', 'compras', 'almacen', 'estimaciones', 'bitacora'].includes(rawSec)) {
+    return rawSec;
+  }
+  if (Array.isArray(msg?.almacen) && msg.almacen.length > 0) {
+    return 'almacen';
+  }
+  if (rawSec === 'financiero') {
+    const hasEst = Array.isArray(msg?.estimaciones) && msg.estimaciones.length > 0;
+    const hasCompras = Array.isArray(msg?.compras) && msg.compras.length > 0;
+    const hasCompraRep = Array.isArray(msg?.reportes) && msg.reportes.some(r => String(r).toLowerCase().includes('compra'));
+    if ((hasCompras || hasCompraRep) && !hasEst) return 'compras';
+    return 'estimaciones';
+  }
+  if (rawSec === 'tecnico') {
+    if (Array.isArray(msg?.reportes)) {
+      if (msg.reportes.some(r => {
+        const l = String(r).toLowerCase();
+        return l.includes('calendario') || l.includes('gantt');
+      })) return 'calendario';
+      if (msg.reportes.some(r => String(r).toLowerCase().includes('bitacora') || String(r).toLowerCase().includes('bitácora'))) {
+        return 'bitacora';
+      }
+    }
+    return 'presupuesto';
+  }
+  if (msg && Array.isArray(msg.estimaciones) && msg.estimaciones.length > 0) return 'estimaciones';
+  if (msg && Array.isArray(msg.compras) && msg.compras.length > 0) return 'compras';
+  return 'presupuesto';
+}
+
+export function isChatMessageVisibleToUser(msg, projectId = null, userOverride = null, allowedChannelsSetOverride = null) {
+  if (!msg) return false;
+  const sec = getMessageSection(msg);
+  if (allowedChannelsSetOverride) {
+    if (allowedChannelsSetOverride.size === 0) return false;
+    return allowedChannelsSetOverride.has(sec);
+  }
+  const pid = resolveCanonicalChatPid(projectId);
+  const allowed = getAllowedChatChannelsForUser(pid, userOverride);
+  if (allowed.length === 0) return false;
+  return allowed.includes(sec);
 }
 
 // Obtener las Estimaciones reales del proyecto activo
@@ -491,7 +975,7 @@ function getProjectEstimacionesTags() {
   return [{ id: 'est_1', numero: 1, label: '#Estimación No. 1', locked: false }];
 }
 
-// Obtener compras/pagos recientes para etiquetar en el canal financiero
+// Obtener compras/pagos recientes para etiquetar en el canal de Compras
 function getProjectComprasTags() {
   try {
     const records = getExpensesRecords() || [];
@@ -508,18 +992,58 @@ function getProjectComprasTags() {
   ];
 }
 
-// Reportes disponibles para etiquetar según sección
-function getProjectReportesTags(section = 'tecnico') {
-  if (section === 'financiero') {
+// Obtener materiales físicos disponibles en bodega (SIN precios ni montos) para etiquetar en Almacén
+function getProjectAlmacenTags() {
+  try {
+    const stockSummary = getWarehouseStockSummary();
+    const items = Array.isArray(stockSummary?.items) ? stockSummary.items : [];
+    if (items.length > 0) {
+      return items.slice(0, 20).map(item => ({
+        id: item.insumoKey,
+        label: `📦 ${(item.description || 'Material').slice(0, 26)}`,
+        stockLabel: `${Number(item.availableStock || 0).toFixed(2)} ${item.unit || 'pza'}`
+      }));
+    }
+  } catch (e) {}
+  return [
+    { id: 'alm_gral', label: '📦 Control Físico de Bodega', stockLabel: 'Almacén' }
+  ];
+}
+
+// Reportes disponibles para etiquetar según canal
+function getProjectReportesTags(section = 'presupuesto') {
+  if (section === 'todos') {
     return [
+      { id: 'cat', label: '!Catálogo Base / Matrices APU' },
+      { id: 'insumos', label: '!Explosión General de Insumos' },
+      { id: 'calendario', label: '!Calendario de Obra / Gantt' },
+      { id: 'compras', label: '!Reporte de Compras y Pagos' },
+      { id: 'almacen', label: '!Inventario Físico y Vales Almacén' },
       { id: 'estimaciones', label: '!Reporte de Estimaciones y Cobros' },
-      { id: 'compras', label: '!Reporte de Egresos, Compras y Pagos' }
+      { id: 'bitacora', label: '!Bitácora de Obra' }
     ];
+  }
+  if (section === 'calendario') {
+    return [{ id: 'calendario', label: '!Calendario de Obra / Gantt' }];
+  }
+  if (section === 'compras') {
+    return [{ id: 'compras', label: '!Reporte de Egresos, Compras y Pagos' }];
+  }
+  if (section === 'almacen') {
+    return [
+      { id: 'almacen', label: '!Inventario Físico en Bodega' },
+      { id: 'almacen', label: '!Vales de Salida y Recepciones' }
+    ];
+  }
+  if (section === 'estimaciones') {
+    return [{ id: 'estimaciones', label: '!Reporte de Estimaciones y Cobros' }];
+  }
+  if (section === 'bitacora') {
+    return [{ id: 'bitacora', label: '!Bitácora de Obra Digital y Legal' }];
   }
   return [
     { id: 'cat', label: '!Catálogo Base / Matrices APU' },
-    { id: 'insumos', label: '!Explosión General de Insumos' },
-    { id: 'calendario', label: '!Calendario de Obra / Gantt' }
+    { id: 'insumos', label: '!Explosión General de Insumos' }
   ];
 }
 
@@ -541,7 +1065,7 @@ function getAllProjectsForNotifications() {
   };
 
   try {
-    const list = getProjectsList() || [];
+    const list = getProjectsListReadOnly() || [];
     list.forEach(p => {
       if (p && p.id && !isDeleted(p.id) && !isDeleted(p.cloudId)) {
         addProj(p.id, p.projectName);
@@ -550,7 +1074,7 @@ function getAllProjectsForNotifications() {
   } catch (e) {}
 
   if (activePid) {
-    const activeProjObj = getProjectById(activePid);
+    const activeProjObj = getProjectByIdReadOnly(activePid);
     if (!isDeleted(activePid)) {
       addProj(activePid, activeProjObj?.projectName || state.settings?.projectName || 'Proyecto Activo');
     }
@@ -563,7 +1087,7 @@ function getAllProjectsForNotifications() {
         if (k && (k.startsWith('adm_const_project_chat_') || k.startsWith('adm_const_chat_') || k.startsWith('control_obra_chat_'))) {
           const pid = k.replace('adm_const_project_chat_', '').replace('adm_const_chat_', '').replace('control_obra_chat_', '');
           if (pid && !seenIds.has(pid) && !isDeleted(pid)) {
-            const pObj = getProjectById(pid);
+            const pObj = getProjectByIdReadOnly(pid);
             if (pObj) {
               addProj(pid, pObj?.projectName || `Proyecto (${pid})`);
             }
@@ -641,7 +1165,11 @@ function getAllNotificationsUsers(scope = 'all') {
 
   targetProjects.forEach(p => {
     const msgs = loadProjectChatMessages(p.id);
+    if (msgs.length === 0) return;
+    const allowedSet = new Set(getAllowedChatChannelsForUser(p.id));
+    if (allowedSet.size === 0) return;
     msgs.forEach(m => {
+      if (!isChatMessageVisibleToUser(m, p.id, null, allowedSet)) return;
       extractMentionsFromMessage(m).forEach(tag => {
         const key = tag.toLowerCase();
         if (!seen.has(key)) {
@@ -846,16 +1374,26 @@ function getSelfMentionTokens(users = []) {
   const myNameNorm = normalizeMentionToken(myName);
   if (myEmail) {
     (users || []).filter(u => String(u?.email || '').toLowerCase().trim() === myEmail)
-      .forEach(u => { if (u.handle) addTok(u.handle); });
+      .forEach(u => {
+        if (u.handle) addTok(u.handle);
+        if (u.shortHandle) addTok(u.shortHandle);
+        if (u.shortName) addTok('@' + u.shortName);
+      });
     const prefix = myEmail.split('@')[0];
     if (prefix) addTok('@' + prefix);
     addTok(myEmail);
   }
   if (myName) {
     (users || []).filter(u => normalizeMentionToken(u?.name) === myNameNorm)
-      .forEach(u => { if (u.handle) addTok(u.handle); });
+      .forEach(u => {
+        if (u.handle) addTok(u.handle);
+        if (u.shortHandle) addTok(u.shortHandle);
+      });
     addTok('@' + myName.replace(/\s+/g, '.'));
     addTok('@' + myName.replace(/\s+/g, ''));
+    const myShort = formatAbbreviatedUserName(myName, myEmail);
+    addTok(buildShortMentionHandle(myName, myEmail));
+    addTok('@' + myShort);
   }
   tokens.add('@todos');
   return Array.from(tokens);
@@ -872,7 +1410,7 @@ export function getUserMentionsNotifications(targetHandle = null, scope = 'all')
   const readMentionsSet = new Set(getReadMentionIds());
 
   const activePid = resolveCanonicalChatPid(getActiveProjectId() || 'proj-default-01');
-  const activeProjObj = getProjectById(activePid);
+  const activeProjObj = getProjectByIdReadOnly(activePid);
   const currentUser = getCurrentUser() || getLastKnownUser();
   const myEmail = String(currentUser?.email || '').toLowerCase().trim();
   const userKey = myEmail || '__local__';
@@ -886,8 +1424,12 @@ export function getUserMentionsNotifications(targetHandle = null, scope = 'all')
   const results = [];
   projects.forEach(proj => {
     const msgs = loadProjectChatMessages(proj.id);
+    if (msgs.length === 0) return;
+    const allowedSet = new Set(getAllowedChatChannelsForUser(proj.id, currentUser));
+    if (allowedSet.size === 0) return;
     const selfTokens = isSelfHandle ? getSelfMentionTokens(getAssignedProjectUsers(proj.id)) : [];
     msgs.forEach(m => {
+      if (!isChatMessageVisibleToUser(m, proj.id, currentUser, allowedSet)) return;
       const cleanId = normalizeChatMsgId(m.id);
       if (
         (m.localDismissedBy && m.localDismissedBy[userKey]) ||
@@ -972,9 +1514,13 @@ export function markAllMentionsAsRead(scope = 'all') {
 
   projects.forEach(proj => {
     const msgs = loadProjectChatMessages(proj.id);
+    if (msgs.length === 0) return;
+    const allowedSet = new Set(getAllowedChatChannelsForUser(proj.id, currentUser));
+    if (allowedSet.size === 0) return;
     const selfTokens = isSelfHandle ? getSelfMentionTokens(getAssignedProjectUsers(proj.id)) : [];
     let changed = false;
     msgs.forEach(m => {
+      if (!isChatMessageVisibleToUser(m, proj.id, currentUser, allowedSet)) return;
       const mentionsList = extractMentionsFromMessage(m);
       if (mentionsList.length === 0) return;
 
@@ -1104,7 +1650,7 @@ export function purgeAllNotifications(scope = 'all') {
   if (!isCurrentOnly) {
     try {
       if (typeof localStorage !== 'undefined') {
-        const validPids = new Set(getProjectsList().flatMap(p => [p?.id, p?.cloudId]).filter(Boolean));
+        const validPids = new Set(getProjectsListReadOnly().flatMap(p => [p?.id, p?.cloudId]).filter(Boolean));
         for (let i = localStorage.length - 1; i >= 0; i--) {
           const k = localStorage.key(i);
           if (k && (
@@ -1154,6 +1700,11 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
   markMentionReadKey(cleanId);
   const msgs = loadProjectChatMessages(targetPid);
   const targetMsg = msgs.find(m => normalizeChatMsgId(m.id) === cleanId || String(m.id) === String(msgId));
+  if (targetMsg && !isChatMessageVisibleToUser(targetMsg, targetPid)) {
+    showToast('🔒 No tienes acceso al canal de chat de este mensaje.', 'warning');
+    return;
+  }
+  const targetSection = targetMsg ? getMessageSection(targetMsg) : null;
   if (targetMsg) {
     targetMsg.perUserRead = true;
     if (!targetMsg.localReadBy || typeof targetMsg.localReadBy !== 'object') targetMsg.localReadBy = {};
@@ -1185,6 +1736,7 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
       localStorage.setItem('adm_const_pending_chat_open', JSON.stringify({
         projectId: targetPid,
         msgId,
+        section: targetSection || '',
         partidaId: partidaId || ''
       }));
     } catch (e) {}
@@ -1196,6 +1748,16 @@ export function openMentionNotification(projectId, msgId, partidaId = '', event 
 
   // En el área de proyectos activa: abrir inmediatamente el chat al frente y enfocar el mensaje donde mencionaron al usuario
   isChatDockExpanded = true;
+  if (targetSection) {
+    const allowedTarget = getAllowedChatChannelsForUser(targetPid);
+    if (allowedTarget.includes(targetSection)) {
+      activeChatSection = targetSection;
+    } else if (allowedTarget.length > 0) {
+      activeChatSection = allowedTarget[0];
+    }
+  } else {
+    ensureValidActiveChatSection(targetPid);
+  }
   markActiveProjectChatMessagesAsRead(targetPid);
   activeChatFilter = 'all';
   activePartidaFilterId = null;
@@ -1521,18 +2083,30 @@ export function renderSidebarNotificationsUI() {
 
   const filterHandle = selectedNotificationsHandle || '__self__';
 
+  // Determinar si estamos en el portal ("Mis Proyectos de Obra") o en el espacio de trabajo del proyecto
+  const portalEl = document.getElementById('view-portal');
+  const workspaceEl = document.getElementById('workspace-container');
+  const isPortalExplicitlyHidden = Boolean(portalEl && (portalEl.classList.contains('hidden') || portalEl.style.display === 'none'));
+  const isPortalVisible = Boolean(
+    portalEl &&
+    !portalEl.classList.contains('hidden') &&
+    portalEl.style.display !== 'none' &&
+    (!workspaceEl || workspaceEl.classList.contains('hidden'))
+  );
+
   // Obtener invitaciones pendientes hacia el usuario conectado
   const pendingInvitations = (currentUser && currentUser.email) ? getPendingInvitationsForUser(currentUser.email) : [];
   const pendingInvsCount = pendingInvitations.length;
   const consumptionAlert = (currentUser && currentUser.email) ? getActiveUserConsumptionAlert(currentUser.email) : null;
   const consumptionAlertCount = consumptionAlert ? 1 : 0;
 
-  // 1) Campana en el Área de Proyectos (barra lateral izquierda): notificaciones donde mencionaron usuarios en el proyecto activo
-  const projectMentions = getUserMentionsNotifications(filterHandle, 'current');
-  const projectUnreadCount = projectMentions.filter(item => !item.isRead).length + pendingInvsCount + consumptionAlertCount;
-  const projectBadgeText = projectUnreadCount > 99 ? '99+' : String(projectUnreadCount);
-
-  if (badgeEl) {
+  // 1) Campana en el Área de Proyectos (barra lateral izquierda): solo calcula si el espacio de trabajo está visible o no hay portal
+  let projectMentions = null;
+  let projectUnreadCount = 0;
+  if (badgeEl && (!isPortalVisible || isNotificationsPopoverOpen)) {
+    projectMentions = getUserMentionsNotifications(filterHandle, 'current');
+    projectUnreadCount = projectMentions.filter(item => !item.isRead).length + pendingInvsCount + consumptionAlertCount;
+    const projectBadgeText = projectUnreadCount > 99 ? '99+' : String(projectUnreadCount);
     if (projectUnreadCount > 0) {
       badgeEl.classList.remove('hidden');
       badgeEl.textContent = projectBadgeText;
@@ -1544,12 +2118,13 @@ export function renderSidebarNotificationsUI() {
     }
   }
 
-  // 2) Campana en "Mis Proyectos de Obra" (portal): recopila todas las notificaciones que etiquetaron los usuarios de todos los proyectos
-  const allProjectsMentions = getUserMentionsNotifications(filterHandle, 'all');
-  const allProjectsUnreadCount = allProjectsMentions.filter(item => !item.isRead).length + pendingInvsCount + consumptionAlertCount;
-  const portalBadgeText = allProjectsUnreadCount > 99 ? '99+' : String(allProjectsUnreadCount);
-
-  if (portalBadgeEl) {
+  // 2) Campana en "Mis Proyectos de Obra" (portal): evitar escanear TODOS los proyectos mientras el portal está oculto
+  let allProjectsMentions = null;
+  let allProjectsUnreadCount = 0;
+  if (portalBadgeEl && (!isPortalExplicitlyHidden || (isPortalVisible && isNotificationsPopoverOpen))) {
+    allProjectsMentions = getUserMentionsNotifications(filterHandle, 'all');
+    allProjectsUnreadCount = allProjectsMentions.filter(item => !item.isRead).length + pendingInvsCount + consumptionAlertCount;
+    const portalBadgeText = allProjectsUnreadCount > 99 ? '99+' : String(allProjectsUnreadCount);
     if (allProjectsUnreadCount > 0) {
       portalBadgeEl.classList.remove('hidden');
       portalBadgeEl.textContent = portalBadgeText;
@@ -1569,19 +2144,13 @@ export function renderSidebarNotificationsUI() {
 
   const partidas = getAllCatalogNodes();
 
-  // Determinar si estamos en el portal ("Mis Proyectos de Obra") o en el espacio de trabajo del proyecto
-  const portalEl = document.getElementById('view-portal');
-  const workspaceEl = document.getElementById('workspace-container');
-  const isPortalVisible = Boolean(
-    portalEl &&
-    !portalEl.classList.contains('hidden') &&
-    portalEl.style.display !== 'none' &&
-    (!workspaceEl || workspaceEl.classList.contains('hidden'))
-  );
-
   if (isPortalVisible) {
     if (popoverEl) popoverEl.classList.add('hidden');
     if (portalPopoverEl) {
+      if (!allProjectsMentions) {
+        allProjectsMentions = getUserMentionsNotifications(filterHandle, 'all');
+        allProjectsUnreadCount = allProjectsMentions.filter(item => !item.isRead).length + pendingInvsCount + consumptionAlertCount;
+      }
       const allUsers = getAllNotificationsUsers('all');
       portalPopoverEl.classList.remove('hidden');
       portalPopoverEl.innerHTML = buildNotificationsPopoverHTML(
@@ -1598,6 +2167,10 @@ export function renderSidebarNotificationsUI() {
   } else {
     if (portalPopoverEl) portalPopoverEl.classList.add('hidden');
     if (popoverEl) {
+      if (!projectMentions) {
+        projectMentions = getUserMentionsNotifications(filterHandle, 'current');
+        projectUnreadCount = projectMentions.filter(item => !item.isRead).length + pendingInvsCount + consumptionAlertCount;
+      }
       const projectUsers = getAllNotificationsUsers('current');
       popoverEl.classList.remove('hidden');
       popoverEl.innerHTML = buildNotificationsPopoverHTML(
@@ -1653,8 +2226,17 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
     event.stopPropagation();
   }
 
-  // Si no se especificó sección, usar la sección activa del chat dock o 'todos'
-  const targetSection = sectionFilter || activeChatSection || 'tecnico';
+  const allowedChannels = getAllowedChatChannelsForUser();
+  if (allowedChannels.length === 0) {
+    showToast('🔒 No tienes acceso a ningún canal de chat para imprimir en este proyecto.', 'warning');
+    return;
+  }
+
+  // Validar que la sección solicitada esté autorizada; 'todos' solo está disponible con acceso completo
+  const requestedSection = sectionFilter || activeChatSection || allowedChannels[0];
+  const targetSection = allowedChannels.includes(requestedSection)
+    ? requestedSection
+    : (allowedChannels.find(c => c !== 'todos') || allowedChannels[0]);
 
   const companyName = state.settings?.companyName || 'Constructora / Empresa';
   const companySubtitle = state.settings?.companySubtitle || 'Bitácora y Seguimiento de Obra';
@@ -1664,7 +2246,9 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
 
   const users = getAssignedProjectUsers();
   const partidas = getAllCatalogNodes();
-  const allMessages = loadProjectChatMessages();
+  const allMessages = sortChatMessagesChronologically(
+    loadProjectChatMessages().filter(m => isChatMessageVisibleToUser(m))
+  );
 
   // Filtrar según la sección seleccionada
   const filteredMessages = allMessages.filter(m => {
@@ -1681,17 +2265,11 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
     ? partidas.find(p => String(p.id) === String(activePartidaFilterId))
     : null;
 
-  let sectionTitle = 'BITÁCORA GENERAL DE OBRA';
-  let sectionSubtitle = 'Catálogo, Insumos, Calendario, Estimaciones, Compras y Pagos';
-  if (targetSection === 'tecnico') {
-    sectionTitle = 'BITÁCORA TÉCNICA Y PLANEACIÓN DE OBRA';
-    sectionSubtitle = 'Catálogo Base • Explosión de Insumos • Calendario y Cronograma Gantt';
-  } else if (targetSection === 'financiero') {
-    sectionTitle = 'BITÁCORA FINANCIERA Y ADMINISTRATIVA';
-    sectionSubtitle = 'Control de Estimaciones • Órdenes de Compra • Flujo de Egresos y Pagos';
-  }
+  const chMeta = CHAT_CHANNEL_META[targetSection] || CHAT_CHANNEL_META.presupuesto;
+  const sectionTitle = chMeta.printTitle || 'BITÁCORA DE OBRA';
+  const sectionSubtitle = chMeta.printSubtitle || chMeta.subtitle || '';
 
-  let filterLabel = targetSection === 'todos' ? 'Bitácora Integral Completa' : (targetSection === 'tecnico' ? 'Sección Técnica de Obra' : 'Sección Financiera y Pagos');
+  let filterLabel = targetSection === 'todos' ? 'Bitácora Integral Completa' : `Canal ${chMeta.label}`;
   if (activePartidaObj) {
     filterLabel += ` • Concepto (N${activePartidaObj.level}): /${activePartidaObj.clave} ${activePartidaObj.descripcion}`;
   } else if (activeChatFilter === 'mentions') {
@@ -1759,21 +2337,28 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
       </table>
     `;
 
+  const printSectionBadgeMap = {
+    todos: { cls: 'tag-sec-tec', text: '📑 General' },
+    presupuesto: { cls: 'tag-sec-tec', text: '📐 Presupuesto' },
+    calendario: { cls: 'tag-partida', text: '📅 Calendario' },
+    compras: { cls: 'tag-sec-fin', text: '🛒 Compras' },
+    almacen: { cls: 'tag-sec-alm', text: '🏭 Almacén' },
+    estimaciones: { cls: 'tag-est', text: '📊 Estimaciones' },
+    bitacora: { cls: 'tag-compra', text: '📓 Bitácora' }
+  };
+
   const rowsHtml = filteredMessages.length === 0
-    ? `<tr><td colspan="5" style="text-align:center; padding:18px; color:#64748b;">No hay asientos ni comentarios registrados en esta sección para imprimir.</td></tr>`
+    ? `<tr><td colspan="5" style="text-align:center; padding:18px; color:#64748b;">No hay asientos ni comentarios registrados en este canal para imprimir.</td></tr>`
     : filteredMessages.map((m, idx) => {
         const sec = getMessageSection(m);
         const pObj = m.partidaId ? partidas.find(p => String(p.id) === String(m.partidaId)) : null;
-        const tags = [];
-        if (sec === 'tecnico') {
-          tags.push(`<span class="tag tag-sec-tec">🏗️ Técnica</span>`);
-        } else {
-          tags.push(`<span class="tag tag-sec-fin">💼 Financiera</span>`);
-        }
+        const secInfo = printSectionBadgeMap[sec] || printSectionBadgeMap.presupuesto;
+        const tags = [`<span class="tag ${secInfo.cls}">${secInfo.text}</span>`];
         if (pObj) tags.push(`<span class="tag tag-partida">/${pObj.clave} ${pObj.descripcion}</span>`);
         (m.mentions || []).forEach(u => tags.push(`<span class="tag tag-user">${u}</span>`));
         (m.estimaciones || []).forEach(e => tags.push(`<span class="tag tag-est">${e}</span>`));
         (m.compras || []).forEach(c => tags.push(`<span class="tag tag-compra">${c}</span>`));
+        (m.almacen || []).forEach(a => tags.push(`<span class="tag tag-sec-alm">${a}</span>`));
         (m.reportes || []).forEach(r => tags.push(`<span class="tag tag-rep">${r}</span>`));
 
         return `
@@ -1790,6 +2375,11 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
         `;
       }).join('');
 
+  const toolbarButtonsHtml = allowedChannels.map(chId => {
+    const meta = CHAT_CHANNEL_META[chId];
+    return `<button class="btn-filter ${targetSection === chId ? 'active' : ''}" onclick="window.location.search='?section=${chId}';">${meta ? meta.label : chId}</button>`;
+  }).join('');
+
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1797,7 +2387,7 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
   <title>${sectionTitle} - ${projectName}</title>
   <style>
     @page { size: letter portrait; margin: 10mm; }
-    * { box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+    * { box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     body { margin: 0; padding: 18px; color: #0f172a; background: #f8fafc; font-size: 8.5pt; }
     .toolbar {
       display: flex; justify-content: space-between; align-items: center;
@@ -1831,18 +2421,22 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
       font-size: 9pt; font-weight: 800; color: #1e3a8a; text-transform: uppercase;
       letter-spacing: 0.5px; border-left: 3px solid #2563eb; padding-left: 6px; margin: 14px 0 6px 0;
     }
-    table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 8pt; }
+    table { width: 100%; max-width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 8pt; }
+    thead { display: table-header-group; }
+    tfoot { display: table-row-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
     th {
       background: #0f172a; color: #fff; text-transform: uppercase; font-size: 7.5pt;
       letter-spacing: 0.3px; padding: 6px 8px; border: 1px solid #0f172a; text-align: left;
     }
-    td { padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: top; font-size: 8pt; }
+    td { padding: 6px 8px; border: 1px solid #cbd5e1; vertical-align: top; font-size: 8pt; overflow-wrap: anywhere; word-break: break-word; }
     tr:nth-child(even) td { background: #f8fafc; }
     .tag {
       display: inline-block; padding: 1px 5px; border-radius: 4px; font-size: 7pt; font-weight: 700; margin: 1px 2px 1px 0;
     }
     .tag-sec-tec { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
     .tag-sec-fin { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .tag-sec-alm { background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; }
     .tag-partida { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
     .tag-user { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
     .tag-est { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
@@ -1853,9 +2447,10 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
     }
     .sig-box { width: 30%; border-top: 1.5px solid #334155; text-align: center; padding-top: 6px; font-size: 7.5pt; color: #334155; }
     @media print {
-      body { background: #fff; padding: 0; }
+      body { background: #fff !important; padding: 0 !important; margin: 0 !important; }
       .toolbar { display: none !important; }
-      .sheet { border: none; padding: 0; max-width: 100%; box-shadow: none; }
+      .sheet { border: none !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; box-shadow: none !important; border-radius: 0 !important; }
+      .meta-grid, .signatures { break-inside: avoid; page-break-inside: avoid; }
     }
   </style>
 </head>
@@ -1866,9 +2461,7 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
       <span style="font-size:8pt; color:#94a3b8;">(${filteredMessages.length} asiento(s) de bitácora)</span>
     </div>
     <div class="toolbar-buttons">
-      <button class="btn-filter ${targetSection === 'tecnico' ? 'active' : ''}" onclick="window.location.search='?section=tecnico';">🏗️ Técnica</button>
-      <button class="btn-filter ${targetSection === 'financiero' ? 'active' : ''}" onclick="window.location.search='?section=financiero';">💼 Financiera</button>
-      <button class="btn-filter ${targetSection === 'todos' ? 'active' : ''}" onclick="window.location.search='?section=todos';">📑 Todas</button>
+      ${toolbarButtonsHtml}
       <button class="btn-print" onclick="window.print()">🖨️ Imprimir / PDF</button>
       <button class="btn-close" onclick="window.close()">✕ Cerrar</button>
     </div>
@@ -1894,7 +2487,7 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
       <div>
         <div><strong>Proyecto:</strong> ${projectName}</div>
         <div><strong>Ubicación:</strong> ${projectLocation}</div>
-        <div><strong>Ámbito Documental:</strong> <span style="font-weight:700; color:#1e3a8a;">${targetSection === 'tecnico' ? 'Técnica de Obra (Catálogo, Insumos, Cronograma)' : (targetSection === 'financiero' ? 'Financiera (Estimaciones, Compras y Pagos)' : 'Consolidada Integral')}</span></div>
+        <div><strong>Ámbito Documental:</strong> <span style="font-weight:700; color:#1e3a8a;">${chMeta.printSubtitle || chMeta.subtitle || 'Bitácora de Obra'}</span></div>
       </div>
       <div>
         <div><strong>Filtro aplicado:</strong> ${filterLabel}</div>
@@ -1910,10 +2503,10 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
     <table>
       <thead>
         <tr>
-          <th style="width:30px; text-align:center;">#</th>
-          <th style="width:100px;">Fecha / Hora</th>
-          <th style="width:145px;">Autor / Emisor</th>
-          <th style="width:185px;">Ámbito y Referencias</th>
+          <th style="width:28px; text-align:center;">#</th>
+          <th style="width:13%;">Fecha / Hora</th>
+          <th style="width:17%;">Autor / Emisor</th>
+          <th style="width:25%;">Ámbito y Referencias</th>
           <th>Asiento Oficial / Comentario de Seguimiento</th>
         </tr>
       </thead>
@@ -1966,12 +2559,23 @@ export function openProjectChatForPartida(partidaId, event = null) {
   if (event && typeof event.stopPropagation === 'function') {
     event.stopPropagation();
   }
+  const allowed = getAllowedChatChannelsForUser();
+  if (allowed.length === 0) {
+    showToast('🔒 No tienes pestañas autorizadas para usar el chat de este proyecto.', 'warning');
+    return;
+  }
   const pidStr = String(partidaId);
   if (isChatDockExpanded && activePartidaFilterId === pidStr) {
     clearProjectChatPartidaFilter();
     return;
   }
   isChatDockExpanded = true;
+  if (allowed.includes('presupuesto')) {
+    activeChatSection = 'presupuesto';
+    userPinnedTodosSection = false;
+  } else {
+    ensureValidActiveChatSection();
+  }
   markActiveProjectChatMessagesAsRead();
   activePartidaFilterId = pidStr;
   pendingComposerTags.partidaId = pidStr;
@@ -1997,6 +2601,7 @@ export function setProjectChatFilter(filterType) {
 }
 
 export function onProjectChatAuthorChange(handle) {
+  if (!hasFullChatAccess()) return;
   selectedAuthorHandle = handle;
   renderProjectChatDock();
   renderSidebarNotificationsUI();
@@ -2011,23 +2616,274 @@ export function toggleProjectChatTagPicker(kind) {
   renderProjectChatDock();
 }
 
-export function switchProjectChatSection(section) {
-  if (section !== 'tecnico' && section !== 'financiero') return;
-  activeChatSection = section;
-  activeChatFilter = 'all';
-  activeTagPickerKind = null;
+export function toggleProjectChatChannelMenu(event = null) {
+  if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+  isChannelMenuOpen = !isChannelMenuOpen;
+  isTodoTargetMenuOpen = false;
   renderProjectChatDock();
 }
 
+export function toggleProjectChatTodoTargetMenu(event = null) {
+  if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+  isTodoTargetMenuOpen = !isTodoTargetMenuOpen;
+  isChannelMenuOpen = false;
+  renderProjectChatDock();
+}
+
+export function switchProjectChatSection(section) {
+  const allowed = getAllowedChatChannelsForUser();
+  if (!allowed.includes(section)) {
+    showToast('🔒 No tienes acceso a este canal del chat.', 'warning');
+    return;
+  }
+  activeChatSection = section;
+  if (section !== 'todos') {
+    lastSpecificChatSection = section;
+    todoComposeTargetSection = 'todos';
+  }
+  userPinnedTodosSection = section === 'todos';
+  activeChatFilter = 'all';
+  activeTagPickerKind = null;
+  activeMentionAutocomplete.open = false;
+  isChannelMenuOpen = false;
+  isTodoTargetMenuOpen = false;
+  renderProjectChatDock();
+}
+
+export function toggleProjectChatTodoMode() {
+  const allowed = getAllowedChatChannelsForUser();
+  if (!allowed.includes('todos')) return;
+  if (activeChatSection === 'todos') {
+    const fallback = (lastSpecificChatSection !== 'todos' && allowed.includes(lastSpecificChatSection))
+      ? lastSpecificChatSection
+      : (allowed.find(c => c !== 'todos') || 'todos');
+    switchProjectChatSection(fallback);
+  } else {
+    switchProjectChatSection('todos');
+  }
+}
+
+export function onTodoComposeTargetChange(targetSection) {
+  const allowed = getAllowedChatChannelsForUser();
+  if (!allowed.includes(targetSection)) return;
+  todoComposeTargetSection = targetSection;
+  activeMentionAutocomplete.highlightIdx = 0;
+  activeTagPickerKind = null;
+  isTodoTargetMenuOpen = false;
+  renderProjectChatDock();
+}
+
+export function getEffectiveComposeSection(section = null) {
+  const sec = section || ensureValidActiveChatSection();
+  const allowed = getAllowedChatChannelsForUser();
+  if (sec === 'todos') {
+    if (allowed.includes(todoComposeTargetSection)) return todoComposeTargetSection;
+    return 'todos';
+  }
+  return sec;
+}
+
+export function getMentionAutocompleteCandidates(query = '', composeSec = null) {
+  const targetSec = composeSec || getEffectiveComposeSection();
+  const usersInChannel = getUsersForChatSection(targetSec);
+  const qNorm = normalizeMentionToken(String(query || '').replace(/^@+/, ''));
+  if (!qNorm) return usersInChannel;
+  return usersInChannel.filter(u =>
+    normalizeMentionToken(u.name).includes(qNorm) ||
+    normalizeMentionToken(u.shortName).includes(qNorm) ||
+    normalizeMentionToken(u.shortHandle).includes(qNorm) ||
+    normalizeMentionToken(u.handle).includes(qNorm) ||
+    normalizeMentionToken(u.email).includes(qNorm)
+  );
+}
+
+function renderMentionAutocompletePopoverHTML() {
+  if (!activeMentionAutocomplete.open) return '';
+  const effectiveSec = getEffectiveComposeSection();
+  const secMeta = CHAT_CHANNEL_META[effectiveSec] || CHAT_CHANNEL_META.presupuesto;
+  const candidates = getMentionAutocompleteCandidates(activeMentionAutocomplete.query, effectiveSec);
+
+  if (candidates.length === 0) {
+    return `
+      <div class="mb-1.5 rounded-xl border border-slate-200 bg-white shadow-lg p-2.5 text-[11px] text-slate-500 flex items-center justify-between">
+        <span>Sin usuarios en <strong>${escapeChatHtml(secMeta.label)}</strong> para "@${escapeChatHtml(activeMentionAutocomplete.query)}"</span>
+      </div>
+    `;
+  }
+
+  const clampedIdx = Math.min(Math.max(0, activeMentionAutocomplete.highlightIdx), candidates.length - 1);
+  activeMentionAutocomplete.highlightIdx = clampedIdx;
+
+  return `
+    <div class="mb-1.5 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scroll">
+      <div class="px-2.5 py-1 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-[10px] font-bold text-slate-500">
+        <span class="flex items-center gap-1.5">
+          <i class="fa-solid ${secMeta.icon} text-[10px]"></i>
+          <span>${escapeChatHtml(secMeta.label)} (${candidates.length})</span>
+        </span>
+        <span class="text-[9.5px] font-normal">↑↓ / Enter o clic</span>
+      </div>
+      ${candidates.map((u, idx) => {
+        const isSel = idx === clampedIdx;
+        const safeHandleJs = escapeChatHtml(escapeChatJsArg(u.shortHandle || u.handle));
+        return `
+          <button type="button"
+                  title="${escapeChatHtml(u.name)}"
+                  onmousedown="event.preventDefault(); applyProjectChatMentionSuggestion('${safeHandleJs}')"
+                  class="w-full px-2.5 py-1.5 text-left flex items-center justify-between gap-2 text-xs transition cursor-pointer ${isSel ? 'bg-blue-50 text-blue-900' : 'hover:bg-slate-50 text-slate-800'}">
+            <span class="flex items-center gap-2 min-w-0">
+              <img src="${escapeChatHtml(u.avatar)}" alt="${escapeChatHtml(u.shortName)}"
+                   class="w-6 h-6 rounded-full object-cover border border-slate-200 shrink-0">
+              <span class="font-bold truncate">${escapeChatHtml(u.shortName)}</span>
+            </span>
+            ${u.status === 'pending' ? `<span class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 text-[9.5px] font-bold shrink-0">Invitado</span>` : ''}
+          </button>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function updateMentionAutocompleteDOM() {
+  if (typeof document === 'undefined') return;
+  const container = document.getElementById('project-chat-mention-autocomplete');
+  if (!container) return;
+  container.innerHTML = renderMentionAutocompletePopoverHTML();
+}
+
+export function triggerProjectChatAtMention() {
+  const inp = typeof document !== 'undefined' ? document.getElementById('project-chat-input') : null;
+  if (!inp) return;
+  const val = String(inp.value || '');
+  const caret = typeof inp.selectionStart === 'number' ? inp.selectionStart : val.length;
+  const prefix = val.slice(0, caret);
+  const needsSpace = prefix.length > 0 && !/\s$/.test(prefix);
+  const insert = needsSpace ? ' @' : '@';
+  inp.value = `${prefix}${insert}${val.slice(caret)}`;
+  const nextPos = prefix.length + insert.length;
+  if (typeof inp.focus === 'function') inp.focus();
+  if (typeof inp.setSelectionRange === 'function') inp.setSelectionRange(nextPos, nextPos);
+  onProjectChatInput(inp);
+}
+
+export function onProjectChatInput(inputEl = null) {
+  const inp = inputEl || (typeof document !== 'undefined' ? document.getElementById('project-chat-input') : null);
+  if (!inp) return;
+  const val = String(inp.value || '');
+  const caret = typeof inp.selectionStart === 'number' ? inp.selectionStart : val.length;
+  const beforeCaret = val.slice(0, caret);
+  const match = beforeCaret.match(/(?:^|\s)@([^\s@]*)$/);
+  if (match) {
+    const query = match[1] || '';
+    const atIndex = caret - query.length - 1;
+    activeMentionAutocomplete = {
+      open: true,
+      query,
+      matchStart: atIndex,
+      matchEnd: caret,
+      highlightIdx: 0
+    };
+  } else {
+    activeMentionAutocomplete.open = false;
+  }
+  updateMentionAutocompleteDOM();
+}
+
+export function applyProjectChatMentionSuggestion(handle) {
+  const inp = typeof document !== 'undefined' ? document.getElementById('project-chat-input') : null;
+  if (!handle) return;
+  if (inp) {
+    const val = String(inp.value || '');
+    const start = activeMentionAutocomplete.open && activeMentionAutocomplete.matchStart >= 0
+      ? activeMentionAutocomplete.matchStart
+      : val.length;
+    const end = activeMentionAutocomplete.open && activeMentionAutocomplete.matchEnd >= start
+      ? activeMentionAutocomplete.matchEnd
+      : val.length;
+    const prefix = val.slice(0, start);
+    const suffix = val.slice(end).replace(/^\s+/, '');
+    const inserted = `${handle} `;
+    inp.value = `${prefix}${inserted}${suffix}`;
+    const nextPos = prefix.length + inserted.length;
+    if (typeof inp.focus === 'function') inp.focus();
+    if (typeof inp.setSelectionRange === 'function') {
+      inp.setSelectionRange(nextPos, nextPos);
+    }
+  }
+  activeMentionAutocomplete = { open: false, query: '', matchStart: -1, matchEnd: -1, highlightIdx: 0 };
+  updateMentionAutocompleteDOM();
+}
+
+export function handleProjectChatInputKeydown(event) {
+  if (!event) return;
+  if (activeMentionAutocomplete.open) {
+    const candidates = getMentionAutocompleteCandidates(activeMentionAutocomplete.query, getEffectiveComposeSection());
+    if (event.key === 'ArrowDown' && candidates.length > 0) {
+      event.preventDefault();
+      activeMentionAutocomplete.highlightIdx = (activeMentionAutocomplete.highlightIdx + 1) % candidates.length;
+      updateMentionAutocompleteDOM();
+      return;
+    }
+    if (event.key === 'ArrowUp' && candidates.length > 0) {
+      event.preventDefault();
+      activeMentionAutocomplete.highlightIdx = (activeMentionAutocomplete.highlightIdx - 1 + candidates.length) % candidates.length;
+      updateMentionAutocompleteDOM();
+      return;
+    }
+    if ((event.key === 'Enter' || event.key === 'Tab') && candidates.length > 0) {
+      event.preventDefault();
+      const idx = Math.min(Math.max(0, activeMentionAutocomplete.highlightIdx), candidates.length - 1);
+      const chosen = candidates[idx];
+      applyProjectChatMentionSuggestion(chosen.shortHandle || chosen.handle);
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      activeMentionAutocomplete.open = false;
+      updateMentionAutocompleteDOM();
+      return;
+    }
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    sendProjectChatMessage();
+  }
+}
+
+function mapWorkspaceTabToChatSection(tab) {
+  if (tab === 'cat' || tab === 'insumos' || tab === 'presupuesto') return 'presupuesto';
+  if (tab === 'calendario') return 'calendario';
+  if (tab === 'compras') return 'compras';
+  if (tab === 'almacen') return 'almacen';
+  if (tab === 'estimaciones') return 'estimaciones';
+  if (tab === 'bitacora') return 'bitacora';
+  return 'presupuesto';
+}
+
 export function autoSwitchChatSectionFromTab(tab) {
-  if (tab === 'estimaciones' || tab === 'compras') {
-    activeChatSection = 'financiero';
-  } else if (tab === 'cat' || tab === 'insumos' || tab === 'calendario' || tab === 'bitacora') {
-    activeChatSection = 'tecnico';
-  }
-  if (isChatDockExpanded) {
+  const allowed = getAllowedChatChannelsForUser();
+  if (allowed.length === 0) {
     renderProjectChatDock();
+    return;
   }
+  const targetChannel = mapWorkspaceTabToChatSection(tab);
+  if (allowed.includes(targetChannel)) {
+    lastSpecificChatSection = targetChannel;
+    activeChatSection = targetChannel;
+    todoComposeTargetSection = 'todos';
+    userPinnedTodosSection = false;
+  } else {
+    ensureValidActiveChatSection();
+  }
+  activeChatFilter = 'all';
+  activeTagPickerKind = null;
+  activeMentionAutocomplete.open = false;
+  isChannelMenuOpen = false;
+  isTodoTargetMenuOpen = false;
+  if (isChatDockExpanded) {
+    markActiveProjectChatMessagesAsRead();
+  }
+  renderProjectChatDock();
 }
 
 export function addProjectChatPendingTag(kind, val) {
@@ -2040,6 +2896,9 @@ export function addProjectChatPendingTag(kind, val) {
   } else if (kind === 'compra') {
     if (!Array.isArray(pendingComposerTags.compras)) pendingComposerTags.compras = [];
     if (!pendingComposerTags.compras.includes(val)) pendingComposerTags.compras.push(val);
+  } else if (kind === 'almacen') {
+    if (!Array.isArray(pendingComposerTags.almacen)) pendingComposerTags.almacen = [];
+    if (!pendingComposerTags.almacen.includes(val)) pendingComposerTags.almacen.push(val);
   } else if (kind === 'reporte') {
     if (!pendingComposerTags.reportes.includes(val)) pendingComposerTags.reportes.push(val);
   }
@@ -2056,16 +2915,25 @@ export function removeProjectChatPendingTag(kind, val) {
   if (kind === 'user') pendingComposerTags.mentions = pendingComposerTags.mentions.filter(x => x !== val);
   if (kind === 'estimacion') pendingComposerTags.estimaciones = pendingComposerTags.estimaciones.filter(x => x !== val);
   if (kind === 'compra') pendingComposerTags.compras = (pendingComposerTags.compras || []).filter(x => x !== val);
+  if (kind === 'almacen') pendingComposerTags.almacen = (pendingComposerTags.almacen || []).filter(x => x !== val);
   if (kind === 'reporte') pendingComposerTags.reportes = pendingComposerTags.reportes.filter(x => x !== val);
   renderProjectChatDock();
 }
 
 export function sendProjectChatMessage() {
+  const activeChannel = ensureValidActiveChatSection();
+  if (!activeChannel) {
+    showToast('🔒 No tienes permiso para escribir en ningún canal del chat.', 'warning');
+    return;
+  }
+  const targetChannel = getEffectiveComposeSection(activeChannel);
+
   const inp = document.getElementById('project-chat-input');
   if (!inp) return;
   const text = inp.value.trim();
   if (!text) return;
   inp.value = '';
+  activeMentionAutocomplete.open = false;
 
   if (lastSentChatGuard.text === text && (Date.now() - lastSentChatGuard.ts) < 1500) return;
   lastSentChatGuard = { text, ts: Date.now() };
@@ -2073,16 +2941,23 @@ export function sendProjectChatMessage() {
   const users = getAssignedProjectUsers();
   const currentUser = getCurrentUser() || getLastKnownUser();
   const defaultAuthor = users.find(u => currentUser && u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase()) || users[0];
-  const authorObj = users.find(u => u.handle === selectedAuthorHandle) || defaultAuthor;
+  const authorObj = defaultAuthor;
 
-  // Detectar tanto las etiquetas @Usuario agregadas con el botón como cualquier @Usuario escrito en el texto
+  // Detectar etiquetas @Usuario escritas o elegidas del desplegable
   const mergedMentions = extractMentionsFromMessage({
     mentions: pendingComposerTags.mentions,
     text
   });
   users.forEach(u => {
-    if (text.toLowerCase().includes(u.handle.toLowerCase()) && !mergedMentions.some(m => m.toLowerCase() === u.handle.toLowerCase())) {
-      mergedMentions.push(u.handle);
+    const txtLower = text.toLowerCase();
+    const matchFull = txtLower.includes(u.handle.toLowerCase());
+    const matchShort = u.shortHandle && txtLower.includes(u.shortHandle.toLowerCase());
+    const alreadyPresent = mergedMentions.some(m => {
+      const ml = m.toLowerCase();
+      return ml === u.handle.toLowerCase() || (u.shortHandle && ml === u.shortHandle.toLowerCase());
+    });
+    if ((matchFull || matchShort) && !alreadyPresent) {
+      mergedMentions.push(u.shortHandle || u.handle);
     }
   });
 
@@ -2093,7 +2968,7 @@ export function sendProjectChatMessage() {
   const messages = loadProjectChatMessages();
   const newMsg = {
     id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    section: activeChatSection || 'tecnico',
+    section: targetChannel,
     authorName: authorObj.name,
     authorHandle: authorObj.handle,
     authorRole: authorObj.roleLabel,
@@ -2106,6 +2981,7 @@ export function sendProjectChatMessage() {
     mentions: mergedMentions,
     estimaciones: [...pendingComposerTags.estimaciones],
     compras: [...(pendingComposerTags.compras || [])],
+    almacen: [...(pendingComposerTags.almacen || [])],
     reportes: [...pendingComposerTags.reportes],
     perUserRead: true,
     isRead: false,
@@ -2121,6 +2997,7 @@ export function sendProjectChatMessage() {
     mentions: [],
     estimaciones: [],
     compras: [],
+    almacen: [],
     reportes: []
   };
   activeTagPickerKind = null;
@@ -2137,6 +3014,11 @@ export function sendProjectChatMessage() {
 export function deleteProjectChatMessage(msgId) {
   const cleanId = normalizeChatMsgId(msgId);
   const messages = loadProjectChatMessages();
+  const target = messages.find(m => normalizeChatMsgId(m.id) === cleanId);
+  if (target && !isChatMessageVisibleToUser(target)) {
+    showToast('🔒 No tienes permiso para eliminar mensajes de este canal.', 'warning');
+    return;
+  }
   const next = messages.filter(m => normalizeChatMsgId(m.id) !== cleanId);
   saveProjectChatMessages(next);
   broadcastChatDelete(getActiveProjectId(), cleanId);
@@ -2146,9 +3028,16 @@ export function deleteProjectChatMessage(msgId) {
 
 export function jumpToProjectChatTag(kind, value) {
   if (kind === 'partida') {
+    if (!canUserAccessTabInProject('presupuesto')) {
+      showToast('🔒 No tienes acceso a Presupuesto.', 'warning');
+      return;
+    }
     activePartidaFilterId = String(value);
     pendingComposerTags.partidaId = String(value);
-    activeChatSection = 'tecnico';
+    if (getAllowedChatChannelsForUser().includes('presupuesto')) {
+      activeChatSection = 'presupuesto';
+      userPinnedTodosSection = false;
+    }
     renderProjectChatDock();
     triggerExternalChatRefresh();
     const pObj = getAllCatalogNodes().find(p => p.id === String(value));
@@ -2156,7 +3045,12 @@ export function jumpToProjectChatTag(kind, value) {
       showToast(`Filtrando comentarios de: ${pObj.clave} ${pObj.descripcion}`, 'info');
     }
   } else if (kind === 'estimacion') {
-    activeChatSection = 'financiero';
+    if (!canUserAccessTabInProject('estimaciones')) {
+      showToast('🔒 No tienes acceso a Estimaciones.', 'warning');
+      return;
+    }
+    activeChatSection = 'estimaciones';
+    userPinnedTodosSection = false;
     const ests = getProjectEstimacionesTags();
     const found = ests.find(e => e.label === value || e.id === value);
     if (found) {
@@ -2167,15 +3061,32 @@ export function jumpToProjectChatTag(kind, value) {
     }
     showToast(`Abriendo ${value} en la pestaña Estimaciones`, 'info');
   } else if (kind === 'compra') {
-    activeChatSection = 'financiero';
+    if (!canUserAccessTabInProject('compras')) {
+      showToast('🔒 No tienes acceso a Compras y Pagos.', 'warning');
+      return;
+    }
+    activeChatSection = 'compras';
+    userPinnedTodosSection = false;
     if (typeof window.switchTab === 'function') {
       window.switchTab('compras');
     }
-    showToast(`Navegando a la pestaña Compras y Pagos para ${value}`, 'info');
+    showToast(`Navegando a Compras y Pagos para ${value}`, 'info');
+  } else if (kind === 'almacen') {
+    if (!canUserAccessTabInProject('almacen')) {
+      showToast('🔒 No tienes acceso a Almacén.', 'warning');
+      return;
+    }
+    activeChatSection = 'almacen';
+    userPinnedTodosSection = false;
+    if (typeof window.switchTab === 'function') {
+      window.switchTab('almacen');
+    }
+    showToast(`Navegando a Almacén para ${value}`, 'info');
   } else if (kind === 'reporte') {
     const reps = getProjectReportesTags(activeChatSection);
     const found = reps.find(r => r.label === value || r.id === value);
-    const targetTab = found ? found.id : (activeChatSection === 'financiero' ? 'estimaciones' : 'cat');
+    const fallbackTab = mapWorkspaceTabToChatSection(activeChatSection);
+    const targetTab = found ? found.id : (fallbackTab === 'presupuesto' ? 'cat' : fallbackTab);
     if (typeof window.switchTab === 'function') {
       window.switchTab(targetTab);
     }
@@ -2186,31 +3097,39 @@ export function jumpToProjectChatTag(kind, value) {
 export function renderProjectChatDock() {
   if (isRefreshingFromChat) return;
 
+  const activePidForAccess = getActiveProjectId() || 'proj-default-01';
+  const allowedChannels = getAllowedChatChannelsForUser(activePidForAccess);
+  const fullAccess = hasFullChatAccess(activePidForAccess);
+
   // Consumir apertura pendiente si el usuario hizo clic en una notificación desde "Mis Proyectos de Obra"
   let pendingScrollMsgId = null;
   try {
     const rawPending = localStorage.getItem('adm_const_pending_chat_open');
     if (rawPending) {
       const pending = JSON.parse(rawPending);
-      const activePid = getActiveProjectId() || 'proj-default-01';
-      if (pending && (!pending.projectId || pending.projectId === activePid)) {
+      if (pending && (!pending.projectId || pending.projectId === activePidForAccess)) {
         localStorage.removeItem('adm_const_pending_chat_open');
-        isChatDockExpanded = true;
-        activeChatFilter = 'all';
-        activePartidaFilterId = null;
-        if (pending.section) {
-          activeChatSection = pending.section;
-        }
-        if (pending.partidaId) {
-          pendingComposerTags.partidaId = String(pending.partidaId);
-        }
-        if (pending.msgId) {
-          highlightedMessageId = pending.msgId;
-          pendingScrollMsgId = pending.msgId;
+        if (allowedChannels.length > 0) {
+          isChatDockExpanded = true;
+          activeChatFilter = 'all';
+          activePartidaFilterId = null;
+          if (pending.section && allowedChannels.includes(pending.section)) {
+            activeChatSection = pending.section;
+            userPinnedTodosSection = pending.section === 'todos';
+          }
+          if (pending.partidaId && canUserAccessTabInProject('presupuesto', activePidForAccess)) {
+            pendingComposerTags.partidaId = String(pending.partidaId);
+          }
+          if (pending.msgId) {
+            highlightedMessageId = pending.msgId;
+            pendingScrollMsgId = pending.msgId;
+          }
         }
       }
     }
   } catch (e) {}
+
+  const activeSection = ensureValidActiveChatSection(activePidForAccess);
 
   if (isChatDockExpanded) {
     markActiveProjectChatMessagesAsRead();
@@ -2233,22 +3152,22 @@ export function renderProjectChatDock() {
   const draftText = prevInputEl ? prevInputEl.value : '';
 
   const projectName = state.settings?.projectName || 'Proyecto de Obra';
-  const users = getAssignedProjectUsers();
-  const partidas = getAllCatalogNodes();
-  const estimaciones = getProjectEstimacionesTags();
-  const compras = getProjectComprasTags();
-  const reportes = getProjectReportesTags(activeChatSection);
+  const allowedSet = new Set(allowedChannels);
   const allMessages = loadProjectChatMessages();
-  const currentUser = getCurrentUser() || getLastKnownUser();
-  const myEmail = (currentUser?.email || '').toLowerCase().trim();
-  const activePidForRead = getActiveProjectId() || 'proj-default-01';
-  const readSet = new Set(getReadMentionIds());
-  const unreadMessages = allMessages.filter(m => !isChatMessageReadForCurrentUser(m, activePidForRead, myEmail, readSet));
-  const unreadCount = isChatDockExpanded ? 0 : unreadMessages.length;
+  const visibleRaw = allMessages.filter(m => isChatMessageVisibleToUser(m, activePidForAccess, null, allowedSet));
 
-  // Conteo de mensajes no leídos por sección
-  const countTecnico = isChatDockExpanded ? 0 : unreadMessages.filter(m => getMessageSection(m) === 'tecnico').length;
-  const countFinanciero = isChatDockExpanded ? 0 : unreadMessages.filter(m => getMessageSection(m) === 'financiero').length;
+  // Calcular conteo de no leídos SOLO cuando el dock está minimizado (evita trabajo innecesario al escribir o renderizar)
+  let unreadCount = 0;
+  if (!isChatDockExpanded) {
+    const currentUserMin = getCurrentUser() || getLastKnownUser();
+    const myEmailMin = (currentUserMin?.email || '').toLowerCase().trim();
+    const readSetMin = new Set(getReadMentionIds());
+    for (let i = 0; i < visibleRaw.length; i++) {
+      if (!isChatMessageReadForCurrentUser(visibleRaw[i], activePidForAccess, myEmailMin, readSetMin)) {
+        unreadCount++;
+      }
+    }
+  }
 
   // Actualizar el botón del Chat en la barra vertical izquierda (debajo de la campana de notificaciones)
   const sidebarChatBtn = document.getElementById('btn-sidebar-project-chat');
@@ -2256,7 +3175,7 @@ export function renderProjectChatDock() {
   const sidebarChatBadge = document.getElementById('sidebar-chat-badge');
 
   if (sidebarChatBtn) {
-    sidebarChatBtn.title = `${isChatDockExpanded ? 'Cerrar' : 'Abrir'} Chat y Bitácora de Obra: ${projectName} (${allMessages.length} notas)`;
+    sidebarChatBtn.title = `${isChatDockExpanded ? 'Cerrar' : 'Abrir'} Chat y Bitácora de Obra: ${projectName} (${visibleRaw.length} notas visibles)`;
     sidebarChatBtn.className = isChatDockExpanded
       ? 'w-11 h-11 rounded-xl flex items-center justify-center bg-blue-600/25 text-blue-300 border border-blue-500/60 shadow-md transition active:scale-95 cursor-pointer relative group'
       : 'w-11 h-11 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition active:scale-95 cursor-pointer relative group';
@@ -2276,64 +3195,111 @@ export function renderProjectChatDock() {
     }
   }
 
-  // Si está plegado (cerrado), se abre desde el botón de la barra vertical izquierda o desde Partida Nivel 1
+  // Si está plegado (cerrado), salir antes de construir listas de catálogo, stock o usuarios
   if (!isChatDockExpanded) {
     dockEl.className = 'hidden';
     dockEl.innerHTML = '';
     return;
   }
 
+  const currentUser = getCurrentUser() || getLastKnownUser();
+  const visibleMessages = sortChatMessagesChronologically(visibleRaw);
+  const unreadByChannel = {};
+  allowedChannels.forEach(ch => { unreadByChannel[ch] = 0; });
+
+  const users = getAssignedProjectUsers();
+  const canSeePresupuesto = allowedSet.has('presupuesto');
+  const canSeeEstimaciones = allowedSet.has('estimaciones');
+  const canSeeCompras = allowedSet.has('compras');
+  const canSeeAlmacen = allowedSet.has('almacen');
+
+  let _partidasCache = null;
+  let _partidasByIdMap = null;
+  const getPartidasList = () => {
+    if (_partidasCache === null) _partidasCache = getAllCatalogNodes();
+    return _partidasCache;
+  };
+  const findPartidaById = (pidVal) => {
+    if (pidVal === null || pidVal === undefined || pidVal === '') return null;
+    if (_partidasByIdMap === null) {
+      _partidasByIdMap = new Map(getPartidasList().map(p => [String(p.id), p]));
+    }
+    return _partidasByIdMap.get(String(pidVal)) || null;
+  };
+
+  const estimaciones = (activeTagPickerKind === 'estimacion' && canSeeEstimaciones) ? getProjectEstimacionesTags() : [];
+  const compras = (activeTagPickerKind === 'compra' && canSeeCompras) ? getProjectComprasTags() : [];
+  const almacenTags = (activeTagPickerKind === 'almacen' && canSeeAlmacen) ? getProjectAlmacenTags() : [];
+  const reportes = (activeTagPickerKind === 'reporte' && activeSection) ? getProjectReportesTags(activeSection) : [];
+
   // Siempre al frente de toda la información en todas las pestañas (z-index: 9990)
   dockEl.style.zIndex = '9990';
   dockEl.className = isChatMaximized
-    ? 'no-print fixed bottom-0 right-5 z-50 w-[780px] max-w-[calc(100vw-1.5rem)] shadow-2xl rounded-t-2xl border border-b-0 border-slate-300 bg-white overflow-hidden transition-all duration-200 font-sans'
-    : 'no-print fixed bottom-0 right-5 z-50 w-[380px] sm:w-[420px] max-w-[calc(100vw-1.5rem)] shadow-2xl rounded-t-xl border border-b-0 border-slate-300 bg-white overflow-hidden transition-all duration-200 font-sans';
+    ? 'no-print fixed bottom-0 right-5 z-50 w-[820px] max-w-[calc(100vw-1.5rem)] shadow-2xl rounded-t-2xl border border-b-0 border-slate-300 bg-white overflow-hidden transition-all duration-200 font-sans'
+    : 'no-print fixed bottom-0 right-5 z-50 w-[410px] sm:w-[465px] max-w-[calc(100vw-1.5rem)] shadow-2xl rounded-t-xl border border-b-0 border-slate-300 bg-white overflow-hidden transition-all duration-200 font-sans';
 
-  if (!selectedAuthorHandle || !users.some(u => u.handle === selectedAuthorHandle)) {
-    const matched = users.find(u => currentUser && u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase()) || users[0];
-    selectedAuthorHandle = matched ? matched.handle : '@Admin';
+  const defaultAuthor = users.find(u => currentUser && u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase()) || users[0] || {
+    name: currentUser?.name || 'Usuario',
+    handle: '@Usuario',
+    initials: 'US',
+    roleLabel: 'Asignado'
+  };
+
+  selectedAuthorHandle = defaultAuthor.handle;
+
+  // Si el usuario no tiene ninguna pestaña asignada
+  if (!activeSection || allowedChannels.length === 0) {
+    dockEl.innerHTML = `
+      <div onclick="toggleProjectChatDock(false)"
+           class="px-3 py-2 bg-slate-900 text-white flex items-center justify-between gap-2 cursor-pointer select-none">
+        <span class="text-xs font-bold truncate">Chat • ${escapeChatHtml(projectName)}</span>
+        <button type="button" onclick="event.stopPropagation(); toggleProjectChatDock(false);"
+                class="px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white text-[10.5px] font-bold cursor-pointer">
+          Plegar
+        </button>
+      </div>
+      <div class="p-6 text-center bg-white space-y-2">
+        <i class="fa-solid fa-lock text-2xl text-slate-400"></i>
+        <p class="text-xs font-bold text-slate-700">Sin canales de chat autorizados</p>
+        <p class="text-[11px] text-slate-500">Solicita al administrador que te asigne al menos una pestaña del proyecto.</p>
+      </div>
+    `;
+    return;
   }
 
-  // Filtrar mensajes según sección activa ('tecnico' vs 'financiero'), filtros rápidos y Partida Nivel 1
-  const sectionMessages = allMessages.filter(m => getMessageSection(m) === activeChatSection);
+  const chMeta = CHAT_CHANNEL_META[activeSection] || CHAT_CHANNEL_META.todos || CHAT_CHANNEL_META.presupuesto;
+
+  // Filtrar mensajes del canal autorizado ('todos' muestra todos los mensajes visibles para el usuario según sus permisos)
+  const sectionMessages = activeSection === 'todos'
+    ? visibleMessages
+    : visibleMessages.filter(m => getMessageSection(m) === activeSection);
 
   const filteredMessages = sectionMessages.filter(m => {
     if (activePartidaFilterId && String(m.partidaId) !== String(activePartidaFilterId)) return false;
     if (activeChatFilter === 'mentions') return extractMentionsFromMessage(m).length > 0;
-    if (activeChatFilter === 'estimaciones') return (Array.isArray(m.estimaciones) && m.estimaciones.length > 0) || (Array.isArray(m.compras) && m.compras.length > 0);
+    if (activeChatFilter === 'estimaciones') {
+      return (Array.isArray(m.estimaciones) && m.estimaciones.length > 0) ||
+             (Array.isArray(m.compras) && m.compras.length > 0) ||
+             (Array.isArray(m.almacen) && m.almacen.length > 0);
+    }
     if (activeChatFilter === 'reportes') return Array.isArray(m.reportes) && m.reportes.length > 0;
     return true;
   });
 
   const activePartidaObj = activePartidaFilterId
-    ? partidas.find(p => String(p.id) === String(activePartidaFilterId))
+    ? findPartidaById(activePartidaFilterId)
     : null;
 
-  // Mini avatares de asignados en la barra superior de la ventana acoplada
-  const miniAvatarsHtml = users.slice(0, 4).map(u => `
-    <span class="w-5 h-5 rounded-full bg-blue-800 text-white text-[9px] font-bold inline-flex items-center justify-center border border-blue-400 shrink-0"
-          title="${escapeChatHtml(u.name)} (${escapeChatHtml(u.handle)} - ${escapeChatHtml(u.roleLabel)})">
-      ${escapeChatHtml(u.initials)}
-    </span>
-  `).join('');
+  const effectiveComposeSec = getEffectiveComposeSection(activeSection);
+  const composeMeta = CHAT_CHANNEL_META[effectiveComposeSec] || chMeta;
 
-  // Menú flotante para insertar etiquetas contextuales según la sección activa
+  // Menú flotante de etiquetas no-usuario según canal y permisos (sin panel de usuarios integrado)
   let tagPickerHtml = '';
-  if (activeTagPickerKind === 'user') {
+  if (activeTagPickerKind === 'partida' && (canSeePresupuesto || canSeeAlmacen || activeSection === 'compras' || fullAccess)) {
+    const allNodesForTag = getPartidasList();
     tagPickerHtml = `
       <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
-        ${users.map(u => `
-          <button type="button" onclick="addProjectChatPendingTag('user', '${escapeChatHtml(escapeChatJsArg(u.handle))}')"
-                  class="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer">
-            ${escapeChatHtml(u.handle)} <span class="text-[9.5px] opacity-75">(${escapeChatHtml(u.roleLabel)})</span>
-          </button>
-        `).join('')}
-      </div>
-    `;
-  } else if (activeTagPickerKind === 'partida') {
-    tagPickerHtml = `
-      <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
-        ${partidas.length > 0 ? partidas.map(p => `
+        ${allNodesForTag.length > 0 ? allNodesForTag.map(p => `
           <button type="button" onclick="addProjectChatPendingTag('partida', '${escapeChatHtml(escapeChatJsArg(p.id))}')"
                   class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 cursor-pointer truncate max-w-full">
             <span class="opacity-65 mr-0.5">N${Number(p.level) || 1}</span>/${escapeChatHtml(p.clave)} ${escapeChatHtml(p.descripcion)}
@@ -2341,7 +3307,7 @@ export function renderProjectChatDock() {
         `).join('') : `<span class="text-[11px] text-slate-400">Sin conceptos en el catálogo</span>`}
       </div>
     `;
-  } else if (activeTagPickerKind === 'estimacion') {
+  } else if (activeTagPickerKind === 'estimacion' && canSeeEstimaciones) {
     tagPickerHtml = `
       <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
         ${estimaciones.map(e => `
@@ -2352,13 +3318,24 @@ export function renderProjectChatDock() {
         `).join('')}
       </div>
     `;
-  } else if (activeTagPickerKind === 'compra') {
+  } else if (activeTagPickerKind === 'compra' && canSeeCompras) {
     tagPickerHtml = `
       <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
         ${compras.map(c => `
           <button type="button" onclick="addProjectChatPendingTag('compra', '${escapeChatHtml(escapeChatJsArg(c.label))}')"
-                  class="px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100 cursor-pointer">
+                  class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100 cursor-pointer">
             ${escapeChatHtml(c.label)} <span class="text-[9.5px] opacity-75">(${escapeChatHtml(c.status)})</span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+  } else if (activeTagPickerKind === 'almacen' && canSeeAlmacen) {
+    tagPickerHtml = `
+      <div class="p-2 rounded-lg border border-slate-200 bg-white flex flex-wrap gap-1 max-h-28 overflow-y-auto custom-scroll shadow-inner">
+        ${almacenTags.map(a => `
+          <button type="button" onclick="addProjectChatPendingTag('almacen', '${escapeChatHtml(escapeChatJsArg(a.label))}')"
+                  class="px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-50 text-sky-800 border border-sky-200 hover:bg-sky-100 cursor-pointer">
+            ${escapeChatHtml(a.label)} <span class="text-[9.5px] opacity-75">(${escapeChatHtml(a.stockLabel)})</span>
           </button>
         `).join('')}
       </div>
@@ -2379,7 +3356,7 @@ export function renderProjectChatDock() {
   // Chips de etiquetas listas para enviarse en el mensaje actual
   const activeTagChips = [];
   if (pendingComposerTags.partidaId) {
-    const p = partidas.find(x => String(x.id) === String(pendingComposerTags.partidaId));
+    const p = findPartidaById(pendingComposerTags.partidaId);
     if (p) {
       activeTagChips.push(`
         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
@@ -2407,9 +3384,17 @@ export function renderProjectChatDock() {
   });
   (pendingComposerTags.compras || []).forEach(c => {
     activeTagChips.push(`
-      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-teal-100 text-teal-800 border border-teal-300">
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">
         ${escapeChatHtml(String(c || '').slice(0, 22))}
-        <button type="button" onclick="removeProjectChatPendingTag('compra', '${escapeChatHtml(escapeChatJsArg(c))}')" class="hover:text-teal-950 cursor-pointer">✕</button>
+        <button type="button" onclick="removeProjectChatPendingTag('compra', '${escapeChatHtml(escapeChatJsArg(c))}')" class="hover:text-indigo-950 cursor-pointer">✕</button>
+      </span>
+    `);
+  });
+  (pendingComposerTags.almacen || []).forEach(a => {
+    activeTagChips.push(`
+      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-sky-100 text-sky-800 border border-sky-300">
+        ${escapeChatHtml(String(a || '').slice(0, 24))}
+        <button type="button" onclick="removeProjectChatPendingTag('almacen', '${escapeChatHtml(escapeChatJsArg(a))}')" class="hover:text-sky-950 cursor-pointer">✕</button>
       </span>
     `);
   });
@@ -2422,8 +3407,54 @@ export function renderProjectChatDock() {
     `);
   });
 
+  const channelDropdownItemsHtml = allowedChannels.map(chId => {
+    const meta = CHAT_CHANNEL_META[chId];
+    if (!meta) return '';
+    const chUnread = unreadByChannel[chId] || 0;
+    const isSel = activeSection === chId;
+    return `
+      <button type="button"
+              role="option"
+              aria-selected="${isSel ? 'true' : 'false'}"
+              data-channel-option="${escapeChatHtml(chId)}"
+              onclick="event.stopPropagation(); switchProjectChatSection('${escapeChatHtml(escapeChatJsArg(chId))}')"
+              class="w-full px-2.5 py-1.5 text-left flex items-center justify-between gap-2 text-[11px] font-bold transition cursor-pointer ${isSel ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-700'}">
+        <span class="flex items-center gap-2 min-w-0">
+          <i class="fa-solid ${meta.icon} ${isSel ? 'text-white' : (meta.iconColor || 'text-slate-300')} text-[11px] w-4 text-center shrink-0"></i>
+          <span class="truncate">${escapeChatHtml(meta.label)}</span>
+        </span>
+        ${chUnread > 0 ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold ${isSel ? 'bg-white/25 text-white' : 'bg-amber-400 text-slate-950'} shrink-0">${chUnread}</span>` : ''}
+      </button>
+    `;
+  }).join('');
+
+  const todoTargetChannels = allowedChannels.filter(c => c !== 'todos');
+  const todoTargetChoices = ['todos', ...todoTargetChannels];
+  const todoTargetMenuItemsHtml = todoTargetChoices.map(chId => {
+    const meta = CHAT_CHANNEL_META[chId];
+    if (!meta) return '';
+    const isSel = effectiveComposeSec === chId;
+    const itemLabel = chId === 'todos' ? 'Todo (Todos los invitados)' : meta.label;
+    return `
+      <button type="button"
+              role="option"
+              aria-selected="${isSel ? 'true' : 'false'}"
+              data-todo-target="${escapeChatHtml(chId)}"
+              onclick="event.stopPropagation(); onTodoComposeTargetChange('${escapeChatHtml(escapeChatJsArg(chId))}')"
+              class="w-full px-2.5 py-1.5 text-left flex items-center gap-2 text-[11px] font-bold transition cursor-pointer ${isSel ? 'bg-blue-600 text-white' : 'text-slate-200 hover:bg-slate-700'}">
+        <i class="fa-solid ${meta.icon} ${isSel ? 'text-white' : (meta.iconColor || 'text-slate-300')} text-[11px] w-4 text-center shrink-0"></i>
+        <span class="truncate">${escapeChatHtml(itemLabel)}</span>
+      </button>
+    `;
+  }).join('');
+
+  const showConceptButton = ['todos', 'presupuesto', 'calendario', 'compras', 'almacen', 'bitacora'].includes(effectiveComposeSec);
+  const showEstButton = (effectiveComposeSec === 'estimaciones' || effectiveComposeSec === 'todos') && canSeeEstimaciones;
+  const showCompraButton = (effectiveComposeSec === 'compras' || effectiveComposeSec === 'todos') && canSeeCompras;
+  const showAlmacenButton = (effectiveComposeSec === 'almacen' || effectiveComposeSec === 'todos') && canSeeAlmacen;
+
   dockEl.innerHTML = `
-    <!-- BARRA SUPERIOR DE LA VENTANA DESPLEGADA (CON BOTONES IMPRIMIR, MAXIMIZAR Y MINIMIZAR AL CÍRCULO FLOTANTE) -->
+    <!-- BARRA SUPERIOR DE LA VENTANA DESPLEGADA -->
     <div onclick="toggleProjectChatDock(false)"
          class="px-3 py-2 bg-gradient-to-r from-slate-900 via-blue-900 to-blue-800 hover:from-slate-800 hover:to-blue-700 text-white flex items-center justify-between gap-2 cursor-pointer select-none transition">
       <div class="flex items-center gap-2 min-w-0">
@@ -2431,7 +3462,7 @@ export function renderProjectChatDock() {
           <i class="fa-solid fa-comments text-xs"></i>
         </span>
         <span class="text-xs font-bold truncate" title="Chat y Bitácora: ${escapeChatHtml(projectName)}">
-          Bitácora • ${escapeChatHtml(projectName)}
+          Chat • ${escapeChatHtml(projectName)}
         </span>
         ${unreadCount > 0 ? `
         <span class="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400 text-slate-950 leading-none shrink-0"
@@ -2441,11 +3472,10 @@ export function renderProjectChatDock() {
       </div>
 
       <div class="flex items-center gap-1 shrink-0">
-        <div class="hidden sm:flex items-center -space-x-1 mr-1">${miniAvatarsHtml}</div>
         <button type="button"
                 id="btn-project-chat-print"
-                onclick="event.stopPropagation(); printProjectChatReport('${escapeChatHtml(escapeChatJsArg(activeChatSection))}', event);"
-                title="Imprimir reporte de bitácora (${activeChatSection === 'tecnico' ? 'Técnica' : 'Financiera'})"
+                onclick="event.stopPropagation(); printProjectChatReport('${escapeChatHtml(escapeChatJsArg(activeSection))}', event);"
+                title="Imprimir reporte de chat (${escapeChatHtml(chMeta.label)})"
                 class="w-6 h-6 rounded bg-white/15 hover:bg-white/25 text-white inline-flex items-center justify-center cursor-pointer transition">
           <i class="fa-solid fa-print text-[11px]"></i>
         </button>
@@ -2467,51 +3497,74 @@ export function renderProjectChatDock() {
       </div>
     </div>
 
-    <!-- PESTAÑAS PRINCIPALES DEL CHAT: SECCIÓN 1 (TÉCNICA) vs SECCIÓN 2 (FINANCIERA) -->
-    <div class="bg-slate-900 px-2 pt-1.5 pb-1 flex items-center justify-between border-b border-slate-700/80 gap-1.5 select-none">
-      <div class="flex items-center gap-1 flex-1">
-        <button type="button" onclick="switchProjectChatSection('tecnico')"
-                title="Catálogo Base • Insumos Base • Calendario de Obra"
-                class="flex-1 py-1 px-2 rounded-md text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${activeChatSection === 'tecnico' ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'}">
-          <i class="fa-solid fa-helmet-safety text-[10px]"></i>
-          <span class="truncate">1. Técnica / Obra</span>
-          ${countTecnico > 0 ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold ${activeChatSection === 'tecnico' ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-300'}">${countTecnico}</span>` : ''}
-        </button>
-        <button type="button" onclick="switchProjectChatSection('financiero')"
-                title="Estimaciones • Compras y Pagos • Flujo Financiero"
-                class="flex-1 py-1 px-2 rounded-md text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${activeChatSection === 'financiero' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'}">
-          <i class="fa-solid fa-coins text-[10px]"></i>
-          <span class="truncate">2. Financiera / Pagos</span>
-          ${countFinanciero > 0 ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold ${activeChatSection === 'financiero' ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-300'}">${countFinanciero}</span>` : ''}
-        </button>
+    <!-- SELECTOR DE CANAL CON LOS MISMOS ÍCONOS DE LAS PESTAÑAS BASE -->
+    <div class="bg-slate-900 px-2.5 py-1.5 flex items-center justify-between border-b border-slate-700/80 gap-2 select-none relative">
+      <div class="flex items-center gap-1.5 min-w-0 flex-1">
+        ${allowedChannels.length === 1 ? `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold ${chMeta.activeBtn}">
+            <i class="fa-solid ${chMeta.icon} text-[10.5px]"></i>
+            <span>${escapeChatHtml(chMeta.label)}</span>
+            ${(unreadByChannel[activeSection] || 0) > 0 ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] bg-black/20">${unreadByChannel[activeSection]}</span>` : ''}
+          </span>
+        ` : `
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Canal:</span>
+          <div id="project-chat-channel-dropdown" class="relative flex-1 min-w-0">
+            <button type="button"
+                    id="project-chat-channel-btn"
+                    onclick="toggleProjectChatChannelMenu(event)"
+                    aria-expanded="${isChannelMenuOpen ? 'true' : 'false'}"
+                    class="w-full bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 rounded-lg px-2.5 py-1 text-[11px] font-bold flex items-center justify-between gap-2 cursor-pointer transition">
+              <span class="flex items-center gap-1.5 min-w-0">
+                <i class="fa-solid ${chMeta.icon} ${chMeta.iconColor || 'text-slate-300'} text-[11px] shrink-0"></i>
+                <span class="truncate">${escapeChatHtml(chMeta.label)}</span>
+                ${(unreadByChannel[activeSection] || 0) > 0 ? `<span class="px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-amber-400 text-slate-950 shrink-0">${unreadByChannel[activeSection]}</span>` : ''}
+              </span>
+              <i class="fa-solid fa-chevron-down text-[9px] text-slate-400 shrink-0 transition-transform ${isChannelMenuOpen ? 'rotate-180' : ''}"></i>
+            </button>
+            ${isChannelMenuOpen ? `
+              <div id="project-chat-channel-menu"
+                   role="listbox"
+                   class="absolute left-0 right-0 top-full mt-1 z-30 bg-slate-800 border border-slate-600 rounded-lg shadow-xl py-1 max-h-60 overflow-y-auto custom-scroll">
+                ${channelDropdownItemsHtml}
+              </div>
+            ` : ''}
+          </div>
+        `}
       </div>
-      <button type="button" onclick="printProjectChatReport('todos', event)"
-              title="Imprimir bitácora integral completa (Ambas secciones)"
-              class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold flex items-center gap-1 shrink-0 border border-slate-700 cursor-pointer transition">
-        <i class="fa-solid fa-book text-[9px] text-amber-400"></i>
-        <span>Libro</span>
-      </button>
+      ${((allowedChannels.includes('todos') && allowedChannels.length > 1) || fullAccess) ? `
+        <div class="flex items-center gap-1 shrink-0">
+          ${(allowedChannels.includes('todos') && allowedChannels.length > 1) ? `
+            <button type="button" onclick="toggleProjectChatTodoMode()"
+                    title="${activeSection === 'todos' ? 'Volver al canal específico anterior' : 'Abrir canal general Todo (todos los invitados)'}"
+                    class="px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition border ${activeSection === 'todos' ? 'bg-white text-slate-950 border-white shadow-xs' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'}">
+              <i class="fa-solid fa-layer-group text-[9px]"></i>
+              <span>Todo</span>
+            </button>
+          ` : ''}
+          ${fullAccess ? `
+            <button type="button"
+                    id="btn-project-chat-libro"
+                    onclick="printProjectChatReport('todos', event)"
+                    title="Imprimir libro completo de todas las pestañas ordenado cronológicamente"
+                    class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold flex items-center gap-1 shrink-0 border border-slate-700 cursor-pointer transition">
+              <i class="fa-solid fa-book text-[9px] text-amber-400"></i>
+              <span>Libro</span>
+            </button>
+          ` : ''}
+        </div>
+      ` : ''}
     </div>
 
     <!-- CUERPO DESPLEGABLE DEL CHAT DEL PROYECTO -->
     <div id="project-chat-body" class="flex flex-col bg-white">
       
-      <!-- Sub-encabezado: Usuario Asignado + Filtros rápidos -->
+      <!-- Sub-encabezado: Canal Activo + Filtros rápidos (sin usuarios integrados) -->
       <div class="p-2.5 bg-slate-50 border-b border-slate-200 space-y-2">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
-            <span class="inline-block w-2 h-2 rounded-full ${activeChatSection === 'tecnico' ? 'bg-blue-600' : 'bg-emerald-600'}"></span>
-            ${activeChatSection === 'tecnico' ? 'Catálogo • Insumos • Calendario' : 'Estimaciones • Compras • Pagos'}
+        <div class="flex items-center justify-between gap-2 min-w-0">
+          <span class="text-[10px] text-slate-500 font-semibold flex items-center gap-1.5 min-w-0 flex-1">
+            <span class="inline-block w-2 h-2 rounded-full shrink-0 ${chMeta.dotClass}"></span>
+            <span class="truncate" title="${escapeChatHtml(chMeta.subtitle)}">${escapeChatHtml(chMeta.subtitle)}</span>
           </span>
-          <div class="flex items-center gap-1 bg-white border border-slate-300 rounded px-1.5 py-0.5">
-            <span class="text-[10px] text-slate-500">Asiento por:</span>
-            <select onchange="onProjectChatAuthorChange(this.value)"
-                    class="bg-transparent text-[11px] font-bold text-slate-800 outline-none cursor-pointer">
-              ${users.map(u => `
-                <option value="${escapeChatHtml(u.handle)}" ${u.handle === selectedAuthorHandle ? 'selected' : ''}>${escapeChatHtml(u.handle)}</option>
-              `).join('')}
-            </select>
-          </div>
         </div>
 
         <!-- Barra de filtros rápidos -->
@@ -2524,17 +3577,10 @@ export function renderProjectChatDock() {
                   class="px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition ${activeChatFilter === 'mentions' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'}">
             @ Menciones
           </button>
-          ${activeChatSection === 'tecnico' ? `
-            <button type="button" onclick="setProjectChatFilter('reportes')"
-                    class="px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition ${activeChatFilter === 'reportes' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'}">
-              ! Plan de Obra
-            </button>
-          ` : `
-            <button type="button" onclick="setProjectChatFilter('estimaciones')"
-                    class="px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition ${activeChatFilter === 'estimaciones' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'}">
-              # Estimaciones / Pagos
-            </button>
-          `}
+          <button type="button" onclick="setProjectChatFilter('reportes')"
+                  class="px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition ${activeChatFilter === 'reportes' ? chMeta.filterBtnColor : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-100'}">
+            ! Reportes
+          </button>
           ${activePartidaObj ? `
             <button type="button" onclick="clearProjectChatPartidaFilter()"
                     title="Quitar filtro de concepto / partida"
@@ -2545,34 +3591,65 @@ export function renderProjectChatDock() {
         </div>
       </div>
 
-      <!-- Lista de Mensajes del Proyecto -->
+      <!-- Lista de Mensajes del Canal Autorizado -->
       <div id="project-chat-messages-list" class="p-2.5 space-y-2 ${isChatMaximized ? 'h-[58vh]' : 'h-[230px]'} overflow-y-auto custom-scroll bg-white">
         ${filteredMessages.length === 0 ? `
           <div class="h-full flex flex-col items-center justify-center text-center p-4 text-slate-400 text-xs border border-dashed border-slate-200 rounded-lg">
-            <span class="w-9 h-9 rounded-full ${activeChatSection === 'tecnico' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'} flex items-center justify-center mb-1.5">
-              <i class="fa-solid ${activeChatSection === 'tecnico' ? 'fa-helmet-safety' : 'fa-coins'} text-sm"></i>
+            <span class="w-9 h-9 rounded-full ${chMeta.emptyBg} flex items-center justify-center mb-1.5">
+              <i class="fa-solid ${chMeta.icon} text-sm"></i>
             </span>
-            <p class="font-semibold text-slate-600">Sin asientos en la sección ${activeChatSection === 'tecnico' ? 'Técnica de Obra' : 'Financiera'}</p>
+            <p class="font-semibold text-slate-600">Sin mensajes en ${escapeChatHtml(chMeta.label)}</p>
             <p class="text-[11px] text-slate-400 mt-0.5">
-              ${activeChatSection === 'tecnico'
-                ? 'Registra acuerdos sobre <strong>Catálogo Base</strong>, <strong>Insumos</strong> o <strong>Calendario</strong>.'
-                : 'Registra autorizaciones de <strong>Estimaciones</strong>, <strong>Compras</strong> o <strong>Pagos</strong>.'}
+              ${chMeta.emptyDesc}
             </p>
           </div>
-        ` : filteredMessages.map(m => {
-          const pObj = m.partidaId ? partidas.find(p => String(p.id) === String(m.partidaId)) : null;
+        ` : (() => {
+          const usersByEmail = new Map();
+          const usersByHandle = new Map();
+          const usersByName = new Map();
+          users.forEach(u => {
+            if (u.email) usersByEmail.set(u.email.toLowerCase(), u);
+            if (u.handle) usersByHandle.set(u.handle.toLowerCase(), u);
+            if (u.shortHandle) usersByHandle.set(u.shortHandle.toLowerCase(), u);
+            if (u.shortName) usersByHandle.set(`@${u.shortName.toLowerCase()}`, u);
+            if (u.name) usersByName.set(u.name.toLowerCase(), u);
+          });
+          const fallbackAvatarCache = new Map();
+          const getCachedFallbackAvatar = (nameVal, emailVal) => {
+            const k = `${nameVal}|${emailVal}`;
+            let svg = fallbackAvatarCache.get(k);
+            if (!svg) {
+              svg = buildFallbackAvatarSvg(nameVal, emailVal);
+              fallbackAvatarCache.set(k, svg);
+            }
+            return svg;
+          };
+          return filteredMessages.map(m => {
+          const pObj = m.partidaId ? findPartidaById(m.partidaId) : null;
           const isHighlighted = highlightedMessageId && m.id === highlightedMessageId;
           const msgSec = getMessageSection(m);
+          const msgMeta = CHAT_CHANNEL_META[msgSec] || CHAT_CHANNEL_META.todos || CHAT_CHANNEL_META.presupuesto;
           const safeMsgIdJs = escapeChatHtml(escapeChatJsArg(m.id));
+          const matchedAuthorUser =
+            (m.authorEmail && usersByEmail.get(m.authorEmail.toLowerCase())) ||
+            (m.authorHandle && usersByHandle.get(m.authorHandle.toLowerCase())) ||
+            (m.authorName && usersByName.get(m.authorName.toLowerCase())) ||
+            null;
+          const authorAvatarSrc = m.authorAvatar || matchedAuthorUser?.avatar || getCachedFallbackAvatar(m.authorName || 'Usuario', m.authorEmail || '');
+          const authorShortDisp = formatAbbreviatedUserName(m.authorName || matchedAuthorUser?.name || m.authorHandle || '', m.authorEmail || '');
           return `
             <div id="chat-msg-item-${escapeChatHtml(m.id)}" class="p-2.5 rounded-lg border ${isHighlighted ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-300' : 'border-slate-200 bg-slate-50/70'} space-y-1.5 group transition">
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-1.5 min-w-0">
-                  <span class="w-5 h-5 rounded-full ${msgSec === 'tecnico' ? 'bg-blue-700' : 'bg-emerald-700'} text-white text-[9px] font-bold inline-flex items-center justify-center shrink-0">
-                    ${escapeChatHtml(m.authorInitials || 'US')}
-                  </span>
-                  <span class="text-[11px] font-bold text-slate-800 truncate">${escapeChatHtml(m.authorHandle || m.authorName)}</span>
-                  <span class="px-1.5 py-0.2 rounded text-[9.5px] bg-white border border-slate-200 text-slate-500">${escapeChatHtml(m.authorRole || 'Asignado')}</span>
+                  <img src="${escapeChatHtml(authorAvatarSrc)}" alt="${escapeChatHtml(authorShortDisp)}"
+                       class="w-5 h-5 rounded-full object-cover border border-slate-300 shrink-0">
+                  <span class="text-[11px] font-bold text-slate-800 truncate" title="${escapeChatHtml(m.authorName || authorShortDisp)}">${escapeChatHtml(authorShortDisp)}</span>
+                  ${activeSection === 'todos' ? `
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold ${msgMeta.emptyBg} border border-slate-200 shrink-0">
+                      <i class="fa-solid ${msgMeta.icon} text-[8.5px]"></i>
+                      <span>${escapeChatHtml(msgMeta.label)}</span>
+                    </span>
+                  ` : ''}
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
                   <span class="text-[10px] text-slate-400">${escapeChatHtml(m.time || '')}</span>
@@ -2585,7 +3662,7 @@ export function renderProjectChatDock() {
               </div>
 
               <!-- Etiquetas clicables -->
-              ${(pObj || (m.mentions && m.mentions.length) || (m.estimaciones && m.estimaciones.length) || (m.compras && m.compras.length) || (m.reportes && m.reportes.length)) ? `
+              ${(pObj || (m.mentions && m.mentions.length) || (m.estimaciones && m.estimaciones.length) || (m.compras && m.compras.length) || (m.almacen && m.almacen.length) || (m.reportes && m.reportes.length)) ? `
                 <div class="flex flex-wrap items-center gap-1">
                   ${pObj ? `
                     <button type="button" onclick="jumpToProjectChatTag('partida', '${escapeChatHtml(escapeChatJsArg(pObj.id))}')"
@@ -2593,11 +3670,16 @@ export function renderProjectChatDock() {
                       /${escapeChatHtml(pObj.clave)} ${escapeChatHtml(String(pObj.descripcion || '').slice(0, 24))}
                     </button>
                   ` : ''}
-                  ${(m.mentions || []).map(u => `
-                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
-                      ${escapeChatHtml(u)}
-                    </span>
-                  `).join('')}
+                  ${(m.mentions || []).map(uTag => {
+                    const uTagL = String(uTag || '').toLowerCase();
+                    const matchedTagUser = usersByHandle.get(uTagL);
+                    const dispTag = matchedTagUser?.shortHandle || uTag;
+                    return `
+                      <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                        ${escapeChatHtml(dispTag)}
+                      </span>
+                    `;
+                  }).join('')}
                   ${(m.estimaciones || []).map(est => `
                     <button type="button" onclick="jumpToProjectChatTag('estimacion', '${escapeChatHtml(escapeChatJsArg(est))}')"
                             class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 cursor-pointer">
@@ -2606,8 +3688,14 @@ export function renderProjectChatDock() {
                   `).join('')}
                   ${(m.compras || []).map(comp => `
                     <button type="button" onclick="jumpToProjectChatTag('compra', '${escapeChatHtml(escapeChatJsArg(comp))}')"
-                            class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300 hover:bg-teal-200 cursor-pointer">
+                            class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 hover:bg-indigo-200 cursor-pointer">
                       ${escapeChatHtml(String(comp || '').slice(0, 24))} ↗
+                    </button>
+                  `).join('')}
+                  ${(m.almacen || []).map(alm => `
+                    <button type="button" onclick="jumpToProjectChatTag('almacen', '${escapeChatHtml(escapeChatJsArg(alm))}')"
+                            class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-300 hover:bg-sky-200 cursor-pointer">
+                      ${escapeChatHtml(String(alm || '').slice(0, 24))} ↗
                     </button>
                   `).join('')}
                   ${(m.reportes || []).map(rep => `
@@ -2622,42 +3710,70 @@ export function renderProjectChatDock() {
               <p class="text-xs text-slate-800 leading-snug break-words">${escapeChatHtml(m.text)}</p>
             </div>
           `;
-        }).join('')}
+        }).join('');
+        })()}
       </div>
 
-      <!-- Barra inferior para etiquetar y enviar comentario según la sección -->
+      <!-- Barra inferior para etiquetar y enviar comentario según el canal activo -->
       <div class="p-2.5 bg-slate-50 border-t border-slate-200 space-y-1.5">
         <div class="flex flex-wrap items-center gap-1">
-          <button type="button" onclick="toggleProjectChatTagPicker('user')"
-                  class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer">
-            @ Usuario
-          </button>
-          ${activeChatSection === 'tecnico' ? `
+          ${showConceptButton ? `
             <button type="button" onclick="toggleProjectChatTagPicker('partida')"
                     class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 cursor-pointer">
               / Concepto
             </button>
-            <button type="button" onclick="toggleProjectChatTagPicker('reporte')"
-                    class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
-              ! Plan Obra
-            </button>
-          ` : `
+          ` : ''}
+          ${showEstButton ? `
             <button type="button" onclick="toggleProjectChatTagPicker('estimacion')"
                     class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 cursor-pointer">
               # Estimación
             </button>
+          ` : ''}
+          ${showCompraButton ? `
             <button type="button" onclick="toggleProjectChatTagPicker('compra')"
-                    class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100 cursor-pointer">
+                    class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100 cursor-pointer">
               $ Compra/Pago
             </button>
-            <button type="button" onclick="toggleProjectChatTagPicker('reporte')"
-                    class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
-              ! Finanzas
+          ` : ''}
+          ${showAlmacenButton ? `
+            <button type="button" onclick="toggleProjectChatTagPicker('almacen')"
+                    class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-sky-50 text-sky-800 border border-sky-200 hover:bg-sky-100 cursor-pointer">
+              📦 Material / Stock
             </button>
-          `}
+          ` : ''}
+          <button type="button" onclick="toggleProjectChatTagPicker('reporte')"
+                  class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 cursor-pointer">
+            ! Reporte
+          </button>
         </div>
 
         ${tagPickerHtml}
+
+        ${activeSection === 'todos' && todoTargetChannels.length > 0 ? `
+          <div class="flex items-center justify-between gap-2 bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 relative">
+            <span class="text-[10px] font-bold text-slate-600 shrink-0">Publicar en:</span>
+            <div id="project-chat-todo-target-dropdown" class="relative flex-1 min-w-0">
+              <button type="button"
+                      id="project-chat-todo-target-btn"
+                      onclick="toggleProjectChatTodoTargetMenu(event)"
+                      aria-expanded="${isTodoTargetMenuOpen ? 'true' : 'false'}"
+                      class="w-full bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded px-2 py-0.5 text-[10.5px] font-bold flex items-center justify-between gap-1.5 cursor-pointer transition">
+                <span class="flex items-center gap-1.5 min-w-0">
+                  <i class="fa-solid ${composeMeta.icon} ${composeMeta.iconColor || 'text-slate-300'} text-[10px] shrink-0"></i>
+                  <span class="truncate">${escapeChatHtml(effectiveComposeSec === 'todos' ? 'Todo (Todos los invitados)' : composeMeta.label)}</span>
+                </span>
+                <i class="fa-solid fa-chevron-down text-[8.5px] text-slate-400 shrink-0 transition-transform ${isTodoTargetMenuOpen ? 'rotate-180' : ''}"></i>
+              </button>
+              ${isTodoTargetMenuOpen ? `
+                <div id="project-chat-todo-target-menu"
+                     role="listbox"
+                     class="absolute left-0 right-0 bottom-full mb-1 z-30 bg-slate-800 border border-slate-600 rounded-lg shadow-xl py-1 max-h-48 overflow-y-auto custom-scroll">
+                  ${todoTargetMenuItemsHtml}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
 
         ${activeTagChips.length > 0 ? `
           <div class="flex flex-wrap items-center gap-1 pt-0.5">
@@ -2665,16 +3781,28 @@ export function renderProjectChatDock() {
           </div>
         ` : ''}
 
+        <div id="project-chat-mention-autocomplete" class="relative">
+          ${renderMentionAutocompletePopoverHTML()}
+        </div>
+
         <div class="flex items-center gap-1.5">
+          <button type="button"
+                  id="btn-project-chat-at-trigger"
+                  onclick="triggerProjectChatAtMention()"
+                  title="Mencionar usuario con @"
+                  class="px-2 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-blue-400 hover:bg-blue-50 text-xs font-extrabold text-blue-700 cursor-pointer transition shrink-0">
+            @
+          </button>
           <input id="project-chat-input"
                  type="text"
                  value="${draftText.replace(/"/g, '&quot;')}"
-                 placeholder="${activeChatSection === 'tecnico' ? 'Asiento técnico (Catálogo, Insumos, Cronograma)...' : 'Asiento financiero (Estimaciones, Compras, Pagos)...'}"
-                 onkeydown="if(event.key==='Enter'){ event.preventDefault(); sendProjectChatMessage(); }"
+                 placeholder="${escapeChatHtml(composeMeta.placeholder)} (escribe @ para mencionar)"
+                 oninput="onProjectChatInput(this)"
+                 onkeydown="handleProjectChatInputKeydown(event)"
                  class="flex-1 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500">
           <button type="button"
                   onclick="sendProjectChatMessage()"
-                  class="px-3 py-1.5 rounded-lg text-xs font-bold ${activeChatSection === 'tecnico' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white cursor-pointer transition shrink-0 shadow-xs">
+                  class="px-3 py-1.5 rounded-lg text-xs font-bold ${composeMeta.btnClass} text-white cursor-pointer transition shrink-0 shadow-xs">
             Enviar
           </button>
         </div>
@@ -2693,16 +3821,27 @@ export function renderProjectChatDock() {
   }
 }
 
-// Cerrar el popover de notificaciones cuando se hace clic fuera de las campanas
+// Cerrar popovers y menús desplegables del chat cuando se hace clic fuera
 if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
   document.addEventListener('click', (e) => {
-    if (!isNotificationsPopoverOpen) return;
-    const sidebarWrap = document.getElementById('sidebar-notifications-wrapper');
-    const portalWrap = document.getElementById('portal-notifications-wrapper');
-    const clickedInsideSidebar = Boolean(sidebarWrap && typeof sidebarWrap.contains === 'function' && sidebarWrap.contains(e.target));
-    const clickedInsidePortal = Boolean(portalWrap && typeof portalWrap.contains === 'function' && portalWrap.contains(e.target));
-    if (!clickedInsideSidebar && !clickedInsidePortal) {
-      closeMentionNotificationsPopover();
+    if (isNotificationsPopoverOpen) {
+      const sidebarWrap = document.getElementById('sidebar-notifications-wrapper');
+      const portalWrap = document.getElementById('portal-notifications-wrapper');
+      const clickedInsideSidebar = Boolean(sidebarWrap && typeof sidebarWrap.contains === 'function' && sidebarWrap.contains(e.target));
+      const clickedInsidePortal = Boolean(portalWrap && typeof portalWrap.contains === 'function' && portalWrap.contains(e.target));
+      if (!clickedInsideSidebar && !clickedInsidePortal) {
+        closeMentionNotificationsPopover();
+      }
+    }
+    if (isChannelMenuOpen || isTodoTargetMenuOpen) {
+      const chWrap = document.getElementById('project-chat-channel-dropdown');
+      const todoWrap = document.getElementById('project-chat-todo-target-dropdown');
+      const insideCh = Boolean(chWrap && typeof chWrap.contains === 'function' && chWrap.contains(e.target));
+      const insideTodo = Boolean(todoWrap && typeof todoWrap.contains === 'function' && todoWrap.contains(e.target));
+      let changed = false;
+      if (isChannelMenuOpen && !insideCh) { isChannelMenuOpen = false; changed = true; }
+      if (isTodoTargetMenuOpen && !insideTodo) { isTodoTargetMenuOpen = false; changed = true; }
+      if (changed) renderProjectChatDock();
     }
   });
 }
@@ -2744,8 +3883,22 @@ if (typeof window !== 'undefined') {
   window.deleteProjectChatMessage = deleteProjectChatMessage;
   window.jumpToProjectChatTag = jumpToProjectChatTag;
   window.switchProjectChatSection = switchProjectChatSection;
+  window.toggleProjectChatChannelMenu = toggleProjectChatChannelMenu;
+  window.toggleProjectChatTodoTargetMenu = toggleProjectChatTodoTargetMenu;
+  window.triggerProjectChatAtMention = triggerProjectChatAtMention;
+  window.formatAbbreviatedUserName = formatAbbreviatedUserName;
+  window.toggleProjectChatTodoMode = toggleProjectChatTodoMode;
+  window.onTodoComposeTargetChange = onTodoComposeTargetChange;
+  window.onProjectChatInput = onProjectChatInput;
+  window.handleProjectChatInputKeydown = handleProjectChatInputKeydown;
+  window.applyProjectChatMentionSuggestion = applyProjectChatMentionSuggestion;
+  window.getUsersForChatSection = getUsersForChatSection;
   window.autoSwitchChatSectionFromTab = autoSwitchChatSectionFromTab;
+  window.onGlobalActiveTabChange = autoSwitchChatSectionFromTab;
   window.renderProjectChatDock = renderProjectChatDock;
+  window.canCurrentUserViewChatMessage = isChatMessageVisibleToUser;
+  window.getAllowedChatChannelsForUser = getAllowedChatChannelsForUser;
+  window.hasFullChatAccess = hasFullChatAccess;
   window.handleAcceptInvitationAction = handleAcceptInvitationAction;
   window.handleRejectInvitationAction = handleRejectInvitationAction;
   window.purgeAllNotifications = purgeAllNotifications;

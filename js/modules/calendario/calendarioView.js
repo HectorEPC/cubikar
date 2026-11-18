@@ -1,17 +1,17 @@
-import { printCalendarioObraFormat } from '../io/printService.js?v=20261117_cf27';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261117_cf27';
-import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261117_cf27';
-import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf27';
+import { printCalendarioObraFormat } from '../io/printService.js?v=20261117_cf30';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261117_cf30';
+import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261117_cf30';
+import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf30';
 // js/modules/calendario/calendarioView.js
 // Renderizador y controlador de la pestaña CALENDARIO DE OBRA
 // Diseño ejecutivo de alta fidelidad, interactivo y sincronizado 100% con Catálogo Base
 
-import { state } from '../../state/store.js?v=20261117_cf27';
-import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261117_cf27';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf27';
-import { isNightMode } from '../../ui/themeController.js?v=20261117_cf27';
-import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261117_cf27';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261117_cf27';
+import { state } from '../../state/store.js?v=20261117_cf30';
+import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261117_cf30';
+import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
+import { isNightMode } from '../../ui/themeController.js?v=20261117_cf30';
+import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261117_cf30';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261117_cf30';
 import {
   extractScheduleItems,
   ensureInitialDates,
@@ -52,14 +52,14 @@ import {
   hasScheduleRedoSnapshot,
   undoLastScheduleChange,
   redoLastScheduleChange
-} from './calendarioModel.js?v=20261117_cf27';
+} from './calendarioModel.js?v=20261117_cf30';
 import {
   WORK_TYPE_PROFILES,
   detectProjectWorkType,
   generateLocalConstructiveProposal,
   generateGeminiConstructiveProposal
-} from './calendarioAiService.js?v=20261117_cf27';
-import { exportScheduleToExcel } from './calendarioExporter.js?v=20261117_cf27';
+} from './calendarioAiService.js?v=20261117_cf30';
+import { exportScheduleToExcel } from './calendarioExporter.js?v=20261117_cf30';
 
 let currentScheduleData = null;
 let calendarioLinkClickMode = false;
@@ -301,16 +301,6 @@ export function renderCalendarioObra() {
               <i class="fa-solid fa-plus text-[9px]"></i>
             </button>
           </div>
-
-          <!-- 14.5 Firmas / Responsables pegado al lado izquierdo de Asignados -->
-          <button type="button" 
-                  id="btn-calendario-signatures-modal"
-                  onclick="openPresupuestoSignaturesModal()" 
-                  class="bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-300 hover:border-blue-400 text-xs font-semibold px-2.5 py-1 rounded-md shadow-2xs transition flex items-center gap-1.5 shrink-0 cursor-pointer" 
-                  title="Configurar los nombres de los responsables que firmarán el formato impreso del calendario de obra y presupuesto">
-            <i class="fa-solid fa-file-signature text-blue-600 text-xs"></i>
-            <span>Firmas / Responsables</span>
-          </button>
 
           <!-- 15. Asignados (Miembros Asignados a Calendario de Obra, al extremo derecho del mismo renglón) -->
           <div id="tab-members-calendario" class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2 py-0.5 shadow-2xs shrink-0">
