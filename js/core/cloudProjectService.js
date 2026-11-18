@@ -2,10 +2,10 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf25';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261117_cf25';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261117_cf25';
-import { showToast } from '../ui/notifications.js?v=20261117_cf25';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf26';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261117_cf26';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261117_cf26';
+import { showToast } from '../ui/notifications.js?v=20261117_cf26';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -329,6 +329,7 @@ async function recoverHeaderRlsError(sb, projectRecord, user, projError) {
     };
   }
   if (!row) {
+    console.warn('[CloudProjectService] Subida rechazada por RLS sin propietario verificable; se reintentará más tarde:', projectRecord.id);
     return { success: false, error: projError };
   }
 

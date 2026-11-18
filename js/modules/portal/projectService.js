@@ -15,15 +15,15 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261117_cf25';
+} from '../../config/constants.js?v=20261117_cf26';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
 export const STORAGE_KEY_TRASHED_PROJECTS = 'cubikar_trashed_project_ids_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261117_cf25';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261117_cf25';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261117_cf25';
-import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261117_cf25';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261117_cf25';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261117_cf26';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261117_cf26';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261117_cf26';
+import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261117_cf26';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261117_cf26';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -641,7 +641,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261117_cf25').then(m => {
+            import('../../core/supabaseClient.js?v=20261117_cf26').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -1482,7 +1482,8 @@ export async function loadSampleResidentialZipCatalog() {
         const jsonFile = zip.file('catalogo_muestra_proyecto_residencial.json') ||
                          Object.values(zip.files).find(f => f && f.name && f.name.endsWith('.json'));
         if (jsonFile) {
-          const text = await jsonFile.async('string');
+          const rawText = await jsonFile.async('string');
+          const text = String(rawText || '').replace(/^\uFEFF/, '');
           const data = JSON.parse(text);
           if (Array.isArray(data) && data.length > 0) {
             console.info('[ProjectService] Paquete Catalogo_Muestra_Proyecto_Residencial_APU.zip importado exitosamente.');
@@ -1500,7 +1501,8 @@ export async function loadSampleResidentialZipCatalog() {
     if (typeof fetch === 'function') {
       const resp = await fetch('data/catalogo_muestra_proyecto_residencial.json');
       if (resp.ok) {
-        const data = await resp.json();
+        const rawText = await resp.text();
+        const data = JSON.parse(String(rawText || '').replace(/^\uFEFF/, ''));
         if (Array.isArray(data) && data.length > 0) {
           return prepareCatalogTreeNodes(data);
         }
@@ -1559,14 +1561,23 @@ export function prepareCatalogTreeNodes(nodes, prefix = '') {
 }
 
 // Crear un nuevo proyecto
-export function createNewProject(params) {
+export function createNewProject(params, opts = {}) {
   const newId = generateUUID();
+  const currentUser = getCurrentUser();
+  const targetOwnerEmail = (params.ownerEmail || (currentUser && currentUser.email) || 'admin.general@constructora.com').toLowerCase().trim();
+  const targetOwnerPlanId = params.ownerPlanId || getUserPlanId(targetOwnerEmail);
+  const resolvedOwnerName = resolveCleanHostName(
+    targetOwnerEmail,
+    params.ownerName || (currentUser && currentUser.email && currentUser.email.toLowerCase().trim() === targetOwnerEmail ? currentUser.name : null) || params.hostName
+  );
   
   const projSettings = Object.assign({}, defaultSettings, {
     companyName: params.companyName,
     companyLogo: params.companyLogo || '',
     projectName: params.projectName,
     projectLocation: params.projectLocation,
+    ownerEmail: targetOwnerEmail,
+    ownerName: resolvedOwnerName,
     currency: params.currency || 'MXN',
     currencySymbol: params.currencySymbol || '$',
     applySobrecosto: params.applySobrecosto ?? true,
@@ -1589,10 +1600,43 @@ export function createNewProject(params) {
     ? params.treeData
     : (params.template === 'demo' ? prepareCatalogTreeNodes(JSON.parse(JSON.stringify(defaultTreeData))) : []);
 
-  // Almacenar settings y catálogo del nuevo proyecto
+  // Almacenar settings, catálogo y estado inicial limpio (chat, bitácora y gastos vacíos) del nuevo proyecto
   try {
     localStorage.setItem(getSettingsKey(newId), JSON.stringify(projSettings));
     localStorage.setItem(getStorageKey(newId), JSON.stringify(projTree));
+    localStorage.setItem(`adm_const_project_chat_${newId}`, '[]');
+    localStorage.setItem(`adm_arq_project_chat_${newId}`, '[]');
+    localStorage.removeItem(`adm_const_chat_${newId}`);
+    localStorage.removeItem(`control_obra_chat_${newId}`);
+    localStorage.removeItem(`adm_arq_chat_${newId}`);
+    localStorage.setItem(`expenses_control_${newId}`, JSON.stringify({
+      config: {
+        currency: projSettings.currency || 'MXN',
+        alertThresholdPercent: 10,
+        signatures: [
+          { rol: 'CONTROL DE COSTOS / COMPRAS', nombre: '', cargo: 'Elaboró' },
+          { rol: 'RESIDENCIA DE OBRA', nombre: '', cargo: 'Revisó' },
+          { rol: 'DIRECCIÓN GENERAL / SUPERVISIÓN', nombre: '', cargo: 'Autorizó' }
+        ]
+      },
+      suppliers: [],
+      records: []
+    }));
+    localStorage.setItem(`adm_const_bitacora_${newId}`, JSON.stringify({
+      config: {
+        obraInicio: '',
+        obraFinProgramada: '',
+        contratoNumero: '',
+        contratistaNombre: projSettings.companyName || '',
+        supervisionNombre: '',
+        residenteDefault: resolvedOwnerName || '',
+        residenteCargoDefault: 'Residente de Obra',
+        residenteCedulaDefault: '',
+        climaHoy: 'Soleado',
+        climaFecha: new Date().toISOString().slice(0, 10)
+      },
+      notes: []
+    }));
   } catch (e) {
     console.error('Error guardando nuevo proyecto:', e);
   }
@@ -1600,11 +1644,7 @@ export function createNewProject(params) {
   const f = projSettings.applySobrecosto ?
     (1 + projSettings.pctIndirectos/100) * (1 + projSettings.pctFinanciamiento/100) * (1 + projSettings.pctUtilidad/100) * (1 + projSettings.pctAdicionales/100) * (1 + (projSettings.pctSegurosFianzas || 0)/100) : 1.0;
 
-  const currentUser = getCurrentUser();
-  const targetOwnerEmail = (params.ownerEmail || (currentUser && currentUser.email) || 'admin.general@constructora.com').toLowerCase().trim();
-  const targetOwnerPlanId = params.ownerPlanId || getUserPlanId(targetOwnerEmail);
-
-  // Determinar miembros iniciales
+  // Determinar miembros iniciales: proyecto nuevo inicia en limpio sin heredar invitaciones ni colaboradores previos
   let initialMembers = [];
   if (Array.isArray(params.members) && params.members.length > 0) {
     initialMembers = params.members;
@@ -1614,7 +1654,7 @@ export function createNewProject(params) {
       initialMembers = [
         {
           id: 'mem-' + targetOwnerEmail,
-          name: resolveCleanHostName(targetOwnerEmail, params.hostName || params.ownerName),
+          name: resolvedOwnerName,
           email: targetOwnerEmail,
           avatar: AVATARS_BY_SEX['Masculino'],
           role: 'editar',
@@ -1629,23 +1669,6 @@ export function createNewProject(params) {
           status: 'active'
         }
       ];
-
-      // Vincular automáticamente a todos los demás colaboradores del plan del anfitrión (User A) con sus respectivos roles ('editar', 'escribir', 'leer')
-      const existingCollabs = getPlanCollaboratorsForOwner(targetOwnerEmail);
-      existingCollabs.forEach(collab => {
-        const cEmail = (collab.email || '').toLowerCase().trim();
-        if (cEmail && cEmail !== targetOwnerEmail && cEmail !== currentUser.email.toLowerCase().trim()) {
-          initialMembers.push({
-            id: 'mem-' + cEmail,
-            name: collab.name || cEmail.split('@')[0],
-            email: cEmail,
-            avatar: collab.avatar || AVATARS_BY_SEX['Masculino'],
-            role: collab.role || 'editar',
-            allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
-            status: collab.status || 'active'
-          });
-        }
-      });
     } else {
       initialMembers = [
         {
@@ -1657,23 +1680,6 @@ export function createNewProject(params) {
           status: 'active'
         }
       ];
-
-      // Si el dueño mismo crea la obra, vincular automáticamente a los colaboradores ya invitados a su plan
-      const existingCollabs = getPlanCollaboratorsForOwner(targetOwnerEmail);
-      existingCollabs.forEach(collab => {
-        const cEmail = (collab.email || '').toLowerCase().trim();
-        if (cEmail && cEmail !== targetOwnerEmail) {
-          initialMembers.push({
-            id: 'mem-' + cEmail,
-            name: collab.name || cEmail.split('@')[0],
-            email: cEmail,
-            avatar: collab.avatar || AVATARS_BY_SEX['Masculino'],
-            role: collab.role || 'editar',
-            allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora'],
-            status: collab.status || 'active'
-          });
-        }
-      });
     }
   }
 
@@ -1691,7 +1697,7 @@ export function createNewProject(params) {
     conceptCount: countTreeConcepts(projTree),
     partidasCount: countTreePartidas(projTree),
     ownerEmail: targetOwnerEmail,
-    ownerName: resolveCleanHostName(targetOwnerEmail, params.ownerName || (currentUser && currentUser.email && currentUser.email.toLowerCase().trim() === targetOwnerEmail ? currentUser.name : null) || params.hostName),
+    ownerName: resolvedOwnerName,
     ownerPlanId: targetOwnerPlanId,
     createdByEmail: (currentUser?.email || '').toLowerCase().trim(),
     members: initialMembers,
@@ -1700,7 +1706,7 @@ export function createNewProject(params) {
 
   const list = getProjectsList();
   list.unshift(projectEntry);
-  saveProjectsList(list, { skipCloudSync: Boolean(params.skipCloudSync) });
+  saveProjectsList(list, { skipCloudSync: Boolean(params?.skipCloudSync || opts?.skipCloudSync) });
 
   try {
     if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastNewProject === 'function') {
@@ -2011,7 +2017,7 @@ export function getTabAssignedMembers(projectId, tabId) {
 // Enviar proyecto a la Papelera (retención 7 días - solo Anfitrión)
 export async function deleteProject(projectId) {
   if (!projectId) return { success: false, reason: 'Proyecto no especificado' };
-  const { moveProjectToTrash } = await import('./trashService.js?v=20261117_cf25');
+  const { moveProjectToTrash } = await import('./trashService.js?v=20261117_cf26');
   const res = await moveProjectToTrash(projectId);
   return (res && typeof res === 'object') ? res : { success: Boolean(res) };
 }

@@ -2,8 +2,8 @@
 // Modelo de datos y persistencia para CONTROL DE GASTOS, COMPRAS Y ERP FINANCIERO
 // Cumple con la especificación técnica de expensesControl (Opción B)
 
-import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf25';
-import { scheduleExpensesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261117_cf25';
+import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf26';
+import { scheduleExpensesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261117_cf26';
 
 const STORAGE_KEY_PREFIX = 'expenses_control_';
 
@@ -20,14 +20,23 @@ export function getDefaultExpensesSignatures() {
   ];
 }
 
-export function getDefaultExpensesData() {
+const SAMPLE_EXPENSES_PROJECT_PREFIXES = ['proj-default', 'proj-demo', 'proj-opus-casa-laura'];
+
+function isSampleExpensesProjectId(projectId = null) {
+  const pid = String(projectId || getActiveProjectId() || '').trim().toLowerCase();
+  if (!pid || pid === 'default') return true;
+  return SAMPLE_EXPENSES_PROJECT_PREFIXES.some(prefix => pid.startsWith(prefix));
+}
+
+export function getDefaultExpensesData(projectId = null) {
+  const includeSampleSuppliers = isSampleExpensesProjectId(projectId);
   return {
     config: {
       currency: 'MXN',
       alertThresholdPercent: 10,
       signatures: getDefaultExpensesSignatures()
     },
-    suppliers: [
+    suppliers: includeSampleSuppliers ? [
       {
         id: 'prov-001',
         name: 'Materiales Construrama del Norte',
@@ -55,7 +64,7 @@ export function getDefaultExpensesData() {
         contactPerson: 'J. Guadalupe Rodríguez',
         address: 'Col. Obrera, Monterrey'
       }
-    ],
+    ] : [],
     records: []
   };
 }
@@ -64,20 +73,21 @@ export function getDefaultExpensesData() {
  * Cargar estado de Control de Gastos y Compras desde localStorage
  */
 export function loadExpensesData(projectId = null) {
+  const defaults = getDefaultExpensesData(projectId);
   try {
     const raw = localStorage.getItem(getExpensesStorageKey(projectId));
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
-        config: Object.assign({}, getDefaultExpensesData().config, parsed?.config || {}),
-        suppliers: Array.isArray(parsed?.suppliers) ? parsed.suppliers : getDefaultExpensesData().suppliers,
+        config: Object.assign({}, defaults.config, parsed?.config || {}),
+        suppliers: Array.isArray(parsed?.suppliers) ? parsed.suppliers : defaults.suppliers,
         records: Array.isArray(parsed?.records) ? parsed.records : []
       };
     }
   } catch (err) {
     console.warn('[ExpensesModel] Error al leer datos de gastos:', err);
   }
-  return getDefaultExpensesData();
+  return defaults;
 }
 
 /**

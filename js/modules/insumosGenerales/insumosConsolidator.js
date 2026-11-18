@@ -1,10 +1,10 @@
 // js/modules/insumosGenerales/insumosConsolidator.js
 // Consolidación de insumos de todas las matrices del presupuesto activo
 
-import { state } from '../../state/store.js?v=20261117_cf25';
-import { round2, round5 } from '../../core/formatters.js?v=20261117_cf25';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf25';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261117_cf25';
+import { state } from '../../state/store.js?v=20261117_cf26';
+import { round2, round5 } from '../../core/formatters.js?v=20261117_cf26';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf26';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261117_cf26';
 
 // Normalizar texto para agrupar insumos idénticos con precisión
 export function normalizeInsumoText(text) {

@@ -1,4 +1,4 @@
-import { blobToDataUrl } from '../utils/fileCompressor.js?v=20261117_cf25';
+import { blobToDataUrl } from '../utils/fileCompressor.js?v=20261117_cf26';
 
 const DB_NAME = 'ADM_CONST_MEDIA_DB';
 const DB_VERSION = 1;

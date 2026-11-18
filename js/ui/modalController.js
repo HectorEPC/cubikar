@@ -1,20 +1,20 @@
-import { state, persistLocalData, persistSettings } from '../state/store.js?v=20261117_cf25';
-import { defaultTreeData } from '../config/defaultData.js?v=20261117_cf25';
-import { saveState, updateUndoRedoButtons } from '../state/history.js?v=20261117_cf25';
-import { showToast } from './notifications.js?v=20261117_cf25';
-import { formatQty, round2, round5 } from '../core/formatters.js?v=20261117_cf25';
-import { getFactorSobrecosto } from '../core/calculations.js?v=20261117_cf25';
-import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../modules/catalog/treeService.js?v=20261117_cf25';
-import { renderTAB1, closeApuPanel } from '../modules/catalog/catalogView.js?v=20261117_cf25';
-import { renderAPUInsumos } from '../modules/apu/apuView.js?v=20261117_cf25';
-import { renderInsumosGenerales } from '../modules/insumosGenerales/insumosView.js?v=20261117_cf25';
-import { renderCalendarioObra } from '../modules/calendario/calendarioView.js?v=20261117_cf25';
-import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView.js?v=20261117_cf25';
-import { renderExpensesView } from '../modules/compras/expensesView.js?v=20261117_cf25';
-import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js?v=20261117_cf25';
-import { renderBrandingUI } from './brandingController.js?v=20261117_cf25';
-import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js?v=20261117_cf25';
-import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js?v=20261117_cf25';
+import { state, persistLocalData, persistSettings } from '../state/store.js?v=20261117_cf26';
+import { defaultTreeData } from '../config/defaultData.js?v=20261117_cf26';
+import { saveState, updateUndoRedoButtons } from '../state/history.js?v=20261117_cf26';
+import { showToast } from './notifications.js?v=20261117_cf26';
+import { formatQty, round2, round5 } from '../core/formatters.js?v=20261117_cf26';
+import { getFactorSobrecosto } from '../core/calculations.js?v=20261117_cf26';
+import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../modules/catalog/treeService.js?v=20261117_cf26';
+import { renderTAB1, closeApuPanel } from '../modules/catalog/catalogView.js?v=20261117_cf26';
+import { renderAPUInsumos } from '../modules/apu/apuView.js?v=20261117_cf26';
+import { renderInsumosGenerales } from '../modules/insumosGenerales/insumosView.js?v=20261117_cf26';
+import { renderCalendarioObra } from '../modules/calendario/calendarioView.js?v=20261117_cf26';
+import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView.js?v=20261117_cf26';
+import { renderExpensesView } from '../modules/compras/expensesView.js?v=20261117_cf26';
+import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js?v=20261117_cf26';
+import { renderBrandingUI } from './brandingController.js?v=20261117_cf26';
+import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js?v=20261117_cf26';
+import { getAiQuotaBadgeSummary, syncAiQuotaFromSupabase } from '../modules/ai/aiQuotaAndCacheService.js?v=20261117_cf26';
 
 // Modo de destino del modal Google IA: 'single' (solo concepto activo en matriz) o 'batch' (conceptos con casilla)
 export let aiModalTargetMode = 'single';

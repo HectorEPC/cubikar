@@ -1,17 +1,17 @@
 // js/ui/brandingController.js
 // Controlador para personalización de Nombre de Empresa, Proyecto, Ubicación y Logotipo con visor interactivo, recorte y zoom
 
-import { state, persistSettings } from '../state/store.js?v=20261117_cf25';
-import { showToast } from './notifications.js?v=20261117_cf25';
+import { state, persistSettings } from '../state/store.js?v=20261117_cf26';
+import { showToast } from './notifications.js?v=20261117_cf26';
 import {
   blobToDataUrl,
   dataUrlToFile,
   processFileForUpload
-} from '../utils/fileCompressor.js?v=20261117_cf25';
-import { validatePreCompressionFile } from '../services/storageQuotaService.js?v=20261117_cf25';
-import { uploadManagedFile } from '../services/s3StorageService.js?v=20261117_cf25';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261117_cf25';
-import { guardTabUnlocked } from './tabLockController.js?v=20261117_cf25';
+} from '../utils/fileCompressor.js?v=20261117_cf26';
+import { validatePreCompressionFile } from '../services/storageQuotaService.js?v=20261117_cf26';
+import { uploadManagedFile } from '../services/s3StorageService.js?v=20261117_cf26';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261117_cf26';
+import { guardTabUnlocked } from './tabLockController.js?v=20261117_cf26';
 
 // Dimensiones estándar del área de recorte para el logotipo (cuadrado 1:1)
 const CROP_WIDTH = 180;

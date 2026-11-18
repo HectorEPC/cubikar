@@ -2,11 +2,11 @@
 // Modelo de datos y lógica de cálculo para ESTIMACIONES DE OBRA
 // Sincronizado reactivamente con state.treeData (Catálogo Base)
 
-import { state } from '../../state/store.js?v=20261117_cf25';
-import { getActiveProjectId, getStorageKey } from '../../config/constants.js?v=20261117_cf25';
-import { formatDate, parseDate, addDays, diffDays } from '../calendario/calendarioModel.js?v=20261117_cf25';
-import { scheduleEstimacionesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261117_cf25';
-import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261117_cf25';
+import { state } from '../../state/store.js?v=20261117_cf26';
+import { getActiveProjectId, getStorageKey } from '../../config/constants.js?v=20261117_cf26';
+import { formatDate, parseDate, addDays, diffDays } from '../calendario/calendarioModel.js?v=20261117_cf26';
+import { scheduleEstimacionesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261117_cf26';
+import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261117_cf26';
 
 const STORAGE_KEY_PREFIX = 'estimaciones_data_';
 
@@ -51,7 +51,7 @@ export function createDefaultEstimacionZero(anticipoPct = 30) {
     montoAnticipo: 0,
     fianzaPoliza: '',
     fianzaAfianzadora: '',
-    notas: 'Registro de cobro de anticipo inicial pactado',
+    notas: '',
     locked: false,
     factura: createDefaultFacturaData()
   };
@@ -75,7 +75,7 @@ function getDefaultEstimacionesState() {
         fechaInicio: todayStr,
         fechaFin: endStr,
         fechaCorte: endStr,
-        notas: 'Estimación inicial de avance de obra',
+        notas: '',
         conceptos: {}, // { [conceptId]: cantidadEjecutada }
         locked: false,
         factura: createDefaultFacturaData()
@@ -124,7 +124,7 @@ function sanitizeEstimacionesState(data) {
       fechaInicio: todayStr,
       fechaFin: endStr,
       fechaCorte: endStr,
-      notas: 'Estimación inicial de avance de obra',
+      notas: '',
       conceptos: {},
       locked: false,
       factura: createDefaultFacturaData()

@@ -1,10 +1,10 @@
 // js/modules/calendario/calendarioExporter.js
 // Exportación profesional del Programa de Obra Físico y Financiero a Microsoft Excel (.xlsx)
 
-import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261117_cf25';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf25';
-import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf25';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261117_cf25';
+import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261117_cf26';
+import { showToast } from '../../ui/notifications.js?v=20261117_cf26';
+import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf26';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261117_cf26';
 
 export function exportScheduleToExcel(scheduleData, settings = {}) {
   if (typeof window.XLSX === 'undefined') {
