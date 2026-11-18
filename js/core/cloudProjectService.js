@@ -2,10 +2,10 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf22';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId } from '../modules/portal/projectService.js?v=20261116_cf22';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261116_cf22';
-import { showToast } from '../ui/notifications.js?v=20261116_cf22';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf25';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261117_cf25';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261117_cf25';
+import { showToast } from '../ui/notifications.js?v=20261117_cf25';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -79,6 +79,16 @@ let inFlightFetchCloudProjectsPromise = null;
 let cachedCloudProjectsList = null;
 let cachedCloudProjectsAt = 0;
 let cloudProjectsFailUntil = 0;
+let cachedTrashedCloudProjects = [];
+let trashedCloudProjectIds = new Set();
+
+export function getTrashedCloudProjectIds() {
+  return new Set(trashedCloudProjectIds);
+}
+
+export function getCachedTrashedCloudProjects() {
+  return Array.isArray(cachedTrashedCloudProjects) ? [...cachedTrashedCloudProjects] : [];
+}
 
 export function invalidateCloudProjectsCache() {
   cachedCloudProjectsList = null;
@@ -239,10 +249,103 @@ export async function resolveUserEmpresaId(sb, user) {
   }
 }
 
+const projectSyncSlots = new Map();
+
+function projectSyncKey(project) {
+  if (isValidUUID(project?.id)) return project.id;
+  if (isValidUUID(project?.cloudId)) return project.cloudId;
+  return String(project?.id || '').trim() || '__default__';
+}
+
+function startProjectSync(key, job) {
+  const slot = { queued: null };
+  projectSyncSlots.set(key, slot);
+  return runProjectSync(job)
+    .catch(error => ({ success: false, error }))
+    .then((result) => {
+      const next = slot.queued;
+      if (next) {
+        next.resolve(startProjectSync(key, next));
+      } else if (projectSyncSlots.get(key) === slot) {
+        projectSyncSlots.delete(key);
+      }
+      return result;
+    });
+}
+
 /**
- * Sincronizar un proyecto completo (datos generales, colaboradores y catálogo de conceptos) hacia Supabase PostgreSQL
+ * Sincronizar un proyecto completo (datos generales, colaboradores y catálogo de conceptos) hacia Supabase PostgreSQL.
+ * Las llamadas concurrentes para el mismo proyecto se serializan: mientras una subida está en curso,
+ * las siguientes se agrupan en una sola re-ejecución con los argumentos más recientes.
  */
-export async function syncProjectToCloud(project, settings = {}, treeData = null) {
+export function syncProjectToCloud(project, settings = {}, treeData = null, options = {}) {
+  const key = projectSyncKey(project);
+  const headerCallback = typeof options?.onHeaderSynced === 'function' ? options.onHeaderSynced : null;
+  const slot = projectSyncSlots.get(key);
+  if (!slot) {
+    return startProjectSync(key, { project, settings, treeData, headerCallbacks: headerCallback ? [headerCallback] : [] });
+  }
+  if (!slot.queued) {
+    let resolve;
+    const promise = new Promise((r) => { resolve = r; });
+    slot.queued = { promise, resolve, treeData: null, headerCallbacks: [] };
+  }
+  const queued = slot.queued;
+  queued.project = project;
+  queued.settings = settings;
+  if (Array.isArray(treeData)) queued.treeData = treeData;
+  if (headerCallback) queued.headerCallbacks.push(headerCallback);
+  return queued.promise;
+}
+
+function isOwnCloudRow(row, user) {
+  if (!row) return false;
+  const myEmail = (user?.email || '').toLowerCase().trim();
+  const rowOwner = (row.owner_email || '').toLowerCase().trim();
+  return Boolean((myEmail && rowOwner === myEmail) || (row.creado_por && row.creado_por === user?.id));
+}
+
+/**
+ * Ante un 42501 al subir el encabezado, vuelve a leer la fila: si es propia se reintenta una vez;
+ * solo se reporta rlsBlocked cuando la fila realmente pertenece a otra cuenta.
+ */
+async function recoverHeaderRlsError(sb, projectRecord, user, projError) {
+  let row = null;
+  try {
+    const { data } = await sb
+      .from('proyectos')
+      .select('id, owner_email, creado_por, updated_at')
+      .eq('id', projectRecord.id)
+      .maybeSingle();
+    row = data || null;
+  } catch (_) {}
+
+  if (row && !isOwnCloudRow(row, user)) {
+    return {
+      success: false,
+      rlsBlocked: true,
+      existingOwnerEmail: (row.owner_email || '').toLowerCase().trim(),
+      error: projError
+    };
+  }
+  if (!row) {
+    return { success: false, error: projError };
+  }
+
+  const { error: retryErr } = await sb.from('proyectos').upsert(projectRecord, { onConflict: 'id' });
+  if (!retryErr) return { success: true };
+  const rowAgeMs = row.updated_at ? Date.now() - new Date(row.updated_at).getTime() : Infinity;
+  if (rowAgeMs >= 0 && rowAgeMs < 60000) return { success: true };
+  return { success: false, error: retryErr };
+}
+
+function notifyHeaderSynced(callbacks, projectId) {
+  (callbacks || []).forEach((cb) => {
+    try { cb({ projectId }); } catch (_) {}
+  });
+}
+
+async function runProjectSync({ project, settings = {}, treeData = null, headerCallbacks = [] }) {
   const sb = getSupabaseClient();
   let user = getCurrentUser();
 
@@ -291,6 +394,11 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
       if (Array.isArray(delList) && (delList.includes(project.id) || delList.includes(projectId))) {
         return { success: false, reason: 'Proyecto eliminado' };
       }
+      const rawTrashed = typeof localStorage !== 'undefined' ? localStorage.getItem('cubikar_trashed_project_ids_v1') : null;
+      const trashList = rawTrashed ? JSON.parse(rawTrashed) : [];
+      if (Array.isArray(trashList) && (trashList.includes(project.id) || trashList.includes(projectId))) {
+        return { success: false, reason: 'Proyecto en papelera' };
+      }
     } catch (_) {}
     project.cloudId = projectId;
 
@@ -301,16 +409,28 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
 
     let existingCloudProj = null;
     try {
-      const { data: ep, error: epErr } = await sb
+      let { data: ep, error: epErr } = await sb
         .from('proyectos')
-        .select('id, empresa_id, owner_email, creado_por, configuracion')
+        .select('id, empresa_id, owner_email, creado_por, configuracion, deleted_at')
         .eq('id', projectId)
         .maybeSingle();
+      if (epErr && (epErr.code === '42703' || /deleted_at/i.test(String(epErr.message || '')))) {
+        const retryRes = await sb
+          .from('proyectos')
+          .select('id, empresa_id, owner_email, creado_por, configuracion')
+          .eq('id', projectId)
+          .maybeSingle();
+        ep = retryRes.data;
+        epErr = retryRes.error;
+      }
       if (epErr && epErr.code !== 'PGRST116') {
         console.warn('[CloudProjectService] Consulta previa de proyecto interrumpida (abortando para proteger configuración remota):', epErr.message || epErr);
         return { success: false, error: epErr };
       }
       existingCloudProj = ep || null;
+      if (existingCloudProj?.deleted_at) {
+        return { success: false, reason: 'Proyecto en papelera' };
+      }
     } catch (epCatchErr) {
       return { success: false, error: epCatchErr };
     }
@@ -318,6 +438,9 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
     const prevCloudCfg = (existingCloudProj?.configuracion && typeof existingCloudProj.configuracion === 'object')
       ? existingCloudProj.configuracion
       : {};
+    const effectiveOwnerEmail = (existingCloudProj?.owner_email || ownerEmail).toLowerCase().trim();
+    const currentActorEmail = (user.email || '').toLowerCase().trim();
+    const isOwnerActor = Boolean(currentActorEmail) && currentActorEmail === effectiveOwnerEmail;
 
     // 1. Guardar / Actualizar en tabla 'public.proyectos' preservando banderas concurrentes
     const projectRecord = {
@@ -368,7 +491,7 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
           ownerName: project.ownerName || prevCloudCfg.ownerName || (ownerEmail === (user.email || '').toLowerCase().trim() ? (user.name || '') : ''),
           companyName: project.companyName || prevCloudCfg.companyName || '',
           budgetSignatures: project.budgetSignatures || settings?.budgetSignatures || prevCloudCfg.budgetSignatures || [],
-          collaborators: Array.isArray(project.members)
+          collaborators: (isOwnerActor && Array.isArray(project.members))
             ? project.members
                 .filter(m => m && m.email && (m.status || '').toLowerCase().trim() !== 'rejected')
                 .map(m => ({
@@ -378,13 +501,15 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
                   status: (m.status || '').toLowerCase().trim() === 'pending' ? 'pending' : 'accepted'
                 }))
             : (Array.isArray(prevCloudCfg?.collaborators) ? prevCloudCfg.collaborators : []),
-          memberTabs: Array.isArray(project.members)
-            ? project.members.reduce((acc, m) => {
-                const em = (m?.email || '').toLowerCase().trim();
-                if (em && Array.isArray(m.allowedTabs)) acc[em] = m.allowedTabs;
-                return acc;
-              }, { ...((prevCloudCfg && prevCloudCfg.memberTabs) || {}), ...((safeSettings && safeSettings.memberTabs) || {}) })
-            : ((safeSettings && safeSettings.memberTabs) || prevCloudCfg.memberTabs || {})
+          memberTabs: !isOwnerActor
+            ? (prevCloudCfg.memberTabs || {})
+            : Array.isArray(project.members)
+              ? project.members.reduce((acc, m) => {
+                  const em = (m?.email || '').toLowerCase().trim();
+                  if (em && Array.isArray(m.allowedTabs)) acc[em] = m.allowedTabs;
+                  return acc;
+                }, { ...((prevCloudCfg && prevCloudCfg.memberTabs) || {}), ...((safeSettings && safeSettings.memberTabs) || {}) })
+              : ((safeSettings && safeSettings.memberTabs) || prevCloudCfg.memberTabs || {})
         };
       })(),
       updated_at: new Date().toISOString()
@@ -396,28 +521,31 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
 
     if (projError) {
       const isRlsBlocked = projError.code === '42501' || /row-level security/i.test(String(projError.message || ''));
-      if (isRlsBlocked) {
-        // El ID ya existe en public.proyectos bajo otra cuenta (o el usuario solo tiene rol de lectura).
-        console.info('[CloudProjectService] Proyecto perteneciente a otra cuenta; se omite la subida como propio:', projectId);
-        return {
-          success: false,
-          rlsBlocked: true,
-          existingOwnerEmail: (existingCloudProj?.owner_email || '').toLowerCase().trim(),
-          error: projError
-        };
+      if (!isRlsBlocked) {
+        const isTriggerRejection = projError.code === 'P0001';
+        const reason = isTriggerRejection ? (projError.message || 'Operación rechazada por regla de seguridad.') : undefined;
+        console.warn('[CloudProjectService] Error al guardar proyecto en Supabase:', projError.message);
+        return { success: false, ...(reason ? { reason } : {}), error: projError };
       }
-      console.warn('[CloudProjectService] Error al guardar proyecto en Supabase:', projError.message);
-      return { success: false, error: projError };
+      const recovery = await recoverHeaderRlsError(sb, projectRecord, user, projError);
+      if (!recovery.success) {
+        if (recovery.rlsBlocked) {
+          console.info('[CloudProjectService] Proyecto perteneciente a otra cuenta; se omite la subida como propio:', projectId);
+        }
+        return recovery;
+      }
     }
     project.isCloudSynced = true;
     invalidateCloudProjectsCache();
+    notifyHeaderSynced(headerCallbacks, projectId);
 
-    // 2 y 3. Solo el propietario debe sincronizar filas administrativas de 'public.proyecto_colaboradores'
-    const currentActorEmail = (user.email || '').toLowerCase().trim();
-    if (currentActorEmail && currentActorEmail === ownerEmail) {
+    // 2 y 3. Solo el propietario sincroniza filas administrativas de 'public.proyecto_colaboradores'.
+    // Las filas existentes nunca se modifican aquí (se preserva estado y rol): solo se insertan las faltantes
+    // en la primera subida del proyecto o las marcadas localmente como pendientes de alta (pendingCloudAdd).
+    if (isOwnerActor) {
       const ownerColab = {
         proyecto_id: projectId,
-        email_colaborador: ownerEmail,
+        email_colaborador: effectiveOwnerEmail,
         nombre_colaborador: project.ownerName || user.name || 'Propietario',
         rol: 'owner',
         estado_invitacion: 'accepted',
@@ -427,26 +555,26 @@ export async function syncProjectToCloud(project, settings = {}, treeData = null
         .from('proyecto_colaboradores')
         .upsert(ownerColab, { onConflict: 'proyecto_id,email_colaborador' });
 
-      if (Array.isArray(project.members) && project.members.length > 0) {
-        for (const m of project.members) {
-          const mEmail = (m.email || '').toLowerCase().trim();
-          if (mEmail && mEmail !== ownerEmail) {
-            const mRecord = {
+      const isFirstUpload = !existingCloudProj;
+      const membersToInsert = (Array.isArray(project.members) ? project.members : [])
+        .filter(m => m && (isFirstUpload || m.pendingCloudAdd === true))
+        .map(m => ({ ...m, email: (m.email || '').toLowerCase().trim() }))
+        .filter(m => m.email && m.email !== effectiveOwnerEmail && (m.status || '').toLowerCase().trim() !== 'rejected');
+      for (const m of membersToInsert) {
+        try {
+          const { error: memberErr } = await sb
+            .from('proyecto_colaboradores')
+            .upsert({
               proyecto_id: projectId,
-              email_colaborador: mEmail,
-              nombre_colaborador: m.name || mEmail.split('@')[0],
+              email_colaborador: m.email,
+              nombre_colaborador: m.name || m.email.split('@')[0],
               rol: m.role || 'editar',
               estado_invitacion: m.status === 'pending' ? 'pending' : 'accepted',
               updated_at: new Date().toISOString()
-            };
-            try {
-              await sb
-                .from('proyecto_colaboradores')
-                .upsert(mRecord, { onConflict: 'proyecto_id,email_colaborador' });
-            } catch (cErr) {
-              console.warn('[CloudProjectService] Aviso upsert colaborador:', cErr);
-            }
-          }
+            }, { onConflict: 'proyecto_id,email_colaborador', ignoreDuplicates: true });
+          if (!memberErr && m.pendingCloudAdd) clearMemberPendingCloudAdd(project.id, m.email);
+        } catch (cErr) {
+          console.warn('[CloudProjectService] Aviso alta de colaborador:', cErr);
         }
       }
     }
@@ -746,13 +874,56 @@ export async function fetchCloudProjects(opts = {}) {
       }
     } catch (_) {}
 
-    // Si un proyecto existe activamente en public.proyectos y NO está en public.proyectos_eliminados,
-    // limpiar cualquier lápida local espuria (falso positivo previo en cubikar_deleted_projects_v1).
+    const activeRows = cloudList.filter(cp => cp && !cp.deleted_at);
+    const trashedRows = cloudList.filter(cp => cp && Boolean(cp.deleted_at));
+
+    const nextTrashedIds = new Set();
+    const nextTrashedList = [];
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+    for (const tp of trashedRows) {
+      const tid = tp?.id ? String(tp.id).trim() : '';
+      if (!tid || cloudDeletedIds.has(tid)) continue;
+      const tpOwner = (tp.owner_email || '').toLowerCase().trim();
+      const isHostOwner = tpOwner ? (tpOwner === myEmail) : (tp.creado_por && tp.creado_por === user.id);
+      if (!isHostOwner) continue;
+      const deletedMs = tp.deleted_at ? new Date(tp.deleted_at).getTime() : nowMs;
+      if (deletedMs > 0 && (nowMs - deletedMs) > sevenDaysMs) continue;
+      nextTrashedIds.add(tid);
+      const rawCfg = (tp.configuracion && typeof tp.configuracion === 'object') ? tp.configuracion : {};
+      nextTrashedList.push({
+        id: tid,
+        cloudId: tid,
+        isCloudSynced: true,
+        projectName: tp.nombre || 'Proyecto sin título',
+        companyName: rawCfg.companyName || tp.cliente || 'Constructora',
+        companyLogo: rawCfg.companyLogo || '',
+        ownerEmail: tpOwner || myEmail,
+        ownerName: rawCfg.ownerName || user.name || '',
+        projectLocation: tp.ubicacion || '',
+        tipoObra: tp.tipo_obra || 'Edificación',
+        currency: tp.moneda || 'MXN',
+        currencySymbol: tp.simbolo_moneda || '$',
+        deletedAt: tp.deleted_at,
+        deletedByEmail: tp.deleted_by_email || tpOwner || myEmail,
+        expiresAt: new Date(deletedMs + sevenDaysMs).toISOString(),
+        createdAt: tp.created_at ? tp.created_at.slice(0, 10) : '',
+        updatedAt: tp.updated_at || tp.deleted_at
+      });
+    }
+    trashedCloudProjectIds = nextTrashedIds;
+    cachedTrashedCloudProjects = nextTrashedList;
+
+    // Si un proyecto existe activamente en public.proyectos (deleted_at IS NULL) y NO está en public.proyectos_eliminados,
+    // limpiar cualquier lápida local espuria o marca temporal de papelera.
     const activeInProyectosSet = new Set(
-      cloudList
+      activeRows
         .map(cp => cp?.id ? String(cp.id).trim() : '')
         .filter(id => id && !cloudDeletedIds.has(id))
     );
+    activeInProyectosSet.forEach(id => {
+      try { unmarkProjectTrashedLocal(id); } catch (_) {}
+    });
     if (activeInProyectosSet.size > 0 && Array.isArray(deletedList) && deletedList.some(id => activeInProyectosSet.has(String(id || '').trim()))) {
       deletedList = deletedList.filter(id => !activeInProyectosSet.has(String(id || '').trim()));
       try {
@@ -774,7 +945,7 @@ export async function fetchCloudProjects(opts = {}) {
       return cloudDeletedIds.has(sid);
     };
 
-    const mapped = cloudList
+    const mapped = activeRows
       .filter(cp => !isDeleted(cp.id))
       .map(cp => {
         const ind = parseFloat(cp.pct_indirectos) || 0;
@@ -1719,6 +1890,8 @@ export async function deleteProjectFromCloud(projectId, opts = {}) {
 if (typeof window !== 'undefined') {
   window.syncProjectToCloud = syncProjectToCloud;
   window.fetchCloudProjects = fetchCloudProjects;
+  window.getTrashedCloudProjectIds = getTrashedCloudProjectIds;
+  window.getCachedTrashedCloudProjects = getCachedTrashedCloudProjects;
   window.loadProjectTreeFromCloud = loadProjectTreeFromCloud;
   window.addCollaboratorToCloud = addCollaboratorToCloud;
   window.updateCollaboratorRoleInCloud = updateCollaboratorRoleInCloud;

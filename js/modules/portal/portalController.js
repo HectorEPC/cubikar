@@ -6,7 +6,7 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261116_cf22';
+} from '../../config/constants.js?v=20261117_cf25';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -16,6 +16,11 @@ import {
   getSimulatedUserView,
   getProjectsList,
   saveProjectsList,
+  patchProjectsList,
+  getStoredInvitations,
+  saveStoredInvitations,
+  getStoredPlanInvitations,
+  saveStoredPlanInvitations,
   getProjectById,
   getDeletedProjectsList,
   markProjectDeleted,
@@ -64,17 +69,19 @@ import {
   AVATARS_BY_SEX,
   GOOGLE_PRESET_ACCOUNTS,
   SAMPLE_LOGOS,
+  unmarkProjectDeleted,
+  isProjectTrashedLocal,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261116_cf22';
-import { showToast } from '../../ui/notifications.js?v=20261116_cf22';
-import { persistLocalData, state, initStore } from '../../state/store.js?v=20261116_cf22';
-import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261116_cf22';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261116_cf22';
-import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261116_cf22';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261116_cf22';
-import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261116_cf22';
-import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261116_cf22';
+} from './projectService.js?v=20261117_cf25';
+import { showToast } from '../../ui/notifications.js?v=20261117_cf25';
+import { persistLocalData, state, initStore } from '../../state/store.js?v=20261117_cf25';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261117_cf25';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf25';
+import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261117_cf25';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261117_cf25';
+import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261117_cf25';
+import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261117_cf25';
 import {
   signUp,
   signInWithPassword,
@@ -84,18 +91,42 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js?v=20261116_cf22';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261116_cf22';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261116_cf22';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261116_cf22';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261116_cf22';
+} from '../../core/authService.js?v=20261117_cf25';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261117_cf25';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261117_cf25';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261117_cf25';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261117_cf25';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
   openCubikarAdminModal
-} from '../admin/cubikarAdmin.js?v=20261116_cf22';
-import { syncProjectToCloud, fetchCloudProjects } from '../../core/cloudProjectService.js?v=20261116_cf22';
-import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261116_cf22';
+} from '../admin/cubikarAdmin.js?v=20261117_cf25';
+import { syncProjectToCloud, fetchCloudProjects, getTrashedCloudProjectIds } from '../../core/cloudProjectService.js?v=20261117_cf25';
+import {
+  isProjectHostOwner,
+  fetchTrashedProjectsForHost,
+  getCachedTrashCount,
+  updateTrashBadgeUI,
+  openTrashModal
+} from './trashService.js?v=20261117_cf25';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261117_cf25';
+
+function readStoredJson(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function markProjectCloudSynced(projectId, cloudId) {
+  patchProjectsList(new Map([[projectId, {
+    isCloudSynced: true,
+    cloudId: cloudId || projectId,
+    lastCloudSyncAt: new Date().toISOString()
+  }]]));
+}
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -1450,14 +1481,34 @@ export function renderModeStatusBadgeHTML(scope, user, invitersList = null, allP
   `;
 }
 
+function renderHeaderTrashButtonHTML(scope) {
+  const showTrash = !scope || scope === 'owned' || scope === 'all';
+  if (!showTrash) return '';
+  const trashCount = getCachedTrashCount();
+  const badgeText = trashCount > 99 ? '99+' : String(trashCount);
+  return `
+    <button type="button"
+            id="btn-portal-papelera"
+            onclick="openTrashModal()"
+            class="relative w-10 h-10 inline-flex items-center justify-center rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-rose-400 border border-slate-700/80 hover:border-rose-500/40 transition shadow-sm active:scale-95 cursor-pointer shrink-0"
+            title="Papelera de reciclaje (proyectos eliminados, 7 días)"
+            aria-label="Abrir papelera de reciclaje">
+      <i class="fa-solid fa-trash-can text-sm"></i>
+      <span id="portal-trash-badge" class="${trashCount > 0 ? '' : 'hidden'} absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center border border-slate-950 shadow">${badgeText}</span>
+    </button>
+  `;
+}
+
 // Helper: Botón de Crear Proyecto adaptado al Modo y Permiso actual
 export function renderHeaderCreateButtonHTML(user, scope) {
   const u = user || getCurrentUser();
   const check = canUserCreateProject(u, scope);
+  const trashBtnHtml = renderHeaderTrashButtonHTML(scope);
+  let createBtnHtml = '';
 
   if (check.allowed) {
     const btnTooltip = check.isHostContext ? `Crear proyecto en la organización de ${check.hostName} consumiendo su membresía Plan ${getPlanLimits(check.planId).name}` : 'Crear un nuevo proyecto propio';
-    return `
+    createBtnHtml = `
       <button id="btn-portal-nuevo-proyecto" onclick="openNuevoProyectoModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer" title="${btnTooltip.replace(/"/g, '&quot;')}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -1465,54 +1516,70 @@ export function renderHeaderCreateButtonHTML(user, scope) {
         <span>+ Nuevo Proyecto</span>
       </button>
     `;
-  }
-
-  if (check.isHostContext) {
+  } else if (check.isHostContext) {
     if (check.userRole === 'lector/escritor') {
-      return `
+      createBtnHtml = `
         <button onclick="showToast('${(check.reason || 'Solo colaboradores con rol de Editor pueden crear proyectos aquí.').replace(/'/g, "\\'")}', 'warning');" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-medium text-xs transition border border-slate-800 cursor-pointer" title="${(check.reason || '').replace(/"/g, '&quot;')}">
           <i class="fa-solid fa-lock text-xs text-amber-400"></i>
           <span>Solo Editores Pueden Crear</span>
         </button>
       `;
+    } else {
+      createBtnHtml = `
+        <button onclick="showToast('${(check.reason || 'Límite de proyectos del anfitrión alcanzado.').replace(/'/g, "\\'")}', 'warning');" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-medium text-xs transition border border-slate-800 cursor-pointer" title="${(check.reason || '').replace(/"/g, '&quot;')}">
+          <i class="fa-solid fa-lock text-xs text-amber-400"></i>
+          <span>Límite del Anfitrión (${check.currentProjects}/${check.maxProjects})</span>
+        </button>
+      `;
     }
-    return `
-      <button onclick="showToast('${(check.reason || 'Límite de proyectos del anfitrión alcanzado.').replace(/'/g, "\\'")}', 'warning');" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 font-medium text-xs transition border border-slate-800 cursor-pointer" title="${(check.reason || '').replace(/"/g, '&quot;')}">
+  } else {
+    createBtnHtml = `
+      <button onclick="showToast('${(check.reason || 'Límite de proyectos alcanzado para tu suscripción.').replace(/'/g, "\\'")}', 'warning'); openSubscriptionModal();" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-sm transition border border-slate-700 active:scale-95 cursor-pointer" title="${(check.reason || 'Límite de proyectos alcanzado').replace(/"/g, '&quot;')}">
         <i class="fa-solid fa-lock text-xs text-amber-400"></i>
-        <span>Límite del Anfitrión (${check.currentProjects}/${check.maxProjects})</span>
+        <span>Nuevo Proyecto (${check.currentProjects || 0}/${check.maxProjects || 2})</span>
       </button>
     `;
   }
 
-  return `
-    <button onclick="showToast('${(check.reason || 'Límite de proyectos alcanzado para tu suscripción.').replace(/'/g, "\\'")}', 'warning'); openSubscriptionModal();" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-sm transition border border-slate-700 active:scale-95 cursor-pointer" title="${(check.reason || 'Límite de proyectos alcanzado').replace(/"/g, '&quot;')}">
-      <i class="fa-solid fa-lock text-xs text-amber-400"></i>
-      <span>Nuevo Proyecto (${check.currentProjects || 0}/${check.maxProjects || 2})</span>
-    </button>
-  `;
+  return `${trashBtnHtml}${createBtnHtml}`;
 }
 
 // ==========================================
 // VISTA: DASHBOARD "MIS PROYECTOS"
 // ==========================================
-export function renderPortalDashboard() {
+const BACKGROUND_REFRESH_TTL_MS = 15000;
+const lastBackgroundRefreshAt = new Map();
+
+/**
+ * Ejecuta una tarea de refresco en segundo plano como máximo una vez cada 15 s por clave, salvo que se fuerce.
+ */
+function runThrottledBackgroundRefresh(key, task, force = false) {
+  const now = Date.now();
+  if (!force && now - (lastBackgroundRefreshAt.get(key) || 0) < BACKGROUND_REFRESH_TTL_MS) return null;
+  lastBackgroundRefreshAt.set(key, now);
+  try {
+    const result = task();
+    return (result && typeof result.then === 'function') ? result.catch(() => null) : result;
+  } catch (_) {
+    return null;
+  }
+}
+
+export function renderPortalDashboard(options = {}) {
   const user = getCurrentUser();
+  const forceRefresh = Boolean(options && options.forceBackgroundRefresh === true);
 
   if (!user) {
     showPortalView('login');
     return;
   }
   updatePortalHeaderUserArea(user);
-  try {
-    if (typeof window !== 'undefined' && typeof window.autoSyncCollaborationOnStartup === 'function') {
-      window.autoSyncCollaborationOnStartup(user);
-    }
-  } catch (_) {}
-  try {
-    if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.requestPeerSync === 'function') {
-      window.CubikarRealtime.requestPeerSync();
-    }
-  } catch (_) {}
+  if (typeof window !== 'undefined' && typeof window.autoSyncCollaborationOnStartup === 'function') {
+    runThrottledBackgroundRefresh('autoSync', () => window.autoSyncCollaborationOnStartup(user), forceRefresh);
+  }
+  if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.requestPeerSync === 'function') {
+    runThrottledBackgroundRefresh('peerSync', () => window.CubikarRealtime.requestPeerSync(), forceRefresh);
+  }
 
   // Sincronizar en segundo plano proyectos desde Supabase si hay sesión activa
   if (isSupabaseConfigured() && user?.id) {
@@ -1520,6 +1587,8 @@ export function renderPortalDashboard() {
       if (Array.isArray(cloudList)) {
         const deletedList = getDeletedProjectsList();
         const isDeleted = (id) => Array.isArray(deletedList) && deletedList.includes(id);
+        const trashedCloudIds = new Set(getTrashedCloudProjectIds());
+        const isTrashed = (id) => Boolean(id && (trashedCloudIds.has(id) || isProjectTrashedLocal(id)));
         const localList = getProjectsList();
         const myEmail = (user.email || '').toLowerCase().trim();
         const cloudIds = new Set(cloudList.map(cp => cp.id));
@@ -1527,10 +1596,22 @@ export function renderPortalDashboard() {
         let changed = false;
 
         // 1. REGLA DE ORO / CONFIRMACIONES 1 Y 2:
-        // Purgar de localList cualquier proyecto que pertenezca a un anfitrión externo
-        // pero que YA NO exista en la lista autorizada de la nube (fue eliminado o revocada la invitación).
+        // Purgar de localList cualquier proyecto eliminado, en papelera, o de anfitrión externo
+        // que YA NO exista en la lista autorizada de la nube.
         const cleanedList = localList.filter(lp => {
-          if (isDeleted(lp.id) || isDeleted(lp.cloudId)) {
+          if (isDeleted(lp.id) || isDeleted(lp.cloudId) || isTrashed(lp.id) || isTrashed(lp.cloudId)) {
+            try {
+              localStorage.removeItem(getSettingsKey(lp.id));
+              localStorage.removeItem(getStorageKey(lp.id));
+              if (lp.cloudId) {
+                localStorage.removeItem(getSettingsKey(lp.cloudId));
+                localStorage.removeItem(getStorageKey(lp.cloudId));
+              }
+              const activePid = typeof getActiveProjectId === 'function' ? getActiveProjectId() : null;
+              if (activePid && (activePid === lp.id || activePid === lp.cloudId)) {
+                setActiveProjectId(null);
+              }
+            } catch (_) {}
             changed = true;
             return false;
           }
@@ -1541,6 +1622,18 @@ export function renderPortalDashboard() {
           // Si es proyecto de un anfitrión (colaboración externa):
           if (!isMyOwnProject) {
             const existsInCloud = cloudIds.has(lp.id) || cloudIds.has(lp.cloudId);
+            if (!existsInCloud && lp.isCloudSynced) {
+              try {
+                localStorage.removeItem(getSettingsKey(lp.id));
+                localStorage.removeItem(getStorageKey(lp.id));
+                if (lp.cloudId) {
+                  localStorage.removeItem(getSettingsKey(lp.cloudId));
+                  localStorage.removeItem(getStorageKey(lp.cloudId));
+                }
+              } catch (_) {}
+              changed = true;
+              return false;
+            }
             const hasLocalInvite = Array.isArray(lp.members) && lp.members.some(m => (m.email || '').toLowerCase().trim() === myEmail && (m.status === 'active' || m.status === 'accepted' || m.status === 'pending'));
             if (!existsInCloud && !hasLocalInvite) {
               console.info(`[PortalReconcile] Purgando proyecto fantasma/eliminado de anfitrión: ${lp.projectName} (${lp.id})`);
@@ -1612,16 +1705,17 @@ export function renderPortalDashboard() {
   const userPlanLimits = getPlanLimits(userPlanId);
 
   // Sincronizar membresía activa de Supabase Auth en segundo plano
-  try {
-    if (typeof syncSubscriptionFromCloud === 'function' && userEmail) {
-      syncSubscriptionFromCloud(userEmail).then(cloudSub => {
+  if (typeof syncSubscriptionFromCloud === 'function' && userEmail) {
+    const subTask = runThrottledBackgroundRefresh(`subscription:${userEmail}`, () => syncSubscriptionFromCloud(userEmail), forceRefresh);
+    if (subTask && typeof subTask.then === 'function') {
+      subTask.then(cloudSub => {
         if (cloudSub) {
           updateSubscriptionBadgesUI();
           refreshProjectsGridUI();
         }
-      }).catch(() => {});
+      });
     }
-  } catch (_) {}
+  }
 
   // Restaurar el modo de trabajo persistido si el usuario estaba en el espacio de un anfitrión
   const activeWs = getActiveWorkspaceData();
@@ -1631,21 +1725,22 @@ export function renderPortalDashboard() {
   }
 
   // Sincronizar y purgar proyectos eliminados del anfitrión si estamos en su espacio de trabajo
-  try {
-    if (typeof window !== 'undefined' && typeof window.syncHostWorkspaceProjects === 'function') {
-      if (currentScopeFilter && currentScopeFilter.startsWith('owner:')) {
-        const hEmail = currentScopeFilter.replace('owner:', '').toLowerCase().trim();
-        window.syncHostWorkspaceProjects(hEmail).then((pruned) => {
-          if (pruned) refreshProjectsGridUI();
-        });
-      }
-      if (Array.isArray(invitersList) && invitersList.length > 0) {
-        invitersList.forEach(inv => {
-          if (inv.email) window.syncHostWorkspaceProjects(inv.email);
-        });
-      }
+  if (typeof window !== 'undefined' && typeof window.syncHostWorkspaceProjects === 'function') {
+    const hostEmails = [];
+    if (currentScopeFilter && currentScopeFilter.startsWith('owner:')) {
+      hostEmails.push(currentScopeFilter.replace('owner:', '').toLowerCase().trim());
     }
-  } catch (_) {}
+    (Array.isArray(invitersList) ? invitersList : []).forEach(inv => {
+      const hEmail = (inv?.email || '').toLowerCase().trim();
+      if (hEmail && !hostEmails.includes(hEmail)) hostEmails.push(hEmail);
+    });
+    hostEmails.forEach(hEmail => {
+      const hostTask = runThrottledBackgroundRefresh(`host:${hEmail}`, () => window.syncHostWorkspaceProjects(hEmail), forceRefresh);
+      if (hostTask && typeof hostTask.then === 'function') {
+        hostTask.then((pruned) => { if (pruned) refreshProjectsGridUI(); });
+      }
+    });
+  }
 
   main.innerHTML = `
     <!-- Header Section with KPIs -->
@@ -1865,6 +1960,8 @@ export function renderPortalDashboard() {
   `;
 
   refreshProjectsGridUI();
+  updateTrashBadgeUI();
+  fetchTrashedProjectsForHost({ silent: true }).catch(() => {});
   mountStorageMeter('portal-dashboard-storage-meter', { showUpgradeButton: true, theme: 'dark' }).catch(() => {});
 }
 
@@ -2213,7 +2310,22 @@ export function getFilteredProjectsList(allProjects) {
   return filtered;
 }
 
+let projectsGridRefreshQueued = false;
+
+// Agrupa varias solicitudes de repintado (p. ej. varias sincronizaciones asíncronas) en un solo frame
 export function refreshProjectsGridUI() {
+  if (projectsGridRefreshQueued) return;
+  projectsGridRefreshQueued = true;
+  const flush = () => {
+    if (!projectsGridRefreshQueued) return;
+    projectsGridRefreshQueued = false;
+    renderProjectsGridNow();
+  };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flush);
+  setTimeout(flush, 150);
+}
+
+function renderProjectsGridNow() {
   const user = getCurrentUser();
 
   const allProjects = user ? getProjectsForUser(user) : getProjectsList();
@@ -2481,11 +2593,12 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
                   <i class="fa-solid fa-cloud-arrow-up text-[10px] text-blue-400"></i>
                   <span>Respaldar en la Nube</span>
                 </button>
+                ${isProjectHostOwner(proj, user) ? `
                 <div class="h-px bg-slate-800 my-1"></div>
-                <button type="button" onclick="deleteProjectAction('${proj.id}', event)" class="w-full text-left px-3 py-2 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 cursor-pointer">
+                <button type="button" onclick="deleteProjectAction('${proj.id}', event)" class="w-full text-left px-3 py-2 text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 cursor-pointer" title="Mover a la Papelera (se conservará 7 días)">
                   <i class="fa-solid fa-trash-can text-[10px]"></i>
-                  <span>Eliminar Proyecto</span>
-                </button>
+                  <span>Enviar a Papelera</span>
+                </button>` : ''}
               </div>
             </div>
           </div>
@@ -2844,36 +2957,34 @@ export async function deleteProjectAction(projectId, event) {
 
   const p = getProjectById(projectId);
   const user = getCurrentUser();
-  const uEmail = (user?.email || '').toLowerCase().trim();
-  const pOwner = (p?.ownerEmail || '').toLowerCase().trim();
 
-  const isOwner = !p || !pOwner || pOwner === uEmail;
-
-  const myMem = (p && Array.isArray(p.members))
-    ? p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending' && m.status !== 'rejected')
-    : null;
-  const isEditor = isOwner || myMem?.role === 'editar';
-
-  if (!isEditor) {
-    showToast('🔒 Solo el propietario o colaboradores con rol de Editor pueden eliminar este proyecto.', 'warning');
+  if (p && !isProjectHostOwner(p, user)) {
+    showToast('🔒 Solo el anfitrión (propietario) del proyecto puede enviarlo a la papelera.', 'warning');
     return;
   }
 
   const projName = p?.projectName || 'este proyecto';
-  if (!confirm(`¿Deseas eliminar permanentemente el proyecto "${projName}"? Esta acción no se puede deshacer.`)) {
+  if (!confirm(`¿Deseas enviar el proyecto "${projName}" a la Papelera de Reciclaje?\n\nSe conservará durante 7 días antes de eliminarse definitivamente, y solo tú (anfitrión) podrás restaurarlo o respaldarlo.`)) {
     return;
   }
 
   try {
-    await deleteProject(projectId);
-    showToast(`Proyecto "${projName}" eliminado exitosamente.`, false);
+    const res = await deleteProject(projectId);
+    const result = (res && typeof res === 'object') ? res : { success: res === true };
+    if (!result.success) {
+      showToast(result.reason || 'No se pudo mover el proyecto a la papelera.', result.forbidden ? 'warning' : 'error');
+      return;
+    }
+    showToast(`Proyecto "${projName}" enviado a la Papelera (se conservará 7 días).`, 'success');
   } catch (err) {
     console.warn('[deleteProjectAction] Error al eliminar:', err);
-    showToast('Proyecto eliminado localmente.', false);
+    showToast('No se pudo mover el proyecto a la papelera.', 'error');
+    return;
   }
 
   renderPortalDashboard();
   refreshProjectsGridUI();
+  updateTrashBadgeUI();
 }
 
 // ==========================================
@@ -3087,7 +3198,7 @@ export function saveEditedProjectAction() {
   // Sincronizar cambios en segundo plano con la nube Supabase si aplica
   try {
     if (typeof syncProjectToCloud === 'function' && list[idx]) {
-      syncProjectToCloud(list[idx]).catch(() => {});
+      syncProjectToCloud(list[idx], readStoredJson(getSettingsKey(pId)) || {}).catch(() => {});
     }
   } catch (_) {}
 
@@ -3588,47 +3699,24 @@ export async function finalizeCreateProject() {
     projPayload.hostName = check.hostName;
   }
 
-  const newProj = createNewProject(projPayload);
+  const newProj = createNewProject({ ...projPayload, skipCloudSync: true });
   newProj.cloudId = newProj.cloudId || newProj.id;
-  const projects = getProjectsList();
-  const createdIdx = projects.findIndex(p => p.id === newProj.id);
-  if (createdIdx >= 0) {
-    projects[createdIdx].cloudId = newProj.cloudId;
-    saveProjectsList(projects);
-  }
+  patchProjectsList(new Map([[newProj.id, { cloudId: newProj.cloudId }]]));
 
+  // Esperar solo a que el encabezado quede en Supabase; el catálogo lo completa la sincronización
+  // del espacio de trabajo tras abrir la obra (bandera cubikar_pending_initial_upload_<id>).
   try {
-    if (typeof window !== 'undefined' && typeof window.syncUserCollaborationToCloud === 'function') {
-      window.syncUserCollaborationToCloud(user);
-    }
-  } catch (_) {}
-
-  // Sincronizar a Supabase PostgreSQL asegurando espera prudente para que UUIDs y árbol inicial terminen de subirse
-  try {
-    const rawTree = localStorage.getItem(getStorageKey(newProj.id));
-    const rawSettings = localStorage.getItem(getSettingsKey(newProj.id));
-    const treeToSave = rawTree ? JSON.parse(rawTree) : (sampleTree || []);
-    const settingsToSave = rawSettings ? JSON.parse(rawSettings) : projPayload;
-    let initialSyncFinished = false;
+    const treeToSave = readStoredJson(getStorageKey(newProj.id)) || sampleTree || [];
+    const settingsToSave = readStoredJson(getSettingsKey(newProj.id)) || projPayload;
     try { sessionStorage.setItem(`cubikar_pending_initial_upload_${newProj.id}`, '1'); } catch (_) {}
-    const syncTask = syncProjectToCloud(newProj, settingsToSave, treeToSave).then((res) => {
-      initialSyncFinished = true;
+    let resolveHeader;
+    const headerSynced = new Promise((resolve) => { resolveHeader = resolve; });
+    const syncTask = syncProjectToCloud(newProj, settingsToSave, treeToSave, {
+      onHeaderSynced: ({ projectId }) => resolveHeader(projectId)
+    }).then((res) => {
       if (res && res.success) {
-        newProj.isCloudSynced = true;
-        if (res.projectId) newProj.cloudId = res.projectId;
-        try {
-          if (Array.isArray(treeToSave) && treeToSave.length > 0) {
-            localStorage.setItem(getStorageKey(newProj.id), JSON.stringify(treeToSave));
-          }
-          sessionStorage.removeItem(`cubikar_pending_initial_upload_${newProj.id}`);
-        } catch (_) {}
-        const latestProjs = getProjectsList();
-        const lIdx = latestProjs.findIndex(p => p.id === newProj.id || p.cloudId === newProj.cloudId);
-        if (lIdx >= 0) {
-          latestProjs[lIdx].isCloudSynced = true;
-          latestProjs[lIdx].cloudId = newProj.cloudId;
-          saveProjectsList(latestProjs, { skipCloudSync: true });
-        }
+        markProjectCloudSynced(newProj.id, res.projectId);
+        try { sessionStorage.removeItem(`cubikar_pending_initial_upload_${newProj.id}`); } catch (_) {}
         console.info('[CloudSync] Nuevo proyecto respaldado en Supabase con ID:', res.projectId);
       }
       return res;
@@ -3637,16 +3725,14 @@ export async function finalizeCreateProject() {
       return null;
     });
 
-    await Promise.race([
-      syncTask,
-      new Promise(resolve => setTimeout(resolve, 6500))
+    const headerProjectId = await Promise.race([
+      headerSynced,
+      syncTask.then(res => (res && res.success ? res.projectId : null)),
+      new Promise(resolve => setTimeout(() => resolve(null), 10000))
     ]);
-    if (!initialSyncFinished) {
-      try {
-        if (Array.isArray(treeToSave) && treeToSave.length > 0) {
-          localStorage.setItem(getStorageKey(newProj.id), JSON.stringify(treeToSave));
-        }
-      } catch (_) {}
+    if (headerProjectId) markProjectCloudSynced(newProj.id, headerProjectId);
+    if (Array.isArray(treeToSave) && treeToSave.length > 0) {
+      try { localStorage.setItem(getStorageKey(newProj.id), JSON.stringify(treeToSave)); } catch (_) {}
     }
   } catch (err) {
     console.warn('[CloudSync] Aviso al respaldar nuevo proyecto:', err);
@@ -3697,7 +3783,7 @@ export async function syncProjectToCloudAction(projectId, event) {
       refreshProjectsGridUI();
       showToast(`✅ "${proj.projectName}" respaldado en Supabase con éxito`, 'success');
     } else {
-      showToast(`Aviso al respaldar: ${res.reason || 'Verifique sesión'}`, 'warning');
+      showToast(`Aviso al respaldar: ${res?.reason || res?.error?.message || 'Verifique sesión'}`, 'warning');
     }
   } catch (err) {
     console.error('[CloudSync] Error manual:', err);
@@ -5498,6 +5584,7 @@ if (typeof window !== 'undefined') {
   window.exitProjectToPortal = exitProjectToPortal;
   window.renderModeStatusBadgeHTML = renderModeStatusBadgeHTML;
   window.renderHeaderCreateButtonHTML = renderHeaderCreateButtonHTML;
+  window.renderPortalDashboard = renderPortalDashboard;
   window.openEditarProyectoModal = openEditarProyectoModal;
   window.closeEditarProyectoModal = closeEditarProyectoModal;
   window.handleEditProjectLogoFile = handleEditProjectLogoFile;

@@ -1,9 +1,9 @@
 // js/modules/reference/presetCatalogs.js
 // Gestor de Catálogos Pre-cargados del Sistema
 
-import { showToast } from '../../ui/notifications.js?v=20261116_cf22';
-import { saveReferenceCatalog, listReferenceCatalogs, countCatalogItems } from './referenceDb.js?v=20261116_cf22';
-import { flattenPresetData } from '../ai/localMatrixEngine.js?v=20261116_cf22';
+import { showToast } from '../../ui/notifications.js?v=20261117_cf25';
+import { saveReferenceCatalog, listReferenceCatalogs, countCatalogItems } from './referenceDb.js?v=20261117_cf25';
+import { flattenPresetData } from '../ai/localMatrixEngine.js?v=20261117_cf25';
 
 let manifestCache = null;
 

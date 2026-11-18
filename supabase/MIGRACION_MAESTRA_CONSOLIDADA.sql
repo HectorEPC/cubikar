@@ -31,6 +31,8 @@ BEGIN
         ALTER TABLE public.proyectos ADD COLUMN IF NOT EXISTS pct_seguros_fianzas NUMERIC(8, 4) DEFAULT 1.0000;
         ALTER TABLE public.proyectos ADD COLUMN IF NOT EXISTS pct_fasar NUMERIC(8, 4) DEFAULT 70.0000;
         ALTER TABLE public.proyectos ADD COLUMN IF NOT EXISTS configuracion JSONB DEFAULT '{}'::jsonb;
+        ALTER TABLE public.proyectos ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ DEFAULT NULL;
+        ALTER TABLE public.proyectos ADD COLUMN IF NOT EXISTS deleted_by_email VARCHAR(255) DEFAULT '';
         ALTER TABLE public.proyectos ALTER COLUMN empresa_id DROP NOT NULL;
 
         -- Backfill owner_email en proyectos heredados que solo tenían empresa_id
@@ -49,6 +51,8 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_proyectos_owner_email ON public.proyectos(LOWER(owner_email));
 CREATE INDEX IF NOT EXISTS idx_proyectos_updated_at ON public.proyectos(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_proyectos_deleted_at ON public.proyectos(deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_proyectos_owner_active ON public.proyectos(LOWER(owner_email), updated_at DESC) WHERE deleted_at IS NULL;
 
 -- 1.3 Columnas en public.catalogo_conceptos
 DO $$
@@ -233,6 +237,41 @@ RETURNS UUID AS $$
     SELECT empresa_id FROM public.perfiles WHERE id = auth.uid();
 $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 
+CREATE OR REPLACE FUNCTION public.is_proyecto_owner(p_proj_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+    u_email TEXT := public.current_user_email();
+BEGIN
+    IF p_proj_id IS NULL OR auth.uid() IS NULL OR u_email = '' THEN
+        RETURN FALSE;
+    END IF;
+
+    RETURN EXISTS (
+        SELECT 1
+        FROM public.proyectos p
+        WHERE p.id = p_proj_id
+          AND (
+              LOWER(TRIM(COALESCE(p.owner_email, ''))) = u_email
+              OR (
+                  COALESCE(TRIM(p.owner_email), '') = ''
+                  AND (
+                      p.creado_por = auth.uid()
+                      OR (
+                          p.empresa_id IS NOT NULL
+                          AND EXISTS (
+                              SELECT 1 FROM public.perfiles pf
+                              WHERE pf.id = auth.uid()
+                                AND pf.empresa_id = p.empresa_id
+                                AND pf.rol = 'owner'
+                          )
+                      )
+                  )
+              )
+          )
+    );
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
+
 CREATE OR REPLACE FUNCTION public.check_user_project_access(
     proj_id TEXT,
     req_roles TEXT[] DEFAULT ARRAY['owner', 'admin', 'editar', 'escribir', 'leer']
@@ -241,6 +280,7 @@ RETURNS BOOLEAN AS $$
 DECLARE
     u_email TEXT;
     v_clean_pid TEXT := TRIM(COALESCE(proj_id, ''));
+    v_deleted_at TIMESTAMPTZ;
 BEGIN
     IF v_clean_pid = '' THEN
         RETURN FALSE;
@@ -251,6 +291,16 @@ BEGIN
         RETURN FALSE;
     END IF;
 
+    IF v_clean_pid ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+        SELECT p.deleted_at INTO v_deleted_at
+        FROM public.proyectos p
+        WHERE p.id = v_clean_pid::uuid;
+
+        IF v_deleted_at IS NOT NULL THEN
+            RETURN public.is_proyecto_owner(v_clean_pid::uuid);
+        END IF;
+    END IF;
+
     IF u_email = 'hepc.90@gmail.com' THEN
         RETURN TRUE;
     END IF;
@@ -259,6 +309,7 @@ BEGIN
     IF EXISTS (
         SELECT 1 FROM public.proyectos p
         WHERE p.id::text = v_clean_pid
+          AND p.deleted_at IS NULL
           AND (
               LOWER(TRIM(COALESCE(p.owner_email, ''))) = u_email
               OR (
@@ -285,6 +336,7 @@ BEGIN
     RETURN EXISTS (
         SELECT 1 FROM public.proyectos p
         WHERE p.id::text = v_clean_pid
+          AND p.deleted_at IS NULL
           AND (
               (jsonb_typeof(p.configuracion->'memberTabs') = 'object' AND (p.configuracion->'memberTabs') ? u_email AND ('editar' = ANY(req_roles) OR 'leer' = ANY(req_roles)))
               OR (
@@ -357,6 +409,12 @@ DECLARE
 BEGIN
     IF auth.uid() IS NULL OR v_email = '' THEN
         RETURN FALSE;
+    END IF;
+
+    IF v_pid ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+        IF EXISTS (SELECT 1 FROM public.proyectos p WHERE p.id = v_pid::uuid AND p.deleted_at IS NOT NULL) THEN
+            RETURN FALSE;
+        END IF;
     END IF;
 
     IF v_email = 'hepc.90@gmail.com' THEN
@@ -533,8 +591,7 @@ DECLARE
     v_email TEXT := public.current_user_email();
 BEGIN
     IF v_role IN ('service_role', 'supabase_admin')
-       OR current_user IN ('postgres', 'supabase_admin')
-       OR auth.uid() IS NULL THEN
+       OR COALESCE(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb->>'role', NULLIF(current_setting('request.jwt.claim.role', true), ''), '') = '' THEN
         RETURN NEW;
     END IF;
 
@@ -574,8 +631,7 @@ DECLARE
     v_email TEXT := public.current_user_email();
 BEGIN
     IF v_role IN ('service_role', 'supabase_admin')
-       OR current_user IN ('postgres', 'supabase_admin')
-       OR auth.uid() IS NULL
+       OR COALESCE(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb->>'role', NULLIF(current_setting('request.jwt.claim.role', true), ''), '') = ''
        OR v_email = 'hepc.90@gmail.com' THEN
         RETURN NEW;
     END IF;
@@ -617,16 +673,26 @@ DECLARE
     v_email TEXT := public.current_user_email();
 BEGIN
     IF v_role IN ('service_role', 'supabase_admin')
-       OR current_user IN ('postgres', 'supabase_admin')
-       OR auth.uid() IS NULL
+       OR COALESCE(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb->>'role', NULLIF(current_setting('request.jwt.claim.role', true), ''), '') = ''
        OR v_email = 'hepc.90@gmail.com' THEN
         RETURN NEW;
     END IF;
 
-    IF LOWER(TRIM(COALESCE(OLD.owner_email, ''))) <> v_email THEN
+    IF v_email <> 'hepc.90@gmail.com' AND LOWER(TRIM(COALESCE(OLD.owner_email, ''))) <> v_email THEN
         IF LOWER(TRIM(COALESCE(NEW.owner_email, ''))) IS DISTINCT FROM LOWER(TRIM(COALESCE(OLD.owner_email, ''))) THEN
             RAISE EXCEPTION 'Solo el propietario del proyecto puede transferir owner_email.';
         END IF;
+    END IF;
+
+    IF NEW.deleted_at IS DISTINCT FROM OLD.deleted_at
+       OR COALESCE(LOWER(TRIM(NEW.deleted_by_email)), '') IS DISTINCT FROM COALESCE(LOWER(TRIM(OLD.deleted_by_email)), '') THEN
+        IF NOT public.is_proyecto_owner(OLD.id) THEN
+            RAISE EXCEPTION 'Solo el anfitrión (propietario) del proyecto puede enviarlo a la papelera o restaurarlo.';
+        END IF;
+    END IF;
+
+    IF OLD.deleted_at IS NOT NULL AND NEW.deleted_at IS NOT NULL THEN
+        RAISE EXCEPTION 'El proyecto está en la papelera. Restáuralo antes de modificarlo.';
     END IF;
 
     RETURN NEW;
@@ -770,18 +836,7 @@ CREATE POLICY "proyectos_update_colaboracion" ON public.proyectos
     );
 
 CREATE POLICY "proyectos_delete_colaboracion" ON public.proyectos
-    FOR DELETE USING (
-        LOWER(TRIM(COALESCE(owner_email, ''))) = public.current_user_email()
-        OR public.current_user_email() = 'hepc.90@gmail.com'
-        OR (
-            COALESCE(TRIM(owner_email), '') = ''
-            AND empresa_id IS NOT NULL
-            AND EXISTS (
-                SELECT 1 FROM public.perfiles pf
-                WHERE pf.id = auth.uid() AND pf.empresa_id = proyectos.empresa_id AND pf.rol = 'owner'
-            )
-        )
-    );
+    FOR DELETE USING (public.is_proyecto_owner(id));
 
 -- 5.3 public.proyectos_eliminados
 ALTER TABLE public.proyectos_eliminados ENABLE ROW LEVEL SECURITY;
@@ -1530,12 +1585,13 @@ BEGIN
         RETURN;
     END IF;
 
-    -- 1. Promover invitaciones activas (no rechazadas ni de obras eliminadas) en proyecto_colaboradores a 'accepted'
+    -- 1. Promover invitaciones activas (no rechazadas ni de obras eliminadas o en papelera) en proyecto_colaboradores a 'accepted'
     UPDATE public.proyecto_colaboradores pc
     SET estado_invitacion = 'accepted',
         updated_at = timezone('utc'::text, now())
     FROM public.proyectos p
     WHERE pc.proyecto_id = p.id
+      AND p.deleted_at IS NULL
       AND LOWER(TRIM(pc.email_colaborador)) = u_email
       AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'pending'))) = 'pending'
       AND LOWER(TRIM(COALESCE(p.owner_email, ''))) <> u_email
@@ -1590,7 +1646,8 @@ BEGIN
         'accepted',
         timezone('utc'::text, now())
     FROM public.proyectos p
-    WHERE LOWER(TRIM(COALESCE(p.owner_email, ''))) <> u_email
+    WHERE p.deleted_at IS NULL
+      AND LOWER(TRIM(COALESCE(p.owner_email, ''))) <> u_email
       AND (
           (jsonb_typeof(p.configuracion->'memberTabs') = 'object' AND (p.configuracion->'memberTabs') ? u_email)
           OR (
@@ -1646,6 +1703,7 @@ BEGIN
         ) inv_elem
         INNER JOIN public.proyectos p
             ON LOWER(TRIM(COALESCE(p.owner_email, ''))) = LOWER(TRIM(COALESCE(au.email, inv_elem->>'ownerEmail', '')))
+           AND p.deleted_at IS NULL
            AND (
                COALESCE(TRIM(inv_elem->>'projectId'), '') = ''
                OR inv_elem->>'projectId' = p.id::text
@@ -1701,7 +1759,8 @@ BEGIN
     ) owner_pc ON TRUE
     LEFT JOIN public.perfiles pf
         ON LOWER(TRIM(COALESCE(pf.email, ''))) = LOWER(TRIM(COALESCE(p.owner_email, owner_pc.email_colaborador, '')))
-    WHERE LOWER(TRIM(pc.email_colaborador)) = u_email
+    WHERE p.deleted_at IS NULL
+      AND LOWER(TRIM(pc.email_colaborador)) = u_email
       AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'accepted'))) <> 'rejected'
       AND LOWER(TRIM(COALESCE(p.owner_email, owner_pc.email_colaborador, ''))) <> u_email
       AND (
@@ -1901,6 +1960,7 @@ BEGIN
         updated_at = timezone('utc'::text, now())
     FROM public.proyectos p
     WHERE pc.proyecto_id = p.id
+      AND p.deleted_at IS NULL
       AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'pending'))) = 'pending'
       AND (
           to_regclass('public.proyectos_eliminados') IS NULL
@@ -1933,7 +1993,8 @@ BEGIN
              ELSE '{}'::jsonb
         END
     ) AS mt(key, value)
-    WHERE LOWER(TRIM(mt.key)) LIKE '%@%'
+    WHERE p.deleted_at IS NULL
+      AND LOWER(TRIM(mt.key)) LIKE '%@%'
       AND LOWER(TRIM(mt.key)) <> LOWER(TRIM(COALESCE(p.owner_email, '')))
       AND (
           to_regclass('public.proyectos_eliminados') IS NULL
@@ -1972,7 +2033,8 @@ BEGIN
              ELSE '[]'::jsonb
         END
     ) elem
-    WHERE LOWER(TRIM(COALESCE(elem->>'email', ''))) LIKE '%@%'
+    WHERE p.deleted_at IS NULL
+      AND LOWER(TRIM(COALESCE(elem->>'email', ''))) LIKE '%@%'
       AND LOWER(TRIM(COALESCE(elem->>'email', ''))) <> LOWER(TRIM(COALESCE(p.owner_email, '')))
       AND LOWER(TRIM(COALESCE(elem->>'status', 'accepted'))) <> 'rejected'
       AND (
@@ -1991,3 +2053,704 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Aviso durante reconciliación global de proyecto_colaboradores: %', SQLERRM;
 END $$;
+
+-- ==============================================================================
+-- 8. PAPELERA DE RECICLAJE DE PROYECTOS (RETENCIÓN DE 7 DÍAS - SOLO ANFITRIÓN)
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.mover_proyecto_a_papelera(p_proyecto_id UUID)
+RETURNS JSONB AS $$
+DECLARE
+    u_email TEXT := public.current_user_email();
+    v_exists BOOLEAN := FALSE;
+    v_deleted_at TIMESTAMPTZ;
+BEGIN
+    IF auth.uid() IS NULL OR u_email = '' THEN
+        RAISE EXCEPTION 'Sesión no autenticada.';
+    END IF;
+
+    SELECT EXISTS (SELECT 1 FROM public.proyectos WHERE id = p_proyecto_id) INTO v_exists;
+    IF NOT v_exists THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'Proyecto no encontrado.');
+    END IF;
+
+    IF NOT public.is_proyecto_owner(p_proyecto_id) THEN
+        RAISE EXCEPTION 'Solo el anfitrión (propietario) del proyecto puede enviarlo a la papelera.';
+    END IF;
+
+    UPDATE public.proyectos
+    SET deleted_at = COALESCE(deleted_at, timezone('utc'::text, now())),
+        deleted_by_email = u_email,
+        updated_at = timezone('utc'::text, now())
+    WHERE id = p_proyecto_id
+    RETURNING deleted_at INTO v_deleted_at;
+
+    RETURN jsonb_build_object(
+        'ok', true,
+        'id', p_proyecto_id,
+        'deleted_at', v_deleted_at,
+        'expires_at', v_deleted_at + INTERVAL '7 days'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+REVOKE ALL ON FUNCTION public.mover_proyecto_a_papelera(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.mover_proyecto_a_papelera(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.restaurar_proyecto_de_papelera(p_proyecto_id UUID)
+RETURNS JSONB AS $$
+DECLARE
+    u_email TEXT := public.current_user_email();
+    v_deleted_at TIMESTAMPTZ;
+    v_found BOOLEAN := FALSE;
+BEGIN
+    IF auth.uid() IS NULL OR u_email = '' THEN
+        RAISE EXCEPTION 'Sesión no autenticada.';
+    END IF;
+
+    SELECT TRUE, deleted_at INTO v_found, v_deleted_at
+    FROM public.proyectos
+    WHERE id = p_proyecto_id;
+
+    IF NOT COALESCE(v_found, FALSE) THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'El proyecto ya no existe o fue purgado definitivamente.');
+    END IF;
+
+    IF NOT public.is_proyecto_owner(p_proyecto_id) THEN
+        RAISE EXCEPTION 'Solo el anfitrión (propietario) del proyecto puede restaurarlo.';
+    END IF;
+
+    IF v_deleted_at IS NOT NULL AND v_deleted_at < (timezone('utc'::text, now()) - INTERVAL '7 days') THEN
+        DELETE FROM public.proyectos WHERE id = p_proyecto_id;
+        RETURN jsonb_build_object('ok', false, 'expired', true, 'error', 'El proyecto superó el límite de 7 días en la papelera y se eliminó definitivamente.');
+    END IF;
+
+    UPDATE public.proyectos
+    SET deleted_at = NULL,
+        deleted_by_email = '',
+        updated_at = timezone('utc'::text, now())
+    WHERE id = p_proyecto_id;
+
+    IF to_regclass('public.proyectos_eliminados') IS NOT NULL THEN
+        DELETE FROM public.proyectos_eliminados WHERE proyecto_id = p_proyecto_id::text;
+    END IF;
+
+    IF to_regclass('public.chat_mensajes') IS NOT NULL THEN
+        DELETE FROM public.chat_mensajes
+        WHERE proyecto_id = '__cubikar_tombstones__'
+          AND (id = '__tombstone__' || p_proyecto_id::text OR mensaje = p_proyecto_id::text);
+    END IF;
+
+    RETURN jsonb_build_object('ok', true, 'id', p_proyecto_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+REVOKE ALL ON FUNCTION public.restaurar_proyecto_de_papelera(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.restaurar_proyecto_de_papelera(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.eliminar_proyecto_definitivamente(p_proyecto_id UUID)
+RETURNS JSONB AS $$
+DECLARE
+    u_email TEXT := public.current_user_email();
+    v_found BOOLEAN := FALSE;
+    v_s3_keys JSONB := '[]'::jsonb;
+BEGIN
+    IF auth.uid() IS NULL OR u_email = '' THEN
+        RAISE EXCEPTION 'Sesión no autenticada.';
+    END IF;
+
+    SELECT EXISTS (SELECT 1 FROM public.proyectos WHERE id = p_proyecto_id) INTO v_found;
+    IF NOT v_found THEN
+        RETURN jsonb_build_object('ok', true, 'id', p_proyecto_id, 'already_purged', true, 's3_keys', '[]'::jsonb);
+    END IF;
+
+    IF NOT public.is_proyecto_owner(p_proyecto_id) THEN
+        RAISE EXCEPTION 'Solo el anfitrión (propietario) del proyecto puede eliminarlo definitivamente.';
+    END IF;
+
+    IF to_regclass('public.archivos_almacen') IS NOT NULL THEN
+        SELECT COALESCE(jsonb_agg(a.s3_key), '[]'::jsonb)
+        INTO v_s3_keys
+        FROM public.archivos_almacen a
+        WHERE a.proyecto_id = p_proyecto_id::text
+          AND a.deleted_at IS NULL
+          AND COALESCE(a.s3_key, '') <> '';
+    END IF;
+
+    DELETE FROM public.proyectos WHERE id = p_proyecto_id;
+
+    RETURN jsonb_build_object('ok', true, 'id', p_proyecto_id, 's3_keys', COALESCE(v_s3_keys, '[]'::jsonb));
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+REVOKE ALL ON FUNCTION public.eliminar_proyecto_definitivamente(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.eliminar_proyecto_definitivamente(UUID) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.listar_papelera_anfitrion()
+RETURNS TABLE (
+    id UUID,
+    nombre VARCHAR,
+    cliente VARCHAR,
+    ubicacion TEXT,
+    tipo_obra VARCHAR,
+    moneda VARCHAR,
+    simbolo_moneda VARCHAR,
+    owner_email VARCHAR,
+    deleted_by_email VARCHAR,
+    deleted_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
+    configuracion JSONB,
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ
+) AS $$
+DECLARE
+    u_email TEXT := public.current_user_email();
+BEGIN
+    IF auth.uid() IS NULL OR u_email = '' THEN
+        RETURN;
+    END IF;
+
+    DELETE FROM public.proyectos p
+    WHERE p.deleted_at IS NOT NULL
+      AND p.deleted_at < (timezone('utc'::text, now()) - INTERVAL '7 days')
+      AND public.is_proyecto_owner(p.id);
+
+    RETURN QUERY
+    SELECT
+        p.id,
+        p.nombre,
+        p.cliente,
+        p.ubicacion,
+        p.tipo_obra,
+        p.moneda,
+        p.simbolo_moneda,
+        p.owner_email,
+        p.deleted_by_email,
+        p.deleted_at,
+        (p.deleted_at + INTERVAL '7 days') AS expires_at,
+        p.configuracion,
+        p.created_at,
+        p.updated_at
+    FROM public.proyectos p
+    WHERE p.deleted_at IS NOT NULL
+      AND public.is_proyecto_owner(p.id)
+    ORDER BY p.deleted_at DESC;
+END;
+$$ LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public;
+
+REVOKE ALL ON FUNCTION public.listar_papelera_anfitrion() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.listar_papelera_anfitrion() TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.purgar_proyectos_papelera_expirados()
+RETURNS INTEGER AS $$
+DECLARE
+    v_role TEXT := COALESCE(current_setting('request.jwt.claim.role', true), auth.role(), '');
+    v_count INTEGER := 0;
+BEGIN
+    IF v_role NOT IN ('service_role', 'supabase_admin')
+       AND current_user NOT IN ('postgres', 'supabase_admin')
+       AND auth.uid() IS NOT NULL THEN
+        RAISE EXCEPTION 'Acceso denegado: función reservada para mantenimiento programado del servidor.';
+    END IF;
+
+    DELETE FROM public.proyectos
+    WHERE deleted_at IS NOT NULL
+      AND deleted_at < (timezone('utc'::text, now()) - INTERVAL '7 days');
+
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+    RETURN COALESCE(v_count, 0);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+REVOKE ALL ON FUNCTION public.purgar_proyectos_papelera_expirados() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.purgar_proyectos_papelera_expirados() FROM anon;
+REVOKE ALL ON FUNCTION public.purgar_proyectos_papelera_expirados() FROM authenticated;
+
+DO $$
+BEGIN
+    BEGIN
+        CREATE EXTENSION IF NOT EXISTS pg_cron;
+    EXCEPTION WHEN others THEN
+        NULL;
+    END;
+
+    IF to_regclass('cron.job') IS NOT NULL THEN
+        BEGIN
+            PERFORM cron.unschedule('cubikar-purgar-papelera-7d');
+        EXCEPTION WHEN others THEN
+            NULL;
+        END;
+
+        BEGIN
+            PERFORM cron.schedule(
+                'cubikar-purgar-papelera-7d',
+                '0 3 * * *',
+                'SELECT public.purgar_proyectos_papelera_expirados();'
+            );
+        EXCEPTION WHEN others THEN
+            NULL;
+        END;
+    END IF;
+END $$;
+
+
+-- ==============================================================================
+-- ANEXO: CORRECCIONES DE SEGURIDAD E INTEGRIDAD (2026-11-17)
+-- ==============================================================================
+-- ==============================================================================
+-- CUBIKAR: CORRECCIONES DE SEGURIDAD E INTEGRIDAD (2026-11-17)
+-- Aplica a: cubikar.app • Cubikar Construcción (ADM_CONST) • Cubikar Arquitectura (ADM_ARQ)
+-- Ejecutar en: Supabase SQL Editor. Es idempotente (se puede ejecutar más de una vez).
+-- ==============================================================================
+
+-- 0. Helper: ¿la sentencia la ejecuta un actor del servidor?
+--    Se basa en el rol del JWT de la petición (PostgREST). Sin JWT = SQL Editor, pg_cron o servicio Auth.
+--    IMPORTANTE: no usar current_user dentro de funciones SECURITY DEFINER (siempre es el dueño 'postgres').
+CREATE OR REPLACE FUNCTION public.request_jwt_role()
+RETURNS TEXT AS $$
+DECLARE
+    v_role TEXT := NULLIF(current_setting('request.jwt.claim.role', true), '');
+    v_claims TEXT := NULLIF(current_setting('request.jwt.claims', true), '');
+BEGIN
+    IF v_role IS NULL AND v_claims IS NOT NULL THEN
+        BEGIN
+            v_role := NULLIF(v_claims::jsonb->>'role', '');
+        EXCEPTION WHEN others THEN
+            v_role := NULL;
+        END;
+    END IF;
+    RETURN COALESCE(v_role, '');
+END;
+$$ LANGUAGE plpgsql STABLE SET search_path = public;
+
+CREATE OR REPLACE FUNCTION public.is_privileged_db_actor()
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_role TEXT := public.request_jwt_role();
+BEGIN
+    RETURN v_role IN ('service_role', 'supabase_admin') OR v_role = '';
+END;
+$$ LANGUAGE plpgsql STABLE SET search_path = public;
+
+-- 0.1 Corregir triggers existentes que se omitían para todos los usuarios
+--     (usaban current_user IN ('postgres', ...) dentro de SECURITY DEFINER).
+CREATE OR REPLACE FUNCTION public.protect_empresa_billing_columns()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF public.is_privileged_db_actor() OR public.current_user_email() = 'hepc.90@gmail.com' THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.plan IS DISTINCT FROM OLD.plan
+       OR NEW.billing_cycle IS DISTINCT FROM OLD.billing_cycle
+       OR NEW.estado_suscripcion IS DISTINCT FROM OLD.estado_suscripcion
+       OR NEW.periodo_fin IS DISTINCT FROM OLD.periodo_fin
+       OR NEW.stripe_customer_id IS DISTINCT FROM OLD.stripe_customer_id
+       OR NEW.stripe_subscription_id IS DISTINCT FROM OLD.stripe_subscription_id
+       OR NEW.acceso_arq IS DISTINCT FROM OLD.acceso_arq
+       OR NEW.plan_arq IS DISTINCT FROM OLD.plan_arq
+       OR NEW.periodo_fin_arq IS DISTINCT FROM OLD.periodo_fin_arq
+       OR NEW.acceso_const IS DISTINCT FROM OLD.acceso_const
+       OR NEW.plan_const IS DISTINCT FROM OLD.plan_const
+       OR NEW.periodo_fin_const IS DISTINCT FROM OLD.periodo_fin_const THEN
+        RAISE EXCEPTION 'No autorizado para modificar suscripción o facturación desde cliente.';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_empresa_billing ON public.empresas;
+CREATE TRIGGER trg_protect_empresa_billing
+    BEFORE UPDATE ON public.empresas
+    FOR EACH ROW EXECUTE FUNCTION public.protect_empresa_billing_columns();
+
+CREATE OR REPLACE FUNCTION public.protect_colaborador_role_escalation()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_email TEXT := public.current_user_email();
+BEGIN
+    IF public.is_privileged_db_actor() OR v_email = 'hepc.90@gmail.com' THEN
+        RETURN NEW;
+    END IF;
+
+    IF public.check_user_project_access(OLD.proyecto_id::text, ARRAY['owner', 'admin']) THEN
+        RETURN NEW;
+    END IF;
+
+    IF LOWER(TRIM(OLD.email_colaborador)) = v_email THEN
+        IF NEW.proyecto_id IS DISTINCT FROM OLD.proyecto_id
+           OR LOWER(TRIM(NEW.email_colaborador)) IS DISTINCT FROM LOWER(TRIM(OLD.email_colaborador)) THEN
+            RAISE EXCEPTION 'Solo el propietario o admin del proyecto puede modificar el rol o asignación.';
+        END IF;
+        IF NEW.rol IS DISTINCT FROM OLD.rol THEN
+            IF COALESCE(NEW.estado_invitacion, '') = 'accepted' AND COALESCE(OLD.estado_invitacion, '') <> 'accepted' THEN
+                NEW.rol := OLD.rol;
+            ELSE
+                RAISE EXCEPTION 'Solo el propietario o admin del proyecto puede modificar el rol o asignación.';
+            END IF;
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    RAISE EXCEPTION 'Operación no autorizada sobre proyecto_colaboradores.';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_colaborador_role ON public.proyecto_colaboradores;
+CREATE TRIGGER trg_protect_colaborador_role
+    BEFORE UPDATE ON public.proyecto_colaboradores
+    FOR EACH ROW EXECUTE FUNCTION public.protect_colaborador_role_escalation();
+
+CREATE OR REPLACE FUNCTION public.protect_proyecto_owner_change()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_email TEXT := public.current_user_email();
+BEGIN
+    IF public.is_privileged_db_actor() OR v_email = 'hepc.90@gmail.com' THEN
+        RETURN NEW;
+    END IF;
+
+    IF LOWER(TRIM(COALESCE(OLD.owner_email, ''))) <> v_email THEN
+        IF LOWER(TRIM(COALESCE(NEW.owner_email, ''))) IS DISTINCT FROM LOWER(TRIM(COALESCE(OLD.owner_email, ''))) THEN
+            RAISE EXCEPTION 'Solo el propietario del proyecto puede transferir owner_email.';
+        END IF;
+    END IF;
+
+    IF NEW.deleted_at IS DISTINCT FROM OLD.deleted_at
+       OR COALESCE(LOWER(TRIM(NEW.deleted_by_email)), '') IS DISTINCT FROM COALESCE(LOWER(TRIM(OLD.deleted_by_email)), '') THEN
+        IF NOT public.is_proyecto_owner(OLD.id) THEN
+            RAISE EXCEPTION 'Solo el anfitrión (propietario) del proyecto puede enviarlo a la papelera o restaurarlo.';
+        END IF;
+    END IF;
+
+    IF OLD.deleted_at IS NOT NULL AND NEW.deleted_at IS NOT NULL THEN
+        RAISE EXCEPTION 'El proyecto está en la papelera. Restáuralo antes de modificarlo.';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_proyecto_owner ON public.proyectos;
+CREATE TRIGGER trg_protect_proyecto_owner
+    BEFORE UPDATE ON public.proyectos
+    FOR EACH ROW EXECUTE FUNCTION public.protect_proyecto_owner_change();
+
+-- ------------------------------------------------------------------------------
+-- 1. cubikar_registros: impedir que un usuario se otorgue co-administrador o plan
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.protect_registros_privileged_fields()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_new_meta JSONB := COALESCE(NEW.metadata, '{}'::jsonb) - 'is_co_admin' - 'isCoAdmin';
+    v_old_meta JSONB;
+BEGIN
+    IF public.is_privileged_db_actor() OR public.current_user_email() = 'hepc.90@gmail.com' THEN
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'INSERT' THEN
+        NEW.metadata := v_new_meta;
+        NEW.plan := 'free';
+        NEW.billing_cycle := 'monthly';
+        RETURN NEW;
+    END IF;
+
+    v_old_meta := COALESCE(OLD.metadata, '{}'::jsonb);
+    IF v_old_meta ? 'is_co_admin' THEN
+        v_new_meta := v_new_meta || jsonb_build_object('is_co_admin', v_old_meta->'is_co_admin');
+    END IF;
+    IF v_old_meta ? 'isCoAdmin' THEN
+        v_new_meta := v_new_meta || jsonb_build_object('isCoAdmin', v_old_meta->'isCoAdmin');
+    END IF;
+    NEW.metadata := v_new_meta;
+    NEW.plan := OLD.plan;
+    NEW.billing_cycle := OLD.billing_cycle;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DO $$
+BEGIN
+    IF to_regclass('public.cubikar_registros') IS NOT NULL THEN
+        DROP TRIGGER IF EXISTS trg_protect_registros_privileged ON public.cubikar_registros;
+        CREATE TRIGGER trg_protect_registros_privileged
+            BEFORE INSERT OR UPDATE ON public.cubikar_registros
+            FOR EACH ROW EXECUTE FUNCTION public.protect_registros_privileged_fields();
+    END IF;
+END $$;
+
+-- Revocar banderas de co-administrador que no fueron otorgadas por el servidor.
+-- (El Administrador Maestro puede volver a otorgarlas desde el panel; se escriben con service_role.)
+-- Descomentar solo si se desea limpiar todas las banderas existentes:
+-- UPDATE public.cubikar_registros SET metadata = metadata - 'is_co_admin' - 'isCoAdmin';
+
+-- ------------------------------------------------------------------------------
+-- 2. empresas: un cliente no puede crear una empresa con plan/suscripción pagada
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.sanitize_empresa_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF public.is_privileged_db_actor() OR public.current_user_email() = 'hepc.90@gmail.com' THEN
+        RETURN NEW;
+    END IF;
+
+    NEW.plan := 'free';
+    NEW.billing_cycle := 'monthly';
+    NEW.estado_suscripcion := 'trialing';
+    NEW.periodo_fin := NULL;
+    NEW.stripe_customer_id := NULL;
+    NEW.stripe_subscription_id := NULL;
+    NEW.acceso_arq := false;
+    NEW.plan_arq := NULL;
+    NEW.periodo_fin_arq := NULL;
+    NEW.acceso_const := false;
+    NEW.plan_const := NULL;
+    NEW.periodo_fin_const := NULL;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_sanitize_empresa_insert ON public.empresas;
+CREATE TRIGGER trg_sanitize_empresa_insert
+    BEFORE INSERT ON public.empresas
+    FOR EACH ROW EXECUTE FUNCTION public.sanitize_empresa_insert();
+
+-- ------------------------------------------------------------------------------
+-- 3. perfiles: un usuario no puede cambiar su empresa_id ni su rol
+--    Excepción: asignación inicial (empresa_id NULL) a una empresa recién creada sin miembros.
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.is_empresa_sin_miembros(p_empresa_id UUID, p_excluir_perfil UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN p_empresa_id IS NOT NULL
+        AND EXISTS (SELECT 1 FROM public.empresas e WHERE e.id = p_empresa_id)
+        AND NOT EXISTS (
+            SELECT 1 FROM public.perfiles pf
+            WHERE pf.empresa_id = p_empresa_id
+              AND pf.id IS DISTINCT FROM p_excluir_perfil
+        );
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE FUNCTION public.protect_perfil_privileged_columns()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_old_empresa UUID := CASE WHEN TG_OP = 'UPDATE' THEN OLD.empresa_id ELSE NULL END;
+    v_old_rol TEXT := CASE WHEN TG_OP = 'UPDATE' THEN OLD.rol ELSE NULL END;
+    v_initial_assignment BOOLEAN;
+BEGIN
+    IF public.is_privileged_db_actor() OR public.current_user_email() = 'hepc.90@gmail.com' THEN
+        RETURN NEW;
+    END IF;
+
+    v_initial_assignment := v_old_empresa IS NULL
+        AND NEW.empresa_id IS NOT NULL
+        AND public.is_empresa_sin_miembros(NEW.empresa_id, NEW.id);
+
+    IF NEW.empresa_id IS DISTINCT FROM v_old_empresa AND NOT v_initial_assignment THEN
+        IF TG_OP = 'INSERT' AND NEW.empresa_id IS NULL THEN
+            NULL;
+        ELSE
+            RAISE EXCEPTION 'No autorizado para cambiar la empresa del perfil.';
+        END IF;
+    END IF;
+
+    IF TG_OP = 'INSERT' THEN
+        IF NOT v_initial_assignment THEN
+            NEW.rol := 'admin';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF NEW.rol IS DISTINCT FROM v_old_rol AND NOT v_initial_assignment THEN
+        RAISE EXCEPTION 'No autorizado para cambiar el rol del perfil.';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_perfil_privileged ON public.perfiles;
+CREATE TRIGGER trg_protect_perfil_privileged
+    BEFORE INSERT OR UPDATE ON public.perfiles
+    FOR EACH ROW EXECUTE FUNCTION public.protect_perfil_privileged_columns();
+
+-- ------------------------------------------------------------------------------
+-- 4. Lápidas de proyectos (__cubikar_tombstones__): solo el propietario, o si el proyecto ya no existe
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.can_write_project_tombstone(p_payload JSONB, p_mensaje TEXT)
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_pid TEXT := TRIM(COALESCE(p_payload->>'projectId', p_mensaje, ''));
+BEGIN
+    IF public.current_user_email() = 'hepc.90@gmail.com' THEN
+        RETURN TRUE;
+    END IF;
+    IF v_pid = '' THEN
+        RETURN FALSE;
+    END IF;
+    IF v_pid !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+        RETURN TRUE;
+    END IF;
+    RETURN NOT EXISTS (SELECT 1 FROM public.proyectos p WHERE p.id = v_pid::uuid)
+        OR public.is_proyecto_owner(v_pid::uuid);
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
+
+DROP POLICY IF EXISTS "chat_insert" ON public.chat_mensajes;
+CREATE POLICY "chat_insert" ON public.chat_mensajes
+    FOR INSERT WITH CHECK (
+        public.can_upsert_chat_message(id, proyecto_id, autor_email)
+        AND (
+            proyecto_id <> '__cubikar_tombstones__'
+            OR public.can_write_project_tombstone(payload_json, mensaje)
+        )
+    );
+
+DROP POLICY IF EXISTS "chat_update" ON public.chat_mensajes;
+CREATE POLICY "chat_update" ON public.chat_mensajes
+    FOR UPDATE USING (
+        (
+            proyecto_id IN ('__cubikar_tombstones__', '__cubikar_host_manifest__')
+            AND auth.role() = 'authenticated'
+            AND (LOWER(TRIM(autor_email)) = public.current_user_email() OR public.current_user_email() = 'hepc.90@gmail.com')
+        )
+        OR (
+            proyecto_id NOT LIKE '__cubikar_%'
+            AND (
+                LOWER(TRIM(autor_email)) = public.current_user_email()
+                OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin'])
+                OR public.current_user_email() = 'hepc.90@gmail.com'
+            )
+        )
+    )
+    WITH CHECK (
+        (
+            proyecto_id = '__cubikar_host_manifest__'
+            AND auth.role() = 'authenticated'
+            AND (LOWER(TRIM(autor_email)) = public.current_user_email() OR public.current_user_email() = 'hepc.90@gmail.com')
+        )
+        OR (
+            proyecto_id = '__cubikar_tombstones__'
+            AND auth.role() = 'authenticated'
+            AND (LOWER(TRIM(autor_email)) = public.current_user_email() OR public.current_user_email() = 'hepc.90@gmail.com')
+            AND public.can_write_project_tombstone(payload_json, mensaje)
+        )
+        OR (
+            proyecto_id NOT LIKE '__cubikar_%'
+            AND (
+                LOWER(TRIM(autor_email)) = public.current_user_email()
+                OR public.check_user_project_access(proyecto_id::text, ARRAY['owner', 'admin'])
+                OR public.current_user_email() = 'hepc.90@gmail.com'
+            )
+        )
+    );
+
+-- ------------------------------------------------------------------------------
+-- 5. Colaboradores con rol Editor pueden crear proyectos en el espacio de su anfitrión
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.is_editor_colaborador_de_anfitrion(p_host_email TEXT)
+RETURNS BOOLEAN AS $$
+DECLARE
+    u_email TEXT := public.current_user_email();
+    v_host TEXT := LOWER(TRIM(COALESCE(p_host_email, '')));
+BEGIN
+    IF u_email = '' OR v_host = '' OR v_host = u_email THEN
+        RETURN FALSE;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM public.proyecto_colaboradores pc
+        INNER JOIN public.proyectos p ON p.id = pc.proyecto_id
+        WHERE LOWER(TRIM(pc.email_colaborador)) = u_email
+          AND pc.rol = 'editar'
+          AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'accepted'))) = 'accepted'
+          AND LOWER(TRIM(COALESCE(p.owner_email, ''))) = v_host
+          AND p.deleted_at IS NULL
+    ) THEN
+        RETURN TRUE;
+    END IF;
+
+    RETURN EXISTS (
+        SELECT 1
+        FROM auth.users au
+        CROSS JOIN LATERAL jsonb_array_elements(
+            CASE WHEN jsonb_typeof(au.raw_user_meta_data->'cubikar_cloud_state_v2'->'sentPlanInvitations') = 'array'
+                 THEN au.raw_user_meta_data->'cubikar_cloud_state_v2'->'sentPlanInvitations'
+                 ELSE '[]'::jsonb END
+        ) inv
+        WHERE LOWER(TRIM(au.email)) = v_host
+          AND LOWER(TRIM(COALESCE(inv->>'email', ''))) = u_email
+          AND LOWER(TRIM(COALESCE(inv->>'status', ''))) IN ('accepted', 'active')
+          AND COALESCE(NULLIF(TRIM(inv->>'role'), ''), 'editar') = 'editar'
+    );
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, auth;
+
+CREATE OR REPLACE FUNCTION public.can_insert_or_upsert_proyecto(
+    p_id UUID,
+    p_owner_email TEXT,
+    p_empresa_id UUID
+) RETURNS BOOLEAN AS $$
+DECLARE
+    u_email TEXT := public.current_user_email();
+    v_existing_id UUID;
+BEGIN
+    IF auth.role() <> 'authenticated' OR u_email = '' THEN
+        RETURN FALSE;
+    END IF;
+
+    IF u_email = 'hepc.90@gmail.com' THEN
+        RETURN TRUE;
+    END IF;
+
+    SELECT p.id INTO v_existing_id FROM public.proyectos p WHERE p.id = p_id LIMIT 1;
+
+    IF v_existing_id IS NULL THEN
+        RETURN LOWER(TRIM(COALESCE(p_owner_email, ''))) = u_email
+            OR (COALESCE(TRIM(p_owner_email), '') = '' AND (p_empresa_id IS NULL OR p_empresa_id = public.obtener_mi_empresa_id()))
+            OR public.is_editor_colaborador_de_anfitrion(p_owner_email);
+    END IF;
+
+    RETURN public.check_user_project_access(p_id::text, ARRAY['owner', 'admin', 'editar', 'escribir']);
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
+
+-- Al insertar un proyecto creado por un colaborador en el espacio del anfitrión,
+-- registrar al anfitrión como 'owner' y al creador como 'editar' para que ambos lo vean.
+CREATE OR REPLACE FUNCTION public.trg_after_insert_proyecto_colaborador_creador()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_owner TEXT := LOWER(TRIM(COALESCE(NEW.owner_email, '')));
+    v_actor TEXT := public.current_user_email();
+BEGIN
+    IF v_owner = '' OR v_actor = '' OR v_actor = v_owner THEN
+        RETURN NEW;
+    END IF;
+
+    INSERT INTO public.proyecto_colaboradores (proyecto_id, email_colaborador, nombre_colaborador, rol, estado_invitacion, updated_at)
+    VALUES
+        (NEW.id, v_owner, SPLIT_PART(v_owner, '@', 1), 'owner', 'accepted', timezone('utc'::text, now())),
+        (NEW.id, v_actor, SPLIT_PART(v_actor, '@', 1), 'editar', 'accepted', timezone('utc'::text, now()))
+    ON CONFLICT ON CONSTRAINT uq_proyecto_colaborador DO NOTHING;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_proyecto_colaborador_creador ON public.proyectos;
+CREATE TRIGGER trg_proyecto_colaborador_creador
+    AFTER INSERT ON public.proyectos
+    FOR EACH ROW EXECUTE FUNCTION public.trg_after_insert_proyecto_colaborador_creador();
+
+-- ------------------------------------------------------------------------------
+-- 6. Permisos de ejecución
+-- ------------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.is_privileged_db_actor() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_privileged_db_actor() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.can_write_project_tombstone(JSONB, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_editor_colaborador_de_anfitrion(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_empresa_sin_miembros(UUID, UUID) TO authenticated;

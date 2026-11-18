@@ -515,7 +515,7 @@ export default async function handler(req, res) {
 
     if (action === 'download') {
       const s3Key = String(body.s3Key || '').trim().replace(/^\/+/, '');
-      if (!s3Key || s3Key.includes('..')) {
+      if (!s3Key || s3Key.includes('..') || s3Key.startsWith('_respaldos_servidor/')) {
         return res.status(400).json({ error: 's3Key inválido.' });
       }
 
@@ -552,7 +552,7 @@ export default async function handler(req, res) {
 
     if (action === 'delete') {
       const s3Key = String(body.s3Key || '').trim().replace(/^\/+/, '');
-      if (!s3Key || s3Key.includes('..')) {
+      if (!s3Key || s3Key.includes('..') || s3Key.startsWith('_respaldos_servidor/')) {
         return res.status(400).json({ error: 's3Key inválido.' });
       }
 

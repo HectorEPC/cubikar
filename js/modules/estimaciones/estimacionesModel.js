@@ -2,11 +2,11 @@
 // Modelo de datos y lógica de cálculo para ESTIMACIONES DE OBRA
 // Sincronizado reactivamente con state.treeData (Catálogo Base)
 
-import { state } from '../../state/store.js?v=20261116_cf22';
-import { getActiveProjectId, getStorageKey } from '../../config/constants.js?v=20261116_cf22';
-import { formatDate, parseDate, addDays, diffDays } from '../calendario/calendarioModel.js?v=20261116_cf22';
-import { scheduleEstimacionesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261116_cf22';
-import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261116_cf22';
+import { state } from '../../state/store.js?v=20261117_cf25';
+import { getActiveProjectId, getStorageKey } from '../../config/constants.js?v=20261117_cf25';
+import { formatDate, parseDate, addDays, diffDays } from '../calendario/calendarioModel.js?v=20261117_cf25';
+import { scheduleEstimacionesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261117_cf25';
+import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261117_cf25';
 
 const STORAGE_KEY_PREFIX = 'estimaciones_data_';
 
@@ -846,38 +846,29 @@ export function getEstimacionesCalculatedData() {
   };
 }
 
-// Calcular el avance estimado real de cualquier proyecto sumando TODAS sus Estimaciones registradas
-export function calculateProjectTotalEstimacionesSummary(projectId, fallbackTotalPresupuesto = 0) {
-  let treeNodes = [];
-  try {
-    if (projectId && projectId === getActiveProjectId() && Array.isArray(state.treeData) && state.treeData.length > 0) {
-      treeNodes = state.treeData;
-    } else if (typeof localStorage !== 'undefined') {
-      const rawTree = localStorage.getItem(getStorageKey(projectId));
-      if (rawTree) {
-        const parsedTree = JSON.parse(rawTree);
-        if (Array.isArray(parsedTree)) treeNodes = parsedTree;
-      }
-    }
-  } catch (e) {
-    treeNodes = [];
-  }
+const estimacionesSummaryCache = new Map();
 
-  let estimaciones = [];
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const rawEst = localStorage.getItem(getEstimacionesStorageKeyForProject(projectId));
-      if (rawEst) {
-        const parsedEst = JSON.parse(rawEst);
-        if (Array.isArray(parsedEst?.estimaciones)) {
-          estimaciones = parsedEst.estimaciones;
-        }
-      }
-    }
-  } catch (e) {
-    estimaciones = [];
+function fingerprintRaw(raw) {
+  if (!raw) return '0';
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < raw.length; i++) {
+    hash ^= raw.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
   }
+  return `${raw.length}:${(hash >>> 0).toString(36)}`;
+}
 
+function parseArrayOrEmpty(raw, pick = (v) => v) {
+  if (!raw) return [];
+  try {
+    const value = pick(JSON.parse(raw));
+    return Array.isArray(value) ? value : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function computeEstimacionesSummary(treeNodes, estimaciones, fallbackTotalPresupuesto) {
   let grandTotalBase = 0;
   let grandTotalEstimado = 0;
 
@@ -919,7 +910,7 @@ export function calculateProjectTotalEstimacionesSummary(projectId, fallbackTota
     : 0;
   const barWidthPct = Math.max(0, Math.min(100, pctAvance));
 
-  const estimacionesAvanceCount = estimaciones.filter(e => e.numero > 0).length;
+  const estimacionesAvanceCount = estimaciones.filter(e => e && e.numero > 0).length;
 
   return {
     totalBase: baseForPct,
@@ -928,4 +919,32 @@ export function calculateProjectTotalEstimacionesSummary(projectId, fallbackTota
     barWidthPct,
     estimacionesCount: estimacionesAvanceCount || estimaciones.length
   };
+}
+
+// Calcular el avance estimado real de cualquier proyecto sumando TODAS sus Estimaciones registradas.
+// Para proyectos no activos el resultado se cachea por id + huella de los datos crudos almacenados.
+export function calculateProjectTotalEstimacionesSummary(projectId, fallbackTotalPresupuesto = 0) {
+  let rawEst = null;
+  try {
+    rawEst = typeof localStorage !== 'undefined' ? localStorage.getItem(getEstimacionesStorageKeyForProject(projectId)) : null;
+  } catch (_) {}
+  const estimaciones = () => parseArrayOrEmpty(rawEst, parsed => parsed?.estimaciones);
+
+  const isActiveInMemory = projectId && projectId === getActiveProjectId() && Array.isArray(state.treeData) && state.treeData.length > 0;
+  if (isActiveInMemory) {
+    return computeEstimacionesSummary(state.treeData, estimaciones(), fallbackTotalPresupuesto);
+  }
+
+  let rawTree = null;
+  try {
+    rawTree = typeof localStorage !== 'undefined' ? localStorage.getItem(getStorageKey(projectId)) : null;
+  } catch (_) {}
+  const cacheKey = `${fingerprintRaw(rawTree)}|${fingerprintRaw(rawEst)}|${Number(fallbackTotalPresupuesto) || 0}`;
+  const cached = estimacionesSummaryCache.get(projectId);
+  if (cached && cached.key === cacheKey) {
+    return { ...cached.result };
+  }
+  const result = computeEstimacionesSummary(parseArrayOrEmpty(rawTree), estimaciones(), fallbackTotalPresupuesto);
+  estimacionesSummaryCache.set(projectId, { key: cacheKey, result });
+  return { ...result };
 }

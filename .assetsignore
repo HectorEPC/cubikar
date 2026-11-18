@@ -1,4 +1,11 @@
+.git
+**/.git
+.github
+**/.github
+.gitignore
+.assetsignore
 api/
+scripts/
 supabase/
 respaldos/
 raw_catalogs/

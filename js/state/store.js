@@ -1,10 +1,10 @@
-import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261116_cf22';
-import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261116_cf22';
-import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261116_cf22';
-import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261116_cf22';
-import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261116_cf22';
-import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261116_cf22';
-import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261116_cf22';
+import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261117_cf25';
+import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261117_cf25';
+import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261117_cf25';
+import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261117_cf25';
+import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261117_cf25';
+import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261117_cf25';
+import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261117_cf25';
 
 // Estado global reactivo y centralizado de la aplicación
 export const state = {
@@ -171,9 +171,16 @@ export function initStore() {
               if (typeof window.renderTAB1 === 'function') window.renderTAB1();
             }
           }
-        } else if (Array.isArray(cloudTree) && cloudTree.length === 0 && Array.isArray(state.treeData) && state.treeData.length > 0) {
-          // Si la obra es recién creada y en la nube aún no terminaron de subirse sus conceptos, respaldarlos de inmediato
-          triggerDebouncedCloudSync();
+          if (currentProjMeta?.isCloudSynced && !hasPendingInitial) {
+            rememberSyncedTreeFingerprint(activePId, fingerprintTree(state.treeData));
+          }
+        } else if (Array.isArray(cloudTree) && cloudTree.length === 0) {
+          if (Array.isArray(state.treeData) && state.treeData.length > 0) {
+            // Si la obra es recién creada y en la nube aún no terminaron de subirse sus conceptos, respaldarlos de inmediato
+            triggerDebouncedCloudSync();
+          } else if (getProjectById(activePId)?.isCloudSynced && !hasPendingInitial) {
+            rememberSyncedTreeFingerprint(activePId, fingerprintTree(state.treeData));
+          }
         }
       }).catch(err => console.warn('[CloudSync] Fallo al refrescar árbol desde la nube:', err));
     }
@@ -290,6 +297,30 @@ function checkIfLargeTree(tree) {
   }
 }
 
+const TREE_SYNC_FINGERPRINT_PREFIX = 'cubikar_tree_sync_fp_';
+
+function fingerprintTree(tree) {
+  const json = JSON.stringify(Array.isArray(tree) ? tree : []);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < json.length; i++) {
+    hash ^= json.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `${json.length}:${(hash >>> 0).toString(36)}`;
+}
+
+function readSyncedTreeFingerprint(projectId) {
+  try { return sessionStorage.getItem(TREE_SYNC_FINGERPRINT_PREFIX + projectId) || ''; } catch (_) { return ''; }
+}
+
+function rememberSyncedTreeFingerprint(projectId, fingerprint) {
+  try { sessionStorage.setItem(TREE_SYNC_FINGERPRINT_PREFIX + projectId, fingerprint); } catch (_) {}
+}
+
+function hasPendingInitialUpload(projectId) {
+  try { return sessionStorage.getItem(`cubikar_pending_initial_upload_${projectId}`) === '1'; } catch (_) { return false; }
+}
+
 export function triggerDebouncedCloudSync() {
   if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
   cloudSyncTimer = setTimeout(async () => {
@@ -302,11 +333,16 @@ export function triggerDebouncedCloudSync() {
     if (typeof isProjectMarkedDeleted === 'function' && project.cloudId && isProjectMarkedDeleted(project.cloudId)) return;
     let syncSuccess = false;
     const wasCloudSynced = Boolean(project.isCloudSynced);
+    const treeFingerprint = fingerprintTree(state.treeData);
+    const treeChanged = !wasCloudSynced || hasPendingInitialUpload(projectId) || readSyncedTreeFingerprint(projectId) !== treeFingerprint;
     try {
-      const syncRes = await syncProjectToCloud(project, state.settings, state.treeData);
+      const syncRes = await syncProjectToCloud(project, state.settings, treeChanged ? state.treeData : null);
       syncSuccess = Boolean(syncRes && syncRes.success);
       if (syncSuccess) {
-        try { sessionStorage.removeItem(`cubikar_pending_initial_upload_${projectId}`); } catch (_) {}
+        if (treeChanged) {
+          rememberSyncedTreeFingerprint(projectId, treeFingerprint);
+          try { sessionStorage.removeItem(`cubikar_pending_initial_upload_${projectId}`); } catch (_) {}
+        }
         const list = getProjectsList();
         const idx = list.findIndex(p => p.id === project.id || (syncRes.projectId && p.cloudId === syncRes.projectId));
         if (idx !== -1) {

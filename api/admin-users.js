@@ -92,34 +92,74 @@ function getSupabaseConfig() {
   return { url, anonKey, serviceRoleKey, misconfiguredAnonKey: adminRole === 'anon' };
 }
 
-function sanitizePostgrestFilterTerm(raw) {
+function normalizeEmail(raw) {
+  return String(raw || '').trim().toLowerCase();
+}
+
+// Todas las escrituras guardan el correo en minúsculas (GoTrue también lo normaliza),
+// así que eq es exacto y evita los comodines de ilike ('_', '%', '*').
+function emailEqFilter(email) {
+  return `email=eq.${encodeURIComponent(normalizeEmail(email))}`;
+}
+
+function sanitizePostgrestSearchTerm(raw) {
   return String(raw || '')
     .trim()
-    .replace(/[%_,()]/g, '');
+    .replace(/[%*,()"\\]/g, '');
+}
+
+function getEnvCoAdmins() {
+  return String(process.env.CUBIKAR_CO_ADMINS || '')
+    .split(',')
+    .map(normalizeEmail)
+    .filter(Boolean);
+}
+
+function isCoAdminMetadata(meta) {
+  return Boolean(meta && (meta.is_co_admin === true || meta.isCoAdmin === true));
+}
+
+async function listAllAuthUsers(sbUrl, serviceRoleKey) {
+  const perPage = 1000;
+  const maxPages = 200;
+  const allUsers = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const res = await fetch(`${sbUrl}/auth/v1/admin/users?page=${page}&per_page=${perPage}`, {
+      headers: buildSupabaseAdminHeaders(serviceRoleKey)
+    });
+    if (!res.ok) {
+      const errTxt = await res.text().catch(() => '');
+      throw new Error(`No se pudo consultar auth.users (${res.status}): ${errTxt}`);
+    }
+    const data = await res.json();
+    const users = Array.isArray(data) ? data : (data?.users || []);
+    allUsers.push(...users);
+    const total = Number(res.headers.get('x-total-count')) || 0;
+    if (users.length === 0 || (total ? allUsers.length >= total : users.length < perPage)) break;
+  }
+  return allUsers;
 }
 
 async function updateEmpresaWithBillingCycleFallback(sbUrl, serviceRoleKey, empresaId, payload) {
-  if (!sbUrl || !serviceRoleKey || !empresaId) return { ok: false };
+  if (!sbUrl || !serviceRoleKey || !empresaId) {
+    return { ok: false, updated: 0, error: 'Configuración incompleta para actualizar la empresa.' };
+  }
   const headers = buildSupabaseAdminHeaders(serviceRoleKey, {
     'Content-Type': 'application/json',
-    Prefer: 'return=minimal'
+    Prefer: 'return=representation'
   });
-  const endpoint = `${sbUrl}/rest/v1/empresas?id=eq.${encodeURIComponent(empresaId)}`;
-  let res = await fetch(endpoint, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(payload)
-  });
+  const endpoint = `${sbUrl}/rest/v1/empresas?id=eq.${encodeURIComponent(empresaId)}&select=id`;
+  const patch = (body) => fetch(endpoint, { method: 'PATCH', headers, body: JSON.stringify(body) });
+  let res = await patch(payload);
   if (!res.ok && Object.prototype.hasOwnProperty.call(payload, 'billing_cycle')) {
-    const fallbackPayload = { ...payload };
-    delete fallbackPayload.billing_cycle;
-    res = await fetch(endpoint, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify(fallbackPayload)
-    });
+    const { billing_cycle: _omit, ...fallbackPayload } = payload;
+    res = await patch(fallbackPayload);
   }
-  return res;
+  if (!res.ok) {
+    return { ok: false, updated: 0, error: await res.text().catch(() => `HTTP ${res.status}`) };
+  }
+  const rows = await res.json().catch(() => []);
+  return { ok: true, updated: Array.isArray(rows) ? rows.length : 0, error: '' };
 }
 
 async function verifyCallerJwt(req, sbUrl, sbAnonKey, serviceRoleKey) {
@@ -152,37 +192,24 @@ async function verifyCallerJwt(req, sbUrl, sbAnonKey, serviceRoleKey) {
 }
 
 async function isVerifiedAdmin(callerEmail, sbUrl, serviceRoleKey, callerToken, sbAnonKey) {
-  const email = String(callerEmail || '').toLowerCase().trim();
+  const email = normalizeEmail(callerEmail);
   if (!email) return false;
-  if (email === MASTER_ADMIN_EMAIL.toLowerCase()) return true;
-
-  const envCoAdmins = String(process.env.CUBIKAR_CO_ADMINS || '')
-    .split(',')
-    .map(s => s.trim().toLowerCase())
-    .filter(Boolean);
-  if (envCoAdmins.includes(email)) return true;
-
+  if (email === MASTER_ADMIN_EMAIL) return true;
+  if (getEnvCoAdmins().includes(email)) return true;
   if (!serviceRoleKey && (!sbAnonKey || !callerToken)) return false;
 
+  // metadata.is_co_admin solo puede cambiarlo service_role o el Administrador Maestro (trigger en BD).
   try {
-    const safeEmail = sanitizePostgrestFilterTerm(email);
-    if (!safeEmail) return false;
     const res = await fetch(
-      `${sbUrl}/rest/v1/cubikar_registros?email=ilike.${encodeURIComponent(safeEmail)}&select=email,metadata&limit=1`,
-      {
-        headers: buildSupabaseReadHeaders(serviceRoleKey, sbAnonKey, callerToken)
-      }
+      `${sbUrl}/rest/v1/cubikar_registros?${emailEqFilter(email)}&select=metadata&limit=1`,
+      { headers: buildSupabaseReadHeaders(serviceRoleKey, sbAnonKey, callerToken) }
     );
-    if (res.ok) {
-      const rows = await res.json();
-      const meta = rows?.[0]?.metadata;
-      if (meta && (meta.is_co_admin === true || meta.isCoAdmin === true)) {
-        return true;
-      }
-    }
-  } catch {}
-
-  return false;
+    if (!res.ok) return false;
+    const rows = await res.json();
+    return isCoAdminMetadata(rows?.[0]?.metadata);
+  } catch {
+    return false;
+  }
 }
 
 function decodeBase64UrlToUint8(b64u) {
@@ -515,23 +542,21 @@ export default async function handler(req, res) {
     }
 
     const coAdminsMap = new Map();
-    const envCoAdmins = String(process.env.CUBIKAR_CO_ADMINS || '')
-      .split(',')
-      .map(s => s.trim().toLowerCase())
-      .filter(e => e && e !== MASTER_ADMIN_EMAIL.toLowerCase());
-    envCoAdmins.forEach(em => {
-      coAdminsMap.set(em, {
-        email: em,
-        name: em.split('@')[0],
-        role: 'admin',
-        canEdit: true,
-        canWrite: true,
-        canRead: true,
-        invitedBy: MASTER_ADMIN_EMAIL,
-        invitedAt: '2026-01-15T00:00:00.000Z',
-        source: 'env'
+    getEnvCoAdmins()
+      .filter(em => em !== MASTER_ADMIN_EMAIL)
+      .forEach(em => {
+        coAdminsMap.set(em, {
+          email: em,
+          name: em.split('@')[0],
+          role: 'admin',
+          canEdit: true,
+          canWrite: true,
+          canRead: true,
+          invitedBy: MASTER_ADMIN_EMAIL,
+          invitedAt: '2026-01-15T00:00:00.000Z',
+          source: 'env'
+        });
       });
-    });
 
     if (checkSelf) {
       try {
@@ -544,7 +569,7 @@ export default async function handler(req, res) {
             rows.forEach(r => {
               const em = String(r?.email || '').toLowerCase().trim();
               const meta = (r?.metadata && typeof r.metadata === 'object') ? r.metadata : {};
-              if (em && em !== MASTER_ADMIN_EMAIL.toLowerCase() && (meta.is_co_admin === true || meta.isCoAdmin === true)) {
+              if (em && em !== MASTER_ADMIN_EMAIL.toLowerCase() && isCoAdminMetadata(meta)) {
                 coAdminsMap.set(em, {
                   email: em,
                   name: r.nombre || em.split('@')[0],
@@ -594,46 +619,39 @@ export default async function handler(req, res) {
     let pulledFromAuth = 0;
     if (serviceRoleKey) {
       try {
-        const authRes = await fetch(`${sbUrl}/auth/v1/admin/users?page=1&per_page=1000`, {
-          headers: buildSupabaseAdminHeaders(serviceRoleKey)
-        });
+        const authUsers = await listAllAuthUsers(sbUrl, serviceRoleKey);
+        authUsers.forEach(u => {
+          if (!u || !u.email) return;
+          const cleanEmail = u.email.toLowerCase().trim();
+          const meta = u.user_metadata || {};
+          // Nunca derivar plan desde user_metadata editable por el cliente; perfiles->empresas es la fuente autoritativa.
+          const planSub = { planId: 'free', billingCycle: 'monthly' };
+          const existing = usersMap.get(cleanEmail) || {};
+          const isMaster = cleanEmail === MASTER_ADMIN_EMAIL.toLowerCase();
 
-        if (authRes.ok) {
-          const authData = await authRes.json();
-          const authUsers = Array.isArray(authData) ? authData : (authData.users || []);
-
-          authUsers.forEach(u => {
-            if (!u || !u.email) return;
-            const cleanEmail = u.email.toLowerCase().trim();
-            const meta = u.user_metadata || {};
-            const planSub = meta.subscription || { planId: 'free', billingCycle: 'monthly' };
-            const existing = usersMap.get(cleanEmail) || {};
-            const isMaster = cleanEmail === MASTER_ADMIN_EMAIL.toLowerCase();
-
-            usersMap.set(cleanEmail, {
-              id: u.id,
-              name: meta.full_name || meta.name || existing.name || cleanEmail.split('@')[0],
-              email: cleanEmail,
-              sexo: meta.sexo || existing.sexo || 'Masculino',
-              dob: meta.dob || existing.dob || '',
-              avatar: meta.avatar_url || meta.avatar || existing.avatar || '',
-              createdAt: u.created_at || existing.createdAt || new Date().toISOString(),
-              lastLogin: u.last_sign_in_at || u.created_at || existing.lastLogin || new Date().toISOString(),
-              subscription: isMaster ? { planId: 'pro', billingCycle: 'annual', isCombo: true } : planSub,
-              emailConfirmed: Boolean(u.email_confirmed_at),
-              isMasterAdmin: isMaster,
-              isCoAdmin: coAdminsMap.has(cleanEmail),
-              source: 'supabase_auth'
-            });
-            pulledFromAuth++;
+          usersMap.set(cleanEmail, {
+            id: u.id,
+            name: meta.full_name || meta.name || existing.name || cleanEmail.split('@')[0],
+            email: cleanEmail,
+            sexo: meta.sexo || existing.sexo || 'Masculino',
+            dob: meta.dob || existing.dob || '',
+            avatar: meta.avatar_url || meta.avatar || existing.avatar || '',
+            createdAt: u.created_at || existing.createdAt || new Date().toISOString(),
+            lastLogin: u.last_sign_in_at || u.created_at || existing.lastLogin || new Date().toISOString(),
+            subscription: isMaster ? { planId: 'pro', billingCycle: 'annual', isCombo: true } : planSub,
+            emailConfirmed: Boolean(u.email_confirmed_at),
+            isMasterAdmin: isMaster,
+            isCoAdmin: coAdminsMap.has(cleanEmail),
+            source: 'supabase_auth'
           });
-        }
+          pulledFromAuth++;
+        });
       } catch (e) {
         console.warn('[AdminUsers API] Error consultando auth.admin.users:', e.message);
       }
 
       try {
-        const searchParam = sanitizePostgrestFilterTerm(reqUrl.searchParams.get('search') || '');
+        const searchParam = sanitizePostgrestSearchTerm(reqUrl.searchParams.get('search') || '');
         const orFilter = searchParam
           ? `&or=(email.ilike.*${encodeURIComponent(searchParam)}*,nombre_completo.ilike.*${encodeURIComponent(searchParam)}*)`
           : '';
@@ -703,7 +721,7 @@ export default async function handler(req, res) {
             const cleanEmail = r.email.toLowerCase().trim();
             const existing = usersMap.get(cleanEmail);
             const meta = (r.metadata && typeof r.metadata === 'object') ? r.metadata : {};
-            const isCoAdminRow = cleanEmail !== MASTER_ADMIN_EMAIL.toLowerCase() && (meta.is_co_admin === true || meta.isCoAdmin === true || coAdminsMap.has(cleanEmail));
+            const isCoAdminRow = cleanEmail !== MASTER_ADMIN_EMAIL.toLowerCase() && (isCoAdminMetadata(meta) || coAdminsMap.has(cleanEmail));
 
             if (isCoAdminRow) {
               coAdminsMap.set(cleanEmail, {
@@ -813,9 +831,8 @@ export default async function handler(req, res) {
       let targetEmpresaId = null;
       if (serviceRoleKey) {
         try {
-          const safeEmail = sanitizePostgrestFilterTerm(rawEmail);
           const perfRes = await fetch(
-            `${sbUrl}/rest/v1/perfiles?email=ilike.${encodeURIComponent(safeEmail)}&select=empresa_id,empresas(id,plan)&limit=1`,
+            `${sbUrl}/rest/v1/perfiles?${emailEqFilter(rawEmail)}&select=empresa_id,empresas(id,plan)&limit=1`,
             {
               headers: buildSupabaseAdminHeaders(serviceRoleKey)
             }
@@ -896,8 +913,8 @@ export default async function handler(req, res) {
       if (!serviceRoleKey) {
         return res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada en el servidor.' });
       }
-      const targetEmail = sanitizePostgrestFilterTerm(String(body.email || '').trim().toLowerCase());
-      if (!targetEmail || targetEmail === MASTER_ADMIN_EMAIL.toLowerCase()) {
+      const targetEmail = normalizeEmail(body.email);
+      if (!targetEmail || !targetEmail.includes('@') || targetEmail === MASTER_ADMIN_EMAIL) {
         return res.status(400).json({ error: 'Correo inválido o protegido.' });
       }
       const plan = ['free', 'plus', 'pro'].includes(String(body.plan || '').toLowerCase().trim())
@@ -913,30 +930,37 @@ export default async function handler(req, res) {
 
       try {
         const perfRes = await fetch(
-          `${sbUrl}/rest/v1/perfiles?email=ilike.${encodeURIComponent(targetEmail)}&select=id,empresa_id&limit=1`,
+          `${sbUrl}/rest/v1/perfiles?${emailEqFilter(targetEmail)}&select=id,empresa_id&limit=1`,
           { headers: buildSupabaseAdminHeaders(serviceRoleKey) }
         );
-        const rows = perfRes.ok ? await perfRes.json() : [];
+        if (!perfRes.ok) {
+          const errTxt = await perfRes.text().catch(() => '');
+          return res.status(500).json({ error: `No se pudo consultar el perfil (${perfRes.status}): ${errTxt}` });
+        }
+        const rows = await perfRes.json();
         const empresaId = rows?.[0]?.empresa_id;
-        if (empresaId) {
-          const updatePayload = {
-            plan,
-            billing_cycle: billingCycle,
-            estado_suscripcion: plan === 'free' ? 'trialing' : 'active'
-          };
-          if (producto === 'arq' || producto === 'combo') {
-            updatePayload.plan_arq = plan;
-            updatePayload.acceso_arq = plan !== 'free';
-          }
-          if (producto === 'const' || producto === 'combo') {
-            updatePayload.plan_const = plan;
-            updatePayload.acceso_const = plan !== 'free';
-          }
-          const empRes = await updateEmpresaWithBillingCycleFallback(sbUrl, serviceRoleKey, empresaId, updatePayload);
-          if (!empRes.ok) {
-            const errTxt = await empRes.text();
-            return res.status(500).json({ error: `No se pudo actualizar empresa: ${errTxt}` });
-          }
+        if (!empresaId) {
+          return res.status(404).json({ error: `No se encontró una empresa asociada a ${targetEmail}; no se actualizó ninguna membresía.` });
+        }
+        const updatePayload = {
+          plan,
+          billing_cycle: billingCycle,
+          estado_suscripcion: plan === 'free' ? 'trialing' : 'active'
+        };
+        if (producto === 'arq' || producto === 'combo') {
+          updatePayload.plan_arq = plan;
+          updatePayload.acceso_arq = plan !== 'free';
+        }
+        if (producto === 'const' || producto === 'combo') {
+          updatePayload.plan_const = plan;
+          updatePayload.acceso_const = plan !== 'free';
+        }
+        const empResult = await updateEmpresaWithBillingCycleFallback(sbUrl, serviceRoleKey, empresaId, updatePayload);
+        if (!empResult.ok) {
+          return res.status(500).json({ error: `No se pudo actualizar empresa: ${empResult.error}` });
+        }
+        if (empResult.updated === 0) {
+          return res.status(404).json({ error: `La empresa ${empresaId} no existe; no se actualizó ninguna membresía.` });
         }
         return res.status(200).json({ ok: true, email: targetEmail, plan, billingCycle, producto });
       } catch (err) {
@@ -983,20 +1007,7 @@ export default async function handler(req, res) {
           }
           deletedFromAuth++;
         } else {
-          const authRes = await fetch(`${sbUrl}/auth/v1/admin/users?page=1&per_page=1000`, {
-            headers: buildSupabaseAdminHeaders(serviceRoleKey)
-          });
-
-          if (!authRes.ok) {
-            const errTxt = await authRes.text().catch(() => '');
-            return res.status(500).json({
-              error: `No se pudo consultar auth.users para eliminar (${authRes.status}): ${errTxt}`
-            });
-          }
-
-          const authData = await authRes.json();
-          const authUsers = Array.isArray(authData) ? authData : (authData.users || []);
-
+          const authUsers = await listAllAuthUsers(sbUrl, serviceRoleKey);
           for (const targetEmail of targets) {
             const matched = authUsers.find(u => (u.email || '').toLowerCase().trim() === targetEmail);
             if (matched && matched.id) {
@@ -1021,13 +1032,11 @@ export default async function handler(req, res) {
 
       for (const targetEmail of targets) {
         try {
-          const safeTarget = sanitizePostgrestFilterTerm(targetEmail);
-          if (!safeTarget) continue;
-          await fetch(`${sbUrl}/rest/v1/perfiles?email=ilike.${encodeURIComponent(safeTarget)}`, {
+          await fetch(`${sbUrl}/rest/v1/perfiles?${emailEqFilter(targetEmail)}`, {
             method: 'DELETE',
             headers: buildSupabaseAdminHeaders(serviceRoleKey)
           });
-          await fetch(`${sbUrl}/rest/v1/cubikar_registros?email=ilike.${encodeURIComponent(safeTarget)}`, {
+          await fetch(`${sbUrl}/rest/v1/cubikar_registros?${emailEqFilter(targetEmail)}`, {
             method: 'DELETE',
             headers: buildSupabaseAdminHeaders(serviceRoleKey)
           });
@@ -1048,59 +1057,55 @@ export default async function handler(req, res) {
       if (!callerIsAdmin) {
         return res.status(403).json({ error: 'Acceso denegado. Solo administradores autorizados.' });
       }
-      const targetEmail = sanitizePostgrestFilterTerm(String(body.email || '').trim().toLowerCase());
+      const targetEmail = normalizeEmail(body.email);
       if (!targetEmail || !targetEmail.includes('@')) {
         return res.status(400).json({ error: 'Correo de co-administrador inválido.' });
       }
-      if (targetEmail === MASTER_ADMIN_EMAIL.toLowerCase()) {
+      if (targetEmail === MASTER_ADMIN_EMAIL) {
         return res.status(400).json({ error: 'El Administrador Maestro no puede modificarse.' });
+      }
+      // Sin service_role, el trigger de BD solo acepta el cambio de is_co_admin con el JWT del Administrador Maestro.
+      if (!serviceRoleKey && caller.email !== MASTER_ADMIN_EMAIL) {
+        return res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada en el servidor.' });
       }
 
       const isCoAdminFlag = Boolean(body.isCoAdmin);
       const targetName = String(body.name || '').trim() || targetEmail.split('@')[0];
 
       try {
-        // Actualizar únicamente user_metadata del usuario objetivo (targetUser.id) si existe en Auth,
-        // sin sobrescribir masterUser.user_metadata.cubikar_coadmins
         if (serviceRoleKey) {
           try {
-            const authRes = await fetch(`${sbUrl}/auth/v1/admin/users?page=1&per_page=1000`, {
-              headers: buildSupabaseAdminHeaders(serviceRoleKey)
-            });
-            if (authRes.ok) {
-              const authData = await authRes.json();
-              const authUsers = Array.isArray(authData) ? authData : (authData.users || []);
-              const targetUser = authUsers.find(u => (u?.email || '').toLowerCase().trim() === targetEmail);
-              if (targetUser && targetUser.id) {
-                const prevUserMeta = (targetUser.user_metadata && typeof targetUser.user_metadata === 'object')
-                  ? targetUser.user_metadata
-                  : {};
-                await fetch(`${sbUrl}/auth/v1/admin/users/${targetUser.id}`, {
-                  method: 'PUT',
-                  headers: buildSupabaseAdminHeaders(serviceRoleKey, { 'Content-Type': 'application/json' }),
-                  body: JSON.stringify({
-                    user_metadata: {
-                      ...prevUserMeta,
-                      is_co_admin: isCoAdminFlag,
-                      isCoAdmin: isCoAdminFlag
-                    }
-                  })
-                });
-              }
+            const authUsers = await listAllAuthUsers(sbUrl, serviceRoleKey);
+            const targetUser = authUsers.find(u => normalizeEmail(u?.email) === targetEmail);
+            if (targetUser && targetUser.id) {
+              const prevUserMeta = (targetUser.user_metadata && typeof targetUser.user_metadata === 'object')
+                ? targetUser.user_metadata
+                : {};
+              await fetch(`${sbUrl}/auth/v1/admin/users/${targetUser.id}`, {
+                method: 'PUT',
+                headers: buildSupabaseAdminHeaders(serviceRoleKey, { 'Content-Type': 'application/json' }),
+                body: JSON.stringify({
+                  user_metadata: {
+                    ...prevUserMeta,
+                    is_co_admin: isCoAdminFlag,
+                    isCoAdmin: isCoAdminFlag
+                  }
+                })
+              });
             }
           } catch (_) {}
         }
 
-        let existingRow = null;
-
         const checkRes = await fetch(
-          `${sbUrl}/rest/v1/cubikar_registros?email=ilike.${encodeURIComponent(targetEmail)}&select=email,nombre,metadata&limit=1`,
+          `${sbUrl}/rest/v1/cubikar_registros?${emailEqFilter(targetEmail)}&select=email,nombre,metadata&limit=1`,
           { headers: buildSupabaseReadHeaders(serviceRoleKey, sbAnonKey, caller.token) }
         );
-        if (checkRes.ok) {
-          const rows = await checkRes.json();
-          existingRow = Array.isArray(rows) ? rows[0] : null;
+        if (!checkRes.ok) {
+          const errTxt = await checkRes.text().catch(() => '');
+          return res.status(checkRes.status).json({ error: `No se pudo leer el registro del co-administrador: ${errTxt}` });
         }
+        const existingRows = await checkRes.json();
+        const existingRow = Array.isArray(existingRows) ? existingRows[0] : null;
 
         const prevMeta = (existingRow?.metadata && typeof existingRow.metadata === 'object') ? existingRow.metadata : {};
         const nextMeta = {

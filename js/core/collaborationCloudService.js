@@ -3,8 +3,8 @@
 // persistencia total de proyectos, anfitriones, invitaciones y membresías
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261116_cf22';
-import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache } from './cloudProjectService.js?v=20261116_cf22';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf25';
+import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache, getTrashedCloudProjectIds } from './cloudProjectService.js?v=20261117_cf25';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -14,15 +14,18 @@ import {
   saveStoredPlanInvitations,
   getProjectsList,
   saveProjectsList,
+  patchProjectsList,
+  pushCollaboratorToCloud,
   getUserPlanId,
   isInvalidUserName,
   resolveCleanHostName,
   markProjectDeleted,
   isProjectMarkedDeleted,
+  isProjectTrashedLocal,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261116_cf22';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261116_cf22';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261116_cf22';
+} from '../modules/portal/projectService.js?v=20261117_cf25';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261117_cf25';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261117_cf25';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
@@ -58,13 +61,40 @@ function slimCloudInvitationEntry(inv) {
   return out;
 }
 
+function stripSubscriptionBranding(sub) {
+  if (!sub || typeof sub !== 'object') return sub;
+  const cleanSub = { ...sub };
+  delete cleanSub.companyLogo;
+  delete cleanSub.logo;
+  return cleanSub;
+}
+
+const APP_SUBSCRIPTION_KEY = 'const';
+
+function buildAppSubscriptions(remoteState, subscription) {
+  const existing = (remoteState?.appSubscriptions && typeof remoteState.appSubscriptions === 'object')
+    ? remoteState.appSubscriptions
+    : {};
+  return { ...existing, [APP_SUBSCRIPTION_KEY]: subscription };
+}
+
+export function readAppSubscriptionFromCloudState(state) {
+  if (!state || typeof state !== 'object') return null;
+  if (state.appSubscriptions && typeof state.appSubscriptions === 'object') {
+    return state.appSubscriptions[APP_SUBSCRIPTION_KEY] || null;
+  }
+  return state.subscription || null;
+}
+
 function compactCloudStatePayload(rawPayload) {
   const payload = { ...rawPayload };
   if (payload.subscription && typeof payload.subscription === 'object') {
-    const cleanSub = { ...payload.subscription };
-    delete cleanSub.companyLogo;
-    delete cleanSub.logo;
-    payload.subscription = cleanSub;
+    payload.subscription = stripSubscriptionBranding(payload.subscription);
+  }
+  if (payload.appSubscriptions && typeof payload.appSubscriptions === 'object') {
+    payload.appSubscriptions = Object.fromEntries(
+      Object.entries(payload.appSubscriptions).map(([app, sub]) => [app, stripSubscriptionBranding(sub)])
+    );
   }
   if (Array.isArray(payload.planInvitations)) {
     payload.planInvitations = payload.planInvitations.slice(-12).map(slimCloudInvitationEntry);
@@ -121,6 +151,31 @@ function markCloudDeniedProject(id) {
   } catch (_) {}
 }
 
+function unmarkCloudDeniedProjects(ids) {
+  const targets = (Array.isArray(ids) ? ids : [ids]).map(v => String(v || '').trim()).filter(Boolean);
+  if (targets.length === 0) return;
+  try {
+    const set = getCloudDeniedProjectIds();
+    let changed = false;
+    targets.forEach((id) => { if (set.delete(id)) changed = true; });
+    if (changed) localStorage.setItem(STORAGE_KEY_CLOUD_DENIED_PROJECTS, JSON.stringify(Array.from(set)));
+  } catch (_) {}
+}
+
+async function readCloudProjectOwnership(sb, cid) {
+  try {
+    const { data, error } = await sb
+      .from('proyectos')
+      .select('id, owner_email, creado_por')
+      .eq('id', cid)
+      .maybeSingle();
+    if (error) return null;
+    return data || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function readHostManifestIds(sb, hostEmail) {
   try {
     const { data: row } = await sb
@@ -150,6 +205,17 @@ async function resolveForeignOwnedLocalProject(sb, p, myEmail, currentUser, allP
   const cid = String(p?.cloudId || p?.id || '').trim();
   if (!sb || !cid || !UUID_RE.test(cid) || !myEmail) return '';
 
+  const hint = (ownerHint || '').toLowerCase().trim();
+  if (!hint || hint === myEmail) return '';
+
+  const cloudRow = await readCloudProjectOwnership(sb, cid);
+  const cloudOwner = (cloudRow?.owner_email || '').toLowerCase().trim();
+  if (cloudRow && (cloudOwner === myEmail || (cloudRow.creado_por && cloudRow.creado_por === currentUser?.id))) {
+    unmarkCloudDeniedProjects([cid, p.id]);
+    return '';
+  }
+  const foreignOwner = cloudOwner || hint;
+
   let myRow = null;
   try {
     const { data: rows } = await sb
@@ -160,6 +226,10 @@ async function resolveForeignOwnedLocalProject(sb, p, myEmail, currentUser, allP
       .limit(1);
     myRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
   } catch (_) {}
+  if ((myRow?.rol || '').toLowerCase().trim() === 'owner') {
+    unmarkCloudDeniedProjects([cid, p.id]);
+    return '';
+  }
   const rowStatus = (myRow?.estado_invitacion || '').toLowerCase().trim();
 
   const hostInvs = (Array.isArray(allPlanInvs) ? allPlanInvs : []).filter(pi => {
@@ -169,9 +239,8 @@ async function resolveForeignOwnedLocalProject(sb, p, myEmail, currentUser, allP
   });
 
   let verifiedHost = '';
-  const hint = (ownerHint || '').toLowerCase().trim();
-  if (hint && hint !== myEmail && hostInvs.some(pi => (pi.ownerEmail || '').toLowerCase().trim() === hint)) {
-    verifiedHost = hint;
+  if (hostInvs.some(pi => (pi.ownerEmail || '').toLowerCase().trim() === foreignOwner)) {
+    verifiedHost = foreignOwner;
   }
   if (!verifiedHost) {
     for (const pi of hostInvs) {
@@ -338,17 +407,11 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
   const sb = getSupabaseClient();
   if (!sb || !isSupabaseConfigured()) return false;
 
-  const now = Date.now();
   const force = Boolean(opts?.force);
-  if (!force && nextCloudUpdateAllowedAt > now) {
-    return false;
-  }
 
   if (isCloudSyncInFlight) {
-    if (!nextCloudUpdateAllowedAt || nextCloudUpdateAllowedAt <= now) {
-      pendingCloudSync = true;
-      pendingCloudSyncUser = user || getCurrentUser();
-    }
+    pendingCloudSync = true;
+    pendingCloudSyncUser = user || getCurrentUser();
     return false;
   }
 
@@ -358,6 +421,7 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
 
   isCloudSyncInFlight = true;
   let syncFailed = false;
+  let deferredMetadataMs = 0;
   try {
     const { data: sessionData, error: sessionErr } = await sb.auth.getSession();
     const sessionUser = sessionData?.session?.user;
@@ -376,24 +440,24 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
     });
 
     // 3. Invitaciones al plan de anfitriones recibidas/aceptadas
-    const myPlanInvs = allPlanInvs.filter(pi => 
+    const myPlanInvs = allPlanInvs.filter(pi =>
       (pi.email || '').toLowerCase().trim() === myEmail
     );
 
     // 4. Invitaciones formales de proyectos recibidas/aceptadas
-    const myAcceptedInvs = allInvs.filter(i => 
+    const myAcceptedInvs = allInvs.filter(i =>
       (i.email || '').toLowerCase().trim() === myEmail
     );
 
     // 5. Invitaciones emitidas por este usuario hacia otros (como anfitrión)
-    const mySentPlanInvs = allPlanInvs.filter(pi => 
+    const mySentPlanInvs = allPlanInvs.filter(pi =>
       (pi.ownerEmail || '').toLowerCase().trim() === myEmail
     );
-    const mySentProjectInvs = allInvs.filter(i => 
+    const mySentProjectInvs = allInvs.filter(i =>
       (i.ownerEmail || '').toLowerCase().trim() === myEmail
     );
 
-    // 6. Suscripción activa del usuario
+    // 6. Suscripción activa del usuario (con ámbito por aplicación)
     let currentSub = currentUser.subscription;
     if (!currentSub && typeof localStorage !== 'undefined') {
       try {
@@ -405,10 +469,11 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
       currentSub = { planId: getUserPlanId(currentUser) || 'free', billingCycle: 'monthly' };
     }
 
+    const remoteState = sessionUser?.user_metadata?.cubikar_cloud_state_v2 || currentUser?.user_metadata?.cubikar_cloud_state_v2;
     const deletedList = typeof getDeletedProjectsList === 'function' ? getDeletedProjectsList() : [];
     const cloudPayload = compactCloudStatePayload({
       version: 2,
-      subscription: currentSub,
+      appSubscriptions: buildAppSubscriptions(remoteState, currentSub),
       ownedProjects: [],
       collaboratedProjects: [],
       planInvitations: myPlanInvs,
@@ -420,9 +485,9 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
     });
 
     const nextSignature = computeCloudStateSignature(cloudPayload);
-    const remoteState = sessionUser?.user_metadata?.cubikar_cloud_state_v2 || currentUser?.user_metadata?.cubikar_cloud_state_v2;
     const remoteSignature = computeCloudStateSignature(remoteState);
     const hasLegacyV1Remote = Boolean(sessionUser?.user_metadata?.cubikar_collaboration_v1 || currentUser?.user_metadata?.cubikar_collaboration_v1);
+    const nowMs = Date.now();
 
     let didWriteAny = false;
     if (!hasLegacyV1Remote && nextSignature && (nextSignature === lastCloudSyncSignature || nextSignature === remoteSignature)) {
@@ -434,9 +499,11 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
           saveCurrentUser(currentUser);
         }
       }
-    } else if (!force && lastCloudUpdateAt > 0 && (Date.now() - lastCloudUpdateAt) < MIN_CLOUD_UPDATE_INTERVAL_MS) {
-      // Enfriamiento mínimo entre escrituras a Supabase Auth para evitar saturación de red
-      return false;
+    } else if (!force && nextCloudUpdateAllowedAt > nowMs) {
+      // En backoff por fallos previos: se omite la escritura de metadata, pero se suben los proyectos pendientes
+    } else if (!force && lastCloudUpdateAt > 0 && (nowMs - lastCloudUpdateAt) < MIN_CLOUD_UPDATE_INTERVAL_MS) {
+      // Enfriamiento mínimo entre escrituras a Supabase Auth: se reprograma la escritura de metadata
+      deferredMetadataMs = MIN_CLOUD_UPDATE_INTERVAL_MS - (nowMs - lastCloudUpdateAt);
     } else {
       markInternalCloudAuthUpdate();
       const { error } = await sb.auth.updateUser({
@@ -458,56 +525,27 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
         if (consecutiveCloudUpdateFailures <= 3) {
           console.warn(`[CloudSync] Aviso al guardar estado en Supabase (reintento en ${Math.round(backoffMs / 1000)}s):`, error.message);
         }
-        return false;
-      }
+      } else {
+        didWriteAny = true;
+        consecutiveCloudUpdateFailures = 0;
+        nextCloudUpdateAllowedAt = 0;
+        lastCloudUpdateAt = Date.now();
+        lastCloudSyncSignature = nextSignature;
 
-      didWriteAny = true;
-      consecutiveCloudUpdateFailures = 0;
-      nextCloudUpdateAllowedAt = 0;
-      lastCloudUpdateAt = Date.now();
-      lastCloudSyncSignature = nextSignature;
-
-      if (currentUser) {
-        if (!currentUser.user_metadata) currentUser.user_metadata = {};
-        currentUser.user_metadata.cubikar_cloud_state_v2 = cloudPayload;
-        saveCurrentUser(currentUser);
-      }
-    }
-
-    // Persistir proyectos nuevos del propietario que aún no han sido sincronizados a PostgreSQL
-    const rawProjects = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail && !p.isCloudSynced && !isProjectMarkedDeleted(p.id) && !isProjectMarkedDeleted(p.cloudId));
-    let localProjectsUpdated = false;
-    let foreignProjectsResolved = false;
-    for (const p of rawProjects) {
-      try {
-        let tree = null;
-        let setts = null;
-        const rawT = localStorage.getItem(getStorageKey(p.id));
-        const rawS = localStorage.getItem(getSettingsKey(p.id));
-        if (rawT) tree = JSON.parse(rawT);
-        if (rawS) setts = JSON.parse(rawS);
-        const res = await syncProjectToCloud(p, setts, tree);
-        if (res && res.success) {
-          p.isCloudSynced = true;
-          if (res.projectId) p.cloudId = res.projectId;
-          localProjectsUpdated = true;
-          didWriteAny = true;
-        } else if (res && res.rlsBlocked) {
-          const outcome = await resolveForeignOwnedLocalProject(sb, p, myEmail, currentUser, allPlanInvs, res.existingOwnerEmail || '');
-          if (outcome) {
-            localProjectsUpdated = true;
-            foreignProjectsResolved = true;
-          }
+        if (currentUser) {
+          if (!currentUser.user_metadata) currentUser.user_metadata = {};
+          currentUser.user_metadata.cubikar_cloud_state_v2 = cloudPayload;
+          saveCurrentUser(currentUser);
         }
-      } catch (e) {
-        console.warn('[CloudSync] Aviso al sincronizar proyecto individual con PostgreSQL:', e);
       }
     }
-    if (localProjectsUpdated && typeof saveProjectsList === 'function') {
-      saveProjectsList(allProjects.filter(p => !p.__cloudDenied), { skipCloudSync: true });
-      if (foreignProjectsResolved && typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
-        window.refreshProjectsGridUI();
-      }
+
+    // Persistir proyectos nuevos propios (o creados por mí en el espacio de un anfitrión) aún no sincronizados
+    const upload = await uploadUnsyncedOwnProjects(sb, allProjects, myEmail, currentUser, allPlanInvs);
+    if (upload.didUpload) didWriteAny = true;
+    if (upload.patches.size > 0 && patchProjectsList(upload.patches) && upload.foreignResolved
+      && typeof window !== 'undefined' && typeof window.refreshProjectsGridUI === 'function') {
+      window.refreshProjectsGridUI();
     }
 
     // Publicar manifiesto de proyectos activos del anfitrión en Supabase para sincronización inter-usuarios (solo si cambió)
@@ -521,7 +559,7 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
     if (didWriteAny) {
       console.info(`[CloudSync] Estado respaldado en la nube con éxito (${myOwnedActiveProjects.length} propias activas, ${myPlanInvs.length} anfitriones).`);
     }
-    return true;
+    return !syncFailed;
   } catch (err) {
     syncFailed = true;
     consecutiveCloudUpdateFailures++;
@@ -533,15 +571,77 @@ export async function syncUserCollaborationToCloud(user = null, opts = {}) {
     return false;
   } finally {
     isCloudSyncInFlight = false;
-    if (pendingCloudSync) {
-      const nextUser = pendingCloudSyncUser || getCurrentUser();
-      pendingCloudSync = false;
-      pendingCloudSyncUser = null;
-      if (!syncFailed && nextCloudUpdateAllowedAt <= Date.now()) {
-        setTimeout(() => { syncUserCollaborationToCloud(nextUser); }, 1500);
-      }
+    const nextUser = pendingCloudSyncUser || currentUser;
+    const hadPending = pendingCloudSync;
+    pendingCloudSync = false;
+    pendingCloudSyncUser = null;
+    if (deferredMetadataMs > 0) {
+      scheduleCloudStateSync(nextUser, deferredMetadataMs);
+    } else if (hadPending && !syncFailed && nextCloudUpdateAllowedAt <= Date.now()) {
+      scheduleCloudStateSync(nextUser, 1500);
     }
   }
+}
+
+function isUploadableOwnProject(p, myEmail) {
+  if (!p || p.isCloudSynced) return false;
+  if (isProjectMarkedDeleted(p.id) || isProjectMarkedDeleted(p.cloudId)) return false;
+  const ownerEmail = (p.ownerEmail || '').toLowerCase().trim();
+  const creatorEmail = (p.createdByEmail || '').toLowerCase().trim();
+  return ownerEmail === myEmail || creatorEmail === myEmail;
+}
+
+function readJsonStorage(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Sube los proyectos propios pendientes y devuelve parches por id (null = ocultar de la lista local)
+ * para aplicarlos sobre una lectura fresca de la lista, nunca sobre la copia leída al inicio.
+ */
+async function uploadUnsyncedOwnProjects(sb, projects, myEmail, currentUser, allPlanInvs) {
+  const patches = new Map();
+  let didUpload = false;
+  let foreignResolved = false;
+  for (const snapshot of projects.filter(p => isUploadableOwnProject(p, myEmail))) {
+    const p = { ...snapshot };
+    try {
+      const res = await syncProjectToCloud(p, readJsonStorage(getSettingsKey(p.id)), readJsonStorage(getStorageKey(p.id)));
+      if (res && res.success) {
+        patches.set(snapshot.id, {
+          isCloudSynced: true,
+          cloudId: res.projectId || p.cloudId || snapshot.cloudId,
+          lastCloudSyncAt: new Date().toISOString()
+        });
+        if ((p.ownerEmail || '').toLowerCase().trim() === myEmail) unmarkCloudDeniedProjects([snapshot.id, res.projectId]);
+        didUpload = true;
+      } else if (res && res.rlsBlocked) {
+        const outcome = await resolveForeignOwnedLocalProject(sb, p, myEmail, currentUser, allPlanInvs, res.existingOwnerEmail || '');
+        if (outcome === 'denied') {
+          patches.set(snapshot.id, null);
+          foreignResolved = true;
+        } else if (outcome === 'reassigned') {
+          patches.set(snapshot.id, {
+            ownerEmail: p.ownerEmail,
+            ownerName: p.ownerName,
+            ownerPlanId: p.ownerPlanId,
+            cloudId: p.cloudId,
+            isCloudSynced: true,
+            members: p.members
+          });
+          foreignResolved = true;
+        }
+      }
+    } catch (e) {
+      console.warn('[CloudSync] Aviso al sincronizar proyecto individual con PostgreSQL:', e);
+    }
+  }
+  return { patches, didUpload, foreignResolved };
 }
 
 /**
@@ -616,12 +716,13 @@ export function restoreUserCollaborationFromCloud(user = null) {
 
   let hasChanges = false;
 
-  // 1. Restaurar suscripción en localStorage de esta computadora
-  if (state.subscription && state.subscription.planId) {
+  // 1. Restaurar suscripción de esta aplicación en localStorage de esta computadora
+  const cloudSubscription = readAppSubscriptionFromCloudState(state);
+  if (cloudSubscription && cloudSubscription.planId) {
     try {
-      localStorage.setItem(`adm_const_subscription_${myEmail}`, JSON.stringify(state.subscription));
-      if (!currentUser.subscription || currentUser.subscription.planId !== state.subscription.planId) {
-        currentUser.subscription = state.subscription;
+      localStorage.setItem(`adm_const_subscription_${myEmail}`, JSON.stringify(cloudSubscription));
+      if (!currentUser.subscription || currentUser.subscription.planId !== cloudSubscription.planId) {
+        currentUser.subscription = cloudSubscription;
         saveCurrentUser(currentUser);
         hasChanges = true;
       }
@@ -632,7 +733,10 @@ export function restoreUserCollaborationFromCloud(user = null) {
   // (no reinyectar state.ownedProjects, state.collaboratedProjects ni state.deletedProjectIds desde user_metadata).
   const isDeleted = (id) => {
     if (!id) return false;
-    return typeof isProjectMarkedDeleted === 'function' ? isProjectMarkedDeleted(id) : false;
+    const deleted = typeof isProjectMarkedDeleted === 'function' ? isProjectMarkedDeleted(id) : false;
+    const trashed = typeof isProjectTrashedLocal === 'function' ? isProjectTrashedLocal(id) : false;
+    const cloudTrashed = typeof getTrashedCloudProjectIds === 'function' ? getTrashedCloudProjectIds().has(String(id).trim()) : false;
+    return deleted || trashed || cloudTrashed;
   };
 
   // Limpiar copias obsoletas en localStorage según lápidas conocidas
@@ -741,7 +845,7 @@ export function restoreUserCollaborationFromCloud(user = null) {
 
       candidateIds.forEach(cid => {
         if (!cid || cid === 'default' || cid === 'proj-opus-casa-laura' || cid.startsWith('proj-default') || cid.startsWith('proj-demo')) return;
-        if (existingIds.has(cid) || confirmedCloudDeletedIds.has(cid) || cloudDeniedIds.has(cid)) return;
+        if (existingIds.has(cid) || confirmedCloudDeletedIds.has(cid) || cloudDeniedIds.has(cid) || isDeleted(cid)) return;
         let parsedSet = null;
         let parsedTree = null;
         try {
@@ -846,10 +950,12 @@ export function restoreUserCollaborationFromCloud(user = null) {
     const sb = getSupabaseClient();
     inFlightCloudRestorePromise = (async () => {
       try {
-        let [cloudList, wsResult] = await Promise.all([
+        const [fetchedCloudList, wsResult] = await Promise.all([
           fetchCloudProjects(),
           fetchMyCloudCollaborationWorkspaces(sb, myEmail)
         ]);
+        let cloudList = fetchedCloudList;
+        const pendingInviteProjectIds = new Set();
 
         if (wsResult?.ok && Array.isArray(wsResult.rows) && wsResult.rows.length > 0) {
           const localPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
@@ -867,11 +973,40 @@ export function restoreUserCollaborationFromCloud(user = null) {
             const role = row?.rol || 'editar';
             if (st === 'rejected' || role === 'owner') continue;
 
-            if (st === 'pending' && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
-              try {
-                const promoRes = await window.addCollaboratorToCloud(projId, myEmail, role, 'accepted');
-                if (promoRes?.success) promotedAny = true;
-              } catch (_) {}
+            const iIdx = localInvs.findIndex(li =>
+              li.projectId === projId && (li.email || '').toLowerCase().trim() === myEmail
+            );
+            if (st === 'pending') {
+              const localStatus = iIdx >= 0 ? (localInvs[iIdx].status || '').toLowerCase().trim() : '';
+              const acceptedLocally = localStatus === 'accepted' || localStatus === 'active';
+              let promoted = false;
+              if (acceptedLocally && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
+                try {
+                  const promoRes = await window.addCollaboratorToCloud(projId, myEmail, role, 'accepted');
+                  promoted = Boolean(promoRes?.success);
+                  if (promoted) promotedAny = true;
+                } catch (_) {}
+              }
+              if (!promoted) {
+                pendingInviteProjectIds.add(projId);
+                if (iIdx === -1 && hostEm) {
+                  localInvs.unshift({
+                    id: `inv-cloud-${projId}-${myEmail}`,
+                    projectId: projId,
+                    projectName: row?.nombre || 'Proyecto de Obra',
+                    companyName: row?.company_name || '',
+                    ownerEmail: hostEm,
+                    ownerName: resolveCleanHostName(hostEm, row?.owner_name, null, myEmail),
+                    email: myEmail,
+                    name: currentUser.name || myEmail.split('@')[0],
+                    role,
+                    status: 'pending',
+                    createdAt: row?.updated_at || new Date().toISOString()
+                  });
+                  invsChanged = true;
+                }
+                continue;
+              }
             }
 
             if (hostEm) {
@@ -900,9 +1035,6 @@ export function restoreUserCollaborationFromCloud(user = null) {
               }
             }
 
-            const iIdx = localInvs.findIndex(li =>
-              li.projectId === projId && (li.email || '').toLowerCase().trim() === myEmail
-            );
             if (iIdx === -1 && hostEm) {
               localInvs.unshift({
                 id: `inv-cloud-${projId}-${myEmail}`,
@@ -950,7 +1082,8 @@ export function restoreUserCollaborationFromCloud(user = null) {
           }
         }
 
-        if (!Array.isArray(cloudList)) cloudList = [];
+        const cloudListReliable = Array.isArray(cloudList);
+        cloudList = cloudListReliable ? cloudList.map(cp => ({ ...cp })) : [];
         if (wsResult?.ok && Array.isArray(wsResult.rows)) {
           wsResult.rows.forEach(row => {
             const projId = row?.proyecto_id;
@@ -981,7 +1114,7 @@ export function restoreUserCollaborationFromCloud(user = null) {
                   name: currentUser.name || myEmail.split('@')[0],
                   email: myEmail,
                   role,
-                  status: 'accepted',
+                  status: pendingInviteProjectIds.has(projId) ? 'pending' : 'accepted',
                   allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora']
                 }]
               });
@@ -1055,6 +1188,10 @@ export function restoreUserCollaborationFromCloud(user = null) {
           });
         };
 
+        unmarkCloudDeniedProjects(activeCloud
+          .filter(cp => (cp?.ownerEmail || '').toLowerCase().trim() === myEmail)
+          .map(cp => cp.id));
+
         activeCloud.forEach(cp => {
           if (isDeleted(cp.id) || isDeleted(cp.cloudId)) return;
           const idx = curList.findIndex(lp => lp.id === cp.id || lp.cloudId === cp.id);
@@ -1082,14 +1219,12 @@ export function restoreUserCollaborationFromCloud(user = null) {
               localMems.forEach(lm => {
                 const lmEmail = (lm?.email || '').toLowerCase().trim();
                 const lmStatus = (lm?.status || '').toLowerCase().trim();
-                if (!lmEmail || lmStatus === 'rejected') return;
+                if (!lmEmail || lmStatus === 'rejected' || lm.pendingCloudAdd !== true) return;
                 const cloudExisting = mergedMembers.find(cm => (cm?.email || '').toLowerCase().trim() === lmEmail);
                 if (!cloudExisting) {
                   mergedMembers.push(lm);
-                  if (lmEmail !== myEmail && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
-                    try {
-                      window.addCollaboratorToCloud(cp.id, lmEmail, lm.role || 'editar', 'accepted');
-                    } catch (_) {}
+                  if (lmEmail !== myEmail) {
+                    pushCollaboratorToCloud({ id: curList[idx].id, cloudId: cp.id }, lmEmail, lm.role || 'editar', lmStatus === 'pending' ? 'pending' : 'accepted');
                   }
                 }
               });
@@ -1109,11 +1244,16 @@ export function restoreUserCollaborationFromCloud(user = null) {
           }
         });
 
-        // 2. RECONCILIACIÓN DE PROYECTOS COLABORADOS:
+        // 2. RECONCILIACIÓN DE PROYECTOS COLABORADOS Y PAPELERA:
         const activeCloudIds = new Set(activeCloud.map(cp => cp.id));
+        const cloudTrashedIds = typeof getTrashedCloudProjectIds === 'function' ? getTrashedCloudProjectIds() : new Set();
         const activePId = typeof window !== 'undefined' && window.location?.search ? new URLSearchParams(window.location.search).get('project') : null;
         let prunedCollab = 0;
         const cleanList = curList.filter(p => {
+          if (cloudTrashedIds.has(p.id) || (p.cloudId && cloudTrashedIds.has(p.cloudId)) || isProjectTrashedLocal(p.id) || (p.cloudId && isProjectTrashedLocal(p.cloudId))) {
+            prunedCollab++;
+            return false;
+          }
           const pOwner = (p.ownerEmail || '').toLowerCase().trim();
           if (!pOwner || pOwner === myEmail || p.isSample || (typeof p.id === 'string' && (p.id.startsWith('proj-default') || p.id.startsWith('proj-demo')))) {
             return true;
@@ -1125,10 +1265,18 @@ export function restoreUserCollaborationFromCloud(user = null) {
             prunedCollab++;
             return false;
           }
-          if (Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === myEmail && (m.status === 'active' || m.status === 'accepted' || m.status === 'pending'))) {
+          if (!cloudListReliable) {
             return true;
           }
           if (!activeCloudIds.has(p.id) && !activeCloudIds.has(p.cloudId)) {
+            // Si ya estaba sincronizado en Supabase y la nube ya no lo devuelve, fue movido a papelera, eliminado o revocado
+            if (p.isCloudSynced) {
+              prunedCollab++;
+              return false;
+            }
+            if (Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === myEmail && (m.status === 'active' || m.status === 'accepted' || m.status === 'pending'))) {
+              return true;
+            }
             prunedCollab++;
             return false;
           }
@@ -1419,15 +1567,21 @@ export async function syncHostWorkspaceProjects(hostEmail) {
         if (activePId && (p.id === activePId || p.cloudId === activePId)) {
           return true;
         }
-        if (isProjectMarkedDeleted(p.id) || (p.cloudId && isProjectMarkedDeleted(p.cloudId))) {
+        if (isProjectMarkedDeleted(p.id) || (p.cloudId && isProjectMarkedDeleted(p.cloudId)) || isProjectTrashedLocal(p.id) || (p.cloudId && isProjectTrashedLocal(p.cloudId))) {
           prunedCount++;
           return false;
         }
-        if (activeIdsSet.size > 0 && !activeIdsSet.has(p.id) && !activeIdsSet.has(p.cloudId)) {
-          const hasLocalMem = Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === myEmail && (m.status === 'active' || m.status === 'accepted' || m.status === 'pending'));
-          if (!hasLocalMem) {
+        if (!activeIdsSet.has(p.id) && !activeIdsSet.has(p.cloudId)) {
+          if (p.isCloudSynced) {
             prunedCount++;
             return false;
+          }
+          if (activeIdsSet.size > 0) {
+            const hasLocalMem = Array.isArray(p.members) && p.members.some(m => (m.email || '').toLowerCase().trim() === myEmail && (m.status === 'active' || m.status === 'accepted' || m.status === 'pending'));
+            if (!hasLocalMem) {
+              prunedCount++;
+              return false;
+            }
           }
         }
         const cloudP = mappedHostProjects.find(cp => cp.id === p.id || cp.id === p.cloudId);
@@ -1472,6 +1626,49 @@ export async function syncHostWorkspaceProjects(hostEmail) {
 /**
  * Reconciliar lápidas globales de proyectos eliminados en la nube
  */
+async function fetchExistingCloudProjectIds(sb, ids) {
+  const uuids = Array.from(new Set(ids.filter(id => UUID_RE.test(id))));
+  const existing = new Set();
+  for (let i = 0; i < uuids.length; i += 200) {
+    const { data, error } = await sb.from('proyectos').select('id').in('id', uuids.slice(i, i + 200));
+    if (error || !Array.isArray(data)) return null;
+    data.forEach(r => { if (r?.id) existing.add(String(r.id).trim()); });
+  }
+  return existing;
+}
+
+/**
+ * Las lápidas de chat (__cubikar_tombstones__) solo se respetan si las escribió el propietario local
+ * de la obra o si la obra ya no existe en public.proyectos. Se procesan de la más reciente a la más antigua.
+ */
+async function selectAuthoritativeChatTombstones(sb, tombstones) {
+  const ownerById = new Map();
+  getProjectsList().forEach(p => {
+    const owner = (p.ownerEmail || '').toLowerCase().trim();
+    [p.id, p.cloudId].filter(Boolean).forEach(id => ownerById.set(String(id).trim(), owner));
+  });
+
+  const candidates = [];
+  const seen = new Set();
+  tombstones.forEach(t => {
+    const pid = String(t?.payload_json?.projectId || t?.mensaje || '').trim();
+    if (!pid || seen.has(pid)) return;
+    seen.add(pid);
+    candidates.push({ pid, author: (t?.autor_email || '').toLowerCase().trim() });
+  });
+
+  const byOwner = candidates.filter(c => c.author && ownerById.get(c.pid) === c.author);
+  const unverified = candidates.filter(c => !byOwner.includes(c)).map(c => c.pid);
+  let existing = null;
+  try {
+    existing = unverified.length > 0 ? await fetchExistingCloudProjectIds(sb, unverified) : new Set();
+  } catch (_) {
+    existing = null;
+  }
+  const orphaned = existing ? unverified.filter(pid => UUID_RE.test(pid) && !existing.has(pid)) : [];
+  return [...byOwner.map(c => c.pid), ...orphaned];
+}
+
 export async function reconcileDeletedProjectsWithCloud(opts = {}) {
   const sb = getSupabaseClient();
   if (!sb || typeof sb.from !== 'function') return false;
@@ -1490,7 +1687,11 @@ export async function reconcileDeletedProjectsWithCloud(opts = {}) {
     lastReconcileAt = Date.now();
     const [{ data: cloudDeletedRows, error: cdErr }, { data: tombstones, error: tErr }] = await Promise.all([
       sb.from('proyectos_eliminados').select('proyecto_id, owner_email, deleted_by_email, deleted_at').limit(500),
-      sb.from('chat_mensajes').select('mensaje, payload_json').eq('proyecto_id', '__cubikar_tombstones__').limit(500)
+      sb.from('chat_mensajes')
+        .select('mensaje, payload_json, autor_email, created_at')
+        .eq('proyecto_id', '__cubikar_tombstones__')
+        .order('created_at', { ascending: false })
+        .limit(500)
     ]);
 
     if (cdErr && tErr) {
@@ -1516,10 +1717,8 @@ export async function reconcileDeletedProjectsWithCloud(opts = {}) {
     }
 
     if (!tErr && Array.isArray(tombstones) && tombstones.length > 0) {
-      tombstones.forEach(t => {
-        const pid = t.payload_json?.projectId || t.mensaje;
-        registerDeletedId(pid);
-      });
+      const honoured = await selectAuthoritativeChatTombstones(sb, tombstones);
+      honoured.forEach(registerDeletedId);
     }
 
     if (changed) {
@@ -1627,7 +1826,6 @@ export async function autoSyncCollaborationOnStartup(user = null, opts = {}) {
     // Paso 3: Verificar si localStorage local contiene obras no respaldadas o metadata legado por limpiar
     const myEmail = (currentUser.email || '').toLowerCase().trim();
     const allProjects = typeof getProjectsList === 'function' ? getProjectsList() : [];
-    const localOwned = allProjects.filter(p => (p.ownerEmail || '').toLowerCase().trim() === myEmail);
 
     const allPlanInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
     const myPlanInvs = allPlanInvs.filter(pi => (pi.email || '').toLowerCase().trim() === myEmail);
@@ -1637,7 +1835,7 @@ export async function autoSyncCollaborationOnStartup(user = null, opts = {}) {
     const hasLegacyArrays = (Array.isArray(cloudState?.ownedProjects) && cloudState.ownedProjects.length > 0) ||
       (Array.isArray(cloudState?.collaboratedProjects) && cloudState.collaboratedProjects.length > 0);
     const hasBloatedDelIds = Array.isArray(cloudState?.deletedProjectIds) && cloudState.deletedProjectIds.length > MAX_METADATA_DELETED_IDS;
-    const hasUnsyncedLocal = localOwned.some(p => !p.isCloudSynced && !isProjectMarkedDeleted(p.id) && !isProjectMarkedDeleted(p.cloudId));
+    const hasUnsyncedLocal = allProjects.some(p => isUploadableOwnProject(p, myEmail));
     const cloudPlanCount = Array.isArray(cloudState?.planInvitations) ? cloudState.planInvitations.length : 0;
 
     if (
@@ -1664,18 +1862,20 @@ export async function autoSyncCollaborationOnStartup(user = null, opts = {}) {
   return startupSyncInFlightPromise;
 }
 
+function scheduleCloudStateSync(user, delayMs) {
+  if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = setTimeout(() => {
+    syncDebounceTimer = null;
+    syncUserCollaborationToCloud(user);
+  }, Math.max(1500, delayMs));
+}
+
 /**
  * Disparador con debounce y respeto de backoff para evitar saturar Supabase Auth
  */
 export function triggerDebouncedCloudStateSync(user = null) {
-  if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
   const now = Date.now();
-  const baseDelay = 1500;
-  const delay = nextCloudUpdateAllowedAt > now ? Math.max(baseDelay, nextCloudUpdateAllowedAt - now) : baseDelay;
-  syncDebounceTimer = setTimeout(() => {
-    syncDebounceTimer = null;
-    syncUserCollaborationToCloud(user);
-  }, delay);
+  scheduleCloudStateSync(user, nextCloudUpdateAllowedAt > now ? nextCloudUpdateAllowedAt - now : 1500);
 }
 
 if (typeof window !== 'undefined') {
