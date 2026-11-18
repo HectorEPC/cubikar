@@ -2,10 +2,10 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf26';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261117_cf26';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261117_cf26';
-import { showToast } from '../ui/notifications.js?v=20261117_cf26';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf27';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261117_cf27';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261117_cf27';
+import { showToast } from '../ui/notifications.js?v=20261117_cf27';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -333,7 +333,14 @@ async function recoverHeaderRlsError(sb, projectRecord, user, projError) {
     return { success: false, error: projError };
   }
 
-  const { error: retryErr } = await sb.from('proyectos').upsert(projectRecord, { onConflict: 'id' });
+  const { id: _ignoredId, creado_por: _ignoredCreator, ...retryUpdate } = {
+    ...projectRecord,
+    owner_email: row.owner_email || projectRecord.owner_email
+  };
+  const { error: retryErr } = await sb
+    .from('proyectos')
+    .update(retryUpdate)
+    .eq('id', projectRecord.id);
   if (!retryErr) return { success: true };
   const rowAgeMs = row.updated_at ? Date.now() - new Date(row.updated_at).getTime() : Infinity;
   if (rowAgeMs >= 0 && rowAgeMs < 60000) return { success: true };
@@ -516,13 +523,22 @@ async function runProjectSync({ project, settings = {}, treeData = null, headerC
       updated_at: new Date().toISOString()
     };
 
-    const { error: projError } = await sb
-      .from('proyectos')
-      .upsert(projectRecord, { onConflict: 'id' });
+    let projError = null;
+    if (existingCloudProj) {
+      const { id: _ignoredId, creado_por: _ignoredCreator, ...updateRecord } = projectRecord;
+      ({ error: projError } = await sb
+        .from('proyectos')
+        .update(updateRecord)
+        .eq('id', projectId));
+    } else {
+      ({ error: projError } = await sb
+        .from('proyectos')
+        .insert(projectRecord));
+    }
 
     if (projError) {
-      const isRlsBlocked = projError.code === '42501' || /row-level security/i.test(String(projError.message || ''));
-      if (!isRlsBlocked) {
+      const isRlsOrConflict = projError.code === '42501' || projError.code === '23505' || /row-level security/i.test(String(projError.message || ''));
+      if (!isRlsOrConflict) {
         const isTriggerRejection = projError.code === 'P0001';
         const reason = isTriggerRejection ? (projError.message || 'Operación rechazada por regla de seguridad.') : undefined;
         console.warn('[CloudProjectService] Error al guardar proyecto en Supabase:', projError.message);

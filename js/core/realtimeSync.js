@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf26';
-import { state } from '../state/store.js?v=20261117_cf26';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261117_cf27';
+import { state } from '../state/store.js?v=20261117_cf27';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -22,10 +22,10 @@ import {
   unmarkProjectTrashedLocal,
   isProjectTrashedLocal,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261117_cf26';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261117_cf26';
-import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261117_cf26';
-import { showToast } from '../ui/notifications.js?v=20261117_cf26';
+} from '../modules/portal/projectService.js?v=20261117_cf27';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261117_cf27';
+import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261117_cf27';
+import { showToast } from '../ui/notifications.js?v=20261117_cf27';
 
 const CLOUD_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isCloudUuid = (s) => CLOUD_UUID_RE.test(String(s || '').trim());

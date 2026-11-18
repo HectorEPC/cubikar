@@ -447,6 +447,17 @@ CREATE TRIGGER trg_proyecto_colaborador_creador
     AFTER INSERT ON public.proyectos
     FOR EACH ROW EXECUTE FUNCTION public.trg_after_insert_proyecto_colaborador_creador();
 
+-- En UPSERT (INSERT ... ON CONFLICT DO UPDATE), PostgreSQL verifica WITH CHECK de UPDATE incluso al insertar fila nueva;
+-- usar can_insert_or_upsert_proyecto en WITH CHECK evita falsos 403 al crear proyectos nuevos vía UPSERT.
+DROP POLICY IF EXISTS "proyectos_update_colaboracion" ON public.proyectos;
+CREATE POLICY "proyectos_update_colaboracion" ON public.proyectos
+    FOR UPDATE USING (
+        public.check_user_project_access(id::text, ARRAY['owner', 'admin', 'editar', 'escribir'])
+    )
+    WITH CHECK (
+        public.can_insert_or_upsert_proyecto(id, owner_email::text, empresa_id)
+    );
+
 -- ------------------------------------------------------------------------------
 -- 6. Permisos de ejecución
 -- ------------------------------------------------------------------------------

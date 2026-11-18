@@ -1,13 +1,13 @@
-import { resolveUserEmpresaId } from '../core/cloudProjectService.js?v=20261117_cf26';
-import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261117_cf26';
-import { getCurrentUser } from '../modules/portal/projectService.js?v=20261117_cf26';
-import { showToast } from '../ui/notifications.js?v=20261117_cf26';
+import { resolveUserEmpresaId } from '../core/cloudProjectService.js?v=20261117_cf27';
+import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261117_cf27';
+import { getCurrentUser } from '../modules/portal/projectService.js?v=20261117_cf27';
+import { showToast } from '../ui/notifications.js?v=20261117_cf27';
 import {
   computeSha256Hex,
   formatBytes,
   getFileExtension,
   processFileForUpload
-} from '../utils/fileCompressor.js?v=20261117_cf26';
+} from '../utils/fileCompressor.js?v=20261117_cf27';
 import {
   deleteCachedMediaRecord,
   getCachedMediaDataUrl,
@@ -16,13 +16,13 @@ import {
   listPendingUploads,
   markMediaUploaded,
   putCachedMediaBlob
-} from './mediaCacheDb.js?v=20261117_cf26';
+} from './mediaCacheDb.js?v=20261117_cf27';
 import {
   notifyStorageUsageChanged,
   resolveHostStorageContext,
   validatePostCompressionQuota,
   validatePreCompressionFile
-} from './storageQuotaService.js?v=20261117_cf26';
+} from './storageQuotaService.js?v=20261117_cf27';
 
 function getPresignApiUrl() {
   const customBase = (typeof window !== 'undefined' && window.__CUBIKAR_API_BASE__) ? String(window.__CUBIKAR_API_BASE__).replace(/\/+$/, '') : '';

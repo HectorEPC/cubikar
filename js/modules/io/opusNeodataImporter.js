@@ -1,12 +1,12 @@
-import { parseSheetData } from './universalImporter.js?v=20261117_cf26';
-import { flattenPresetData } from '../ai/localMatrixEngine.js?v=20261117_cf26';
+import { parseSheetData } from './universalImporter.js?v=20261117_cf27';
+import { flattenPresetData } from '../ai/localMatrixEngine.js?v=20261117_cf27';
 ﻿// js/modules/io/opusNeodataImporter.js
 // Importador nativo para paquetes de restauración Opus (.zip con .bak),
 // archivos de base de datos Opus (.bak) y exportaciones de Neodata.
 // Extrae conceptos, unidades, cantidades, precios unitarios reales y garantiza la integración de matrices completas.
 
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf26';
-import { CASA_LAURA_PROJECT } from './casaLauraData.js?v=20261117_cf26';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf27';
+import { CASA_LAURA_PROJECT } from './casaLauraData.js?v=20261117_cf27';
 
 // Catálogos oficiales de referencia conocidos vinculados a sus paquetes de restauración
 const REFERENCE_RESTORE_MAPPING = [

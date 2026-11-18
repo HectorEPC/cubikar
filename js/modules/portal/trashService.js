@@ -7,9 +7,9 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261117_cf26';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261117_cf26';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf26';
+} from '../../config/constants.js?v=20261117_cf27';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261117_cf27';
+import { showToast } from '../../ui/notifications.js?v=20261117_cf27';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -24,7 +24,7 @@ import {
   unmarkProjectDeleted,
   markProjectTrashedLocal,
   unmarkProjectTrashedLocal
-} from './projectService.js?v=20261117_cf26';
+} from './projectService.js?v=20261117_cf27';
 import {
   isValidUUID,
   resolveCloudProjectId,
@@ -32,8 +32,8 @@ import {
   invalidateCloudProjectsCache,
   fetchCloudProjects,
   getCachedTrashedCloudProjects
-} from '../../core/cloudProjectService.js?v=20261117_cf26';
-import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261117_cf26';
+} from '../../core/cloudProjectService.js?v=20261117_cf27';
+import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261117_cf27';
 
 export const TRASH_RETENTION_DAYS = 7;
 export const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
@@ -297,9 +297,15 @@ export async function moveProjectToTrash(projectId) {
 
       if (!rpcErr) {
         if (rpcRes && rpcRes.ok === false) {
-          return { success: false, reason: rpcRes.error || 'No se pudo mover el proyecto a la papelera.' };
+          if (/no encontrado/i.test(String(rpcRes.error || ''))) {
+            // El proyecto solo existe localmente (p. ej. fallo 403/offline o ya purgado en nube): permitir enviarlo a papelera local
+            movedInCloud = false;
+          } else {
+            return { success: false, reason: rpcRes.error || 'No se pudo mover el proyecto a la papelera.' };
+          }
+        } else {
+          movedInCloud = true;
         }
-        movedInCloud = true;
       } else if (isMissingRpcOrColumnError(rpcErr)) {
         const nowIso = new Date().toISOString();
         const { error: updErr } = await sb

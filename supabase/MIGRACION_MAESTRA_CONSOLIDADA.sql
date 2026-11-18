@@ -833,6 +833,9 @@ CREATE POLICY "proyectos_insert_auth" ON public.proyectos
 CREATE POLICY "proyectos_update_colaboracion" ON public.proyectos
     FOR UPDATE USING (
         public.check_user_project_access(id::text, ARRAY['owner', 'admin', 'editar', 'escribir'])
+    )
+    WITH CHECK (
+        public.can_insert_or_upsert_proyecto(id, owner_email::text, empresa_id)
     );
 
 CREATE POLICY "proyectos_delete_colaboracion" ON public.proyectos
