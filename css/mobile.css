@@ -669,3 +669,254 @@ html, body {
 #toast-container > * {
   pointer-events: auto;
 }
+
+/* Calendario de Obra: Header tabs, Gantt de Obra, Dependencias y Curva S */
+.m-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.m-cal-head-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.m-cal-head-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-cal-head-sub {
+  margin: 2px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-cal-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  flex-shrink: 0;
+}
+
+.m-cal-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  padding: 6px 8px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.m-cal-tab.is-active {
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.28);
+}
+
+@media (max-width: 350px) {
+  .m-cal-head {
+    flex-wrap: wrap;
+  }
+  .m-cal-tabs {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .m-cal-tab {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+.m-gantt-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px 14px;
+  box-shadow: var(--shadow);
+}
+
+.m-gantt-ruler {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding-bottom: 9px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+}
+
+.m-gantt-ruler-col {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-gantt-ruler-col.is-today {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.m-gantt-rows {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.m-gantt-today-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  background: rgba(37, 99, 235, 0.24);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.m-gantt-row {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+  display: block;
+}
+
+.m-gantt-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.m-gantt-row-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-gantt-row-dur {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.m-gantt-track {
+  position: relative;
+  width: 100%;
+  height: 22px;
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+html[data-theme="night"] .m-gantt-track,
+html.dark-mode .m-gantt-track {
+  background: #1e293b;
+}
+
+.m-gantt-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 34px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 10.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.14);
+}
+
+.m-gantt-bar.is-critical {
+  background: #ef4444;
+}
+
+.m-dep-box {
+  background: #f5ebd9;
+  border: 1px solid #e6d2b2;
+  color: #3f2b12;
+  border-radius: 14px;
+  padding: 11px 13px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+html[data-theme="night"] .m-dep-box,
+html.dark-mode .m-dep-box {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.34);
+  color: #fde68a;
+}
+
+.m-pred-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 185px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+}
+
+.m-pred-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.m-pred-opt:hover {
+  background: var(--primary-soft);
+}

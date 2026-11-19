@@ -22,7 +22,7 @@ import { escapeHtml, syncThemeDataset, canAccessTab, renderAvatarHtml } from './
 import { renderMobileAuth } from './mobileAuth.js?v=20261117_cf30';
 import { renderMobileProjects, openMobileProjectById } from './mobileProjects.js?v=20261117_cf30';
 import { renderMobilePresupuesto } from './mobilePresupuesto.js?v=20261117_cf30';
-import { renderMobileCalendario } from './mobileCalendario.js?v=20261117_cf30';
+import { renderMobileCalendario } from './mobileCalendario.js?v=20261118_c2';
 import { renderMobileCompras, setComprasExplosionMode } from './mobileCompras.js?v=20261117_cf30';
 import { renderMobileAlmacen } from './mobileAlmacen.js?v=20261117_cf30';
 import { renderMobileEstimaciones } from './mobileEstimaciones.js?v=20261117_cf30';
