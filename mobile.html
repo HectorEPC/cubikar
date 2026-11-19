@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <title>cubikar Construcción — Móvil</title>
+  <link rel="icon" type="image/png" href="assets/branding/cubikar_icon_transparent.png?v=4">
+  <script>
+    try {
+      var _sp = window.location.search || '';
+      if (/[?&]desktop=1\b/.test(_sp)) {
+        window.location.replace('index.html' + _sp + (window.location.hash || ''));
+      } else if (/[?&]mobile=1\b/.test(_sp)) {
+        localStorage.removeItem('cubikar_force_desktop');
+      }
+      var _t = localStorage.getItem('adm_const_theme_mode');
+      var _n = _t ? _t === 'night' : true;
+      document.documentElement.setAttribute('data-theme', _n ? 'night' : 'day');
+      if (_n) document.documentElement.classList.add('dark-mode');
+    } catch (e) {}
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="js/vendor/xlsx.full.min.js"></script>
+  <script src="js/vendor/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="css/mobile.css?v=20261117_cf30">
+</head>
+<body>
+  <div id="mobile-app-root">
+    <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;">
+      <img src="assets/branding/cubikar_icon_transparent.png" alt="cubikar" style="width:44px;height:44px;object-fit:contain;">
+      <div style="font-size:13px;font-weight:700;color:#94a3b8;">Cargando cubikar Construcción...</div>
+    </div>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module" src="js/mobile/mobileApp.js?v=20261117_cf30"></script>
+</body>
+</html>

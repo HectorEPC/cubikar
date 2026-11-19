@@ -3,6 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    try {
+      var _q = window.location.search || '';
+      if (/[?&]mobile=1\b/.test(_q)) localStorage.removeItem('cubikar_force_desktop');
+      if (!/[?&]desktop=1\b/.test(_q) && localStorage.getItem('cubikar_force_desktop') !== '1' &&
+          (window.innerWidth < 1024 || (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) && window.innerWidth <= 1180))) {
+        window.location.replace('mobile.html' + _q + (window.location.hash || ''));
+      }
+    } catch (e) {}
+  </script>
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <title>cubikar Construcción — Control de Obra & Precios Unitarios (APU)</title>
   <link rel="icon" type="image/png" href="assets/branding/cubikar_icon_transparent.png?v=4">
