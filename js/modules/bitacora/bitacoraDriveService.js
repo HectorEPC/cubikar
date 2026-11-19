@@ -1,4 +1,4 @@
-// js/modules/bitacora/bitacoraDriveService.js
+﻿// js/modules/bitacora/bitacoraDriveService.js
 // Servicio de Almacenamiento Unificado (AWS S3 + IndexedDB + Cuotas) para Bitácora de Obra.
 // Reemplaza por completo la antigua integración con Google Drive manteniendo propiedad única del Anfitrión.
 
@@ -12,7 +12,7 @@ import {
   resolveManagedFileUrl,
   syncPendingMediaUploads,
   uploadManagedFile
-} from '../../services/s3StorageService.js?v=20261117_cf30';
+} from '../../services/s3StorageService.js?v=20261119_cf32';
 import {
   getHostStorageSummary,
   resolveHostStorageContext

@@ -1,4 +1,4 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261117_cf30';
+﻿import { state, persistLocalData } from '../../state/store.js?v=20261117_cf30';
 import { saveState } from '../../state/history.js?v=20261117_cf30';
 import { guardConceptLimit } from '../catalog/treeService.js?v=20261117_cf30';
 import { countTreeConcepts } from '../portal/projectService.js?v=20261117_cf30';
@@ -7,7 +7,7 @@ import { calculateParentTotal, calculateParentDirectTotal } from '../../core/cal
 import { recalculateClaves } from '../catalog/treeService.js?v=20261117_cf30';
 import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf30';
 import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf30';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261117_cf30';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf32';
 import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261117_cf30';
 import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261117_cf30';
 

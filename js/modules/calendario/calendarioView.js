@@ -1,5 +1,5 @@
-import { printCalendarioObraFormat } from '../io/printService.js?v=20261117_cf30';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261117_cf30';
+﻿import { printCalendarioObraFormat } from '../io/printService.js?v=20261117_cf30';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf34';
 import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261117_cf30';
 import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf30';
 // js/modules/calendario/calendarioView.js

@@ -1,4 +1,4 @@
-// js/modules/almacen/almacenExporter.js
+﻿// js/modules/almacen/almacenExporter.js
 // Exportación a Excel e Impresión PDF de Vales de Salida, Recepciones e Inventario Físico (Cero montos/precios $)
 
 import { state } from '../../state/store.js?v=20261117_cf30';
@@ -7,7 +7,7 @@ import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
 import { openPrintWindow } from '../io/printService.js?v=20261117_cf30';
 import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261117_cf30';
 import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf30';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261117_cf30';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf32';
 import {
   getAlmacenSignatures,
   getWarehouseStockSummary,

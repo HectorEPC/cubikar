@@ -1,4 +1,4 @@
-import {
+﻿import {
   renderCalendarioObra,
   setCalendarioViewMode,
   setCalendarioTimeScale,
@@ -63,7 +63,7 @@ import { formatMoney, formatQty } from './core/formatters.js?v=20261117_cf30';
 import { getFactorSobrecosto, updateSobrecostoBadge, updateGrandTotal } from './core/calculations.js?v=20261117_cf30';
 import { subscribeToProjectRealtime, unsubscribeFromProjectRealtime, initGlobalRealtimeSync, requestPeerSync } from './core/realtimeSync.js?v=20261117_cf30';
 import { hydrateProjectModulesFromCloud } from './core/cloudModulesSyncService.js?v=20261117_cf30';
-import { syncPendingMediaUploads } from './services/s3StorageService.js?v=20261117_cf30';
+import { syncPendingMediaUploads } from './services/s3StorageService.js?v=20261119_cf32';
 import { initAuthListener, hasPendingIncomingSsoSession, hydrateIncomingSsoSession, isSsoHydrationPending, syncLocalUserSession, hasOversizedLocalJwt, ensureCompactAuthSession } from './core/authService.js?v=20261117_cf30';
 import { isRecentInternalCloudAuthUpdate, syncHostWorkspaceProjects } from './core/collaborationCloudService.js?v=20261117_cf30';
 import { getCurrentUser } from './modules/portal/projectService.js?v=20261117_cf30';
@@ -602,7 +602,22 @@ import {
   resetFilters,
   exportProjectToExcelAction,
   logoutAllDevices
-} from './modules/portal/portalController.js?v=20261117_cf30';
+} from './modules/portal/portalController.js?v=20261119_cf34';
+import {
+  exportFullProjectZipAction,
+  openImportProjectZipModal,
+  closeImportProjectZipModal,
+  executeConfirmedProjectZipImport,
+  executeConfirmedBatchZipImport,
+  toggleBatchImportItem,
+  updateBatchImportItemName,
+  enterProjectMultiSelectMode,
+  exitProjectMultiSelectMode,
+  toggleProjectMultiSelect,
+  selectAllVisibleProjectsAction,
+  downloadSelectedProjectsZipAction,
+  syncProjectMultiSelectUI
+} from './modules/portal/projectPackageService.js?v=20261119_cf33';
 import {
   openTrashModal,
   closeTrashModal,
@@ -1131,6 +1146,19 @@ Object.assign(window, {
   subscribeToProjectRealtime,
   unsubscribeFromProjectRealtime,
   exportProjectToExcelAction,
+  exportFullProjectZipAction,
+  openImportProjectZipModal,
+  closeImportProjectZipModal,
+  executeConfirmedProjectZipImport,
+  executeConfirmedBatchZipImport,
+  toggleBatchImportItem,
+  updateBatchImportItemName,
+  enterProjectMultiSelectMode,
+  exitProjectMultiSelectMode,
+  toggleProjectMultiSelect,
+  selectAllVisibleProjectsAction,
+  downloadSelectedProjectsZipAction,
+  syncProjectMultiSelectUI,
   toggleEstimacionCobroStatus,
   openFacturaModal,
   closeFacturaModal,

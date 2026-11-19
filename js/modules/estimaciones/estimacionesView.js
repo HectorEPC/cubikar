@@ -1,5 +1,5 @@
-import { printEstimacionesFormat } from '../io/printService.js?v=20261117_cf30';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261117_cf30';
+﻿import { printEstimacionesFormat } from '../io/printService.js?v=20261117_cf30';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf34';
 // js/modules/estimaciones/estimacionesView.js
 // Renderizador y controlador de eventos para la pestaña ESTIMACIONES DE OBRA
 // Sincronizado reactivamente con Catálogo Base, con soporte multiestimaciones,
@@ -32,7 +32,7 @@ import {
 import { guardTabUnlocked, applyTabLocksToDOM, toggleTabLock } from '../../ui/tabLockController.js?v=20261117_cf30';
 import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261117_cf30';
 import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf30';
-import { uploadManagedFile, resolveManagedFileUrl, deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261117_cf30';
+import { uploadManagedFile, resolveManagedFileUrl, deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261119_cf32';
 import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261117_cf30';
 
 let estimacionesSearchTerm = '';

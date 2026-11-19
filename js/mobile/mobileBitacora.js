@@ -1,4 +1,4 @@
-// js/mobile/mobileBitacora.js
+﻿// js/mobile/mobileBitacora.js
 // Bitácora de Obra: Notas diarias, clima, conceptos vinculados, fotos S3 y firma autógrafa digital con SHA-256
 
 import {
@@ -14,7 +14,7 @@ import {
   getWeatherMeta
 } from '../modules/bitacora/bitacoraModel.js?v=20261118_b6';
 import { uploadBitacoraEvidenceFile } from '../modules/bitacora/bitacoraDriveService.js?v=20261117_cf30';
-import { resolveManagedFileUrl, deleteManagedFile } from '../services/s3StorageService.js?v=20261117_cf30';
+import { resolveManagedFileUrl, deleteManagedFile } from '../services/s3StorageService.js?v=20261119_cf32';
 import { canCurrentUserEditProject, getCurrentUser } from '../modules/portal/projectService.js?v=20261117_cf30';
 import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261117_cf30';
 import { showToast } from '../ui/notifications.js?v=20261117_cf30';

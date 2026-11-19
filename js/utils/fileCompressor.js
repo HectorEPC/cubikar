@@ -263,7 +263,7 @@ export async function processFileForUpload(file, options = {}) {
     throw new Error('No se recibió ningún archivo para procesar.');
   }
 
-  if (isCompressibleImageFile(file)) {
+  if (!options.skipCompression && isCompressibleImageFile(file)) {
     return compressImageFile(file, options);
   }
 
@@ -271,11 +271,12 @@ export async function processFileForUpload(file, options = {}) {
   const mimeType = file.type || (getFileExtension(file) === 'pdf'
     ? 'application/pdf'
     : (getFileExtension(file) === 'xml' ? 'application/xml' : 'application/octet-stream'));
+  const dataUrl = options.includeDataUrl ? await blobToDataUrl(file) : '';
 
   return {
     file,
     blob: file,
-    dataUrl: '',
+    dataUrl,
     fileName: file.name || 'documento',
     mimeType,
     extension: getFileExtension(file),

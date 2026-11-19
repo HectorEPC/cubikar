@@ -1,4 +1,4 @@
-// js/modules/bitacora/bitacoraView.js
+﻿// js/modules/bitacora/bitacoraView.js
 // Interfaz completa de Bitácora de Obra Digital y Legal (LOPSRM / BESOP)
 // Incluye: KPIs de obra, Timeline cronológico con filtros, Redacción con conceptos y fotos,
 // Canvas táctil de firma digital, Configuración S3 del Anfitrión y Lightbox de evidencias.
@@ -12,10 +12,10 @@ function isLegalBitacoraAllowed() {
   const planId = resolveWorkspacePlanContext()?.planId || 'free';
   return planId === 'plus' || planId === 'pro';
 }
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261117_cf30';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf34';
 import { formatDate } from '../calendario/calendarioModel.js?v=20261117_cf30';
 import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261117_cf30';
-import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261117_cf30';
+import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261119_cf32';
 import {
   BITACORA_NOTE_TYPES,
   BITACORA_WEATHER_OPTIONS,

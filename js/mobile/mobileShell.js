@@ -1,4 +1,4 @@
-// js/mobile/mobileShell.js
+﻿// js/mobile/mobileShell.js
 // Cascarón móvil/tablet persistente: Header superior con icono de Cubikar, botón Día/Noche, Chat, Mi Cuenta y Bottom Nav (6 pestañas PC)
 
 import { getActiveProjectId, setActiveProjectId } from '../config/constants.js?v=20261117_cf30';
@@ -17,7 +17,7 @@ import {
 } from '../modules/portal/projectService.js?v=20261117_cf30';
 import { isNightMode, toggleThemeMode } from '../ui/themeController.js?v=20261117_cf30';
 import { showToast } from '../ui/notifications.js?v=20261117_cf30';
-import { uploadManagedFile } from '../services/s3StorageService.js?v=20261117_cf30';
+import { uploadManagedFile } from '../services/s3StorageService.js?v=20261119_cf32';
 import { escapeHtml, syncThemeDataset, canAccessTab, renderAvatarHtml } from './mobileBridge.js?v=20261117_cf30';
 import { renderMobileAuth } from './mobileAuth.js?v=20261117_cf30';
 import { renderMobileProjects, openMobileProjectById } from './mobileProjects.js?v=20261117_cf30';

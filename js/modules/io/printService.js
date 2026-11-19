@@ -1,4 +1,4 @@
-// js/modules/io/printService.js
+﻿// js/modules/io/printService.js
 // Servicio de Impresión de Formatos Profesionales para TAB1-CAT-BASE y MATRIZ / INSUMOS UNITARIOS
 
 import { state } from '../../state/store.js?v=20261117_cf30';
@@ -24,7 +24,7 @@ import {
   getProjectCreationDate
 } from '../calendario/calendarioModel.js?v=20261117_cf30';
 import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261117_cf30';
-import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js?v=20261117_cf30';
+import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js?v=20261119_cf32';
 import { resolveActivePrintBranding } from './printBrandingService.js?v=20261117_cf30';
 import { getBudgetSignatures } from '../catalog/signaturesModal.js?v=20261117_cf30';
 

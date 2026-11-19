@@ -1,4 +1,4 @@
-// js/mobile/mobileAuth.js
+﻿// js/mobile/mobileAuth.js
 // Pantalla real de Inicio de Sesión / Registro (Supabase Auth, Google GSI y cuentas locales)
 
 import {
@@ -27,7 +27,7 @@ import {
   setActiveWorkspaceData
 } from '../modules/portal/projectService.js?v=20261117_cf30';
 import { showToast } from '../ui/notifications.js?v=20261117_cf30';
-import { uploadManagedFile } from '../services/s3StorageService.js?v=20261117_cf30';
+import { uploadManagedFile } from '../services/s3StorageService.js?v=20261119_cf32';
 import { escapeHtml, renderAvatarHtml } from './mobileBridge.js?v=20261117_cf30';
 
 let authTab = 'login';

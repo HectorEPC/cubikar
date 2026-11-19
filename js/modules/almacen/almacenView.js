@@ -1,4 +1,4 @@
-// js/modules/almacen/almacenView.js
+﻿// js/modules/almacen/almacenView.js
 // Interfaz gráfica de la 6ª pestaña principal ALMACÉN (Cero precios/costos $, apta para rol aislado de Bodeguero)
 
 import { state } from '../../state/store.js?v=20261117_cf30';
@@ -6,7 +6,7 @@ import { formatNumber, round2, round5 } from '../../core/formatters.js?v=2026111
 import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
 import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261117_cf30';
 import { canCurrentUserEditProject, getCurrentUser } from '../portal/projectService.js?v=20261117_cf30';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261117_cf30';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf34';
 import { processExpenseEvidenceUpload, openExpenseEvidence } from '../compras/driveExpenseService.js?v=20261117_cf30';
 import {
   getAlmacenSignatures,

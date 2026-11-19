@@ -1,4 +1,4 @@
-let isExpensesPrintingBusy = false;
+﻿let isExpensesPrintingBusy = false;
 // js/modules/compras/expensesView.js
 // Renderizador y controlador de eventos para la pestaña COMPRAS Y PAGOS (Control de Gastos y ERP Financiero)
 
@@ -55,7 +55,7 @@ import {
   printSingleOrdenCompra,
   printExpensesActiveReport
 } from './expensesExporter.js?v=20261117_cf30';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261117_cf30';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf34';
 import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261117_cf30';
 import { isNightMode } from '../../ui/themeController.js?v=20261117_cf30';
 

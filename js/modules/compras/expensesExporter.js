@@ -1,4 +1,4 @@
-// js/modules/compras/expensesExporter.js
+﻿// js/modules/compras/expensesExporter.js
 // Exportación a Excel (.xlsx) y generación de formatos imprimibles oficiales de Orden de Compra y Reportes
 
 import { state } from '../../state/store.js?v=20261117_cf30';
@@ -9,7 +9,7 @@ import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesS
 import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261117_cf30';
 import { getConceptCostTrackingReport } from './conceptExplosionHelper.js?v=20261117_cf30';
 import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf30';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261117_cf30';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf32';
 import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261117_cf30';
 import { isNightMode } from '../../ui/themeController.js?v=20261117_cf30';
 

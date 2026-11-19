@@ -1,4 +1,4 @@
-// js/modules/bitacora/bitacoraPdfService.js
+﻿// js/modules/bitacora/bitacoraPdfService.js
 // Motor de generación de PDF foliado inmutable (LOPSRM / BESOP)
 // Genera:
 //  1) PDF oficial individual por cada nota asentada (con fotos y firma digital)
@@ -11,7 +11,7 @@ import {
   resolveManagedFileDataUrl,
   resolveManagedFileUrl,
   uploadManagedFile
-} from '../../services/s3StorageService.js?v=20261117_cf30';
+} from '../../services/s3StorageService.js?v=20261119_cf32';
 import { resolveActivePrintBranding, getCubikarLogoPngDataUrl } from '../io/printBrandingService.js?v=20261117_cf30';
 
 const JSPDF_CDN_FALLBACK = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';

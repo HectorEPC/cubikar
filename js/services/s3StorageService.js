@@ -7,7 +7,7 @@ import {
   formatBytes,
   getFileExtension,
   processFileForUpload
-} from '../utils/fileCompressor.js?v=20261117_cf30';
+} from '../utils/fileCompressor.js?v=20261119_cf32';
 import {
   deleteCachedMediaRecord,
   getCachedMediaDataUrl,
@@ -225,6 +225,7 @@ export async function uploadManagedFile({
   mimeType = '',
   showFeedback = true,
   includeDataUrl = false,
+  skipCompression = false,
   metadata = {}
 } = {}) {
   if (!file) {
@@ -255,7 +256,8 @@ export async function uploadManagedFile({
   const processed = await processFileForUpload(file, {
     preset,
     mimeType,
-    includeDataUrl
+    includeDataUrl,
+    skipCompression
   });
 
   if (showFeedback && processed.compressed) {

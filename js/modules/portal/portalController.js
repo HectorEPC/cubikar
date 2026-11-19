@@ -1,4 +1,4 @@
-// js/modules/portal/portalController.js
+﻿// js/modules/portal/portalController.js
 // Controlador integral para la pantalla de inicio, perfil, proyectos y navegación multi-obra
 
 import {
@@ -95,7 +95,7 @@ import {
 } from '../../core/authService.js?v=20261117_cf30';
 import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261117_cf30';
 import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261117_cf30';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261117_cf30';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf32';
 import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261117_cf30';
 import {
   isUserAdmin,
@@ -1543,7 +1543,22 @@ export function renderHeaderCreateButtonHTML(user, scope) {
     `;
   }
 
-  return `${trashBtnHtml}${createBtnHtml}`;
+  const safeScope = String(scope || 'owned').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const importBtnHtml = `
+    <button id="btn-portal-importar-proyecto"
+            type="button"
+            onclick="openImportProjectZipModal('${safeScope.replace(/"/g, '&quot;')}')"
+            class="relative group w-10 h-10 inline-flex items-center justify-center rounded-xl bg-slate-900 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 border border-slate-700/80 hover:border-emerald-500/50 transition shadow-sm active:scale-95 cursor-pointer shrink-0"
+            title="Importar proyecto(s) completo (.zip)"
+            aria-label="Importar proyecto(s) (.zip)">
+      <i class="fa-solid fa-file-import text-base"></i>
+      <span class="pointer-events-none opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition duration-150 absolute top-full mt-2 right-0 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 text-[11px] font-medium whitespace-nowrap shadow-xl z-40">
+        Importar proyecto(s) (.zip)
+      </span>
+    </button>
+  `;
+
+  return `${trashBtnHtml}${importBtnHtml}${createBtnHtml}`;
 }
 
 // ==========================================
@@ -2103,6 +2118,9 @@ export function switchPortalView(view) {
       btnGrid.className = 'p-1.5 rounded-lg text-slate-400 hover:text-white transition cursor-pointer';
     }
   }
+  if (typeof window !== 'undefined' && typeof window.syncProjectMultiSelectUI === 'function') {
+    window.syncProjectMultiSelectUI();
+  }
 }
 export const switchView = switchPortalView;
 
@@ -2433,6 +2451,9 @@ function renderProjectsGridNow() {
   }
 
   updateSortButtonsUI();
+  if (typeof window !== 'undefined' && typeof window.syncProjectMultiSelectUI === 'function') {
+    window.syncProjectMultiSelectUI();
+  }
 }
 
 function updateSortButtonsUI() {
@@ -2545,7 +2566,8 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
     const progressVal = estSummary.barWidthPct;
 
     return `
-    <div class="project-card group bg-slate-950/70 hover:bg-slate-950/90 border border-slate-800/90 ${isWarning ? 'hover:border-amber-500/50' : 'hover:border-blue-500/50'} rounded-2xl p-5 transition duration-200 shadow-lg flex flex-col justify-between"
+    <div class="project-card relative group bg-slate-950/70 hover:bg-slate-950/90 border border-slate-800/90 ${isWarning ? 'hover:border-amber-500/50' : 'hover:border-blue-500/50'} rounded-2xl p-5 transition duration-200 shadow-lg flex flex-col justify-between"
+         data-project-id="${proj.id}"
          data-name="${(proj.projectName || '').replace(/"/g, '&quot;')}" 
          data-company="${(proj.companyName || '').replace(/"/g, '&quot;')}" 
          data-type="${proj.tipoObra || 'Edificación'}" 
@@ -2574,7 +2596,7 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
               <button onclick="toggleCardMenu('menu-card-${proj.id}', event)" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer" title="Opciones de proyecto">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
               </button>
-              <div id="menu-card-${proj.id}" class="hidden absolute right-0 mt-1 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-30 py-1 text-xs">
+              <div id="menu-card-${proj.id}" class="hidden absolute right-0 mt-1 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-30 py-1 text-xs">
                 <button type="button" onclick="openProjectInNewTab('${proj.id}')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 cursor-pointer">
                   <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-blue-400"></i>
                   <span>Abrir en pestaña nueva</span>
@@ -2587,13 +2609,17 @@ export function renderProjectCardsHTML(customFiltered, customAll) {
                   <i class="fa-solid fa-copy text-[10px] text-amber-400"></i>
                   <span>Duplicar Presupuesto</span>
                 </button>
-                <button type="button" onclick="exportProjectToExcelAction('${proj.id}')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 cursor-pointer">
-                  <i class="fa-solid fa-file-excel text-[10px] text-emerald-400"></i>
-                  <span>Exportar a Excel</span>
-                </button>
                 <button type="button" onclick="syncProjectToCloudAction('${proj.id}', event)" class="w-full text-left px-3 py-2 text-blue-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 cursor-pointer" title="Sincronizar a Supabase PostgreSQL">
                   <i class="fa-solid fa-cloud-arrow-up text-[10px] text-blue-400"></i>
                   <span>Respaldar en la Nube</span>
+                </button>
+                <button type="button" onclick="exportFullProjectZipAction('${proj.id}', event)" class="w-full text-left px-3 py-2 text-emerald-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 cursor-pointer" title="Descargar proyecto completo con tablas, fotos y PDFs (.zip)">
+                  <i class="fa-solid fa-file-zipper text-[10px] text-emerald-400"></i>
+                  <span>Descargar proyecto (.zip)</span>
+                </button>
+                <button type="button" onclick="enterProjectMultiSelectMode('${proj.id}', event)" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 cursor-pointer" title="Activar modo selección para descargar varios proyectos por separado (.zip)">
+                  <i class="fa-solid fa-list-check text-[10px] text-emerald-400"></i>
+                  <span>Seleccionar varios (.zip)</span>
                 </button>
                 ${isProjectHostOwner(proj, user) ? `
                 <div class="h-px bg-slate-800 my-1"></div>
@@ -2734,6 +2760,7 @@ export function renderProjectTableRowsHTML(filteredProjects) {
 
     return `
       <tr class="table-project-row hover:bg-slate-900/50 transition"
+          data-project-id="${proj.id}"
           data-name="${(proj.projectName || '').replace(/"/g, '&quot;')}" 
           data-company="${(proj.companyName || '').replace(/"/g, '&quot;')}" 
           data-type="${proj.tipoObra || 'Edificación'}" 

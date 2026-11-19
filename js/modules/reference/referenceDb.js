@@ -1,4 +1,4 @@
-// js/modules/reference/referenceDb.js
+﻿// js/modules/reference/referenceDb.js
 // Gestor de base de datos local IndexedDB para Catálogos Maestros de Referencia
 
 import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf30';
@@ -479,7 +479,7 @@ async function backupMasterCatalogToCloud(catalogRecord, itemsList) {
     const [{ isSupabaseConfigured, getSupabaseClient }, { resolveUserEmpresaId }, { uploadManagedFile }] = await Promise.all([
       import('../../core/supabaseClient.js?v=20261117_cf30'),
       import('../../core/cloudProjectService.js?v=20261117_cf30'),
-      import('../../services/s3StorageService.js?v=20261117_cf30')
+      import('../../services/s3StorageService.js?v=20261119_cf32')
     ]);
 
     const payloadJson = JSON.stringify({ meta: catalogRecord, items: itemsList });
@@ -541,7 +541,7 @@ async function deleteMasterCatalogFromCloud(catalogId, existingRecord) {
   try {
     const [{ isSupabaseConfigured, getSupabaseClient }, { deleteManagedFile }] = await Promise.all([
       import('../../core/supabaseClient.js?v=20261117_cf30'),
-      import('../../services/s3StorageService.js?v=20261117_cf30')
+      import('../../services/s3StorageService.js?v=20261119_cf32')
     ]);
 
     if (existingRecord?.mediaId || existingRecord?.s3Key) {
@@ -571,7 +571,7 @@ export async function syncMasterCatalogsFromCloud(ownerEmail = null) {
   try {
     const [{ isSupabaseConfigured, getSupabaseClient }, { resolveManagedFileUrl }] = await Promise.all([
       import('../../core/supabaseClient.js?v=20261117_cf30'),
-      import('../../services/s3StorageService.js?v=20261117_cf30')
+      import('../../services/s3StorageService.js?v=20261119_cf32')
     ]);
 
     if (!isSupabaseConfigured()) return { restored: 0 };

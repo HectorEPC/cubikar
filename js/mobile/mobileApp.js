@@ -1,4 +1,4 @@
-// js/mobile/mobileApp.js
+﻿// js/mobile/mobileApp.js
 // Punto de entrada paralelo para la versión móvil y tablet de cubikar Construcción
 
 import { getActiveProjectId, setActiveProjectId } from '../config/constants.js?v=20261117_cf30';
@@ -14,7 +14,7 @@ import { fetchCloudProjects } from '../core/cloudProjectService.js?v=20261117_cf
 import { hydrateProjectModulesFromCloud } from '../core/cloudModulesSyncService.js?v=20261117_cf30';
 import { isSupabaseConfigured } from '../core/supabaseClient.js?v=20261117_cf30';
 import { initGlobalRealtimeSync, subscribeToProjectRealtime } from '../core/realtimeSync.js?v=20261117_cf30';
-import { syncPendingMediaUploads } from '../services/s3StorageService.js?v=20261117_cf30';
+import { syncPendingMediaUploads } from '../services/s3StorageService.js?v=20261119_cf32';
 import {
   enforceGlobalSessionRevocation,
   getCurrentUser,

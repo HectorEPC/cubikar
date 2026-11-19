@@ -1,4 +1,4 @@
-// js/modules/portal/trashService.js
+﻿// js/modules/portal/trashService.js
 // Papelera de Reciclaje de Proyectos (Retención 7 días - Exclusiva del Anfitrión)
 // Soporta borrado lógico en Supabase PostgreSQL, respaldo ZIP antes de purga, restauración segura y respaldo local offline.
 
@@ -33,7 +33,7 @@ import {
   fetchCloudProjects,
   getCachedTrashedCloudProjects
 } from '../../core/cloudProjectService.js?v=20261117_cf30';
-import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261117_cf30';
+import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261119_cf32';
 
 export const TRASH_RETENTION_DAYS = 7;
 export const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;

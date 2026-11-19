@@ -1,4 +1,4 @@
-// js/modules/compras/driveExpenseService.js
+﻿// js/modules/compras/driveExpenseService.js
 // Servicio de Almacenamiento Unificado (AWS S3 + Caché IndexedDB + Cuotas) para Comprobantes de Compras y Gastos.
 // Reemplaza por completo la antigua integración con Google Drive.
 
@@ -7,7 +7,7 @@ import {
   deleteManagedFile,
   resolveManagedFileUrl,
   uploadManagedFile
-} from '../../services/s3StorageService.js?v=20261117_cf30';
+} from '../../services/s3StorageService.js?v=20261119_cf32';
 
 /**
  * Procesa, comprime (imágenes <canvas> 1280px @ 75%) o conserva intactos (PDF/XML),

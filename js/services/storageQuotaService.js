@@ -1,8 +1,8 @@
-import { getActiveProjectId } from '../config/constants.js?v=20261117_cf30';
+﻿import { getActiveProjectId } from '../config/constants.js?v=20261117_cf30';
 import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261117_cf30';
 import { getCurrentUser, getProjectById, getUserPlanId } from '../modules/portal/projectService.js?v=20261117_cf30';
 import { recordStorageUsage } from '../modules/admin/cubikarAdmin.js?v=20261117_cf30';
-import { formatBytes } from '../utils/fileCompressor.js?v=20261117_cf30';
+import { formatBytes } from '../utils/fileCompressor.js?v=20261119_cf32';
 import { getLocalMediaStats } from './mediaCacheDb.js?v=20261117_cf30';
 
 export const MB_BYTES = 1024 * 1024;
