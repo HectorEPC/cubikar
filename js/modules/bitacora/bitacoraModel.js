@@ -8,6 +8,7 @@ import { getScheduleSettings, extractScheduleItems, parseDate, formatDate, diffD
 import { scheduleBitacoraCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261117_cf30';
 
 const STORAGE_KEY_PREFIX = 'adm_const_bitacora_';
+export const MAX_BITACORA_EVIDENCIAS = 6;
 
 export const BITACORA_NOTE_TYPES = [
   {
@@ -233,7 +234,7 @@ export function saveBitacoraDraftNote(noteInput, projectId = null) {
         ubicacion: (noteInput.ubicacion ?? existing.ubicacion ?? '').trim(),
         conceptosVinculados: Array.isArray(noteInput.conceptosVinculados) ? noteInput.conceptosVinculados : (existing.conceptosVinculados || []),
         descripcion: (noteInput.descripcion ?? existing.descripcion ?? '').trim(),
-        evidencias: Array.isArray(noteInput.evidencias) ? noteInput.evidencias : (existing.evidencias || []),
+        evidencias: (Array.isArray(noteInput.evidencias) ? noteInput.evidencias : (existing.evidencias || [])).slice(0, MAX_BITACORA_EVIDENCIAS),
         notaReferenciaId: noteInput.notaReferenciaId ?? existing.notaReferenciaId ?? null,
         notaReferenciaFolio: noteInput.notaReferenciaFolio ?? existing.notaReferenciaFolio ?? '',
         esFeDeErratas: Boolean(noteInput.esFeDeErratas ?? existing.esFeDeErratas),
@@ -263,7 +264,7 @@ export function saveBitacoraDraftNote(noteInput, projectId = null) {
     ubicacion: (noteInput.ubicacion || '').trim(),
     conceptosVinculados: Array.isArray(noteInput.conceptosVinculados) ? noteInput.conceptosVinculados : [],
     descripcion: (noteInput.descripcion || '').trim(),
-    evidencias: Array.isArray(noteInput.evidencias) ? noteInput.evidencias : [],
+    evidencias: (Array.isArray(noteInput.evidencias) ? noteInput.evidencias : []).slice(0, MAX_BITACORA_EVIDENCIAS),
     notaReferenciaId: noteInput.notaReferenciaId || null,
     notaReferenciaFolio: noteInput.notaReferenciaFolio || '',
     esFeDeErratas: Boolean(noteInput.esFeDeErratas),
@@ -352,7 +353,7 @@ export function sealAndSignBitacoraNote(noteId, { firma, pdfDoc, evidenciasActua
     folioNumber: nextFolioNum,
     folioCode: nextFolioCode,
     estado: 'sealed',
-    evidencias: Array.isArray(evidenciasActualizadas) ? evidenciasActualizadas : existing.evidencias,
+    evidencias: (Array.isArray(evidenciasActualizadas) ? evidenciasActualizadas : (existing.evidencias || [])).slice(0, MAX_BITACORA_EVIDENCIAS),
     firma: Object.assign({}, firma),
     pdfDoc: Object.assign({}, pdfDoc),
     sealedAt: firma?.firmadoEn || new Date().toISOString(),

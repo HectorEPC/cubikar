@@ -26,7 +26,7 @@ import { renderMobileCalendario } from './mobileCalendario.js?v=20261117_cf30';
 import { renderMobileCompras, setComprasExplosionMode } from './mobileCompras.js?v=20261117_cf30';
 import { renderMobileAlmacen } from './mobileAlmacen.js?v=20261117_cf30';
 import { renderMobileEstimaciones } from './mobileEstimaciones.js?v=20261117_cf30';
-import { renderMobileBitacora } from './mobileBitacora.js?v=20261117_cf30';
+import { renderMobileBitacora } from './mobileBitacora.js?v=20261118_b6';
 import { renderMobileChat, setChatConceptFilter, getUnreadChatCount } from './mobileChat.js?v=20261117_cf30';
 
 export const CONST_TABS = [

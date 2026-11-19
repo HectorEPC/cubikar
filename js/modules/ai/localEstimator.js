@@ -17,7 +17,7 @@ import { getFactorSobrecosto } from '../../core/calculations.js?v=20261117_cf30'
 import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261117_cf30';
 import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf30';
 import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from '../apu/apuView.js?v=20261117_cf30';
-import { closeAiGeneratorModal } from '../../ui/modalController.js?v=20261117_cf30';
+import { closeAiGeneratorModal } from '../../ui/modalController.js?v=20261118_b6';
 import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261117_cf30';
 import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261117_cf30';
 import {

@@ -12,14 +12,15 @@ import {
   getBitacoraWorkSummary,
   getNoteTypeMeta,
   getWeatherMeta
-} from '../modules/bitacora/bitacoraModel.js?v=20261117_cf30';
+} from '../modules/bitacora/bitacoraModel.js?v=20261118_b6';
 import { uploadBitacoraEvidenceFile } from '../modules/bitacora/bitacoraDriveService.js?v=20261117_cf30';
-import { resolveManagedFileUrl } from '../services/s3StorageService.js?v=20261117_cf30';
+import { resolveManagedFileUrl, deleteManagedFile } from '../services/s3StorageService.js?v=20261117_cf30';
 import { canCurrentUserEditProject, getCurrentUser } from '../modules/portal/projectService.js?v=20261117_cf30';
 import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261117_cf30';
 import { showToast } from '../ui/notifications.js?v=20261117_cf30';
 import { escapeHtml } from './mobileBridge.js?v=20261117_cf30';
 
+const MAX_BITACORA_EVIDENCIAS = 6;
 let filterState = 'all'; // 'all' | 'draft' | 'sealed'
 
 export function renderMobileBitacora(container, { openSheet, closeSheet }) {
@@ -236,14 +237,23 @@ function openBitacoraComposerSheet(existingNote, editable, container, ctx) {
           <textarea id="m-b-desc" rows="4" required class="m-textarea" placeholder="Describe actividades ejecutadas, personal en obra, instrucciones o incidencias..." ${editable ? '' : 'readonly'}>${escapeHtml(existingNote?.descripcion || '')}</textarea>
         </div>
 
-        <div class="m-row-between">
-          <span style="font-size:11.5px;font-weight:700;">Evidencias fotográficas (<span id="m-b-ev-count">${evidencias.length}</span>)</span>
-          ${editable ? `
-            <label class="m-btn m-btn-soft m-btn-sm" style="cursor:pointer;">
-              <i class="fa-solid fa-camera"></i> Adjuntar Foto (S3)
-              <input type="file" id="m-b-photo" accept="image/*" style="display:none;">
-            </label>
-          ` : ''}
+        <div class="m-card-alt" style="display:flex;flex-direction:column;gap:8px;">
+          <div class="m-row-between">
+            <span style="font-size:11.5px;font-weight:700;">Evidencias (<span id="m-b-ev-count">${evidencias.length}/${MAX_BITACORA_EVIDENCIAS}</span>)</span>
+            ${editable ? `
+              <div class="m-row" style="gap:6px;">
+                <label id="m-b-cam-lbl" class="m-btn m-btn-soft m-btn-sm" style="cursor:pointer;">
+                  <i class="fa-solid fa-camera"></i> Tomar foto
+                  <input type="file" id="m-b-cam" accept="image/*" capture="environment" style="display:none;">
+                </label>
+                <label id="m-b-photo-lbl" class="m-btn m-btn-soft m-btn-sm" style="cursor:pointer;">
+                  <i class="fa-solid fa-images"></i> Galería
+                  <input type="file" id="m-b-photo" accept="image/*" multiple style="display:none;">
+                </label>
+              </div>
+            ` : ''}
+          </div>
+          <div id="m-b-ev-list" style="display:flex;flex-direction:column;gap:8px;"></div>
         </div>
 
         ${editable ? `
@@ -274,22 +284,100 @@ function openBitacoraComposerSheet(existingNote, editable, container, ctx) {
     document.getElementById('m-b-clear-sig')?.addEventListener('click', () => signaturePad.clear());
   }
 
-  document.getElementById('m-b-photo')?.addEventListener('change', async (ev) => {
-    const f = ev.target.files?.[0];
-    if (!f) return;
-    try {
-      const up = await uploadBitacoraEvidenceFile(f, existingNote?.id || '');
-      evidencias.push(up);
-      document.getElementById('m-b-ev-count').textContent = String(evidencias.length);
-      showToast('Foto adjunta a bitácora.', 'success');
-    } catch (err) {
-      showToast(err?.message || 'Error al subir foto.', 'error');
+  async function renderMobileEvidences() {
+    const countEl = document.getElementById('m-b-ev-count');
+    const camLbl = document.getElementById('m-b-cam-lbl');
+    const photoLbl = document.getElementById('m-b-photo-lbl');
+    const camInp = document.getElementById('m-b-cam');
+    const photoInp = document.getElementById('m-b-photo');
+    const listEl = document.getElementById('m-b-ev-list');
+    const atLimit = evidencias.length >= MAX_BITACORA_EVIDENCIAS;
+
+    if (countEl) countEl.textContent = `${evidencias.length}/${MAX_BITACORA_EVIDENCIAS}`;
+    [camInp, photoInp].forEach(inp => { if (inp) inp.disabled = atLimit; });
+    [camLbl, photoLbl].forEach(lbl => {
+      if (!lbl) return;
+      lbl.style.opacity = atLimit ? '0.45' : '';
+      lbl.style.pointerEvents = atLimit ? 'none' : '';
+    });
+
+    if (!listEl) return;
+    if (evidencias.length === 0) {
+      listEl.innerHTML = `<div style="font-size:11.5px;color:var(--muted);text-align:center;padding:8px 4px;">Máximo ${MAX_BITACORA_EVIDENCIAS} fotos por nota (cámara directa o galería múltiple).</div>`;
+      return;
     }
-  });
+
+    const urls = await Promise.all(evidencias.map(ev => resolveManagedFileUrl(ev, { cacheRemote: true }).catch(() => '')));
+    listEl.innerHTML = evidencias.map((ev, i) => `
+      <div class="m-card" style="padding:8px;display:flex;gap:8px;align-items:flex-start;">
+        ${urls[i] ? `<img src="${escapeHtml(urls[i])}" alt="Foto ${i + 1}" style="width:58px;height:58px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1px solid var(--border);">` : `<div style="width:58px;height:58px;border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-image"></i></div>`}
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+          <div class="m-row-between">
+            <span style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Foto ${i + 1}: ${escapeHtml(ev.fileName || 'Evidencia')}</span>
+            ${editable ? `<button type="button" data-del-bev="${i}" class="m-icon-btn" style="width:26px;height:26px;font-size:11px;color:var(--danger);" title="Quitar"><i class="fa-solid fa-trash-can"></i></button>` : ''}
+          </div>
+          <input type="text" data-cap-bev="${i}" class="m-input" style="padding:6px 8px;font-size:11.5px;" placeholder="Pie de foto (opcional)" value="${escapeHtml(ev.caption || '')}" ${editable ? '' : 'readonly'}>
+        </div>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('[data-del-bev]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.delBev, 10);
+        const removed = evidencias[idx];
+        if (!removed) return;
+        if (removed.__isNewTempUpload) deleteManagedFile(removed).catch(() => {});
+        evidencias.splice(idx, 1);
+        renderMobileEvidences();
+      });
+    });
+
+    listEl.querySelectorAll('[data-cap-bev]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const idx = parseInt(inp.dataset.capBev, 10);
+        if (evidencias[idx]) evidencias[idx].caption = inp.value;
+      });
+    });
+  }
+
+  async function handleMobileBitacoraFiles(fileList, inputEl) {
+    const files = Array.from(fileList || []);
+    if (files.length === 0) return;
+
+    const remaining = Math.max(0, MAX_BITACORA_EVIDENCIAS - evidencias.length);
+    if (remaining <= 0) {
+      showToast(`Límite alcanzado: máximo ${MAX_BITACORA_EVIDENCIAS} fotos por nota.`, 'warning');
+      if (inputEl) inputEl.value = '';
+      return;
+    }
+
+    const allowed = files.slice(0, remaining);
+    if (files.length > remaining) {
+      showToast(`Solo se agregaron ${remaining} foto(s) para respetar el máximo de ${MAX_BITACORA_EVIDENCIAS} por nota.`, 'warning');
+    }
+
+    for (const file of allowed) {
+      try {
+        const up = await uploadBitacoraEvidenceFile(file, existingNote?.id || '');
+        up.__isNewTempUpload = true;
+        evidencias.push(up);
+      } catch (err) {
+        showToast(err?.message || `Error al subir "${file.name}".`, 'error');
+      }
+    }
+
+    if (inputEl) inputEl.value = '';
+    await renderMobileEvidences();
+  }
+
+  renderMobileEvidences();
+  document.getElementById('m-b-cam')?.addEventListener('change', (ev) => handleMobileBitacoraFiles(ev.target.files, ev.target));
+  document.getElementById('m-b-photo')?.addEventListener('change', (ev) => handleMobileBitacoraFiles(ev.target.files, ev.target));
 
   const buildPayload = () => {
     const concId = document.getElementById('m-b-conc')?.value || '';
     const conc = concepts.find(c => String(c.id) === String(concId));
+    const cleanEvidencias = evidencias.slice(0, MAX_BITACORA_EVIDENCIAS).map(({ __isNewTempUpload, ...clean }) => clean);
     return {
       id: existingNote?.id || null,
       tipo: document.getElementById('m-b-tipo').value,
@@ -298,7 +386,7 @@ function openBitacoraComposerSheet(existingNote, editable, container, ctx) {
       ubicacion: document.getElementById('m-b-ubi').value.trim(),
       conceptosVinculados: conc ? [{ id: conc.id, clave: conc.clave, descripcion: conc.descripcion }] : [],
       descripcion: document.getElementById('m-b-desc').value.trim(),
-      evidencias
+      evidencias: cleanEvidencias
     };
   };
 
@@ -341,7 +429,7 @@ function openBitacoraComposerSheet(existingNote, editable, container, ctx) {
         fileName: `${savedDraft.id}.pdf`,
         createdAt: new Date().toISOString()
       },
-      evidenciasActualizadas: evidencias
+      evidenciasActualizadas: payload.evidencias
     });
     ctx.closeSheet();
     showToast('Folio asentado y firmado digitalmente.', 'success');

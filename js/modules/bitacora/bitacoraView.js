@@ -34,7 +34,7 @@ import {
   sealAndSignBitacoraNote,
   getCatalogConceptsForBitacora,
   getBitacoraWorkSummary
-} from './bitacoraModel.js?v=20261117_cf30';
+} from './bitacoraModel.js?v=20261118_b6';
 import {
   getStorageConnectionSummary,
   uploadBitacoraEvidenceFile,
@@ -50,6 +50,7 @@ import {
 } from './bitacoraPdfService.js?v=20261117_cf30';
 
 // Estado de UI y filtros del Timeline
+const MAX_BITACORA_EVIDENCIAS = 6;
 let searchFilter = '';
 let typeFilter = 'all';
 let statusFilter = 'all';
@@ -876,10 +877,11 @@ export function openBitacoraNoteModal(noteId = null, options = {}) {
                 <label class="font-bold text-slate-700 flex items-center gap-1.5">
                   <i class="fa-solid fa-images text-teal-600"></i>
                   <span>Galería de Evidencias Fotográficas</span>
+                  <span id="bitacora-photos-count" class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">${tempEvidences.length}/${MAX_BITACORA_EVIDENCIAS}</span>
                 </label>
-                <p class="text-[10.5px] text-slate-500">Se optimizan automáticamente (máx. 1280px, 75%) y se respaldan en AWS S3 dentro de la cuota del Anfitrión.</p>
+                <p class="text-[10.5px] text-slate-500">Máximo ${MAX_BITACORA_EVIDENCIAS} fotos por nota. Se optimizan automáticamente (máx. 1280px, 75%) y se respaldan en AWS S3.</p>
               </div>
-              <label class="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs">
+              <label id="bitacora-photos-btn" class="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs">
                 <i class="fa-solid fa-camera"></i>
                 <span>Agregar Fotos</span>
                 <input type="file" id="bitacora-photos-input" accept=".jpg,.jpeg,.png,.webp,image/*" multiple class="hidden" onchange="onBitacoraPhotosSelected(this)">
@@ -1039,7 +1041,19 @@ export async function onBitacoraPhotosSelected(inputEl) {
   const files = Array.from(inputEl?.files || []);
   if (files.length === 0) return;
 
-  for (const file of files) {
+  const remaining = Math.max(0, MAX_BITACORA_EVIDENCIAS - tempEvidences.length);
+  if (remaining <= 0) {
+    showToast(`Límite alcanzado: máximo ${MAX_BITACORA_EVIDENCIAS} fotografías por nota.`, 'warning');
+    if (inputEl) inputEl.value = '';
+    return;
+  }
+
+  const allowedFiles = files.slice(0, remaining);
+  if (files.length > remaining) {
+    showToast(`Solo se agregaron ${remaining} foto(s) para no exceder el máximo de ${MAX_BITACORA_EVIDENCIAS} por nota.`, 'warning');
+  }
+
+  for (const file of allowedFiles) {
     try {
       const ev = await uploadBitacoraEvidenceFile(file, activeDraftId || '');
       ev.__isNewTempUpload = true;
@@ -1069,13 +1083,24 @@ export function removeTempBitacoraEvidence(evId) {
 
 function renderTempEvidencesGrid() {
   const grid = document.getElementById('bitacora-temp-evidences-grid');
+  const countBadge = document.getElementById('bitacora-photos-count');
+  const photosBtn = document.getElementById('bitacora-photos-btn');
+  const photosInput = document.getElementById('bitacora-photos-input');
+  const atLimit = tempEvidences.length >= MAX_BITACORA_EVIDENCIAS;
+
+  if (countBadge) countBadge.textContent = `${tempEvidences.length}/${MAX_BITACORA_EVIDENCIAS}`;
+  if (photosInput) photosInput.disabled = atLimit;
+  if (photosBtn) {
+    photosBtn.classList.toggle('opacity-50', atLimit);
+    photosBtn.classList.toggle('pointer-events-none', atLimit);
+  }
   if (!grid) return;
 
   if (tempEvidences.length === 0) {
     grid.innerHTML = `
       <div class="col-span-full p-4 border-2 border-dashed border-slate-300 rounded-xl text-center text-slate-400 text-xs cursor-pointer hover:bg-white transition" onclick="document.getElementById('bitacora-photos-input')?.click()">
         <i class="fa-solid fa-cloud-arrow-up text-lg mb-1 block text-slate-400"></i>
-        Haz clic en "Agregar Fotos" para adjuntar evidencias fotográficas optimizadas (.jpg, .png, .webp)
+        Haz clic en "Agregar Fotos" para adjuntar hasta ${MAX_BITACORA_EVIDENCIAS} evidencias fotográficas (.jpg, .png, .webp)
       </div>
     `;
     return;

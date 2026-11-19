@@ -11,7 +11,7 @@ import { renderInsumosGenerales } from '../modules/insumosGenerales/insumosView.
 import { renderCalendarioObra } from '../modules/calendario/calendarioView.js?v=20261117_cf30';
 import { renderEstimacionesView } from '../modules/estimaciones/estimacionesView.js?v=20261117_cf30';
 import { renderExpensesView } from '../modules/compras/expensesView.js?v=20261117_cf30';
-import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js?v=20261117_cf30';
+import { renderBitacoraView } from '../modules/bitacora/bitacoraView.js?v=20261118_b6';
 import { renderAlmacenView } from '../modules/almacen/almacenView.js?v=20261117_cf30';
 import { renderBrandingUI } from './brandingController.js?v=20261117_cf30';
 import { canCurrentUserAccessTab, renderAllTabAssignedMembers } from '../modules/portal/portalController.js?v=20261117_cf30';

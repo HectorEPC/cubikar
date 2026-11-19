@@ -5,7 +5,7 @@
 //  2) Libro Completo de Bitácora Compilado (Carátula, Índice y Notas cronológicas)
 
 import { state } from '../../state/store.js?v=20261117_cf30';
-import { getBitacoraConfig, getBitacoraWorkSummary, getNoteTypeMeta } from './bitacoraModel.js?v=20261117_cf30';
+import { getBitacoraConfig, getBitacoraWorkSummary, getNoteTypeMeta } from './bitacoraModel.js?v=20261118_b6';
 import { buildBitacoraPdfFileName } from './bitacoraDriveService.js?v=20261117_cf30';
 import {
   resolveManagedFileDataUrl,

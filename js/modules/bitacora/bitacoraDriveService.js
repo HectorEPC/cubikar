@@ -20,7 +20,7 @@ import {
 import {
   attachCloudArtifactsToSealedNote,
   getBitacoraNotes
-} from './bitacoraModel.js?v=20261117_cf30';
+} from './bitacoraModel.js?v=20261118_b6';
 
 /**
  * Determina el propietario/anfitrión real del proyecto y si el usuario actual es ese anfitrión.

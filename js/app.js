@@ -165,7 +165,7 @@ import {
   onBitacoraDownloadsSearchChange,
   onBitacoraDownloadsStatusFilterChange,
   onBitacoraDownloadsTypeFilterChange
-} from './modules/bitacora/bitacoraView.js?v=20261117_cf30';
+} from './modules/bitacora/bitacoraView.js?v=20261118_b6';
 
 import {
   findNodeById,
@@ -390,7 +390,7 @@ import {
   ensureValidInitialTabForUser,
   getFirstAllowedTabForCurrentUser,
   initFloatingWindowOutsideClose
-} from './ui/modalController.js?v=20261117_cf30';
+} from './ui/modalController.js?v=20261118_b6';
 
 import {
   initBranding,
