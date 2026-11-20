@@ -1,26 +1,26 @@
 // js/modules/reference/masterCatalogModal.js
 // Modal de Catálogo Maestro y Biblioteca de Referencia (Opción 1)
 
-import { state, persistLocalData } from '../../state/store.js?v=20261119_cf40';
-import { saveState } from '../../state/history.js?v=20261119_cf40';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf40';
-import { formatMoney, round2 } from '../../core/formatters.js?v=20261119_cf40';
-import { findNodeById, findParentArrayOfNode, recalculateClaves, guardConceptLimit } from '../catalog/treeService.js?v=20261119_cf40';
-import { recalcNodeFromMatrix, getFactorSobrecosto } from '../../core/calculations.js?v=20261119_cf40';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf40';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf41';
+import { saveState } from '../../state/history.js?v=20261119_cf41';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf41';
+import { formatMoney, round2 } from '../../core/formatters.js?v=20261119_cf41';
+import { findNodeById, findParentArrayOfNode, recalculateClaves, guardConceptLimit } from '../catalog/treeService.js?v=20261119_cf41';
+import { recalcNodeFromMatrix, getFactorSobrecosto } from '../../core/calculations.js?v=20261119_cf41';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf41';
 import {
   listReferenceCatalogs,
   searchReferenceItems,
   deleteReferenceCatalog,
   getReferenceDatabaseStats,
   syncMasterCatalogsFromCloud
-} from './referenceDb.js?v=20261119_cf40';
-import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetCatalogs.js?v=20261119_cf40';
-import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js?v=20261119_cf40';
-import { openImportModal } from '../io/universalImporter.js?v=20261119_cf40';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf40';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf40';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf40';
+} from './referenceDb.js?v=20261119_cf41';
+import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetCatalogs.js?v=20261119_cf41';
+import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js?v=20261119_cf41';
+import { openImportModal } from '../io/universalImporter.js?v=20261119_cf41';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf41';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf41';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf41';
 
 let debounceTimer = null;
 let currentSearchResults = [];

@@ -2,8 +2,8 @@
 // Modelo de datos y persistencia para CONTROL DE GASTOS, COMPRAS Y ERP FINANCIERO
 // Cumple con la especificación técnica de expensesControl (Opción B)
 
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf40';
-import { scheduleExpensesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261119_cf40';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf41';
+import { scheduleExpensesCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261119_cf41';
 
 const STORAGE_KEY_PREFIX = 'expenses_control_';
 

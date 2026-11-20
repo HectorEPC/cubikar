@@ -17,7 +17,7 @@
  * 7. Regla de excepción inteligente: cotas, códigos, dimensiones y especificaciones con números nunca se marcan como error.
  */
 
-import { showToast } from '../ui/notifications.js?v=20261119_cf40';
+import { showToast } from '../ui/notifications.js?v=20261119_cf41';
 
 const STORAGE_KEY_CUSTOM_DICT = 'cubikar_custom_dictionary';
 const STORAGE_KEY_AUTOCORRECT_ENABLED = 'cubikar_autocorrect_enabled';

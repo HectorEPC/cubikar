@@ -12,13 +12,13 @@ import {
   getBitacoraWorkSummary,
   getNoteTypeMeta,
   getWeatherMeta
-} from '../modules/bitacora/bitacoraModel.js?v=20261119_cf40';
-import { uploadBitacoraEvidenceFile } from '../modules/bitacora/bitacoraDriveService.js?v=20261119_cf40';
-import { resolveManagedFileUrl, deleteManagedFile } from '../services/s3StorageService.js?v=20261119_cf40';
-import { canCurrentUserEditProject, getCurrentUser } from '../modules/portal/projectService.js?v=20261119_cf40';
-import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf40';
-import { showToast } from '../ui/notifications.js?v=20261119_cf40';
-import { escapeHtml } from './mobileBridge.js?v=20261119_cf40';
+} from '../modules/bitacora/bitacoraModel.js?v=20261119_cf41';
+import { uploadBitacoraEvidenceFile } from '../modules/bitacora/bitacoraDriveService.js?v=20261119_cf41';
+import { resolveManagedFileUrl, deleteManagedFile } from '../services/s3StorageService.js?v=20261119_cf41';
+import { canCurrentUserEditProject, getCurrentUser } from '../modules/portal/projectService.js?v=20261119_cf41';
+import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf41';
+import { showToast } from '../ui/notifications.js?v=20261119_cf41';
+import { escapeHtml } from './mobileBridge.js?v=20261119_cf41';
 
 const MAX_BITACORA_EVIDENCIAS = 6;
 let filterState = 'all'; // 'all' | 'draft' | 'sealed'

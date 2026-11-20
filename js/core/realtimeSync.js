@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf40';
-import { state } from '../state/store.js?v=20261119_cf40';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf41';
+import { state } from '../state/store.js?v=20261119_cf41';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -22,10 +22,10 @@ import {
   unmarkProjectTrashedLocal,
   isProjectTrashedLocal,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261119_cf40';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261119_cf40';
-import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261119_cf40';
-import { showToast } from '../ui/notifications.js?v=20261119_cf40';
+} from '../modules/portal/projectService.js?v=20261119_cf41';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261119_cf41';
+import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261119_cf41';
+import { showToast } from '../ui/notifications.js?v=20261119_cf41';
 
 const CLOUD_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isCloudUuid = (s) => CLOUD_UUID_RE.test(String(s || '').trim());
@@ -515,6 +515,24 @@ export function subscribeToProjectRealtime(projectId) {
     );
   }
 
+  // 2B. Escuchar cambios en metadatos/sobrecosto de la obra en 'proyectos'
+  if (isUuid(canonicalCloudId)) {
+    activeChannel.on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'proyectos',
+        filter: `id=eq.${canonicalCloudId}`
+      },
+      () => {
+        if (typeof window !== 'undefined' && typeof window.refreshActiveProjectFromCloud === 'function') {
+          window.refreshActiveProjectFromCloud({ force: true, fromRealtime: true });
+        }
+      }
+    );
+  }
+
   // 3. Escuchar cambios en matrices de insumos APU
   activeChannel.on(
     'postgres_changes',
@@ -912,21 +930,27 @@ export function handleIncomingProjectUpdate(data) {
     }).catch(() => {});
   }
 
-  if (data.settings && typeof data.settings === 'object') {
-    try {
-      localStorage.setItem(getSettingsKey(effectiveStorageId), JSON.stringify(data.settings));
-    } catch (_) {}
-    if (isCurrentActive) {
-      state.settings = Object.assign({}, state.settings, data.settings);
-      if (typeof window !== 'undefined') {
-        if (typeof window.recalcAllConceptsFromMatrices === 'function') {
-          try { window.recalcAllConceptsFromMatrices(state.treeData); } catch (_) {}
-        }
-        if (typeof window.renderBrandingUI === 'function') {
-          try { window.renderBrandingUI(); } catch (_) {}
-        }
-        if (typeof window.updateSobrecostoBadge === 'function') {
-          try { window.updateSobrecostoBadge(); } catch (_) {}
+  if (data.changeType === 'settings_updated' && data.settings && typeof data.settings === 'object') {
+    const ownerEmailLower = (proj?.ownerEmail || '').toLowerCase().trim();
+    const isLocalOwner = Boolean(myEmail && ownerEmailLower && myEmail === ownerEmailLower);
+    const isAuthorOwner = Boolean(authorEmail && ownerEmailLower && authorEmail === ownerEmailLower);
+    const acceptRemoteSettings = !isLocalOwner || isAuthorOwner || Boolean(data.forceSettingsSync);
+    if (acceptRemoteSettings) {
+      try {
+        localStorage.setItem(getSettingsKey(effectiveStorageId), JSON.stringify(data.settings));
+      } catch (_) {}
+      if (isCurrentActive) {
+        state.settings = Object.assign({}, state.settings, data.settings);
+        if (typeof window !== 'undefined') {
+          if (typeof window.recalcAllConceptsFromMatrices === 'function') {
+            try { window.recalcAllConceptsFromMatrices(state.treeData); } catch (_) {}
+          }
+          if (typeof window.renderBrandingUI === 'function') {
+            try { window.renderBrandingUI(); } catch (_) {}
+          }
+          if (typeof window.updateSobrecostoBadge === 'function') {
+            try { window.updateSobrecostoBadge(); } catch (_) {}
+          }
         }
       }
     }

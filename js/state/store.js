@@ -1,11 +1,11 @@
-import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261119_cf40';
-import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261119_cf40';
-import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted, canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf40';
-import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261119_cf40';
-import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261119_cf40';
-import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261119_cf40';
-import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261119_cf40';
-import { recalcTreeFromMatrices, computeFactorSobrecosto } from '../core/matrixMath.js?v=20261119_cf40';
+import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261119_cf41';
+import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261119_cf41';
+import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted, canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf41';
+import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261119_cf41';
+import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261119_cf41';
+import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261119_cf41';
+import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261119_cf41';
+import { recalcTreeFromMatrices, computeFactorSobrecosto } from '../core/matrixMath.js?v=20261119_cf41';
 
 // Estado global reactivo y centralizado de la aplicación
 export const state = {
@@ -167,88 +167,7 @@ export function initStore() {
 
     // Si el proyecto está activo, sincronizar con Supabase SIN pisar mutaciones locales concurrentes durante la carga
     if (activePId) {
-      const bootMutationSeq = localTreeMutationSeq;
-      const prevSettingsRaw = typeof localStorage !== 'undefined' ? (localStorage.getItem(getSettingsKey(activePId)) || '') : '';
-      loadProjectTreeFromCloud(activePId).then(cloudTree => {
-        if (localTreeMutationSeq !== bootMutationSeq) {
-          triggerDebouncedCloudSync();
-          return;
-        }
-        let hasPendingInitial = false;
-        try { hasPendingInitial = sessionStorage.getItem(`cubikar_pending_initial_upload_${activePId}`) === '1'; } catch (_) {}
-        let didSettingsChange = false;
-        try {
-          const nextSettingsRaw = localStorage.getItem(getSettingsKey(activePId)) || '';
-          if (nextSettingsRaw && (nextSettingsRaw !== prevSettingsRaw || !hadSavedSettings)) {
-            state.settings = Object.assign({}, defaultSettings, JSON.parse(nextSettingsRaw));
-            didSettingsChange = true;
-          }
-        } catch (_) {}
-
-        if (Array.isArray(cloudTree) && cloudTree.length > 0) {
-          const currentProjMeta = getProjectById(activePId);
-          const localHasNodes = savedData && Array.isArray(state.treeData) && state.treeData.length > 0;
-          if (localHasNodes && isCloudDirty(activePId)) {
-            if (didSettingsChange && typeof window !== 'undefined') {
-              if (typeof window.renderBrandingUI === 'function') window.renderBrandingUI();
-              if (typeof window.updateSobrecostoBadge === 'function') window.updateSobrecostoBadge();
-            }
-            triggerDebouncedCloudSync();
-            return;
-          }
-          if ((hasPendingInitial || !currentProjMeta?.isCloudSynced) && localHasNodes && cloudTree.length < state.treeData.length) {
-            if (didSettingsChange && typeof window !== 'undefined') {
-              if (typeof window.renderBrandingUI === 'function') window.renderBrandingUI();
-              if (typeof window.updateSobrecostoBadge === 'function') window.updateSobrecostoBadge();
-            }
-            triggerDebouncedCloudSync();
-            return;
-          }
-          const currentJson = JSON.stringify(state.treeData || []);
-          const incomingJson = JSON.stringify(cloudTree);
-          const treeChanged = currentJson !== incomingJson;
-          if (treeChanged) {
-            state.treeData = cloudTree;
-            localStorage.setItem(getStorageKey(activePId), incomingJson);
-          }
-          if (treeChanged || didSettingsChange) {
-            try { recalcTreeFromMatrices(state.treeData, computeFactorSobrecosto(state.settings)); } catch (_) {}
-            if (typeof window !== 'undefined') {
-              if (typeof window.renderBrandingUI === 'function') window.renderBrandingUI();
-              if (typeof window.updateSobrecostoBadge === 'function') window.updateSobrecostoBadge();
-              if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
-              if (typeof window.renderTAB1 === 'function') window.renderTAB1();
-            }
-          }
-          if (currentProjMeta?.isCloudSynced && !hasPendingInitial) {
-            rememberSyncedTreeFingerprint(activePId, fingerprintTree(state.treeData));
-          }
-        } else if (Array.isArray(cloudTree) && cloudTree.length === 0) {
-          if (didSettingsChange) {
-            try { recalcTreeFromMatrices(state.treeData, computeFactorSobrecosto(state.settings)); } catch (_) {}
-            if (typeof window !== 'undefined') {
-              if (typeof window.renderBrandingUI === 'function') window.renderBrandingUI();
-              if (typeof window.updateSobrecostoBadge === 'function') window.updateSobrecostoBadge();
-              if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
-              if (typeof window.renderTAB1 === 'function') window.renderTAB1();
-            }
-          }
-          if (Array.isArray(state.treeData) && state.treeData.length > 0) {
-            // Si la obra es recién creada y en la nube aún no terminaron de subirse sus conceptos, respaldarlos de inmediato
-            triggerDebouncedCloudSync();
-          } else if (getProjectById(activePId)?.isCloudSynced && !hasPendingInitial) {
-            rememberSyncedTreeFingerprint(activePId, fingerprintTree(state.treeData));
-          }
-        } else if (didSettingsChange) {
-          try { recalcTreeFromMatrices(state.treeData, computeFactorSobrecosto(state.settings)); } catch (_) {}
-          if (typeof window !== 'undefined') {
-            if (typeof window.renderBrandingUI === 'function') window.renderBrandingUI();
-            if (typeof window.updateSobrecostoBadge === 'function') window.updateSobrecostoBadge();
-            if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
-            if (typeof window.renderTAB1 === 'function') window.renderTAB1();
-          }
-        }
-      }).catch(err => console.warn('[CloudSync] Fallo al refrescar árbol desde la nube:', err));
+      syncActiveProjectFromCloud(activePId, { hadSavedSettings, hasSavedData: Boolean(savedData) });
     }
   } catch (e) {
     console.error('Error cargando treeData:', e);
@@ -403,7 +322,12 @@ function hasPendingInitialUpload(projectId) {
 // reemplazarlo por una copia más antigua de la nube.
 // ============================================================================
 const CLOUD_DIRTY_PREFIX = 'cubikar_dirty_';
+const SETTINGS_DIRTY_PREFIX = 'cubikar_settings_dirty_';
 let pendingCloudSyncTask = null;
+let pendingHeaderSync = false;
+let pendingBroadcastHeader = false;
+let inFlightCloudRefresh = null;
+let lastCloudRefreshAt = 0;
 
 function markCloudDirty(projectId) {
   if (!projectId) return;
@@ -426,6 +350,138 @@ export function isCloudDirty(projectId) {
   } catch (_) { return false; }
 }
 
+function markSettingsDirty(projectId) {
+  if (!projectId) return;
+  try { if (typeof canCurrentUserEditProject === 'function' && !canCurrentUserEditProject()) return; } catch (_) { return; }
+  try { localStorage.setItem(SETTINGS_DIRTY_PREFIX + projectId, String(Date.now())); } catch (_) {}
+}
+
+function clearSettingsDirty(projectId) {
+  if (!projectId) return;
+  try { localStorage.removeItem(SETTINGS_DIRTY_PREFIX + projectId); } catch (_) {}
+}
+
+function isSettingsDirty(projectId) {
+  if (!projectId) return false;
+  try {
+    const ts = Number(localStorage.getItem(SETTINGS_DIRTY_PREFIX + projectId) || 0);
+    return ts > 0 && (Date.now() - ts) < 12 * 60 * 60 * 1000;
+  } catch (_) { return false; }
+}
+
+function getSettingsDirtyTimestamp(projectId) {
+  if (!projectId) return 0;
+  try { return Number(localStorage.getItem(SETTINGS_DIRTY_PREFIX + projectId) || 0) || 0; } catch (_) { return 0; }
+}
+
+function refreshWorkspaceUiAfterCloudHydration(recalcMatrices = true) {
+  if (recalcMatrices) {
+    try { recalcTreeFromMatrices(state.treeData, computeFactorSobrecosto(state.settings)); } catch (_) {}
+  }
+  if (typeof window !== 'undefined') {
+    if (typeof window.renderBrandingUI === 'function') window.renderBrandingUI();
+    if (typeof window.updateSobrecostoBadge === 'function') window.updateSobrecostoBadge();
+    if (typeof window.updateGrandTotal === 'function') window.updateGrandTotal();
+    if (typeof window.renderTAB1 === 'function') window.renderTAB1();
+  }
+}
+
+function syncActiveProjectFromCloud(activePId, { hadSavedSettings = true, hasSavedData = true } = {}) {
+  if (!activePId) return Promise.resolve(false);
+  const bootMutationSeq = localTreeMutationSeq;
+  const prevSettingsRaw = typeof localStorage !== 'undefined' ? (localStorage.getItem(getSettingsKey(activePId)) || '') : '';
+  return loadProjectTreeFromCloud(activePId).then(cloudTree => {
+    let didSettingsChange = false;
+    try {
+      const nextSettingsRaw = localStorage.getItem(getSettingsKey(activePId)) || '';
+      if (nextSettingsRaw && (nextSettingsRaw !== prevSettingsRaw || !hadSavedSettings)) {
+        state.settings = Object.assign({}, defaultSettings, JSON.parse(nextSettingsRaw));
+        didSettingsChange = true;
+      }
+    } catch (_) {}
+
+    if (isSettingsDirty(activePId)) {
+      triggerDebouncedCloudSync({ syncHeader: true, broadcastHeader: true });
+    }
+
+    if (localTreeMutationSeq !== bootMutationSeq) {
+      if (didSettingsChange) refreshWorkspaceUiAfterCloudHydration(true);
+      triggerDebouncedCloudSync();
+      return didSettingsChange;
+    }
+
+    let treeChanged = false;
+    if (Array.isArray(cloudTree) && cloudTree.length > 0) {
+      const currentProjMeta = getProjectById(activePId);
+      const localHasNodes = hasSavedData && Array.isArray(state.treeData) && state.treeData.length > 0;
+      if (localHasNodes && isCloudDirty(activePId)) {
+        if (didSettingsChange) refreshWorkspaceUiAfterCloudHydration(true);
+        triggerDebouncedCloudSync();
+        return didSettingsChange;
+      }
+      if ((hasPendingInitialUpload(activePId) || !currentProjMeta?.isCloudSynced) && localHasNodes && cloudTree.length < state.treeData.length) {
+        if (didSettingsChange) refreshWorkspaceUiAfterCloudHydration(true);
+        triggerDebouncedCloudSync();
+        return didSettingsChange;
+      }
+      const currentJson = JSON.stringify(state.treeData || []);
+      const incomingJson = JSON.stringify(cloudTree);
+      treeChanged = currentJson !== incomingJson;
+      if (treeChanged) {
+        state.treeData = cloudTree;
+        localStorage.setItem(getStorageKey(activePId), incomingJson);
+      }
+      if (treeChanged || didSettingsChange) {
+        refreshWorkspaceUiAfterCloudHydration(true);
+      }
+      if (currentProjMeta?.isCloudSynced && !hasPendingInitialUpload(activePId)) {
+        rememberSyncedTreeFingerprint(activePId, fingerprintTree(state.treeData));
+      }
+    } else if (Array.isArray(cloudTree) && cloudTree.length === 0) {
+      if (didSettingsChange) refreshWorkspaceUiAfterCloudHydration(true);
+      if (Array.isArray(state.treeData) && state.treeData.length > 0) {
+        triggerDebouncedCloudSync();
+      } else if (getProjectById(activePId)?.isCloudSynced && !hasPendingInitialUpload(activePId)) {
+        rememberSyncedTreeFingerprint(activePId, fingerprintTree(state.treeData));
+      }
+    } else if (didSettingsChange) {
+      refreshWorkspaceUiAfterCloudHydration(true);
+    }
+    return treeChanged || didSettingsChange;
+  }).catch(err => {
+    console.warn('[CloudSync] Fallo al refrescar árbol desde la nube:', err);
+    return false;
+  });
+}
+
+export function refreshActiveProjectFromCloud(opts = {}) {
+  const activePId = getActiveProjectId();
+  if (!activePId) return Promise.resolve(false);
+  const now = Date.now();
+  if (opts?.fromRealtime) {
+    const dirtyTs = getSettingsDirtyTimestamp(activePId);
+    if (dirtyTs > 0 && (now - dirtyTs) < 8000) return Promise.resolve(false);
+  }
+  if (!opts?.force && (now - lastCloudRefreshAt) < 3500) {
+    return inFlightCloudRefresh || Promise.resolve(false);
+  }
+  if (inFlightCloudRefresh) return inFlightCloudRefresh;
+  lastCloudRefreshAt = now;
+  const hasSavedSettings = typeof localStorage !== 'undefined' && Boolean(localStorage.getItem(getSettingsKey(activePId)));
+  const hasSavedTree = typeof localStorage !== 'undefined' && Boolean(localStorage.getItem(getStorageKey(activePId)));
+  inFlightCloudRefresh = syncActiveProjectFromCloud(activePId, {
+    hadSavedSettings: hasSavedSettings,
+    hasSavedData: hasSavedTree
+  }).finally(() => {
+    inFlightCloudRefresh = null;
+  });
+  return inFlightCloudRefresh;
+}
+
+if (typeof window !== 'undefined') {
+  window.refreshActiveProjectFromCloud = refreshActiveProjectFromCloud;
+}
+
 function notifyLocalStorageQuota(err) {
   const isQuota = err && (err.name === 'QuotaExceededError' || /quota/i.test(String(err.message || '')));
   if (!isQuota) return;
@@ -446,9 +502,14 @@ export function flushPendingCloudSync() {
   }
 }
 
-export function triggerDebouncedCloudSync() {
+export function triggerDebouncedCloudSync(opts = {}) {
   if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
-  markCloudDirty(getActiveProjectId());
+  const activePid = getActiveProjectId();
+  if (!opts?.skipMarkTreeDirty) {
+    markCloudDirty(activePid);
+  }
+  if (opts?.syncHeader) pendingHeaderSync = true;
+  if (opts?.broadcastHeader) pendingBroadcastHeader = true;
   const runSyncTask = async () => {
     cloudSyncTimer = null;
     const projectId = getActiveProjectId();
@@ -458,14 +519,22 @@ export function triggerDebouncedCloudSync() {
     if (!project) return;
     if (typeof isProjectMarkedDeleted === 'function' && project.cloudId && isProjectMarkedDeleted(project.cloudId)) return;
     let syncSuccess = false;
+    const syncHeaderNow = Boolean(pendingHeaderSync || isSettingsDirty(projectId));
+    const broadcastHeaderNow = Boolean(pendingBroadcastHeader);
+    pendingHeaderSync = false;
+    pendingBroadcastHeader = false;
     const wasCloudSynced = Boolean(project.isCloudSynced);
     const treeFingerprint = fingerprintTree(state.treeData);
     const treeChanged = !wasCloudSynced || hasPendingInitialUpload(projectId) || readSyncedTreeFingerprint(projectId) !== treeFingerprint;
     try {
-      const syncRes = await syncProjectToCloud(project, state.settings, treeChanged ? state.treeData : null);
+      const syncRes = await syncProjectToCloud(project, state.settings, treeChanged ? state.treeData : null, { syncHeader: syncHeaderNow });
       syncSuccess = Boolean(syncRes && syncRes.success);
       if (syncSuccess) {
         clearCloudDirty(projectId);
+        if (syncHeaderNow && !syncRes.headerSkippedRls && !syncRes.headerSkippedNonOwner) {
+          clearSettingsDirty(projectId);
+          if (syncRes.projectId && syncRes.projectId !== projectId) clearSettingsDirty(syncRes.projectId);
+        }
         if (treeChanged) {
           rememberSyncedTreeFingerprint(projectId, treeFingerprint);
           try { sessionStorage.removeItem(`cubikar_pending_initial_upload_${projectId}`); } catch (_) {}
@@ -477,6 +546,16 @@ export function triggerDebouncedCloudSync() {
           list[idx].cloudId = syncRes.projectId || list[idx].cloudId || list[idx].id;
           list[idx].lastCloudSyncAt = Date.now();
           saveProjectsList(list, { skipCloudSync: true });
+        }
+        if (broadcastHeaderNow && !syncRes.headerSkippedRls && !syncRes.headerSkippedNonOwner && typeof broadcastProjectMutation === 'function') {
+          broadcastProjectMutation({
+            projectId,
+            treeData: state.treeData,
+            settings: state.settings,
+            immediate: false,
+            changeType: 'settings_updated',
+            changeDescription: 'parámetros del proyecto y sobrecosto'
+          });
         }
       }
     } catch (e) {
@@ -513,9 +592,13 @@ export function triggerDebouncedCloudSync() {
 export function persistSettings(meta = {}) {
   const projectId = getActiveProjectId();
   try {
+    if (state.settings && typeof state.settings === 'object') {
+      state.settings._settingsUpdatedAt = Date.now();
+    }
     localStorage.setItem(getSettingsKey(), JSON.stringify(state.settings));
     syncActiveProjectSummary(projectId, state.treeData, state.settings);
-    triggerDebouncedCloudSync();
+    markSettingsDirty(projectId);
+    triggerDebouncedCloudSync({ syncHeader: true, skipMarkTreeDirty: true });
 
     if (typeof broadcastProjectMutation === 'function') {
       broadcastProjectMutation({

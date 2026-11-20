@@ -1,7 +1,7 @@
 // js/modules/portal/projectService.js
 // Servicio centralizado para usuarios, proyectos multi-obra y almacenamiento aislado
 
-import { enforceLocalDataOwner } from '../../core/localDataIsolation.js?v=20261119_cf40';
+import { enforceLocalDataOwner } from '../../core/localDataIsolation.js?v=20261119_cf41';
 import {
   STORAGE_KEY_USER,
   STORAGE_KEY_PROJECTS,
@@ -16,15 +16,15 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261119_cf40';
+} from '../../config/constants.js?v=20261119_cf41';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
 export const STORAGE_KEY_TRASHED_PROJECTS = 'cubikar_trashed_project_ids_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261119_cf40';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261119_cf40';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261119_cf40';
-import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261119_cf40';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261119_cf40';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261119_cf41';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261119_cf41';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261119_cf41';
+import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261119_cf41';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261119_cf41';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -642,7 +642,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261119_cf40').then(m => {
+            import('../../core/supabaseClient.js?v=20261119_cf41').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -2065,7 +2065,7 @@ export function getTabAssignedMembers(projectId, tabId) {
 // Enviar proyecto a la Papelera (retención 7 días - solo Anfitrión)
 export async function deleteProject(projectId) {
   if (!projectId) return { success: false, reason: 'Proyecto no especificado' };
-  const { moveProjectToTrash } = await import('./trashService.js?v=20261119_cf40');
+  const { moveProjectToTrash } = await import('./trashService.js?v=20261119_cf41');
   const res = await moveProjectToTrash(projectId);
   return (res && typeof res === 'object') ? res : { success: Boolean(res) };
 }
@@ -2232,7 +2232,7 @@ export async function permanentlyDeleteProject(projectId, opts = {}) {
 export function syncActiveProjectSummary(projectId, treeData, settings) {
   if (!projectId) return;
   const list = getProjectsList();
-  const idx = list.findIndex(p => p.id === projectId);
+  const idx = list.findIndex(p => p.id === projectId || p.cloudId === projectId);
   if (idx === -1) return;
 
   const f = settings.applySobrecosto ?
@@ -2245,9 +2245,18 @@ export function syncActiveProjectSummary(projectId, treeData, settings) {
   list[idx].companyName = settings.companyName || list[idx].companyName;
   list[idx].companyLogo = settings.companyLogo !== undefined ? settings.companyLogo : list[idx].companyLogo;
   list[idx].projectName = settings.projectName || list[idx].projectName;
-  list[idx].projectLocation = settings.projectLocation || list[idx].projectLocation;
+  list[idx].projectLocation = settings.projectLocation !== undefined ? settings.projectLocation : list[idx].projectLocation;
+  if (settings.client !== undefined) list[idx].client = settings.client;
+  if (settings.tipoObra) list[idx].tipoObra = settings.tipoObra;
   list[idx].currency = settings.currency || list[idx].currency;
   list[idx].currencySymbol = settings.currencySymbol || list[idx].currencySymbol;
+  list[idx].applySobrecosto = Boolean(settings.applySobrecosto);
+  list[idx].pctIndirectos = Number(settings.pctIndirectos) || 0;
+  list[idx].pctFinanciamiento = Number(settings.pctFinanciamiento) || 0;
+  list[idx].pctUtilidad = Number(settings.pctUtilidad) || 0;
+  list[idx].pctAdicionales = Number(settings.pctAdicionales) || 0;
+  list[idx].pctSegurosFianzas = Number(settings.pctSegurosFianzas ?? 1.0) || 0;
+  list[idx].pctFasar = Number(settings.pctFasar ?? 70.0) || 0;
   list[idx].factorSobrecosto = f;
   list[idx].totalPresupuesto = calculateTreeTotal(treeData);
   list[idx].conceptCount = countTreeConcepts(treeData);

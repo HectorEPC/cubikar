@@ -6,7 +6,7 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261119_cf40';
+} from '../../config/constants.js?v=20261119_cf41';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -74,15 +74,15 @@ import {
   isProjectTrashedLocal,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261119_cf40';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf40';
-import { persistLocalData, state, initStore } from '../../state/store.js?v=20261119_cf40';
-import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261119_cf40';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf40';
-import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261119_cf40';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261119_cf40';
-import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261119_cf40';
-import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261119_cf40';
+} from './projectService.js?v=20261119_cf41';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf41';
+import { persistLocalData, state, initStore } from '../../state/store.js?v=20261119_cf41';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261119_cf41';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf41';
+import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261119_cf41';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261119_cf41';
+import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261119_cf41';
+import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261119_cf41';
 import {
   signUp,
   signInWithPassword,
@@ -92,25 +92,25 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js?v=20261119_cf40';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261119_cf40';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf40';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf40';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf40';
+} from '../../core/authService.js?v=20261119_cf41';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261119_cf41';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf41';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf41';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf41';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
   openCubikarAdminModal
-} from '../admin/cubikarAdmin.js?v=20261119_cf40';
-import { syncProjectToCloud, fetchCloudProjects, getTrashedCloudProjectIds } from '../../core/cloudProjectService.js?v=20261119_cf40';
+} from '../admin/cubikarAdmin.js?v=20261119_cf41';
+import { syncProjectToCloud, fetchCloudProjects, getTrashedCloudProjectIds } from '../../core/cloudProjectService.js?v=20261119_cf41';
 import {
   isProjectHostOwner,
   fetchTrashedProjectsForHost,
   getCachedTrashCount,
   updateTrashBadgeUI,
   openTrashModal
-} from './trashService.js?v=20261119_cf40';
-import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261119_cf40';
+} from './trashService.js?v=20261119_cf41';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261119_cf41';
 
 function readStoredJson(key) {
   try {
@@ -3222,7 +3222,9 @@ export function saveEditedProjectAction() {
     setObj.companyLogo = editingProjectLogo;
     setObj.currency = currency;
     setObj.currencySymbol = currencySymbol;
+    setObj._settingsUpdatedAt = Date.now();
     localStorage.setItem(sKey, JSON.stringify(setObj));
+    try { localStorage.setItem(`cubikar_settings_dirty_${pId}`, String(Date.now())); } catch (_) {}
   } catch (err) {
     console.warn('[EditProject] Error actualizando settings locales:', err);
   }
@@ -3236,6 +3238,7 @@ export function saveEditedProjectAction() {
     state.settings.companyLogo = editingProjectLogo;
     state.settings.currency = currency;
     state.settings.currencySymbol = currencySymbol;
+    state.settings._settingsUpdatedAt = Date.now();
     if (typeof syncCompanyName === 'function') syncCompanyName(companyName);
     if (typeof syncProjectName === 'function') syncProjectName(projectName);
     if (typeof syncProjectLocation === 'function') syncProjectLocation(projectLocation);
@@ -3245,7 +3248,7 @@ export function saveEditedProjectAction() {
   // Sincronizar cambios en segundo plano con la nube Supabase si aplica
   try {
     if (typeof syncProjectToCloud === 'function' && list[idx]) {
-      syncProjectToCloud(list[idx], readStoredJson(getSettingsKey(pId)) || {}).catch(() => {});
+      syncProjectToCloud(list[idx], readStoredJson(getSettingsKey(pId)) || {}, null, { forceHeaderSync: true }).catch(() => {});
     }
   } catch (_) {}
 
@@ -3818,7 +3821,7 @@ export async function syncProjectToCloudAction(projectId, event) {
     if (rawT) tree = JSON.parse(rawT);
     if (rawS) settings = JSON.parse(rawS);
 
-    const res = await syncProjectToCloud(proj, settings, tree);
+    const res = await syncProjectToCloud(proj, settings, tree, { forceHeaderSync: true });
     if (res && res.success) {
       proj.isCloudSynced = true;
       const list = getProjectsList();

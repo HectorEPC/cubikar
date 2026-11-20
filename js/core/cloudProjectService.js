@@ -2,11 +2,11 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf40';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261119_cf40';
-import { getSettingsKey } from '../config/constants.js?v=20261119_cf40';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261119_cf40';
-import { showToast } from '../ui/notifications.js?v=20261119_cf40';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf41';
+import { getCurrentUser, saveCurrentUser, getProjectsList, saveProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261119_cf41';
+import { getSettingsKey } from '../config/constants.js?v=20261119_cf41';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261119_cf41';
+import { showToast } from '../ui/notifications.js?v=20261119_cf41';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -282,19 +282,21 @@ function startProjectSync(key, job) {
 export function syncProjectToCloud(project, settings = {}, treeData = null, options = {}) {
   const key = projectSyncKey(project);
   const headerCallback = typeof options?.onHeaderSynced === 'function' ? options.onHeaderSynced : null;
+  const syncHeader = Boolean(options?.syncHeader || options?.forceHeaderSync);
   const slot = projectSyncSlots.get(key);
   if (!slot) {
-    return startProjectSync(key, { project, settings, treeData, headerCallbacks: headerCallback ? [headerCallback] : [] });
+    return startProjectSync(key, { project, settings, treeData, syncHeader, headerCallbacks: headerCallback ? [headerCallback] : [] });
   }
   if (!slot.queued) {
     let resolve;
     const promise = new Promise((r) => { resolve = r; });
-    slot.queued = { promise, resolve, treeData: null, headerCallbacks: [] };
+    slot.queued = { promise, resolve, treeData: null, syncHeader: false, headerCallbacks: [] };
   }
   const queued = slot.queued;
   queued.project = project;
   queued.settings = settings;
   if (Array.isArray(treeData)) queued.treeData = treeData;
+  if (syncHeader) queued.syncHeader = true;
   if (headerCallback) queued.headerCallbacks.push(headerCallback);
   return queued.promise;
 }
@@ -354,13 +356,17 @@ function notifyHeaderSynced(callbacks, projectId) {
   });
 }
 
-async function runProjectSync({ project, settings = {}, treeData = null, headerCallbacks = [] }) {
+async function runProjectSync({ project, settings = {}, treeData = null, syncHeader = false, headerCallbacks = [] }) {
   const sb = getSupabaseClient();
   let user = getCurrentUser();
 
   if (!isSupabaseConfigured() || !sb) {
     return { success: false, reason: 'Supabase no está configurado' };
   }
+
+  try {
+    await sb.auth.getSession();
+  } catch (_) {}
 
   // Si el usuario local no tiene un UUID válido, intentar obtener el usuario autenticado real de Supabase
   if (!user || !isValidUUID(user.id)) {
@@ -450,112 +456,150 @@ async function runProjectSync({ project, settings = {}, treeData = null, headerC
     const effectiveOwnerEmail = (existingCloudProj?.owner_email || ownerEmail).toLowerCase().trim();
     const currentActorEmail = (user.email || '').toLowerCase().trim();
     const isOwnerActor = Boolean(currentActorEmail) && currentActorEmail === effectiveOwnerEmail;
-
-    // 1. Guardar / Actualizar en tabla 'public.proyectos' preservando banderas concurrentes
-    const projectRecord = {
-      id: projectId,
-      empresa_id: existingCloudProj?.empresa_id || empresaId || null,
-      owner_email: existingCloudProj?.owner_email || ownerEmail,
-      creado_por: existingCloudProj?.creado_por || user.id,
-      clave: (project.clave || project.id || '').slice(0, 50),
-      nombre: project.projectName || 'Proyecto sin título',
-      cliente: project.client || '',
-      ubicacion: project.projectLocation || '',
-      tipo_obra: project.tipoObra || 'Edificación',
-      moneda: project.currency || settings?.currency || 'MXN',
-      simbolo_moneda: project.currencySymbol || settings?.currencySymbol || '$',
-      aplica_sobrecosto: Boolean(settings?.applySobrecosto ?? project.applySobrecosto),
-      pct_indirectos: Number(settings?.pctIndirectos ?? project.pctIndirectos) || 0,
-      pct_financiamiento: Number(settings?.pctFinanciamiento ?? project.pctFinanciamiento) || 0,
-      pct_utilidad: Number(settings?.pctUtilidad ?? project.pctUtilidad) || 0,
-      pct_adicionales: Number(settings?.pctAdicionales ?? project.pctAdicionales) || 0,
-      pct_seguros_fianzas: Number(settings?.pctSegurosFianzas ?? project.pctSegurosFianzas ?? 1.0) || 0,
-      pct_fasar: Number(settings?.pctFasar ?? project.pctFasar ?? 70.0) || 0,
-      anticipo_pct: Number(settings?.anticipoPct ?? 30.0),
-      iva_pct: Number(settings?.ivaPct ?? 16.0),
-      configuracion: (() => {
-        const safeSettings = { ...((settings && typeof settings === 'object') ? settings : {}) };
-        delete safeSettings.apiKey;
-        const tombSet = tombstonedConceptIdsByProject.get(projectId) || new Set();
-        const unclearSet = unclearMatrixIdsByProject.get(projectId) || new Set();
-        const localCleared = Array.isArray(treeData)
-          ? collectNodeFlagUuids(treeData, (n) => Boolean(n?.userClearedMatrix))
-          : (Array.isArray(safeSettings.clearedMatrixIds) ? safeSettings.clearedMatrixIds : []);
-        const clearedSet = new Set([
-          ...((Array.isArray(prevCloudCfg.clearedMatrixIds) ? prevCloudCfg.clearedMatrixIds : []).filter(id => !tombSet.has(id) && !unclearSet.has(id))),
-          ...localCleared
-        ]);
-        const localCustomized = Array.isArray(treeData)
-          ? collectNodeFlagUuids(treeData, (n) => Boolean(n?.isMatrixCustomized))
-          : (Array.isArray(safeSettings.customizedMatrixIds) ? safeSettings.customizedMatrixIds : []);
-        const customizedSet = new Set([
-          ...((Array.isArray(prevCloudCfg.customizedMatrixIds) ? prevCloudCfg.customizedMatrixIds : []).filter(id => !tombSet.has(id))),
-          ...localCustomized
-        ]);
-        return {
-          ...prevCloudCfg,
-          ...safeSettings,
-          clearedMatrixIds: Array.from(clearedSet),
-          customizedMatrixIds: Array.from(customizedSet),
-          ownerName: project.ownerName || prevCloudCfg.ownerName || (ownerEmail === (user.email || '').toLowerCase().trim() ? (user.name || '') : ''),
-          companyName: project.companyName || prevCloudCfg.companyName || '',
-          budgetSignatures: project.budgetSignatures || settings?.budgetSignatures || prevCloudCfg.budgetSignatures || [],
-          collaborators: (isOwnerActor && Array.isArray(project.members))
-            ? project.members
-                .filter(m => m && m.email && (m.status || '').toLowerCase().trim() !== 'rejected')
-                .map(m => ({
-                  email: (m.email || '').toLowerCase().trim(),
-                  name: m.name || (m.email || '').split('@')[0],
-                  role: m.role || 'editar',
-                  status: (m.status || '').toLowerCase().trim() === 'pending' ? 'pending' : 'accepted'
-                }))
-            : (Array.isArray(prevCloudCfg?.collaborators) ? prevCloudCfg.collaborators : []),
-          memberTabs: !isOwnerActor
-            ? (prevCloudCfg.memberTabs || {})
-            : Array.isArray(project.members)
-              ? project.members.reduce((acc, m) => {
-                  const em = (m?.email || '').toLowerCase().trim();
-                  if (em && Array.isArray(m.allowedTabs)) acc[em] = m.allowedTabs;
-                  return acc;
-                }, { ...((prevCloudCfg && prevCloudCfg.memberTabs) || {}), ...((safeSettings && safeSettings.memberTabs) || {}) })
-              : ((safeSettings && safeSettings.memberTabs) || prevCloudCfg.memberTabs || {})
-        };
-      })(),
-      updated_at: new Date().toISOString()
-    };
-
-    let projError = null;
-    if (existingCloudProj) {
-      const { id: _ignoredId, creado_por: _ignoredCreator, ...updateRecord } = projectRecord;
-      ({ error: projError } = await sb
-        .from('proyectos')
-        .update(updateRecord)
-        .eq('id', projectId));
-    } else {
-      ({ error: projError } = await sb
-        .from('proyectos')
-        .insert(projectRecord));
-    }
-
-    if (projError) {
-      const isRlsOrConflict = projError.code === '42501' || projError.code === '23505' || /row-level security/i.test(String(projError.message || ''));
-      if (!isRlsOrConflict) {
-        const isTriggerRejection = projError.code === 'P0001';
-        const reason = isTriggerRejection ? (projError.message || 'Operación rechazada por regla de seguridad.') : undefined;
-        console.warn('[CloudProjectService] Error al guardar proyecto en Supabase:', projError.message);
-        return { success: false, ...(reason ? { reason } : {}), error: projError };
+    const hasSettingsDirty = (() => {
+      try {
+        if (typeof localStorage === 'undefined') return false;
+        return Boolean(
+          localStorage.getItem(`cubikar_settings_dirty_${project.id}`) ||
+          localStorage.getItem(`cubikar_settings_dirty_${projectId}`)
+        );
+      } catch (_) {
+        return false;
       }
-      const recovery = await recoverHeaderRlsError(sb, projectRecord, user, projError);
-      if (!recovery.success) {
-        if (recovery.rlsBlocked) {
-          console.info('[CloudProjectService] Proyecto perteneciente a otra cuenta; se omite la subida como propio:', projectId);
+    })();
+    const shouldSyncHeader = !existingCloudProj
+      || Boolean(syncHeader)
+      || hasSettingsDirty
+      || (isOwnerActor && !prevCloudCfg._settingsUpdatedAt);
+
+    let headerSkippedRls = false;
+    if (shouldSyncHeader) {
+      // 1. Guardar / Actualizar en tabla 'public.proyectos' preservando banderas concurrentes
+      const projectRecord = {
+        id: projectId,
+        empresa_id: existingCloudProj?.empresa_id || empresaId || null,
+        owner_email: existingCloudProj?.owner_email || ownerEmail,
+        creado_por: existingCloudProj?.creado_por || user.id,
+        clave: (project.clave || project.id || '').slice(0, 50),
+        nombre: settings?.projectName || project.projectName || 'Proyecto sin título',
+        cliente: settings?.client ?? project.client ?? '',
+        ubicacion: settings?.projectLocation ?? project.projectLocation ?? '',
+        tipo_obra: settings?.tipoObra || project.tipoObra || 'Edificación',
+        moneda: settings?.currency || project.currency || 'MXN',
+        simbolo_moneda: settings?.currencySymbol || project.currencySymbol || '$',
+        aplica_sobrecosto: Boolean(settings?.applySobrecosto ?? project.applySobrecosto),
+        pct_indirectos: Number(settings?.pctIndirectos ?? project.pctIndirectos) || 0,
+        pct_financiamiento: Number(settings?.pctFinanciamiento ?? project.pctFinanciamiento) || 0,
+        pct_utilidad: Number(settings?.pctUtilidad ?? project.pctUtilidad) || 0,
+        pct_adicionales: Number(settings?.pctAdicionales ?? project.pctAdicionales) || 0,
+        pct_seguros_fianzas: Number(settings?.pctSegurosFianzas ?? project.pctSegurosFianzas ?? 1.0) || 0,
+        pct_fasar: Number(settings?.pctFasar ?? project.pctFasar ?? 70.0) || 0,
+        anticipo_pct: Number(settings?.anticipoPct ?? 30.0),
+        iva_pct: Number(settings?.ivaPct ?? 16.0),
+        configuracion: (() => {
+          const safeSettings = { ...((settings && typeof settings === 'object') ? settings : {}) };
+          delete safeSettings.apiKey;
+          const tombSet = tombstonedConceptIdsByProject.get(projectId) || new Set();
+          const unclearSet = unclearMatrixIdsByProject.get(projectId) || new Set();
+          const localCleared = Array.isArray(treeData)
+            ? collectNodeFlagUuids(treeData, (n) => Boolean(n?.userClearedMatrix))
+            : (Array.isArray(safeSettings.clearedMatrixIds) ? safeSettings.clearedMatrixIds : []);
+          const clearedSet = new Set([
+            ...((Array.isArray(prevCloudCfg.clearedMatrixIds) ? prevCloudCfg.clearedMatrixIds : []).filter(id => !tombSet.has(id) && !unclearSet.has(id))),
+            ...localCleared
+          ]);
+          const localCustomized = Array.isArray(treeData)
+            ? collectNodeFlagUuids(treeData, (n) => Boolean(n?.isMatrixCustomized))
+            : (Array.isArray(safeSettings.customizedMatrixIds) ? safeSettings.customizedMatrixIds : []);
+          const customizedSet = new Set([
+            ...((Array.isArray(prevCloudCfg.customizedMatrixIds) ? prevCloudCfg.customizedMatrixIds : []).filter(id => !tombSet.has(id))),
+            ...localCustomized
+          ]);
+          const stampedAt = Math.max(Number(safeSettings._settingsUpdatedAt) || 0, Date.now());
+          return {
+            ...prevCloudCfg,
+            ...safeSettings,
+            _settingsUpdatedAt: stampedAt,
+            clearedMatrixIds: Array.from(clearedSet),
+            customizedMatrixIds: Array.from(customizedSet),
+            ownerName: project.ownerName || prevCloudCfg.ownerName || (ownerEmail === (user.email || '').toLowerCase().trim() ? (user.name || '') : ''),
+            companyName: safeSettings.companyName || project.companyName || prevCloudCfg.companyName || '',
+            budgetSignatures: settings?.budgetSignatures || project.budgetSignatures || prevCloudCfg.budgetSignatures || [],
+            collaborators: (isOwnerActor && Array.isArray(project.members))
+              ? project.members
+                  .filter(m => m && m.email && (m.status || '').toLowerCase().trim() !== 'rejected')
+                  .map(m => ({
+                    email: (m.email || '').toLowerCase().trim(),
+                    name: m.name || (m.email || '').split('@')[0],
+                    role: m.role || 'editar',
+                    status: (m.status || '').toLowerCase().trim() === 'pending' ? 'pending' : 'accepted'
+                  }))
+              : (Array.isArray(prevCloudCfg?.collaborators) ? prevCloudCfg.collaborators : []),
+            memberTabs: !isOwnerActor
+              ? (prevCloudCfg.memberTabs || {})
+              : Array.isArray(project.members)
+                ? project.members.reduce((acc, m) => {
+                    const em = (m?.email || '').toLowerCase().trim();
+                    if (em && Array.isArray(m.allowedTabs)) acc[em] = m.allowedTabs;
+                    return acc;
+                  }, { ...((prevCloudCfg && prevCloudCfg.memberTabs) || {}), ...((safeSettings && safeSettings.memberTabs) || {}) })
+                : ((safeSettings && safeSettings.memberTabs) || prevCloudCfg.memberTabs || {})
+          };
+        })(),
+        updated_at: new Date().toISOString()
+      };
+
+      const writeHeaderRowResilient = async (record) => {
+        const optionalCols = ['anticipo_pct', 'iva_pct', 'pct_fasar', 'pct_seguros_fianzas', 'configuracion'];
+        const payload = existingCloudProj
+          ? (() => { const { id: _ignoredId, creado_por: _ignoredCreator, ...u } = record; return u; })()
+          : { ...record };
+        let lastErr = null;
+        for (let attempt = 0; attempt <= optionalCols.length; attempt++) {
+          const q = existingCloudProj
+            ? sb.from('proyectos').update(payload).eq('id', projectId)
+            : sb.from('proyectos').insert(payload);
+          const { error } = await q;
+          if (!error) return { error: null };
+          lastErr = error;
+          const isMissingCol = error.code === '42703' || /Could not find the ['"][^'"]+['"] column|column\s+["']?[a-z0-9_]+["']?.*does not exist/i.test(String(error.message || ''));
+          if (!isMissingCol) break;
+          const m = String(error.message || '').match(/['"]([a-z0-9_]+)['"]/i);
+          const matchedCol = m && m[1] && optionalCols.includes(m[1]) ? m[1] : optionalCols.find(c => Object.prototype.hasOwnProperty.call(payload, c));
+          if (!matchedCol) break;
+          delete payload[matchedCol];
         }
-        return recovery;
+        return { error: lastErr };
+      };
+
+      const { error: projError } = await writeHeaderRowResilient(projectRecord);
+
+      if (projError) {
+        const isRlsOrConflict = projError.code === '42501' || projError.code === '23505' || /row-level security/i.test(String(projError.message || ''));
+        if (!isRlsOrConflict) {
+          const isTriggerRejection = projError.code === 'P0001';
+          const reason = isTriggerRejection ? (projError.message || 'Operación rechazada por regla de seguridad.') : undefined;
+          console.warn('[CloudProjectService] Error al guardar proyecto en Supabase:', projError.message);
+          return { success: false, ...(reason ? { reason } : {}), error: projError };
+        }
+        const recovery = await recoverHeaderRlsError(sb, projectRecord, user, projError);
+        if (!recovery.success) {
+          if (recovery.rlsBlocked) {
+            console.info('[CloudProjectService] Proyecto perteneciente a otra cuenta; se conserva encabezado del anfitrión y se sincroniza catálogo:', projectId);
+            headerSkippedRls = true;
+          } else {
+            return recovery;
+          }
+        }
       }
+
+      project.isCloudSynced = true;
+      invalidateCloudProjectsCache();
+      notifyHeaderSynced(headerCallbacks, projectId);
+    } else {
+      project.isCloudSynced = true;
+      headerSkippedRls = true;
     }
-    project.isCloudSynced = true;
-    invalidateCloudProjectsCache();
-    notifyHeaderSynced(headerCallbacks, projectId);
 
     // 2 y 3. Solo el propietario sincroniza filas administrativas de 'public.proyecto_colaboradores'.
     // Las filas existentes nunca se modifican aquí (se preserva estado y rol): solo se insertan las faltantes
@@ -602,7 +646,7 @@ async function runProjectSync({ project, settings = {}, treeData = null, headerC
       await syncCatalogTreeToCloud(sb, projectId, treeData, { skipConfigFlags: true });
     }
 
-    return { success: true, projectId };
+    return { success: true, projectId, ...(headerSkippedRls ? { headerSkippedRls: true } : {}) };
   } catch (err) {
     console.error('[CloudProjectService] Excepción al sincronizar proyecto con la nube:', err);
     return { success: false, error: err };
@@ -1112,7 +1156,17 @@ async function fetchInChunksPaged(buildQueryForIds, ids, chunkSize = 150) {
   return { data: all, error: null };
 }
 
-function buildCloudSettingsFromProjectRow(projRow) {
+const GENERIC_TEMPLATE_NAMES = new Set([
+  'proyecto residencial muestra',
+  'catálogo muestra - proyecto residencial',
+  'catalogo muestra - proyecto residencial',
+  'proyecto de obra base',
+  'proyecto sin título',
+  'proyecto sin titulo',
+  'proyecto de obra'
+]);
+
+export function buildCloudSettingsFromProjectRow(projRow) {
   if (!projRow || typeof projRow !== 'object') return null;
   const rawCfg = (projRow.configuracion && typeof projRow.configuracion === 'object') ? { ...projRow.configuracion } : {};
   delete rawCfg.apiKey;
@@ -1141,29 +1195,86 @@ function buildCloudSettingsFromProjectRow(projRow) {
   return rawCfg;
 }
 
-function hydrateLocalProjectSettingsFromCloudRow(projectId, targetUuid, projRow) {
+export function hydrateLocalProjectSettingsFromCloudRow(projectId, targetUuid, projRow) {
   if (!projRow || typeof localStorage === 'undefined') return false;
   const cloudSettings = buildCloudSettingsFromProjectRow(projRow);
   if (!cloudSettings) return false;
   const sKeys = Array.from(new Set([getSettingsKey(projectId), getSettingsKey(targetUuid)].filter(Boolean)));
-  const isDirty = Boolean(
-    localStorage.getItem(`cubikar_dirty_${projectId}`) ||
-    localStorage.getItem(`cubikar_dirty_${targetUuid}`)
+  const idList = Array.from(new Set([projectId, targetUuid].filter(Boolean)));
+  const curUser = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+  const myEmail = (curUser?.email || '').toLowerCase().trim();
+  const rowOwner = (projRow.owner_email || '').toLowerCase().trim();
+  const isOwner = Boolean(
+    (myEmail && rowOwner && myEmail === rowOwner) ||
+    (curUser?.id && projRow.creado_por && curUser.id === projRow.creado_por)
   );
+  const cloudTs = Number(projRow?.configuracion?._settingsUpdatedAt) || 0;
+  const settingsDirtyTs = idList.reduce((maxTs, id) => {
+    const val = Number(localStorage.getItem(`cubikar_settings_dirty_${id}`) || 0) || 0;
+    return Math.max(maxTs, val);
+  }, 0);
+
   let wroteAny = false;
+  let mergedForSummary = null;
   sKeys.forEach((sKey) => {
     try {
       const rawLocal = localStorage.getItem(sKey);
-      if (isDirty && rawLocal) return;
       const curLocal = rawLocal ? JSON.parse(rawLocal) : {};
+      const localTs = Number(curLocal?._settingsUpdatedAt) || 0;
+
+      if (!isOwner) {
+        if (settingsDirtyTs > 0 && (Date.now() - settingsDirtyTs) < 60000 && rawLocal) return;
+      } else {
+        if (settingsDirtyTs > 0 && rawLocal) return;
+        const hasUnstampedCloudOverrideRisk = Boolean(rawLocal) && cloudTs === 0 && (
+          Boolean(curLocal.applySobrecosto) !== Boolean(cloudSettings.applySobrecosto) ||
+          (curLocal.projectName && curLocal.projectName !== cloudSettings.projectName && !GENERIC_TEMPLATE_NAMES.has(String(curLocal.projectName).toLowerCase().trim()))
+        );
+        if (hasUnstampedCloudOverrideRisk || (cloudTs > 0 && localTs > cloudTs && rawLocal)) {
+          if (!curLocal._settingsUpdatedAt) {
+            curLocal._settingsUpdatedAt = Date.now();
+            try { localStorage.setItem(sKey, JSON.stringify(curLocal)); } catch (_) {}
+          }
+          idList.forEach((id) => {
+            try { localStorage.setItem(`cubikar_settings_dirty_${id}`, String(Date.now())); } catch (_) {}
+          });
+          return;
+        }
+      }
+
       const next = Object.assign({}, curLocal, cloudSettings);
+      if (cloudTs > 0) next._settingsUpdatedAt = cloudTs;
       const nextJson = JSON.stringify(next);
+      mergedForSummary = next;
       if (nextJson !== rawLocal) {
         localStorage.setItem(sKey, nextJson);
         wroteAny = true;
       }
     } catch (_) {}
   });
+
+  if (wroteAny && mergedForSummary && typeof getProjectsList === 'function' && typeof saveProjectsList === 'function') {
+    try {
+      const list = getProjectsList();
+      const idx = Array.isArray(list) ? list.findIndex(p => p && (p.id === projectId || p.id === targetUuid || p.cloudId === targetUuid)) : -1;
+      if (idx !== -1) {
+        list[idx].projectName = mergedForSummary.projectName || list[idx].projectName;
+        if (mergedForSummary.projectLocation !== undefined) list[idx].projectLocation = mergedForSummary.projectLocation;
+        if (mergedForSummary.companyName) list[idx].companyName = mergedForSummary.companyName;
+        if (mergedForSummary.currency) list[idx].currency = mergedForSummary.currency;
+        if (mergedForSummary.currencySymbol) list[idx].currencySymbol = mergedForSummary.currencySymbol;
+        if (mergedForSummary.applySobrecosto !== undefined) list[idx].applySobrecosto = Boolean(mergedForSummary.applySobrecosto);
+        if (mergedForSummary.pctIndirectos !== undefined) list[idx].pctIndirectos = Number(mergedForSummary.pctIndirectos) || 0;
+        if (mergedForSummary.pctFinanciamiento !== undefined) list[idx].pctFinanciamiento = Number(mergedForSummary.pctFinanciamiento) || 0;
+        if (mergedForSummary.pctUtilidad !== undefined) list[idx].pctUtilidad = Number(mergedForSummary.pctUtilidad) || 0;
+        if (mergedForSummary.pctAdicionales !== undefined) list[idx].pctAdicionales = Number(mergedForSummary.pctAdicionales) || 0;
+        if (mergedForSummary.pctSegurosFianzas !== undefined) list[idx].pctSegurosFianzas = Number(mergedForSummary.pctSegurosFianzas) || 0;
+        if (mergedForSummary.pctFasar !== undefined) list[idx].pctFasar = Number(mergedForSummary.pctFasar) || 0;
+        saveProjectsList(list, { skipCloudSync: true });
+      }
+    } catch (_) {}
+  }
+
   return wroteAny;
 }
 
@@ -1178,17 +1289,18 @@ export async function loadProjectTreeFromCloud(projectId) {
 
   const reqPromise = (async () => {
   try {
+    try { await sb.auth.getSession(); } catch (_) {}
     // 1. Obtener conceptos y metadatos completos de configuración y sobrecosto del proyecto
     const fetchProjMetaRow = async () => {
       let res = await sb
         .from('proyectos')
-        .select('nombre, cliente, ubicacion, tipo_obra, moneda, simbolo_moneda, aplica_sobrecosto, pct_indirectos, pct_financiamiento, pct_utilidad, pct_adicionales, pct_seguros_fianzas, pct_fasar, anticipo_pct, iva_pct, configuracion')
+        .select('owner_email, creado_por, nombre, cliente, ubicacion, tipo_obra, moneda, simbolo_moneda, aplica_sobrecosto, pct_indirectos, pct_financiamiento, pct_utilidad, pct_adicionales, pct_seguros_fianzas, pct_fasar, anticipo_pct, iva_pct, configuracion')
         .eq('id', targetUuid)
         .maybeSingle();
       if (res?.error && (res.error.code === '42703' || /does not exist|column/i.test(String(res.error.message || '')))) {
         res = await sb
           .from('proyectos')
-          .select('nombre, cliente, ubicacion, tipo_obra, moneda, simbolo_moneda, aplica_sobrecosto, pct_indirectos, pct_financiamiento, pct_utilidad, pct_adicionales, configuracion')
+          .select('owner_email, creado_por, nombre, cliente, ubicacion, tipo_obra, moneda, simbolo_moneda, aplica_sobrecosto, pct_indirectos, pct_financiamiento, pct_utilidad, pct_adicionales, configuracion')
           .eq('id', targetUuid)
           .maybeSingle();
       }

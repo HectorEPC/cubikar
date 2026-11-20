@@ -1,7 +1,7 @@
 ﻿// js/mobile/mobileEstimaciones.js
 // Estimaciones y Generadores: Anticipo 0, avance ejecutado +/-, fotos S3, Neto a Cobrar y bloqueo por estimación
 
-import { formatMoney, formatQty, round2 } from '../core/formatters.js?v=20261119_cf40';
+import { formatMoney, formatQty, round2 } from '../core/formatters.js?v=20261119_cf41';
 import {
   getEstimacionesCalculatedData,
   createNewEstimacion,
@@ -15,11 +15,11 @@ import {
   setEstimacionesAnticipoPct,
   setEstimacionesIvaPct,
   normalizeCloudImageUrl
-} from '../modules/estimaciones/estimacionesModel.js?v=20261119_cf40';
-import { uploadManagedFile, resolveManagedFileUrl } from '../services/s3StorageService.js?v=20261119_cf40';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf40';
-import { showToast } from '../ui/notifications.js?v=20261119_cf40';
-import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf40';
+} from '../modules/estimaciones/estimacionesModel.js?v=20261119_cf41';
+import { uploadManagedFile, resolveManagedFileUrl } from '../services/s3StorageService.js?v=20261119_cf41';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf41';
+import { showToast } from '../ui/notifications.js?v=20261119_cf41';
+import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf41';
 
 let searchText = '';
 

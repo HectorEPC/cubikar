@@ -1,7 +1,7 @@
 // js/ui/resizer.js
 // Controlador de redimensionamiento arrastrable del panel APU / Matriz adaptativo a la resolución de pantalla.
 
-import { APU_WIDTH_KEY } from '../config/constants.js?v=20261119_cf40';
+import { APU_WIDTH_KEY } from '../config/constants.js?v=20261119_cf41';
 
 let isResizingApu = false;
 let startResizeX = 0;
