@@ -1,13 +1,13 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261117_cf30';
-import { saveState } from '../../state/history.js?v=20261117_cf30';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
-import { findNodeById, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261117_cf30';
-import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from './apuView.js?v=20261117_cf30';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf30';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261117_cf30';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261117_cf30';
-import { round2, round5 } from '../../core/formatters.js?v=20261117_cf30';
-import { getFactorSobrecosto, updateGrandTotal } from '../../core/calculations.js?v=20261117_cf30';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf35';
+import { saveState } from '../../state/history.js?v=20261119_cf35';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
+import { findNodeById, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261119_cf35';
+import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from './apuView.js?v=20261119_cf35';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf35';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf35';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf35';
+import { round2, round5 } from '../../core/formatters.js?v=20261119_cf35';
+import { getFactorSobrecosto, updateGrandTotal, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf35';
 
 // Filtro de botones en la tabla Matriz APU
 export function filterMatriz(tipo) {
@@ -69,13 +69,12 @@ function genInsumoUuid() {
 
 function syncNodeCostFromInsumos(node) {
   if (!node || !Array.isArray(node.insumos)) return;
-  let totalCD = 0;
-  for (const ins of node.insumos) {
-    totalCD += (Number(ins?.cantidad) || 0) * (Number(ins?.costoUnitario) || 0);
+  if (node.insumos.length === 0) {
+    node.costoDirecto = 0;
+    node.precioUnitario = 0;
+    return;
   }
-  const factor = typeof getFactorSobrecosto === 'function' ? (Number(getFactorSobrecosto()) || 1) : 1;
-  node.costoDirecto = round2(totalCD);
-  node.precioUnitario = round2(totalCD * factor);
+  recalcNodeFromMatrix(node);
 }
 
 function buildInsumosPatch(node) {

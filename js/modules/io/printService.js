@@ -1,13 +1,13 @@
 ﻿// js/modules/io/printService.js
 // Servicio de Impresión de Formatos Profesionales para TAB1-CAT-BASE y MATRIZ / INSUMOS UNITARIOS
 
-import { state } from '../../state/store.js?v=20261117_cf30';
-import { formatMoney, formatCurrency, formatQty, formatMatrixQty, getCurrencySymbol, getCurrencyCode, round2, round5 } from '../../core/formatters.js?v=20261117_cf30';
-import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal } from '../../core/calculations.js?v=20261117_cf30';
-import { findNodeById } from '../catalog/treeService.js?v=20261117_cf30';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf30';
-import { getConsolidatedDataMap } from '../insumosGenerales/insumosConsolidator.js?v=20261117_cf30';
+import { state } from '../../state/store.js?v=20261119_cf35';
+import { formatMoney, formatCurrency, formatQty, formatMatrixQty, getCurrencySymbol, getCurrencyCode, round2, round5 } from '../../core/formatters.js?v=20261119_cf35';
+import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal, leafImporte, leafDirectImporte, syncPercentInsumos, insumoImporte, explodeInsumoQty, explodeInsumoImporte } from '../../core/calculations.js?v=20261119_cf35';
+import { findNodeById } from '../catalog/treeService.js?v=20261119_cf35';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf35';
+import { getConsolidatedDataMap } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf35';
 import {
   extractScheduleItems,
   getScheduleSettings,
@@ -22,11 +22,11 @@ import {
   getWorkdaysSettings,
   getDateWorkdayInfo,
   getProjectCreationDate
-} from '../calendario/calendarioModel.js?v=20261117_cf30';
-import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261117_cf30';
-import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js?v=20261119_cf32';
-import { resolveActivePrintBranding } from './printBrandingService.js?v=20261117_cf30';
-import { getBudgetSignatures } from '../catalog/signaturesModal.js?v=20261117_cf30';
+} from '../calendario/calendarioModel.js?v=20261119_cf35';
+import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261119_cf35';
+import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js?v=20261119_cf35';
+import { resolveActivePrintBranding } from './printBrandingService.js?v=20261119_cf35';
+import { getBudgetSignatures } from '../catalog/signaturesModal.js?v=20261119_cf35';
 
 // Escapar caracteres especiales en texto HTML
 function escapeHtml(str) {
@@ -559,10 +559,10 @@ export function printTab1Catalog() {
       const isParent = Boolean(node.children && node.children.length > 0);
       const calculatedTotal = isParent 
         ? calculateParentTotal(node) 
-        : ((node.cantidad || 0) * (node.precioUnitario || 0));
+        : leafImporte(node);
       const directTotal = isParent 
         ? calculateParentDirectTotal(node) 
-        : ((node.cantidad || 0) * (node.costoDirecto !== undefined ? node.costoDirecto : node.precioUnitario || 0));
+        : leafDirectImporte(node);
 
       flatItems.push({
         ...node,
@@ -754,7 +754,8 @@ export function printApuMatrix() {
   const projectLocation = (state.settings && state.settings.projectLocation) || '';
 
   const insumos = Array.isArray(node.insumos) ? node.insumos : [];
-  const conceptoCantidad = parseFloat(node.cantidad) || 0;
+  syncPercentInsumos(insumos);
+  const conceptoCantidad = round2(parseFloat(node.cantidad) || 0);
   const conceptoUnidad = node.unidad || 'pza';
 
   // Clasificar insumos por rubros
@@ -771,7 +772,12 @@ export function printApuMatrix() {
   const matrizRowsHtml = [];
 
   rubros.forEach(rubro => {
-    const items = insumos.filter(ins => (ins.tipo || 'Material') === rubro.key);
+    const KNOWN_RUBROS = ['Material', 'Mano de Obra', 'Herramienta', 'Equipo', 'Maquinaria'];
+    const items = insumos.filter(ins => {
+      const t = ins.tipo || 'Material';
+      // Fletes, auxiliares y rubros no reconocidos se integran en Subcontratos para que el CD impreso = CD del sistema
+      return rubro.key === 'Subcontrato' ? !KNOWN_RUBROS.includes(t) : t === rubro.key;
+    });
     // Si es maquinaria o subcontrato y no tiene insumos, no saturar el formato impreso
     if (items.length === 0 && (rubro.key === 'Maquinaria' || rubro.key === 'Subcontrato')) {
       return;
@@ -798,7 +804,7 @@ export function printApuMatrix() {
       items.forEach(ins => {
         const cantUnit = round5(ins.cantidad || 0);
         const costoUnit = round2(ins.costoUnitario || 0);
-        const importeUnit = round2(cantUnit * costoUnit);
+        const importeUnit = insumoImporte(ins);
         subtotalRubro = round2(subtotalRubro + importeUnit);
 
         matrizRowsHtml.push(`
@@ -813,7 +819,7 @@ export function printApuMatrix() {
               ${escapeHtml(ins.unidad || 'pza')}
             </td>
             <td class="text-right font-mono" style="width: 75px;">
-              ${formatQty(cantUnit)}
+              ${formatMatrixQty(cantUnit)}
             </td>
             <td class="text-right font-mono" style="width: 85px;">
               ${formatMoney(costoUnit)}
@@ -852,8 +858,8 @@ export function printApuMatrix() {
   const insumosUnitariosRows = insumos.map(ins => {
     const cantUnit = round5(Number(ins.cantidad) || 0);
     const costoUnit = round2(ins.costoUnitario || 0);
-    const cantidadTotalObra = round2(cantUnit * conceptoCantidad);
-    const importeObra = round2(cantidadTotalObra * costoUnit);
+    const cantidadTotalObra = explodeInsumoQty(ins, conceptoCantidad);
+    const importeObra = explodeInsumoImporte(ins, conceptoCantidad);
     totalImporteObra = round2(totalImporteObra + importeObra);
 
     return `

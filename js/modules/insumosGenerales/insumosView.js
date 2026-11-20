@@ -1,15 +1,15 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261117_cf30';
-import { saveState } from '../../state/history.js?v=20261117_cf30';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
-import { formatMoney, formatQty, formatMatrixQty, getCurrencySymbol, round2, round5 } from '../../core/formatters.js?v=20261117_cf30';
-import { getFactorSobrecosto, updateGrandTotal } from '../../core/calculations.js?v=20261117_cf30';
-import { getConsolidatedDataMap, normalizeInsumoText, getInsumoConsolidationKey } from './insumosConsolidator.js?v=20261117_cf30';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf30';
-import { findNodeById } from '../catalog/treeService.js?v=20261117_cf30';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261117_cf30';
-import { updateModalIfOpen } from '../apu/matrizModal.js?v=20261117_cf30';
-import { estimarCostoInsumoConIA, queryGeminiLoteInsumos } from '../ai/insumoAiPricing.js?v=20261117_cf30';
-import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261117_cf30';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf35';
+import { saveState } from '../../state/history.js?v=20261119_cf35';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
+import { formatMoney, formatQty, formatMatrixQty, getCurrencySymbol, round2, round5 } from '../../core/formatters.js?v=20261119_cf35';
+import { getFactorSobrecosto, updateGrandTotal, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf35';
+import { getConsolidatedDataMap, normalizeInsumoText, getInsumoConsolidationKey } from './insumosConsolidator.js?v=20261119_cf35';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf35';
+import { findNodeById } from '../catalog/treeService.js?v=20261119_cf35';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf35';
+import { updateModalIfOpen } from '../apu/matrizModal.js?v=20261119_cf35';
+import { estimarCostoInsumoConIA, queryGeminiLoteInsumos } from '../ai/insumoAiPricing.js?v=20261119_cf35';
+import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261119_cf35';
 
 let globalConsolidatedMap = {};
 let activeCombinarContext = null;
@@ -244,9 +244,7 @@ function propagateInsumoCostToAllMatrices(key, parsedCosto, itemGroup = null) {
   touchedNodes.forEach(node => {
     if (Array.isArray(node.insumos)) {
       node.isMatrixCustomized = true;
-      const cd = round2(node.insumos.reduce((s, i) => s + round2(round5(i.cantidad || 0) * round2(i.costoUnitario || 0)), 0));
-      node.costoDirecto = cd;
-      node.precioUnitario = round2(cd * factor);
+      recalcNodeFromMatrix(node);
     }
   });
 
@@ -476,9 +474,7 @@ export function ejecutarCombinacionInsumos() {
   // 3. Recalcular costos directos y precios unitarios en todos los nodos afectados
   affectedNodes.forEach(node => {
     if (Array.isArray(node.insumos)) {
-      const cd = round2(node.insumos.reduce((sum, i) => sum + round2(round5(i.cantidad || 0) * round2(i.costoUnitario || 0)), 0));
-      node.costoDirecto = cd;
-      node.precioUnitario = round2(cd * getFactorSobrecosto());
+      recalcNodeFromMatrix(node);
     }
   });
 

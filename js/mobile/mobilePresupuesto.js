@@ -1,20 +1,20 @@
 // js/mobile/mobilePresupuesto.js
 // Presupuesto de Obra: Catálogo Base, Insumos Base (6 categorías), bloqueo seguro y Matriz APU por concepto
 
-import { state, persistLocalData } from '../state/store.js?v=20261117_cf30';
-import { formatMoney, formatQty, formatMatrixQty, round2, round5 } from '../core/formatters.js?v=20261117_cf30';
-import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal } from '../core/calculations.js?v=20261117_cf30';
-import { generateIntegratedMatrixForConcept } from '../core/matrixGenerator.js?v=20261117_cf30';
-import { getExactOpusInsumosForClave } from '../modules/io/casaLauraData.js?v=20261117_cf30';
-import { findNodeById, updateNode, addRootRow, addChildRow } from '../modules/catalog/treeService.js?v=20261117_cf30';
-import { getConsolidatedDataMap, getInsumoConsolidationKey } from '../modules/insumosGenerales/insumosConsolidator.js?v=20261117_cf30';
-import { getExpensesRecords } from '../modules/compras/expensesModel.js?v=20261117_cf30';
-import { getWarehouseNetConsumptionMap, getWarehouseStockSummary } from '../modules/almacen/almacenModel.js?v=20261117_cf30';
-import { getPartidaChatCount } from '../modules/chat/projectChat.js?v=20261117_cf30';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261117_cf30';
-import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261117_cf30';
-import { showToast } from '../ui/notifications.js?v=20261117_cf30';
-import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261117_cf30';
+import { state, persistLocalData } from '../state/store.js?v=20261119_cf35';
+import { formatMoney, formatQty, formatMatrixQty, round2, round5 } from '../core/formatters.js?v=20261119_cf35';
+import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal, syncPercentInsumos, computeMatrixDirectCost, explodeInsumoQty, explodeInsumoImporte } from '../core/calculations.js?v=20261119_cf35';
+import { generateIntegratedMatrixForConcept } from '../core/matrixGenerator.js?v=20261119_cf35';
+import { getExactOpusInsumosForClave } from '../modules/io/casaLauraData.js?v=20261119_cf35';
+import { findNodeById, updateNode, addRootRow, addChildRow } from '../modules/catalog/treeService.js?v=20261119_cf35';
+import { getConsolidatedDataMap, getInsumoConsolidationKey } from '../modules/insumosGenerales/insumosConsolidator.js?v=20261119_cf35';
+import { getExpensesRecords } from '../modules/compras/expensesModel.js?v=20261119_cf35';
+import { getWarehouseNetConsumptionMap, getWarehouseStockSummary } from '../modules/almacen/almacenModel.js?v=20261119_cf35';
+import { getPartidaChatCount } from '../modules/chat/projectChat.js?v=20261119_cf35';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf35';
+import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf35';
+import { showToast } from '../ui/notifications.js?v=20261119_cf35';
+import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf35';
 
 let subTab = 'cat'; // 'cat' | 'insumos'
 let insumoCatFilter = 'Todos';
@@ -375,8 +375,8 @@ function openConceptSheet(conceptId, container, ctx) {
           const insCant = round5(ins.cantidad || 0);
           const insCu = round2(ins.costoUnitario || 0);
           const unitSub = round2(insCant * insCu);
-          const totalCantObra = round2(insCant * cantConc);
-          const totalImporteObra = round2(totalCantObra * insCu);
+          const totalCantObra = explodeInsumoQty(ins, cantConc);
+          const totalImporteObra = explodeInsumoImporte(ins, cantConc);
           const key = getInsumoConsolidationKey(ins);
           const boughtQty = expenses
             .filter(r => r.insumoId === key || getInsumoConsolidationKey({ clave: r.insumoClave, descripcion: r.description, unidad: r.unit, tipo: r.category }) === key)
@@ -572,7 +572,8 @@ function openConceptSheet(conceptId, container, ctx) {
 }
 
 function recalcNodeFromInsumos(node, factor) {
-  const direct = round2((node.insumos || []).reduce((s, ins) => s + round2(round5(ins.cantidad || 0) * round2(ins.costoUnitario || 0)), 0));
+  syncPercentInsumos(node.insumos || []);
+  const direct = computeMatrixDirectCost(node.insumos || [], { syncPercent: false });
   node.costoDirecto = direct;
   node.precioUnitario = round2(direct * (factor || 1));
 }

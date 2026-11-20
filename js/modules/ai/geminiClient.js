@@ -1,12 +1,12 @@
-import { state, persistSettings, persistLocalData } from '../../state/store.js?v=20261117_cf30';
-import { saveState } from '../../state/history.js?v=20261117_cf30';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
-import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261117_cf30';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf30';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261117_cf30';
+import { state, persistSettings, persistLocalData } from '../../state/store.js?v=20261119_cf35';
+import { saveState } from '../../state/history.js?v=20261119_cf35';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
+import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261119_cf35';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf35';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf35';
 import { closeAiGeneratorModal, openAiGeneratorModal, aiModalTargetMode, aiModalSingleNodeId } from '../../ui/modalController.js?v=20261118_b6';
-import { round2, getFactorSobrecosto } from '../../core/calculations.js?v=20261117_cf30';
-import { round5 } from '../../core/formatters.js?v=20261117_cf30';
+import { round2, getFactorSobrecosto, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf35';
+import { round5 } from '../../core/formatters.js?v=20261119_cf35';
 import {
   tryResolveConceptLocally,
   setCachedSupplyPrices,
@@ -17,7 +17,7 @@ import {
   applyServerQuotaSnapshot,
   resolveActiveAiExecutionContext,
   callGeminiProxyApi
-} from './aiQuotaAndCacheService.js?v=20261117_cf30';
+} from './aiQuotaAndCacheService.js?v=20261119_cf35';
 
 // Extractor robusto de JSON para respuestas de Gemini
 export function extractJsonFromAiResponse(text) {
@@ -129,10 +129,8 @@ function applyGeneratedMatrixToNode(node, rawInsumos, meta = {}) {
   node.googleSources = meta.googleSources || [];
   node.aiTips = meta.aiTips || '';
 
-  const totalCD = round2(node.insumos.reduce((acc, ins) => acc + (round5(ins.cantidad || 0) * round2(ins.costoUnitario || 0)), 0));
-  const factorSobrecosto = getFactorSobrecosto();
-  node.costoDirecto = totalCD;
-  node.precioUnitario = round2(totalCD * factorSobrecosto);
+  if (node.insumos.length > 0) recalcNodeFromMatrix(node);
+  else { node.costoDirecto = 0; node.precioUnitario = 0; }
 }
 
 /**

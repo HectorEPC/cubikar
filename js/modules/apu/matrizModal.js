@@ -1,15 +1,15 @@
 // js/modules/apu/matrizModal.js
 // Controlador de la Ventana Maximizada de Matriz APU (Estilo Configuración del Sistema)
 
-import { state, persistLocalData } from '../../state/store.js?v=20261117_cf30';
-import { saveState } from '../../state/history.js?v=20261117_cf30';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
-import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261117_cf30';
-import { getFactorSobrecosto } from '../../core/calculations.js?v=20261117_cf30';
-import { findNodeById } from '../catalog/treeService.js?v=20261117_cf30';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf30';
-import { renderAPUInsumos, renderInsumosUnitarios } from './apuView.js?v=20261117_cf30';
-import { addInsumo, removeInsumo, updateInsumo, filterMatriz } from './apuService.js?v=20261117_cf30';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf35';
+import { saveState } from '../../state/history.js?v=20261119_cf35';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
+import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261119_cf35';
+import { getFactorSobrecosto, computeMatrixBreakdown, explodeInsumoQty, explodeInsumoImporte } from '../../core/calculations.js?v=20261119_cf35';
+import { findNodeById } from '../catalog/treeService.js?v=20261119_cf35';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf35';
+import { renderAPUInsumos, renderInsumosUnitarios } from './apuView.js?v=20261119_cf35';
+import { addInsumo, removeInsumo, updateInsumo, filterMatriz } from './apuService.js?v=20261119_cf35';
 
 let currentMatrizModalTab = 'matriz'; // 'matriz' | 'explosion'
 let selectedModalApuRowIdx = null;
@@ -147,22 +147,11 @@ export function renderModalMatriz(node) {
     thCant.title = `Consumo o rendimiento unitario necesario para elaborar exactamente 1 ${cUnid} de concepto`;
   }
 
-  // 2. Cálculos de subtotales por rubro
-  let sumMat = 0, sumMO = 0, sumHerr = 0, sumEq = 0, sumMaq = 0, sumSub = 0;
+  // 2. Cálculos de subtotales por rubro (motor canónico, incluye insumos en % sobre MO)
+  const breakdown = computeMatrixBreakdown(node.insumos);
+  const sumMat = breakdown.mat, sumMO = breakdown.mo, sumHerr = breakdown.herr, sumEq = breakdown.eq, sumMaq = breakdown.maq;
+  const sumSub = round2(breakdown.sub + breakdown.otros);
   let visibleCount = 0;
-
-  node.insumos.forEach(ins => {
-    const cant = round5(ins.cantidad || 0);
-    const costo = round2(ins.costoUnitario || 0);
-    const total = round2(cant * costo);
-
-    if (ins.tipo === 'Material') sumMat = round2(sumMat + total);
-    else if (ins.tipo === 'Mano de Obra') sumMO = round2(sumMO + total);
-    else if (ins.tipo === 'Herramienta') sumHerr = round2(sumHerr + total);
-    else if (ins.tipo === 'Equipo') sumEq = round2(sumEq + total);
-    else if (ins.tipo === 'Maquinaria') sumMaq = round2(sumMaq + total);
-    else if (ins.tipo === 'Subcontrato' || ins.tipo === 'Flete' || ins.tipo === 'Auxiliar') sumSub = round2(sumSub + total);
-  });
 
   // Actualizar tarjetas de desglose
   const sumMatEl = document.getElementById('modal-apu-sum-mat');
@@ -279,7 +268,7 @@ export function renderModalMatriz(node) {
   }
 
   // 4. Totales Financieros
-  const totalCD = round2(sumMat + sumMO + sumHerr + sumEq + sumMaq + sumSub);
+  const totalCD = breakdown.cd;
   node.costoDirecto = totalCD;
 
   const factor = getFactorSobrecosto();
@@ -344,10 +333,9 @@ function renderModalExplosion(node) {
   let grandTotalObra = 0;
 
   node.insumos.forEach(ins => {
-    const cantUnit = round5(ins.cantidad || 0);
-    const cantidadTotalObra = round2(cantUnit * conceptoCantidad);
+    const cantidadTotalObra = explodeInsumoQty(ins, conceptoCantidad);
     const costoUnit = round2(ins.costoUnitario || 0);
-    const totalImporteObra = round2(cantidadTotalObra * costoUnit);
+    const totalImporteObra = explodeInsumoImporte(ins, conceptoCantidad);
     grandTotalObra = round2(grandTotalObra + totalImporteObra);
 
     let tipoBadgeClass = "bg-slate-100 text-slate-700 border-slate-200";
@@ -380,7 +368,7 @@ function renderModalExplosion(node) {
         ${ins.descripcion || 'Sin descripción'}
       </td>
       <td class="p-2.5 text-right text-xs font-bold text-blue-900 align-middle font-mono">
-        ${formatQty(cantidadTotalObra)}
+        ${Math.abs(cantidadTotalObra) < 1 ? formatMatrixQty(cantidadTotalObra) : formatQty(cantidadTotalObra)}
       </td>
       <td class="p-2.5 text-center text-xs text-slate-500 align-middle font-mono">
         ${ins.unidad || 'pza'}

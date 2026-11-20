@@ -4,6 +4,8 @@
 // ya contenga su desglose completo de Materiales, Mano de Obra y Equipo/Herramienta,
 // con consumos estrictamente unitarios y suma exacta igual al Costo Unitario del concepto.
 
+import { computeMatrixDirectCost, isPercentInsumo } from './matrixMath.js?v=20261119_cf35';
+
 /**
  * Genera la matriz integrada (insumos) para un concepto de obra.
  * @param {Object} concept { clave, descripcion, unidad, costoUnitario, precioUnitario }
@@ -19,8 +21,11 @@ export function generateIntegratedMatrixForConcept(concept) {
 
   const desc = (concept.descripcion || '').trim();
   const descLower = desc.toLowerCase();
-  const unit = (concept.unidad || 'pza').toLowerCase().trim();
-  const totalCost = parseFloat(concept.costoUnitario || concept.precioUnitario) || 0;
+  const unit = normalizeConceptUnit(concept.unidad);
+  // La matriz integra el COSTO DIRECTO por 1 unidad del concepto. Si el P.U. ya trae sobrecosto,
+  // usar el costo directo evita aplicar indirectos/utilidad dos veces al recalcular PU = CD × factor.
+  const cdVal = parseFloat(concept.costoDirecto);
+  const totalCost = (cdVal > 0 ? cdVal : parseFloat(concept.costoUnitario || concept.precioUnitario)) || 0;
 
   if (totalCost <= 0) {
     return [];
@@ -430,6 +435,22 @@ export function generateIntegratedMatrixForConcept(concept) {
 }
 
 /**
+ * Normaliza la unidad del concepto (m², M2, mts2, m.l., tonelada...) a su forma canónica.
+ */
+export function normalizeConceptUnit(rawUnit) {
+  let u = String(rawUnit || 'pza').toLowerCase().trim()
+    .replace(/²/g, '2').replace(/³/g, '3').replace(/\s+/g, '').replace(/\.$/, '');
+  if (/^(m2|mt2|mts2|metro2|metros2|metrocuadrado|metroscuadrados)$/.test(u)) return 'm2';
+  if (/^(m3|mt3|mts3|metro3|metros3|metrocubico|metroscubicos)$/.test(u)) return 'm3';
+  if (/^(ml|m\.l|m\.l\.|mtl|metrolineal|metroslineales)$/.test(u)) return 'ml';
+  if (/^(m|mt|mts|metro|metros)$/.test(u)) return 'm';
+  if (/^(kg|kgs|kilo|kilos|kilogramo|kilogramos)$/.test(u)) return 'kg';
+  if (/^(ton|tons|tonelada|toneladas|t)$/.test(u)) return 'ton';
+  if (/^(pza|pzas|pz|pieza|piezas)$/.test(u)) return 'pza';
+  return u || 'pza';
+}
+
+/**
  * Ajusta los costos unitarios de los insumos para que la suma total coincida
  * al centavo con el costo unitario objetivo del concepto.
  */
@@ -442,16 +463,43 @@ function calibrateMatrixSum(insumos, targetCost) {
   });
 
   const target = Math.round(((Number(targetCost) || 0) + Number.EPSILON) * 100) / 100;
-  let currentSum = insumos.reduce((acc, ins) => acc + (Math.round(((ins.cantidad * ins.costoUnitario) + Number.EPSILON) * 100) / 100), 0);
-  currentSum = Math.round((currentSum + Number.EPSILON) * 100) / 100;
-  let diff = Math.round((target - currentSum) * 100) / 100;
+  // Mismo motor que usa todo el sistema (incluye insumos en % sobre la mano de obra)
+  let diff = Math.round((target - computeMatrixDirectCost(insumos)) * 100) / 100;
 
-  if (Math.abs(diff) > 0.001) {
-    // Ajustar la diferencia en el primer material principal o primer insumo
-    const primaryMat = insumos.find(ins => ins.tipo === 'Material') || insumos[0];
-    if (primaryMat && primaryMat.cantidad > 0) {
-      const adjustment = diff / primaryMat.cantidad;
-      primaryMat.costoUnitario = Math.round(((primaryMat.costoUnitario + adjustment) + Number.EPSILON) * 100) / 100;
+  // Ajustar la diferencia primero en insumos no porcentuales ni de MO con menor consumo unitario
+  // (con cantidad ≤ 1 cada centavo del costo mueve el importe menos de 1¢ y permite cuadrar exacto);
+  // si no alcanza, ajustar la mano de obra considerando que arrastra a los insumos en % sobre MO.
+  const pctSum = insumos.filter(isPercentInsumo).reduce((a, ins) => a + (Number(ins.cantidad) || 0), 0);
+  const byQty = (a, b) => a.cantidad - b.cantidad;
+  const candidates = [
+    ...insumos.filter(ins => !isPercentInsumo(ins) && ins.tipo !== 'Mano de Obra' && ins.cantidad > 0).sort(byQty),
+    ...insumos.filter(ins => !isPercentInsumo(ins) && ins.tipo === 'Mano de Obra' && ins.cantidad > 0).sort(byQty)
+  ];
+  for (const cand of candidates) {
+    if (Math.abs(diff) <= 0.001) break;
+    const leverage = cand.cantidad * (cand.tipo === 'Mano de Obra' ? (1 + pctSum) : 1);
+    for (let i = 0; i < 4 && Math.abs(diff) > 0.001; i++) {
+      const next = Math.round(((cand.costoUnitario + diff / leverage) + Number.EPSILON) * 100) / 100;
+      if (next < 0) break;
+      cand.costoUnitario = next;
+      diff = Math.round((target - computeMatrixDirectCost(insumos)) * 100) / 100;
     }
+  }
+
+  // Último recurso (casos raros por redondeo escalonado): búsqueda fina combinando dos insumos ±25¢
+  if (Math.abs(diff) > 0.001 && candidates.length > 0) {
+    const a = candidates[0];
+    const b = candidates.find(c => c !== a) || null;
+    const baseA = a.costoUnitario, baseB = b ? b.costoUnitario : 0;
+    let found = false;
+    for (let da = -25; da <= 25 && !found; da++) {
+      for (let db = (b ? -25 : 0); db <= (b ? 25 : 0) && !found; db++) {
+        a.costoUnitario = Math.round((baseA + da / 100) * 100) / 100;
+        if (b) b.costoUnitario = Math.round((baseB + db / 100) * 100) / 100;
+        if (a.costoUnitario < 0 || (b && b.costoUnitario < 0)) continue;
+        if (Math.abs(target - computeMatrixDirectCost(insumos)) < 0.001) found = true;
+      }
+    }
+    if (!found) { a.costoUnitario = baseA; if (b) b.costoUnitario = baseB; }
   }
 }

@@ -1,14 +1,14 @@
-import { state } from '../../state/store.js?v=20261117_cf30';
-import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js?v=20261117_cf30';
-import { getHierarchyColor } from '../../core/colors.js?v=20261117_cf30';
-import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge } from '../../core/calculations.js?v=20261117_cf30';
-import { findNodeById } from './treeService.js?v=20261117_cf30';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261117_cf30';
-import { APU_WIDTH_KEY } from '../../config/constants.js?v=20261117_cf30';
-import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261117_cf30';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261117_cf30';
-import { getClampedApuWidth } from '../../ui/resizer.js?v=20261117_cf30';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261117_cf30';
+import { state } from '../../state/store.js?v=20261119_cf35';
+import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js?v=20261119_cf35';
+import { getHierarchyColor } from '../../core/colors.js?v=20261119_cf35';
+import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge, recalcNodeFromMatrix, leafImporte } from '../../core/calculations.js?v=20261119_cf35';
+import { findNodeById } from './treeService.js?v=20261119_cf35';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf35';
+import { APU_WIDTH_KEY } from '../../config/constants.js?v=20261119_cf35';
+import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261119_cf35';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261119_cf35';
+import { getClampedApuWidth } from '../../ui/resizer.js?v=20261119_cf35';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf35';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -45,9 +45,11 @@ export function renderTAB1() {
         node.unidad = 'lote';
       }
       const hasMatriz = node.insumos && node.insumos.length > 0;
+      // Regla APU: el concepto es el resultado de su matriz (CD = Σ insumos; PU = CD × factor)
+      if (!isParent && hasMatriz) recalcNodeFromMatrix(node);
       const calculatedTotal = isParent 
         ? calculateParentTotal(node) 
-        : round2((node.cantidad || 0) * (node.precioUnitario || 0));
+        : leafImporte(node);
 
       // Color jerárquico progresivo (con caché memoizada)
       const activeColor = node.color || inheritedColor;
@@ -140,7 +142,7 @@ export function renderTAB1() {
           ${!isParent ? `
             <div class="flex items-center justify-end">
               <span class="text-slate-500 mr-0.5 ${isLevel1 ? 'font-bold' : 'font-semibold'}">${escapeHtml(getCurrencySymbol())}</span>
-              <input type="number" step="0.01" ${isCatLocked ? 'disabled readonly' : ''} value="${Number(node.precioUnitario || 0).toFixed(2)}" onchange="updateNode('${escapeHtml(node.id)}', 'precioUnitario', parseFloat(this.value) || 0)" 
+              <input type="number" step="0.01" ${(isCatLocked || hasMatriz) ? 'disabled readonly' : ''} ${hasMatriz ? 'title="P.U. calculado automáticamente desde la matriz APU (edita los insumos para modificarlo)"' : ''} value="${Number(node.precioUnitario || 0).toFixed(2)}" onchange="updateNode('${escapeHtml(node.id)}', 'precioUnitario', parseFloat(this.value) || 0)" 
                      class="w-20 text-right bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white py-0.5 rounded text-xs ${isLevel1 ? 'font-bold' : 'font-semibold'} text-blue-700 font-mono disabled:cursor-default">
             </div>
           ` : `<span class="${isLevel1 ? 'font-bold text-slate-500' : 'text-slate-400'}">-</span>`}

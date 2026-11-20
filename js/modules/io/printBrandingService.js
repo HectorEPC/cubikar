@@ -1,6 +1,6 @@
 // Servicio centralizado de Branding e Impresión por Plan de Suscripción (Free / Plus / Pro)
-import { state } from '../../state/store.js?v=20261117_cf30';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261117_cf30';
+import { state } from '../../state/store.js?v=20261119_cf35';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261119_cf35';
 
 export const CUBIKAR_OFFICIAL_SVG = `<svg viewBox="0 0 512 512" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>

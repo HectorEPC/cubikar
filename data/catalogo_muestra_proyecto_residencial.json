@@ -243,7 +243,7 @@
             "cantidad": 0.0023,
             "costoUnitario": 19950,
             "tipo": "Material",
-            "importe": 45.88
+            "importe": 45.89
           },
           {
             "clave": "CBK-MAT-00012",
@@ -527,7 +527,7 @@
             "cantidad": 1.05,
             "costoUnitario": 32.5,
             "tipo": "Material",
-            "importe": 34.12
+            "importe": 34.13
           },
           {
             "clave": "CBK-MO-00006",
@@ -567,7 +567,7 @@
             "cantidad": 0.0023,
             "costoUnitario": 19950,
             "tipo": "Material",
-            "importe": 45.88
+            "importe": 45.89
           },
           {
             "clave": "CBK-MAT-00013",
@@ -1879,8 +1879,8 @@
     "nivel": 1,
     "tipo": "Partida",
     "cantidad": 1,
-    "precioUnitario": 113791.05,
-    "costoDirecto": 113791.05,
+    "precioUnitario": 113791.15,
+    "costoDirecto": 113791.15,
     "children": [
       {
         "clave": "6.1",
@@ -1889,8 +1889,8 @@
         "nivel": 2,
         "tipo": "Partida",
         "cantidad": 1,
-        "precioUnitario": 30531.04,
-        "costoDirecto": 30531.04,
+        "precioUnitario": 30531.14,
+        "costoDirecto": 30531.14,
         "children": [
           {
             "clave": "CBK-RES-0038",
@@ -1899,8 +1899,8 @@
             "nivel": 3,
             "tipo": "Concepto",
             "cantidad": 1,
-            "precioUnitario": 17521.15,
-            "costoDirecto": 17521.15,
+            "precioUnitario": 17521.25,
+            "costoDirecto": 17521.25,
             "insumos": [
               {
                 "clave": "CBK-MAT-00053",
@@ -1998,7 +1998,7 @@
                 "cantidad": 1.05,
                 "costoUnitario": 32.5,
                 "tipo": "Material",
-                "importe": 34.12
+                "importe": 34.13
               },
               {
                 "clave": "CBK-MO-00006",
@@ -2197,7 +2197,7 @@
                 "cantidad": 1.05,
                 "costoUnitario": 32.5,
                 "tipo": "Material",
-                "importe": 34.12
+                "importe": 34.13
               },
               {
                 "clave": "CBK-MO-00006",
@@ -2493,7 +2493,7 @@
             "cantidad": 0.003,
             "costoUnitario": 75,
             "tipo": "Material",
-            "importe": 0.22
+            "importe": 0.23
           },
           {
             "clave": "CBK-MAT-00063",
@@ -2560,7 +2560,7 @@
             "cantidad": 0.003,
             "costoUnitario": 75,
             "tipo": "Material",
-            "importe": 0.22
+            "importe": 0.23
           },
           {
             "clave": "CBK-MAT-00064",
@@ -3310,7 +3310,7 @@
             "cantidad": 0.0102,
             "costoUnitario": 75,
             "tipo": "Material",
-            "importe": 0.76
+            "importe": 0.77
           },
           {
             "clave": "CBK-MAT-00079",
@@ -4970,7 +4970,7 @@
             "cantidad": 1.5,
             "costoUnitario": 2158.07,
             "tipo": "Mano de Obra",
-            "importe": 3237.1
+            "importe": 3237.11
           },
           {
             "clave": "CBK-MO-00020",
@@ -5428,7 +5428,7 @@
             "cantidad": 0.35,
             "costoUnitario": 23.5,
             "tipo": "Material",
-            "importe": 8.22
+            "importe": 8.23
           },
           {
             "clave": "CBK-MAT-00148",

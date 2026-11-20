@@ -10,7 +10,8 @@
     "absorbedByApp": true,
     "zipFile": "data/Catalogo_Muestra_Proyecto_Residencial_APU.zip",
     "zipName": "Catalogo_Muestra_Proyecto_Residencial_APU.zip",
-    "isBase": true
+    "isBase": true,
+    "dataVersion": "2026-11-19-apu-exacta"
   },
   {
     "id": "cubikar_igi_2026",
@@ -23,7 +24,8 @@
     "absorbedByApp": true,
     "zipFile": "data/Catalogo_Ingenieria_e_Infraestructura_2026_APU.zip",
     "zipName": "Catalogo_Ingenieria_e_Infraestructura_2026_APU.zip",
-    "isBase": true
+    "isBase": true,
+    "dataVersion": "2026-11-19-apu-exacta"
   },
   {
     "id": "cubikar_vivienda_2026",
@@ -36,7 +38,8 @@
     "absorbedByApp": true,
     "zipFile": "data/Catalogo_Vivienda_2026_APU.zip",
     "zipName": "Catalogo_Vivienda_2026_APU.zip",
-    "isBase": true
+    "isBase": true,
+    "dataVersion": "2026-11-19-apu-exacta"
   },
   {
     "id": "gobierno_2022",

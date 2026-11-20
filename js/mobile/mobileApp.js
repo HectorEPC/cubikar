@@ -1,34 +1,34 @@
 ﻿// js/mobile/mobileApp.js
 // Punto de entrada paralelo para la versión móvil y tablet de cubikar Construcción
 
-import { getActiveProjectId, setActiveProjectId } from '../config/constants.js?v=20261117_cf30';
-import { initStore } from '../state/store.js?v=20261117_cf30';
+import { getActiveProjectId, setActiveProjectId } from '../config/constants.js?v=20261119_cf35';
+import { initStore } from '../state/store.js?v=20261119_cf35';
 import {
   initAuthListener,
   hasPendingIncomingSsoSession,
   hydrateIncomingSsoSession,
   hasOversizedLocalJwt,
   ensureCompactAuthSession
-} from '../core/authService.js?v=20261117_cf30';
-import { fetchCloudProjects } from '../core/cloudProjectService.js?v=20261117_cf30';
-import { hydrateProjectModulesFromCloud } from '../core/cloudModulesSyncService.js?v=20261117_cf30';
-import { isSupabaseConfigured } from '../core/supabaseClient.js?v=20261117_cf30';
-import { initGlobalRealtimeSync, subscribeToProjectRealtime } from '../core/realtimeSync.js?v=20261117_cf30';
-import { syncPendingMediaUploads } from '../services/s3StorageService.js?v=20261119_cf32';
+} from '../core/authService.js?v=20261119_cf35';
+import { fetchCloudProjects } from '../core/cloudProjectService.js?v=20261119_cf35';
+import { hydrateProjectModulesFromCloud } from '../core/cloudModulesSyncService.js?v=20261119_cf35';
+import { isSupabaseConfigured } from '../core/supabaseClient.js?v=20261119_cf35';
+import { initGlobalRealtimeSync, subscribeToProjectRealtime } from '../core/realtimeSync.js?v=20261119_cf35';
+import { syncPendingMediaUploads } from '../services/s3StorageService.js?v=20261119_cf35';
 import {
   enforceGlobalSessionRevocation,
   getCurrentUser,
   getProjectById,
   getProjectsList,
   saveProjectsList
-} from '../modules/portal/projectService.js?v=20261117_cf30';
-import { initThemeMode, setThemeRenderCallback } from '../ui/themeController.js?v=20261117_cf30';
-import { setTabLockRenderCallback } from '../ui/tabLockController.js?v=20261117_cf30';
-import { setProjectChatRefreshCallback } from '../modules/chat/projectChat.js?v=20261117_cf30';
-import { showToast } from '../ui/notifications.js?v=20261117_cf30';
-import { registerMobileBridgeHooks, syncThemeDataset, isBodegueroRestricted } from './mobileBridge.js?v=20261117_cf30';
+} from '../modules/portal/projectService.js?v=20261119_cf35';
+import { initThemeMode, setThemeRenderCallback } from '../ui/themeController.js?v=20261119_cf35';
+import { setTabLockRenderCallback } from '../ui/tabLockController.js?v=20261119_cf35';
+import { setProjectChatRefreshCallback } from '../modules/chat/projectChat.js?v=20261119_cf35';
+import { showToast } from '../ui/notifications.js?v=20261119_cf35';
+import { registerMobileBridgeHooks, syncThemeDataset, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf35';
 import { renderShell, setMobileRoute, refreshCurrentMobileView } from './mobileShell.js?v=20261118_c2';
-import { openMobileProjectById } from './mobileProjects.js?v=20261117_cf30';
+import { openMobileProjectById } from './mobileProjects.js?v=20261119_cf35';
 
 async function bootstrapMobileConst() {
   initThemeMode();

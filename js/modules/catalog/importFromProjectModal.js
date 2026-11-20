@@ -1,15 +1,15 @@
 // js/modules/catalog/importFromProjectModal.js
 // Asistente visual para explorar, seleccionar y copiar conceptos con sus matrices APU desde otro proyecto
 
-import { state, persistLocalData } from '../../state/store.js?v=20261117_cf30';
-import { saveState } from '../../state/history.js?v=20261117_cf30';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../../config/constants.js?v=20261117_cf30';
-import { getProjectsList, getProjectById, getCurrentUser, getProjectsForUser } from '../portal/projectService.js?v=20261117_cf30';
-import { recalculateClaves, guardConceptLimit, countTreeConcepts } from './treeService.js?v=20261117_cf30';
-import { renderTAB1, selectRow } from './catalogView.js?v=20261117_cf30';
-import { getFactorSobrecosto, round2 } from '../../core/calculations.js?v=20261117_cf30';
-import { formatMoney, getCurrencySymbol } from '../../core/formatters.js?v=20261117_cf30';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf35';
+import { saveState } from '../../state/history.js?v=20261119_cf35';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../../config/constants.js?v=20261119_cf35';
+import { getProjectsList, getProjectById, getCurrentUser, getProjectsForUser } from '../portal/projectService.js?v=20261119_cf35';
+import { recalculateClaves, guardConceptLimit, countTreeConcepts } from './treeService.js?v=20261119_cf35';
+import { renderTAB1, selectRow } from './catalogView.js?v=20261119_cf35';
+import { getFactorSobrecosto, round2, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf35';
+import { formatMoney, getCurrencySymbol } from '../../core/formatters.js?v=20261119_cf35';
 
 let activeSourceProjectId = null;
 let activeSourceTreeData = [];
@@ -361,7 +361,9 @@ function renewNodeDeep(n) {
     n.insumos = [];
   }
 
-  if (n.costoDirecto !== undefined && n.costoDirecto !== null) {
+  if (Array.isArray(n.insumos) && n.insumos.length > 0 && (!n.children || n.children.length === 0)) {
+    recalcNodeFromMatrix(n);
+  } else if (n.costoDirecto !== undefined && n.costoDirecto !== null) {
     const factor = getFactorSobrecosto();
     n.precioUnitario = round2(n.costoDirecto * factor);
   }

@@ -1,17 +1,30 @@
-import { state } from '../state/store.js?v=20261117_cf30';
-import { formatMoney, round2, round5 } from './formatters.js?v=20261117_cf30';
+import { state } from '../state/store.js?v=20261119_cf35';
+import { formatMoney, round2, round5 } from './formatters.js?v=20261119_cf35';
+
+import {
+  computeFactorSobrecosto, computeMatrixBreakdown, computeMatrixDirectCost, recalcConceptFromMatrix,
+  recalcTreeFromMatrices, syncPercentInsumos, isPercentInsumo, insumoImporte, leafImporte, leafDirectImporte,
+  explodeInsumoQty, explodeInsumoImporte
+} from './matrixMath.js?v=20261119_cf35';
 
 export { round2, round5 };
+export {
+  computeMatrixBreakdown, computeMatrixDirectCost, syncPercentInsumos, isPercentInsumo, insumoImporte,
+  leafImporte, leafDirectImporte, explodeInsumoQty, explodeInsumoImporte
+};
 
 // Cálculo del Factor de Sobrecosto (FSR/Indirectos/Financiamiento/Utilidad/Seguros y Fianzas)
 export function getFactorSobrecosto() {
-  if (!state.settings.applySobrecosto) return 1.0;
-  const fInd = 1 + ((parseFloat(state.settings.pctIndirectos) || 0) / 100);
-  const fFin = 1 + ((parseFloat(state.settings.pctFinanciamiento) || 0) / 100);
-  const fUtil = 1 + ((parseFloat(state.settings.pctUtilidad) || 0) / 100);
-  const fCarg = 1 + ((parseFloat(state.settings.pctAdicionales) || 0) / 100);
-  const fSeg = 1 + ((parseFloat(state.settings.pctSegurosFianzas) || 0) / 100);
-  return fInd * fFin * fUtil * fCarg * fSeg;
+  return computeFactorSobrecosto(state.settings);
+}
+
+// El concepto es el resultado de su matriz (CD = Σ insumos, PU = CD × factor del proyecto)
+export function recalcNodeFromMatrix(node) {
+  return recalcConceptFromMatrix(node, getFactorSobrecosto());
+}
+
+export function recalcAllConceptsFromMatrices(nodes = state.treeData) {
+  return recalcTreeFromMatrices(nodes, getFactorSobrecosto());
 }
 
 // Factor multiplicador de Salario Real (FASAR / IMSS-INFONAVIT) sobre mano de obra
@@ -48,9 +61,7 @@ export function updateSobrecostoBadge() {
 // Total de una partida recursiva (sumatoria de hijos o concepto)
 export function calculateParentTotal(node) {
   if (!node.children || !Array.isArray(node.children) || node.children.length === 0) {
-    const cant = round2(node.cantidad || 0);
-    const pu = round2(node.precioUnitario || 0);
-    return round2(cant * pu);
+    return leafImporte(node);
   }
   const sum = node.children.reduce((acc, child) => acc + calculateParentTotal(child), 0);
   if (sum === 0 && (node.precioUnitario || 0) > 0 && (node.cantidad || 0) > 0) {
@@ -62,10 +73,7 @@ export function calculateParentTotal(node) {
 // Costo directo de una partida recursiva
 export function calculateParentDirectTotal(node) {
   if (!node.children || !Array.isArray(node.children) || node.children.length === 0) {
-    const cant = round2(node.cantidad || 0);
-    const cd = node.costoDirecto !== undefined ? node.costoDirecto : node.precioUnitario;
-    const cdVal = round2(cd || 0);
-    return round2(cant * cdVal);
+    return leafDirectImporte(node);
   }
   const sum = node.children.reduce((acc, child) => acc + calculateParentDirectTotal(child), 0);
   if (sum === 0 && (node.costoDirecto || node.precioUnitario || 0) > 0 && (node.cantidad || 0) > 0) {

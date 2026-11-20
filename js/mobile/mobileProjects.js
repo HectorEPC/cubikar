@@ -1,13 +1,13 @@
 // js/mobile/mobileProjects.js
 // Lista real de Proyectos ("Mis Proyectos" vs "Invitado"), invitaciones pendientes, papelera y creación de obra
 
-import { setActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261117_cf30';
-import { initStore } from '../state/store.js?v=20261117_cf30';
-import { fetchCloudProjects } from '../core/cloudProjectService.js?v=20261117_cf30';
-import { hydrateProjectModulesFromCloud } from '../core/cloudModulesSyncService.js?v=20261117_cf30';
-import { isSupabaseConfigured } from '../core/supabaseClient.js?v=20261117_cf30';
-import { subscribeToProjectRealtime, broadcastInvitationAccepted, broadcastInvitationRejected, requestPeerSync } from '../core/realtimeSync.js?v=20261117_cf30';
-import { autoSyncCollaborationOnStartup, syncHostWorkspaceProjects } from '../core/collaborationCloudService.js?v=20261117_cf30';
+import { setActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261119_cf35';
+import { initStore } from '../state/store.js?v=20261119_cf35';
+import { fetchCloudProjects } from '../core/cloudProjectService.js?v=20261119_cf35';
+import { hydrateProjectModulesFromCloud } from '../core/cloudModulesSyncService.js?v=20261119_cf35';
+import { isSupabaseConfigured } from '../core/supabaseClient.js?v=20261119_cf35';
+import { subscribeToProjectRealtime, broadcastInvitationAccepted, broadcastInvitationRejected, requestPeerSync } from '../core/realtimeSync.js?v=20261119_cf35';
+import { autoSyncCollaborationOnStartup, syncHostWorkspaceProjects } from '../core/collaborationCloudService.js?v=20261119_cf35';
 import {
   getCurrentUser,
   getProjectsList,
@@ -26,16 +26,16 @@ import {
   getUserPlanId,
   getUserRoleInProject,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261117_cf30';
+} from '../modules/portal/projectService.js?v=20261119_cf35';
 import {
   moveProjectToTrash,
   fetchTrashedProjectsForHost,
   restoreProjectFromTrash,
   permanentlyDeleteTrashedProject,
   getCachedTrashCount
-} from '../modules/portal/trashService.js?v=20261117_cf30';
-import { showToast } from '../ui/notifications.js?v=20261117_cf30';
-import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261117_cf30';
+} from '../modules/portal/trashService.js?v=20261119_cf35';
+import { showToast } from '../ui/notifications.js?v=20261119_cf35';
+import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf35';
 
 let scopeTab = 'owned'; // 'owned' | 'invited'
 let selectedInviterEmail = 'all';

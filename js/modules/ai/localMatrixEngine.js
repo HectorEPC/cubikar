@@ -7,6 +7,8 @@
 //         armados, diámetros, calibres, proporciones, piezas incluidas...) y armar la matriz
 //         desde cero con insumos reales de los catálogos cargados (con conversión de unidades).
 
+import { computeMatrixDirectCost } from '../../core/matrixMath.js?v=20261119_cf35';
+
 const r5 = (v) => Math.round(((Number(v) || 0) + 1e-12) * 100000) / 100000;
 const r2 = (v) => Math.round(((Number(v) || 0) + 1e-12) * 100) / 100;
 
@@ -1228,7 +1230,8 @@ export function generateLocalMatrix(target, ctx) {
 }
 
 export function matrixDirectCost(insumos) {
-  return r2((insumos || []).reduce((a, i) => a + r5(i.cantidad) * r2(i.costoUnitario), 0));
+  // Motor canónico APU (incluye insumos en % sobre la mano de obra)
+  return computeMatrixDirectCost(insumos || []);
 }
 
 /**
@@ -1244,10 +1247,11 @@ export function flattenPresetData(data) {
     for (const n of nodes) {
       if (Array.isArray(n.children) && n.children.length) { walk(n.children); continue; }
       if (n.tipo === 'Partida') continue;
-      const pu = n.costoDirecto ?? n.precioUnitario ?? 0;
       const insumosList = Array.isArray(n.insumos)
         ? n.insumos
         : (n.insumos && typeof n.insumos === 'object' ? [n.insumos] : []);
+      // El concepto vale exactamente lo que suma su matriz (CD); si no tiene matriz se respeta su precio
+      const pu = insumosList.length ? computeMatrixDirectCost(insumosList) : (n.costoDirecto ?? n.precioUnitario ?? 0);
       items.push({
         clave: n.clave,
         descripcion: n.descripcion,

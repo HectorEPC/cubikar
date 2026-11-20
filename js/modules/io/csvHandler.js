@@ -1,15 +1,15 @@
-﻿import { state, persistLocalData } from '../../state/store.js?v=20261117_cf30';
-import { saveState } from '../../state/history.js?v=20261117_cf30';
-import { guardConceptLimit } from '../catalog/treeService.js?v=20261117_cf30';
-import { countTreeConcepts } from '../portal/projectService.js?v=20261117_cf30';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
-import { calculateParentTotal, calculateParentDirectTotal } from '../../core/calculations.js?v=20261117_cf30';
-import { recalculateClaves } from '../catalog/treeService.js?v=20261117_cf30';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf30';
-import { getActiveProjectId } from '../../config/constants.js?v=20261117_cf30';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf32';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261117_cf30';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261117_cf30';
+﻿import { state, persistLocalData } from '../../state/store.js?v=20261119_cf35';
+import { saveState } from '../../state/history.js?v=20261119_cf35';
+import { guardConceptLimit } from '../catalog/treeService.js?v=20261119_cf35';
+import { countTreeConcepts } from '../portal/projectService.js?v=20261119_cf35';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
+import { calculateParentTotal, calculateParentDirectTotal, leafImporte, leafDirectImporte, insumoImporte, syncPercentInsumos } from '../../core/calculations.js?v=20261119_cf35';
+import { recalculateClaves } from '../catalog/treeService.js?v=20261119_cf35';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf35';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf35';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf35';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf35';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf35';
 
 // Abrir modal interactivo de selección de formato de exportación
 export function openExportModal() {
@@ -37,9 +37,9 @@ function getFlattenedCatalogRows() {
   function traverse(nodes, level = 1, parentPath = '') {
     nodes.forEach((n, idx) => {
       const isParent = Boolean(n.children && n.children.length > 0);
-      const rowTotal = isParent ? calculateParentTotal(n) : ((n.cantidad || 0) * (n.precioUnitario || 0));
+      const rowTotal = isParent ? calculateParentTotal(n) : leafImporte(n);
       const directPu = n.costoDirecto !== undefined ? n.costoDirecto : (n.costoUnitario || n.precioUnitario || 0);
-      const rowDirectTotal = isParent ? calculateParentDirectTotal(n) : ((n.cantidad || 0) * directPu);
+      const rowDirectTotal = isParent ? calculateParentDirectTotal(n) : leafDirectImporte({ cantidad: n.cantidad, costoDirecto: directPu });
       const currentPath = parentPath ? `${parentPath} > ${n.descripcion || ''}` : (n.descripcion || '');
 
       rows.push({
@@ -244,7 +244,7 @@ export async function exportCatalogOpusZip() {
           item.node.insumos.forEach(ins => {
             const insCant = ins.cantidad || 0;
             const insCost = ins.costoUnitario || ins.precioUnitario || 0;
-            const insImporte = Math.round((insCant * insCost + Number.EPSILON) * 100) / 100;
+            const insImporte = insumoImporte({ cantidad: insCant, costoUnitario: insCost });
             matrixRows.push([
               item.clave,
               item.descripcion,
@@ -377,7 +377,7 @@ export async function exportCatalogNeodataZip() {
           item.node.insumos.forEach(ins => {
             const insCant = ins.cantidad || 0;
             const insCost = ins.costoUnitario || ins.precioUnitario || 0;
-            const insImporte = Math.round((insCant * insCost + Number.EPSILON) * 100) / 100;
+            const insImporte = insumoImporte({ cantidad: insCant, costoUnitario: insCost });
             matrixRows.push([
               item.clave,
               item.descripcion,

@@ -1,15 +1,15 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261117_cf30';
-import { saveState } from '../../state/history.js?v=20261117_cf30';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
-import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261117_cf30';
-import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261117_cf30';
-import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261117_cf30';
-import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261117_cf30';
-import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261117_cf30';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf35';
+import { saveState } from '../../state/history.js?v=20261119_cf35';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
+import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261119_cf35';
+import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf35';
+import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261119_cf35';
+import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261119_cf35';
+import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf35';
 export { countTreeConcepts };
-import { getFactorSobrecosto, round2 } from '../../core/calculations.js?v=20261117_cf30';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261117_cf30';
-import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261117_cf30';
+import { getFactorSobrecosto, round2, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf35';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf35';
+import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261119_cf35';
 
 function createNodeUuid() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -449,7 +449,9 @@ export function pegarNode(targetId, e) {
     n.insumos = renewInsumosUuids(n.insumos || []);
 
     // Adaptar Precio Unitario según el Factor de Sobrecosto del proyecto destino
-    if (n.costoDirecto !== undefined && n.costoDirecto !== null) {
+    if (Array.isArray(n.insumos) && n.insumos.length > 0 && (!n.children || n.children.length === 0)) {
+      recalcNodeFromMatrix(n);
+    } else if (n.costoDirecto !== undefined && n.costoDirecto !== null) {
       const factor = getFactorSobrecosto();
       n.precioUnitario = round2(n.costoDirecto * factor);
     }
@@ -779,6 +781,12 @@ export function updateNode(id, field, value) {
   }
   const node = findNodeById(state.treeData, id);
   if (node) {
+    const nodeHasMatrix = Array.isArray(node.insumos) && node.insumos.length > 0 && (!node.children || node.children.length === 0);
+    if ((field === 'precioUnitario' || field === 'costoDirecto') && nodeHasMatrix) {
+      showToast('El P.U. de este concepto es el resultado de su matriz APU. Modifica los insumos para ajustarlo.', 'info');
+      renderTAB1();
+      return;
+    }
     if (!isValidNodeUuid(node.uuid)) {
       node.uuid = isValidNodeUuid(node.id) ? String(node.id) : createNodeUuid();
     }

@@ -1,13 +1,13 @@
 ﻿// js/modules/almacen/almacenView.js
 // Interfaz gráfica de la 6ª pestaña principal ALMACÉN (Cero precios/costos $, apta para rol aislado de Bodeguero)
 
-import { state } from '../../state/store.js?v=20261117_cf30';
-import { formatNumber, round2, round5 } from '../../core/formatters.js?v=20261117_cf30';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261117_cf30';
-import { canCurrentUserEditProject, getCurrentUser } from '../portal/projectService.js?v=20261117_cf30';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf34';
-import { processExpenseEvidenceUpload, openExpenseEvidence } from '../compras/driveExpenseService.js?v=20261117_cf30';
+import { state } from '../../state/store.js?v=20261119_cf35';
+import { formatNumber, round2, round5 } from '../../core/formatters.js?v=20261119_cf35';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf35';
+import { canCurrentUserEditProject, getCurrentUser } from '../portal/projectService.js?v=20261119_cf35';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf35';
+import { processExpenseEvidenceUpload, openExpenseEvidence } from '../compras/driveExpenseService.js?v=20261119_cf35';
 import {
   getAlmacenSignatures,
   saveAlmacenSignatures,
@@ -21,12 +21,12 @@ import {
   cancelWarehouseMovement,
   deleteWarehouseMovement,
   getConceptCatalogForWarehouse
-} from './almacenModel.js?v=20261117_cf30';
+} from './almacenModel.js?v=20261119_cf35';
 import {
   printWarehouseExitVoucher,
   printAlmacenActiveReport,
   exportAlmacenToExcel
-} from './almacenExporter.js?v=20261117_cf30';
+} from './almacenExporter.js?v=20261119_cf35';
 
 let activeAlmacenSubTab = 'stock'; // 'stock' | 'recepciones' | 'salidas' | 'herramienta'
 let almacenSearchTerm = '';
@@ -990,7 +990,7 @@ export function explodeConceptIntoAlmacenExit() {
     .filter(ins => ins.tipo === 'Material' && String(ins.unidad || '').trim() !== '%')
     .map(ins => {
       const stk = stockMap.get(ins.insumoKey);
-      const calcQty = round2(ins.cantidadUnitaria * qtyConcept);
+      const calcQty = round5(round5(ins.cantidadUnitaria) * round2(qtyConcept));
       return {
         insumoKey: ins.insumoKey,
         insumoClave: ins.clave,

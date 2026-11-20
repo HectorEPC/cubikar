@@ -15,15 +15,15 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261117_cf30';
+} from '../../config/constants.js?v=20261119_cf35';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
 export const STORAGE_KEY_TRASHED_PROJECTS = 'cubikar_trashed_project_ids_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261117_cf30';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261117_cf30';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261117_cf30';
-import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261117_cf30';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261117_cf30';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261119_cf35';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261119_cf35';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261119_cf35';
+import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261119_cf35';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261119_cf35';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -641,7 +641,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261117_cf30').then(m => {
+            import('../../core/supabaseClient.js?v=20261119_cf35').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -2062,7 +2062,7 @@ export function getTabAssignedMembers(projectId, tabId) {
 // Enviar proyecto a la Papelera (retención 7 días - solo Anfitrión)
 export async function deleteProject(projectId) {
   if (!projectId) return { success: false, reason: 'Proyecto no especificado' };
-  const { moveProjectToTrash } = await import('./trashService.js?v=20261117_cf30');
+  const { moveProjectToTrash } = await import('./trashService.js?v=20261119_cf35');
   const res = await moveProjectToTrash(projectId);
   return (res && typeof res === 'object') ? res : { success: Boolean(res) };
 }

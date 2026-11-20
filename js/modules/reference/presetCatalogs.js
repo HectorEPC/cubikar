@@ -1,9 +1,9 @@
 // js/modules/reference/presetCatalogs.js
 // Gestor de Catálogos Pre-cargados del Sistema
 
-import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
-import { saveReferenceCatalog, listReferenceCatalogs, countCatalogItems } from './referenceDb.js?v=20261117_cf30';
-import { flattenPresetData } from '../ai/localMatrixEngine.js?v=20261117_cf30';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
+import { saveReferenceCatalog, listReferenceCatalogs, countCatalogItems, getReferenceCatalogRecord } from './referenceDb.js?v=20261119_cf35';
+import { flattenPresetData } from '../ai/localMatrixEngine.js?v=20261119_cf35';
 
 let manifestCache = null;
 
@@ -35,7 +35,11 @@ export async function ensureDefaultMasterCatalogs() {
       // Verificar si realmente tiene items indexados en IndexedDB
       const existingItems = await countCatalogItems(preset.id);
       if (existingItems > 0) {
-        continue;
+        // Reinstalar automáticamente cuando el catálogo base fue corregido/actualizado (dataVersion distinta)
+        const existingRecord = preset.dataVersion ? await getReferenceCatalogRecord(preset.id) : null;
+        const isOutdated = Boolean(preset.dataVersion) && (existingRecord?.dataVersion || '') !== preset.dataVersion;
+        if (!isOutdated) continue;
+        console.info(`[DefaultCatalogs] Actualizando catálogo base ${preset.name} a la versión ${preset.dataVersion}`);
       }
 
       try {
@@ -84,6 +88,7 @@ export async function ensureDefaultMasterCatalogs() {
             sourceFileName: preset.zipFile || preset.file,
             zipFile: preset.zipFile,
             zipName: preset.zipName,
+            dataVersion: preset.dataVersion || '',
             isPreset: true,
             isSystem: true,
             absorbedByApp: true
@@ -159,6 +164,7 @@ export async function installPresetCatalog(presetId) {
       sourceFileName: preset.zipFile || preset.file,
       zipFile: preset.zipFile,
       zipName: preset.zipName,
+      dataVersion: preset.dataVersion || '',
       isPreset: true,
       isSystem: true,
       absorbedByApp: true

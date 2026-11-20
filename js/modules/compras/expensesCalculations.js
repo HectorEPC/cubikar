@@ -1,15 +1,16 @@
 // js/modules/compras/expensesCalculations.js
 // Motor de cálculos financieros, KPIs de obra y cruce con la Explosión de Insumos
 
-import { state } from '../../state/store.js?v=20261117_cf30';
-import { round2, round5 } from '../../core/formatters.js?v=20261117_cf30';
-import { getFactorSobrecosto } from '../../core/calculations.js?v=20261117_cf30';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf30';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261117_cf30';
-import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261117_cf30';
-import { loadEstimacionesData, getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261117_cf30';
-import { getExpensesRecords, getExpensesConfig } from './expensesModel.js?v=20261117_cf30';
-import { getWarehouseNetConsumptionMap } from '../almacen/almacenModel.js?v=20261117_cf30';
+import { state } from '../../state/store.js?v=20261119_cf35';
+import { round2, round5 } from '../../core/formatters.js?v=20261119_cf35';
+import { getFactorSobrecosto } from '../../core/calculations.js?v=20261119_cf35';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf35';
+import { explodeInsumoQty, explodeInsumoImporte } from '../../core/matrixMath.js?v=20261119_cf35';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261119_cf35';
+import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf35';
+import { loadEstimacionesData, getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261119_cf35';
+import { getExpensesRecords, getExpensesConfig } from './expensesModel.js?v=20261119_cf35';
+import { getWarehouseNetConsumptionMap } from '../almacen/almacenModel.js?v=20261119_cf35';
 
 /**
  * Obtener Monto Total Contratado / Presupuestado de la obra
@@ -300,8 +301,8 @@ export function getAllBudgetInsumosExplosion() {
             const key = getInsumoConsolidationKey({ ...ins, tipo });
             const costoUnit = round2(ins.costoUnitario || 0);
             const cantUnitaria = round5(ins.cantidad || 0);
-            const cantTotal = round2(cantUnitaria * cantConcepto);
-            const importe = round2(cantTotal * costoUnit);
+            const cantTotal = explodeInsumoQty(ins, cantConcepto);
+            const importe = explodeInsumoImporte(ins, cantConcepto);
 
             if (!insumosMap.has(key)) {
               insumosMap.set(key, {
@@ -389,9 +390,8 @@ export function getInsumosBudgetVsActualComparison() {
             node.insumos.forEach(ins => {
               const tipo = resolveInsumoTipo(ins);
               const key = getInsumoConsolidationKey({ ...ins, tipo });
-              const cantUnit = round5(ins.cantidad || 0);
-              const theo = round2(cantUnit * executedQty);
-              theoreticalMap.set(key, round2((theoreticalMap.get(key) || 0) + theo));
+              const theo = explodeInsumoQty(ins, executedQty);
+              theoreticalMap.set(key, round5((theoreticalMap.get(key) || 0) + theo));
             });
           }
         } else {

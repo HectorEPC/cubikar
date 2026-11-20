@@ -25,7 +25,8 @@
             "unidad": "pt",
             "cantidad": 0.03,
             "costoUnitario": 17.66,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.53
           },
           {
             "clave": "130100-1205",
@@ -33,7 +34,8 @@
             "unidad": "pt",
             "cantidad": 0.06,
             "costoUnitario": 7.98,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.48
           },
           {
             "clave": "130100-1045",
@@ -41,7 +43,8 @@
             "unidad": "pt",
             "cantidad": 0.045,
             "costoUnitario": 21.63,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.97
           },
           {
             "clave": "500180-1051",
@@ -49,7 +52,8 @@
             "unidad": "L",
             "cantidad": 0.003,
             "costoUnitario": 133.62,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.4
           },
           {
             "clave": "103247-1265",
@@ -57,7 +61,8 @@
             "unidad": "m",
             "cantidad": 0.35,
             "costoUnitario": 0.21,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.07
           },
           {
             "clave": "175125-2010",
@@ -65,7 +70,8 @@
             "unidad": "kg",
             "cantidad": 0.003,
             "costoUnitario": 12.1,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.04
           },
           {
             "clave": "103100-1005",
@@ -73,7 +79,8 @@
             "unidad": "Ton",
             "cantidad": 0.0004,
             "costoUnitario": 2887.93,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.16
           },
           {
             "clave": "C990180-1515",
@@ -81,7 +88,8 @@
             "unidad": "hr",
             "cantidad": 0.025,
             "costoUnitario": 1.1,
-            "tipo": "Equipo"
+            "tipo": "Equipo",
+            "importe": 0.03
           },
           {
             "clave": "A100105-4000",
@@ -89,7 +97,8 @@
             "unidad": "Jor",
             "cantidad": 0.0045,
             "costoUnitario": 2749.74,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 12.37
           }
         ],
         "children": []
@@ -110,7 +119,8 @@
             "unidad": "Jor",
             "cantidad": 0.002,
             "costoUnitario": 531.14,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 1.06
           },
           {
             "clave": "C990120-3015",
@@ -118,7 +128,8 @@
             "unidad": "hr",
             "cantidad": 0.004,
             "costoUnitario": 235.12,
-            "tipo": "Equipo"
+            "tipo": "Equipo",
+            "importe": 0.94
           }
         ],
         "children": []
@@ -151,7 +162,8 @@
             "unidad": "L",
             "cantidad": 100,
             "costoUnitario": 0.16,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 16
           },
           {
             "clave": "A100105-1045",
@@ -159,7 +171,8 @@
             "unidad": "Jor",
             "cantidad": 0.03,
             "costoUnitario": 531.14,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 15.93
           },
           {
             "clave": "A100105-1015",
@@ -167,7 +180,8 @@
             "unidad": "Jor",
             "cantidad": 0.3,
             "costoUnitario": 531.14,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 159.34
           }
         ],
         "children": []
@@ -188,7 +202,8 @@
             "unidad": "m3",
             "cantidad": 0.18,
             "costoUnitario": 160,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 28.8
           },
           {
             "clave": "103200-1090",
@@ -196,7 +211,8 @@
             "unidad": "m3",
             "cantidad": 1.2,
             "costoUnitario": 215.5,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 258.6
           },
           {
             "clave": "A100105-1500",
@@ -204,7 +220,8 @@
             "unidad": "Jor",
             "cantidad": 0.2,
             "costoUnitario": 531.14,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 106.23
           }
         ],
         "children": []
@@ -225,7 +242,8 @@
             "unidad": "Ton",
             "cantidad": 0.0023,
             "costoUnitario": 19950,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 45.89
           },
           {
             "clave": "HULE-01",
@@ -233,7 +251,8 @@
             "unidad": "kg",
             "cantidad": 0.05,
             "costoUnitario": 65.51,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 3.28
           },
           {
             "clave": "125100-2005",
@@ -241,7 +260,8 @@
             "unidad": "kg",
             "cantidad": 0.13,
             "costoUnitario": 37.5,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 4.88
           },
           {
             "clave": "125100-1065",
@@ -249,7 +269,8 @@
             "unidad": "Ton",
             "cantidad": 0.0011,
             "costoUnitario": 27000,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 29.7
           },
           {
             "clave": "A100105-2000",
@@ -257,7 +278,8 @@
             "unidad": "Jor",
             "cantidad": 0.171,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 253.09
           },
           {
             "clave": "G140310-1020",
@@ -265,7 +287,8 @@
             "unidad": "m3",
             "cantidad": 0.0315,
             "costoUnitario": 3265.93,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 102.88
           }
         ],
         "children": []
@@ -286,7 +309,8 @@
             "unidad": "kg",
             "cantidad": 2.24,
             "costoUnitario": 29.33,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 65.7
           },
           {
             "clave": "A100105-2000",
@@ -294,7 +318,8 @@
             "unidad": "Jor",
             "cantidad": 0.1281,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 189.6
           },
           {
             "clave": "G140310-1005",
@@ -302,7 +327,8 @@
             "unidad": "m3",
             "cantidad": 0.03,
             "costoUnitario": 3083.77,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 92.51
           },
           {
             "clave": "G910115-2030",
@@ -310,7 +336,8 @@
             "unidad": "Ton",
             "cantidad": 0.00113,
             "costoUnitario": 43279.09,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 48.91
           }
         ],
         "children": []
@@ -331,7 +358,8 @@
             "unidad": "m3",
             "cantidad": 1.05,
             "costoUnitario": 360,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 378
           },
           {
             "clave": "A100105-2000",
@@ -339,7 +367,8 @@
             "unidad": "Jor",
             "cantidad": 0.4271,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 632.14
           },
           {
             "clave": "E140210-1530",
@@ -347,7 +376,8 @@
             "unidad": "m3",
             "cantidad": 0.31,
             "costoUnitario": 2260.3,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 700.69
           }
         ],
         "children": []
@@ -368,7 +398,8 @@
             "unidad": "Rollo",
             "cantidad": 0.005,
             "costoUnitario": 681.5,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 3.41
           },
           {
             "clave": "125100-1005",
@@ -376,7 +407,8 @@
             "unidad": "Ton",
             "cantidad": 0.00023,
             "costoUnitario": 19950,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 4.59
           },
           {
             "clave": "C990120-3015",
@@ -384,7 +416,8 @@
             "unidad": "hr",
             "cantidad": 0.07,
             "costoUnitario": 235.12,
-            "tipo": "Equipo"
+            "tipo": "Equipo",
+            "importe": 16.46
           }
         ],
         "children": []
@@ -417,7 +450,8 @@
             "unidad": "m3",
             "cantidad": 0.15,
             "costoUnitario": 91.23,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 13.68
           },
           {
             "clave": "A100140-1015",
@@ -425,7 +459,8 @@
             "unidad": "Jor",
             "cantidad": 0.0634,
             "costoUnitario": 2028.69,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 128.62
           },
           {
             "clave": "A100105-3000",
@@ -433,7 +468,8 @@
             "unidad": "Jor",
             "cantidad": 0.089,
             "costoUnitario": 1154.13,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 102.72
           },
           {
             "clave": "A100105-1515",
@@ -441,7 +477,8 @@
             "unidad": "Jor",
             "cantidad": 0.0397,
             "costoUnitario": 2655.74,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 105.43
           },
           {
             "clave": "G140300-1000",
@@ -449,7 +486,8 @@
             "unidad": "Ton",
             "cantidad": 0.01253,
             "costoUnitario": 22677.75,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 284.15
           },
           {
             "clave": "F103130-2230",
@@ -457,7 +495,8 @@
             "unidad": "m3",
             "cantidad": 0.12,
             "costoUnitario": 1964.78,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 235.77
           }
         ],
         "children": []
@@ -478,7 +517,8 @@
             "unidad": "kg",
             "cantidad": 0.01,
             "costoUnitario": 37.5,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.38
           },
           {
             "clave": "125100-5040",
@@ -486,7 +526,8 @@
             "unidad": "m",
             "cantidad": 1.05,
             "costoUnitario": 32.5,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 34.13
           },
           {
             "clave": "A100105-2000",
@@ -494,7 +535,8 @@
             "unidad": "Jor",
             "cantidad": 0.1281,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 189.6
           },
           {
             "clave": "G140310-1020",
@@ -502,7 +544,8 @@
             "unidad": "m3",
             "cantidad": 0.024,
             "costoUnitario": 3265.93,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 78.38
           }
         ],
         "children": []
@@ -523,7 +566,8 @@
             "unidad": "Ton",
             "cantidad": 0.0023,
             "costoUnitario": 19950,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 45.89
           },
           {
             "clave": "125100-2005",
@@ -531,7 +575,8 @@
             "unidad": "kg",
             "cantidad": 0.13,
             "costoUnitario": 37.5,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 4.88
           },
           {
             "clave": "125100-1065",
@@ -539,7 +584,8 @@
             "unidad": "Ton",
             "cantidad": 0.0013,
             "costoUnitario": 27000,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 35.1
           },
           {
             "clave": "A100105-2000",
@@ -547,7 +593,8 @@
             "unidad": "Jor",
             "cantidad": 0.171,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 253.09
           },
           {
             "clave": "G140310-1020",
@@ -555,7 +602,8 @@
             "unidad": "m3",
             "cantidad": 0.0473,
             "costoUnitario": 3265.93,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 154.48
           }
         ],
         "children": []
@@ -576,7 +624,8 @@
             "unidad": "kg",
             "cantidad": 2.24,
             "costoUnitario": 29.33,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 65.7
           },
           {
             "clave": "A100105-2000",
@@ -584,7 +633,8 @@
             "unidad": "Jor",
             "cantidad": 0.1281,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 189.6
           },
           {
             "clave": "G140310-1005",
@@ -592,7 +642,8 @@
             "unidad": "m3",
             "cantidad": 0.03,
             "costoUnitario": 3083.77,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 92.51
           },
           {
             "clave": "G910115-2030",
@@ -600,7 +651,8 @@
             "unidad": "Ton",
             "cantidad": 0.00113,
             "costoUnitario": 43279.09,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 48.91
           }
         ],
         "children": []
@@ -633,7 +685,8 @@
             "unidad": "m3",
             "cantidad": 0.021,
             "costoUnitario": 2040.33,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 42.85
           },
           {
             "clave": "F990105-2510",
@@ -641,7 +694,8 @@
             "unidad": "pza",
             "cantidad": 0.0025,
             "costoUnitario": 356.09,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 0.89
           },
           {
             "clave": "A100115-1000",
@@ -649,7 +703,8 @@
             "unidad": "Jor",
             "cantidad": 0.05,
             "costoUnitario": 1234.51,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 61.73
           }
         ],
         "children": []
@@ -670,7 +725,8 @@
             "unidad": "pt",
             "cantidad": 0.12,
             "costoUnitario": 28.45,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 3.41
           },
           {
             "clave": "103260-1350",
@@ -678,7 +734,8 @@
             "unidad": "pza",
             "cantidad": 0.0017,
             "costoUnitario": 24.13,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.04
           },
           {
             "clave": "E140210-3020",
@@ -686,7 +743,8 @@
             "unidad": "m3",
             "cantidad": 0.021,
             "costoUnitario": 2040.33,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 42.85
           },
           {
             "clave": "A100115-1000",
@@ -694,7 +752,8 @@
             "unidad": "Jor",
             "cantidad": 0.04143,
             "costoUnitario": 1234.51,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 51.15
           }
         ],
         "children": []
@@ -715,7 +774,8 @@
             "unidad": "m3",
             "cantidad": 0.03,
             "costoUnitario": 160,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 4.8
           },
           {
             "clave": "E140210-1175",
@@ -723,7 +783,8 @@
             "unidad": "m3",
             "cantidad": 0.011,
             "costoUnitario": 2645.03,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 29.1
           },
           {
             "clave": "A100105-2000",
@@ -731,7 +792,8 @@
             "unidad": "Jor",
             "cantidad": 0.12811,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 189.61
           }
         ],
         "children": []
@@ -752,7 +814,8 @@
             "unidad": "L",
             "cantidad": 2.5,
             "costoUnitario": 0.16,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.4
           },
           {
             "clave": "G500140-3555",
@@ -760,7 +823,8 @@
             "unidad": "m2",
             "cantidad": 1,
             "costoUnitario": 55.22,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 55.22
           },
           {
             "clave": "E140210-1155",
@@ -768,7 +832,8 @@
             "unidad": "m3",
             "cantidad": 0.0208,
             "costoUnitario": 2556.33,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 53.17
           },
           {
             "clave": "F990105-3000",
@@ -776,7 +841,8 @@
             "unidad": "pza",
             "cantidad": 0.00226,
             "costoUnitario": 13014.71,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 29.41
           },
           {
             "clave": "A100105-2000",
@@ -784,7 +850,8 @@
             "unidad": "Jor",
             "cantidad": 0.12812,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 189.63
           }
         ],
         "children": []
@@ -805,7 +872,8 @@
             "unidad": "L",
             "cantidad": 0.3,
             "costoUnitario": 0.16,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.05
           },
           {
             "clave": "G500140-3555",
@@ -813,7 +881,8 @@
             "unidad": "m2",
             "cantidad": 0.15,
             "costoUnitario": 55.22,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 8.28
           },
           {
             "clave": "E140210-1155",
@@ -821,7 +890,8 @@
             "unidad": "m3",
             "cantidad": 0.01575,
             "costoUnitario": 2556.33,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 40.26
           },
           {
             "clave": "F990105-3000",
@@ -829,7 +899,8 @@
             "unidad": "pza",
             "cantidad": 0.00059,
             "costoUnitario": 13014.71,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 7.68
           },
           {
             "clave": "A100105-2000",
@@ -837,7 +908,8 @@
             "unidad": "Jor",
             "cantidad": 0.043,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 63.64
           }
         ],
         "children": []
@@ -858,7 +930,8 @@
             "unidad": "m3",
             "cantidad": 0.0706,
             "costoUnitario": 160,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 11.3
           },
           {
             "clave": "F103130-2160",
@@ -866,7 +939,8 @@
             "unidad": "m3",
             "cantidad": 0.105,
             "costoUnitario": 1893.21,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 198.79
           },
           {
             "clave": "G115100-2000",
@@ -874,7 +948,8 @@
             "unidad": "m2",
             "cantidad": 1,
             "costoUnitario": 37.06,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 37.06
           },
           {
             "clave": "A100105-2015",
@@ -882,7 +957,8 @@
             "unidad": "Jor",
             "cantidad": 0.09511,
             "costoUnitario": 2028.69,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 192.95
           }
         ],
         "children": []
@@ -903,7 +979,8 @@
             "unidad": "tmo/3m",
             "cantidad": 0.905,
             "costoUnitario": 15,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 13.58
           },
           {
             "clave": "170100-1000",
@@ -911,7 +988,8 @@
             "unidad": "r/d",
             "cantidad": 0.08,
             "costoUnitario": 13.33,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.07
           },
           {
             "clave": "145115-2410",
@@ -919,7 +997,8 @@
             "unidad": "pza",
             "cantidad": 13,
             "costoUnitario": 10.12,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 131.56
           },
           {
             "clave": "A100105-2000",
@@ -927,7 +1006,8 @@
             "unidad": "Jor",
             "cantidad": 0.12812,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 189.63
           },
           {
             "clave": "E140210-1005",
@@ -935,7 +1015,8 @@
             "unidad": "m3",
             "cantidad": 0.012,
             "costoUnitario": 2422.32,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 29.07
           }
         ],
         "children": []
@@ -956,7 +1037,8 @@
             "unidad": "tmo/3m",
             "cantidad": 0.905,
             "costoUnitario": 15,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 13.58
           },
           {
             "clave": "170100-1000",
@@ -964,7 +1046,8 @@
             "unidad": "r/d",
             "cantidad": 0.08,
             "costoUnitario": 13.33,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.07
           },
           {
             "clave": "145115-2410",
@@ -972,7 +1055,8 @@
             "unidad": "pza",
             "cantidad": 13,
             "costoUnitario": 10.12,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 131.56
           },
           {
             "clave": "A100105-2000",
@@ -980,7 +1064,8 @@
             "unidad": "Jor",
             "cantidad": 0.12812,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 189.63
           },
           {
             "clave": "E140210-1005",
@@ -988,7 +1073,8 @@
             "unidad": "m3",
             "cantidad": 0.012,
             "costoUnitario": 2422.32,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 29.07
           }
         ],
         "children": []
@@ -1021,7 +1107,8 @@
             "unidad": "kg",
             "cantidad": 0.001,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.08
           },
           {
             "clave": "250100-2120",
@@ -1029,7 +1116,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 10,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 10
           },
           {
             "clave": "200115-9940",
@@ -1037,7 +1125,8 @@
             "unidad": "pza",
             "cantidad": 0.1666,
             "costoUnitario": 19.84,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 3.31
           },
           {
             "clave": "200115-9915",
@@ -1045,7 +1134,8 @@
             "unidad": "pza",
             "cantidad": 0.0333,
             "costoUnitario": 276,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 9.19
           },
           {
             "clave": "A100110-2020",
@@ -1053,7 +1143,8 @@
             "unidad": "Jor",
             "cantidad": 0.0104,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 15.39
           }
         ],
         "children": []
@@ -1074,7 +1165,8 @@
             "unidad": "pza",
             "cantidad": 0.01,
             "costoUnitario": 276,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2.76
           },
           {
             "clave": "200115-9940",
@@ -1082,7 +1174,8 @@
             "unidad": "pza",
             "cantidad": 0.005,
             "costoUnitario": 19.84,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.1
           },
           {
             "clave": "A100110-2020",
@@ -1090,7 +1183,8 @@
             "unidad": "Jor",
             "cantidad": 0.02,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 29.6
           },
           {
             "clave": "250100-9076",
@@ -1098,7 +1192,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 10,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 10
           }
         ],
         "children": []
@@ -1119,7 +1214,8 @@
             "unidad": "pza",
             "cantidad": 0.01,
             "costoUnitario": 276,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2.76
           },
           {
             "clave": "200115-9940",
@@ -1127,7 +1223,8 @@
             "unidad": "pza",
             "cantidad": 0.005,
             "costoUnitario": 19.84,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.1
           },
           {
             "clave": "A100110-2020",
@@ -1135,7 +1232,8 @@
             "unidad": "Jor",
             "cantidad": 0.02,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 29.6
           },
           {
             "clave": "250100-9086",
@@ -1143,7 +1241,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 8,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 8
           }
         ],
         "children": []
@@ -1164,7 +1263,8 @@
             "unidad": "kg",
             "cantidad": 0.001,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.08
           },
           {
             "clave": "250100-4150",
@@ -1172,7 +1272,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 11,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 11
           },
           {
             "clave": "200115-9971",
@@ -1180,7 +1281,8 @@
             "unidad": "pza",
             "cantidad": 0.006,
             "costoUnitario": 39.87,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.24
           },
           {
             "clave": "A100110-2020",
@@ -1188,7 +1290,8 @@
             "unidad": "Jor",
             "cantidad": 0.0104,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 15.39
           }
         ],
         "children": []
@@ -1209,7 +1312,8 @@
             "unidad": "kg",
             "cantidad": 0.0005,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.04
           },
           {
             "clave": "200115-1100",
@@ -1217,7 +1321,8 @@
             "unidad": "m",
             "cantidad": 1,
             "costoUnitario": 22,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 22
           },
           {
             "clave": "200115-9971",
@@ -1225,7 +1330,8 @@
             "unidad": "pza",
             "cantidad": 0.0005,
             "costoUnitario": 39.87,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.02
           },
           {
             "clave": "A100110-2020",
@@ -1233,7 +1339,8 @@
             "unidad": "Jor",
             "cantidad": 0.0052,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 7.7
           }
         ],
         "children": []
@@ -1254,7 +1361,8 @@
             "unidad": "Jor",
             "cantidad": 0.05,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 74
           },
           {
             "clave": "250100-9116",
@@ -1262,7 +1370,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 45,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 45
           }
         ],
         "children": []
@@ -1283,7 +1392,8 @@
             "unidad": "kg",
             "cantidad": 0.002,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.15
           },
           {
             "clave": "250100-2130",
@@ -1291,7 +1401,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 29,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 29
           },
           {
             "clave": "200115-9940",
@@ -1299,7 +1410,8 @@
             "unidad": "pza",
             "cantidad": 0.4,
             "costoUnitario": 19.84,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 7.94
           },
           {
             "clave": "200115-9915",
@@ -1307,7 +1419,8 @@
             "unidad": "pza",
             "cantidad": 0.0666,
             "costoUnitario": 276,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 18.38
           },
           {
             "clave": "A100110-2020",
@@ -1315,7 +1428,8 @@
             "unidad": "Jor",
             "cantidad": 0.0208,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 30.79
           }
         ],
         "children": []
@@ -1336,7 +1450,8 @@
             "unidad": "pza",
             "cantidad": 0.0125,
             "costoUnitario": 276,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 3.45
           },
           {
             "clave": "200115-9940",
@@ -1344,7 +1459,8 @@
             "unidad": "pza",
             "cantidad": 0.0055,
             "costoUnitario": 19.84,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.11
           },
           {
             "clave": "A100110-2020",
@@ -1352,7 +1468,8 @@
             "unidad": "Jor",
             "cantidad": 0.035,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 51.8
           },
           {
             "clave": "250100-9080",
@@ -1360,7 +1477,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 29,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 29
           }
         ],
         "children": []
@@ -1381,7 +1499,8 @@
             "unidad": "pza",
             "cantidad": 0.0125,
             "costoUnitario": 276,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 3.45
           },
           {
             "clave": "200115-9940",
@@ -1389,7 +1508,8 @@
             "unidad": "pza",
             "cantidad": 0.0055,
             "costoUnitario": 19.84,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.11
           },
           {
             "clave": "A100110-2020",
@@ -1397,7 +1517,8 @@
             "unidad": "Jor",
             "cantidad": 0.035,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 51.8
           },
           {
             "clave": "250100-9090",
@@ -1405,7 +1526,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 20,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 20
           }
         ],
         "children": []
@@ -1426,7 +1548,8 @@
             "unidad": "kg",
             "cantidad": 0.005,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.38
           },
           {
             "clave": "250100-4556",
@@ -1434,7 +1557,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 25.86,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 25.86
           },
           {
             "clave": "200115-9971",
@@ -1442,7 +1566,8 @@
             "unidad": "pza",
             "cantidad": 0.003,
             "costoUnitario": 39.87,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.12
           },
           {
             "clave": "A100110-2020",
@@ -1450,7 +1575,8 @@
             "unidad": "Jor",
             "cantidad": 0.0052,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 7.7
           }
         ],
         "children": []
@@ -1471,7 +1597,8 @@
             "unidad": "kg",
             "cantidad": 0.002,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.15
           },
           {
             "clave": "250100-4120",
@@ -1479,7 +1606,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 45,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 45
           },
           {
             "clave": "200115-9971",
@@ -1487,7 +1615,8 @@
             "unidad": "pza",
             "cantidad": 0.0222,
             "costoUnitario": 39.87,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.89
           },
           {
             "clave": "A100110-2020",
@@ -1495,7 +1624,8 @@
             "unidad": "Jor",
             "cantidad": 0.0208,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 30.79
           }
         ],
         "children": []
@@ -1516,7 +1646,8 @@
             "unidad": "kg",
             "cantidad": 0.001,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.08
           },
           {
             "clave": "200115-1080",
@@ -1524,7 +1655,8 @@
             "unidad": "m",
             "cantidad": 1,
             "costoUnitario": 38.5,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 38.5
           },
           {
             "clave": "200115-9971",
@@ -1532,7 +1664,8 @@
             "unidad": "pza",
             "cantidad": 0.0019,
             "costoUnitario": 39.87,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.08
           },
           {
             "clave": "A100110-2020",
@@ -1540,7 +1673,8 @@
             "unidad": "Jor",
             "cantidad": 0.0104,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 15.39
           }
         ],
         "children": []
@@ -1561,7 +1695,8 @@
             "unidad": "kg",
             "cantidad": 0.0015,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.11
           },
           {
             "clave": "200115-1085",
@@ -1569,7 +1704,8 @@
             "unidad": "m",
             "cantidad": 1,
             "costoUnitario": 106,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 106
           },
           {
             "clave": "200115-9971",
@@ -1577,7 +1713,8 @@
             "unidad": "pza",
             "cantidad": 0.0041,
             "costoUnitario": 39.87,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.16
           },
           {
             "clave": "A100110-1510",
@@ -1585,7 +1722,8 @@
             "unidad": "Jor",
             "cantidad": 0.014,
             "costoUnitario": 2035.11,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 28.49
           }
         ],
         "children": []
@@ -1606,7 +1744,8 @@
             "unidad": "Jor",
             "cantidad": 0.06,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 88.8
           }
         ],
         "children": []
@@ -1627,7 +1766,8 @@
             "unidad": "Jor",
             "cantidad": 0.37,
             "costoUnitario": 531.14,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 196.52
           }
         ],
         "children": []
@@ -1648,7 +1788,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 230,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 230
           },
           {
             "clave": "F103130-2155",
@@ -1656,7 +1797,8 @@
             "unidad": "m3",
             "cantidad": 0.018,
             "costoUnitario": 1969.74,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 35.46
           },
           {
             "clave": "G500140-2015",
@@ -1664,7 +1806,8 @@
             "unidad": "m2",
             "cantidad": 0.96,
             "costoUnitario": 158.85,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 152.5
           },
           {
             "clave": "A100105-2000",
@@ -1672,7 +1815,8 @@
             "unidad": "Jor",
             "cantidad": 0.15,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 222.01
           },
           {
             "clave": "G145105-1130",
@@ -1680,7 +1824,8 @@
             "unidad": "m2",
             "cantidad": 0.96,
             "costoUnitario": 403.07,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 386.95
           },
           {
             "clave": "G110115-1030",
@@ -1688,7 +1833,8 @@
             "unidad": "m2",
             "cantidad": 0.55,
             "costoUnitario": 136.8,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 75.24
           }
         ],
         "children": []
@@ -1709,7 +1855,8 @@
             "unidad": "Jor",
             "cantidad": 1,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 1480.07
           },
           {
             "clave": "550110-8194",
@@ -1717,7 +1864,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 2500,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2500
           }
         ],
         "children": []
@@ -1731,8 +1879,8 @@
     "nivel": 1,
     "tipo": "Partida",
     "cantidad": 1,
-    "precioUnitario": 113791.05,
-    "costoDirecto": 113791.05,
+    "precioUnitario": 113791.15,
+    "costoDirecto": 113791.15,
     "children": [
       {
         "clave": "6.1",
@@ -1741,8 +1889,8 @@
         "nivel": 2,
         "tipo": "Partida",
         "cantidad": 1,
-        "precioUnitario": 30531.04,
-        "costoDirecto": 30531.04,
+        "precioUnitario": 30531.14,
+        "costoDirecto": 30531.14,
         "expanded": true,
         "children": [
           {
@@ -1752,8 +1900,8 @@
             "nivel": 3,
             "tipo": "Concepto",
             "cantidad": 1,
-            "precioUnitario": 17521.15,
-            "costoDirecto": 17521.15,
+            "precioUnitario": 17521.25,
+            "costoDirecto": 17521.25,
             "expanded": true,
             "insumos": [
               {
@@ -1762,7 +1910,8 @@
                 "unidad": "pza",
                 "cantidad": 1,
                 "costoUnitario": 16340,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 16340
               },
               {
                 "clave": "A100105-2015",
@@ -1770,7 +1919,8 @@
                 "unidad": "Jor",
                 "cantidad": 0.58227,
                 "costoUnitario": 2028.69,
-                "tipo": "Mano de Obra"
+                "tipo": "Mano de Obra",
+                "importe": 1181.25
               }
             ],
             "children": []
@@ -1792,7 +1942,8 @@
                 "unidad": "m3",
                 "cantidad": 0.0706,
                 "costoUnitario": 160,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 11.3
               },
               {
                 "clave": "F103130-2160",
@@ -1800,7 +1951,8 @@
                 "unidad": "m3",
                 "cantidad": 0.105,
                 "costoUnitario": 1893.21,
-                "tipo": "Flete"
+                "tipo": "Flete",
+                "importe": 198.79
               },
               {
                 "clave": "G115100-2000",
@@ -1808,7 +1960,8 @@
                 "unidad": "m2",
                 "cantidad": 1,
                 "costoUnitario": 37.06,
-                "tipo": "Subcontrato"
+                "tipo": "Subcontrato",
+                "importe": 37.06
               },
               {
                 "clave": "A100105-2015",
@@ -1816,7 +1969,8 @@
                 "unidad": "Jor",
                 "cantidad": 0.09511,
                 "costoUnitario": 2028.69,
-                "tipo": "Mano de Obra"
+                "tipo": "Mano de Obra",
+                "importe": 192.95
               }
             ],
             "children": []
@@ -1838,7 +1992,8 @@
                 "unidad": "kg",
                 "cantidad": 0.01,
                 "costoUnitario": 37.5,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 0.38
               },
               {
                 "clave": "125100-5040",
@@ -1846,7 +2001,8 @@
                 "unidad": "m",
                 "cantidad": 1.05,
                 "costoUnitario": 32.5,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 34.13
               },
               {
                 "clave": "A100105-2000",
@@ -1854,7 +2010,8 @@
                 "unidad": "Jor",
                 "cantidad": 0.1281,
                 "costoUnitario": 1480.07,
-                "tipo": "Mano de Obra"
+                "tipo": "Mano de Obra",
+                "importe": 189.6
               },
               {
                 "clave": "G140310-1020",
@@ -1862,7 +2019,8 @@
                 "unidad": "m3",
                 "cantidad": 0.024,
                 "costoUnitario": 3265.93,
-                "tipo": "Subcontrato"
+                "tipo": "Subcontrato",
+                "importe": 78.38
               }
             ],
             "children": []
@@ -1884,7 +2042,8 @@
                 "unidad": "tmo/3m",
                 "cantidad": 0.905,
                 "costoUnitario": 15,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 13.58
               },
               {
                 "clave": "170100-1000",
@@ -1892,7 +2051,8 @@
                 "unidad": "r/d",
                 "cantidad": 0.08,
                 "costoUnitario": 13.33,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 1.07
               },
               {
                 "clave": "145115-2410",
@@ -1900,7 +2060,8 @@
                 "unidad": "pza",
                 "cantidad": 13,
                 "costoUnitario": 10.12,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 131.56
               },
               {
                 "clave": "A100105-2000",
@@ -1908,7 +2069,8 @@
                 "unidad": "Jor",
                 "cantidad": 0.12812,
                 "costoUnitario": 1480.07,
-                "tipo": "Mano de Obra"
+                "tipo": "Mano de Obra",
+                "importe": 189.63
               },
               {
                 "clave": "E140210-1005",
@@ -1916,7 +2078,8 @@
                 "unidad": "m3",
                 "cantidad": 0.012,
                 "costoUnitario": 2422.32,
-                "tipo": "Flete"
+                "tipo": "Flete",
+                "importe": 29.07
               }
             ],
             "children": []
@@ -1951,7 +2114,8 @@
                 "unidad": "pza",
                 "cantidad": 1,
                 "costoUnitario": 2350,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 2350
               },
               {
                 "clave": "A100105-2000",
@@ -1959,7 +2123,8 @@
                 "unidad": "Jor",
                 "cantidad": 0.19138,
                 "costoUnitario": 1480.07,
-                "tipo": "Mano de Obra"
+                "tipo": "Mano de Obra",
+                "importe": 283.26
               }
             ],
             "children": []
@@ -1981,7 +2146,8 @@
                 "unidad": "m3",
                 "cantidad": 0.0706,
                 "costoUnitario": 160,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 11.3
               },
               {
                 "clave": "F103130-2160",
@@ -1989,7 +2155,8 @@
                 "unidad": "m3",
                 "cantidad": 0.105,
                 "costoUnitario": 1893.21,
-                "tipo": "Flete"
+                "tipo": "Flete",
+                "importe": 198.79
               },
               {
                 "clave": "G115100-2000",
@@ -1997,7 +2164,8 @@
                 "unidad": "m2",
                 "cantidad": 1,
                 "costoUnitario": 37.06,
-                "tipo": "Subcontrato"
+                "tipo": "Subcontrato",
+                "importe": 37.06
               },
               {
                 "clave": "A100105-2015",
@@ -2005,7 +2173,8 @@
                 "unidad": "Jor",
                 "cantidad": 0.09511,
                 "costoUnitario": 2028.69,
-                "tipo": "Mano de Obra"
+                "tipo": "Mano de Obra",
+                "importe": 192.95
               }
             ],
             "children": []
@@ -2027,7 +2196,8 @@
                 "unidad": "kg",
                 "cantidad": 0.01,
                 "costoUnitario": 37.5,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 0.38
               },
               {
                 "clave": "125100-5040",
@@ -2035,7 +2205,8 @@
                 "unidad": "m",
                 "cantidad": 1.05,
                 "costoUnitario": 32.5,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 34.13
               },
               {
                 "clave": "A100105-2000",
@@ -2043,7 +2214,8 @@
                 "unidad": "Jor",
                 "cantidad": 0.1281,
                 "costoUnitario": 1480.07,
-                "tipo": "Mano de Obra"
+                "tipo": "Mano de Obra",
+                "importe": 189.6
               },
               {
                 "clave": "G140310-1020",
@@ -2051,7 +2223,8 @@
                 "unidad": "m3",
                 "cantidad": 0.024,
                 "costoUnitario": 3265.93,
-                "tipo": "Subcontrato"
+                "tipo": "Subcontrato",
+                "importe": 78.38
               }
             ],
             "children": []
@@ -2073,7 +2246,8 @@
                 "unidad": "tmo/3m",
                 "cantidad": 0.905,
                 "costoUnitario": 15,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 13.58
               },
               {
                 "clave": "170100-1000",
@@ -2081,7 +2255,8 @@
                 "unidad": "r/d",
                 "cantidad": 0.08,
                 "costoUnitario": 13.33,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 1.07
               },
               {
                 "clave": "145115-2410",
@@ -2089,7 +2264,8 @@
                 "unidad": "pza",
                 "cantidad": 13,
                 "costoUnitario": 10.12,
-                "tipo": "Material"
+                "tipo": "Material",
+                "importe": 131.56
               },
               {
                 "clave": "A100105-2000",
@@ -2097,7 +2273,8 @@
                 "unidad": "Jor",
                 "cantidad": 0.12812,
                 "costoUnitario": 1480.07,
-                "tipo": "Mano de Obra"
+                "tipo": "Mano de Obra",
+                "importe": 189.63
               },
               {
                 "clave": "E140210-1005",
@@ -2105,7 +2282,8 @@
                 "unidad": "m3",
                 "cantidad": 0.012,
                 "costoUnitario": 2422.32,
-                "tipo": "Flete"
+                "tipo": "Flete",
+                "importe": 29.07
               }
             ],
             "children": []
@@ -2128,7 +2306,8 @@
             "unidad": "Jor",
             "cantidad": 0.0175,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 25.9
           },
           {
             "clave": "LLAVE ANGULAR 01",
@@ -2136,7 +2315,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 0,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0
           }
         ],
         "children": []
@@ -2157,7 +2337,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 159.09,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 159.09
           },
           {
             "clave": "A100110-2020",
@@ -2165,7 +2346,8 @@
             "unidad": "Jor",
             "cantidad": 0.0175,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 25.9
           }
         ],
         "children": []
@@ -2186,7 +2368,8 @@
             "unidad": "kg",
             "cantidad": 0.026,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.95
           },
           {
             "clave": "200120-5795",
@@ -2194,7 +2377,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 45,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 45
           },
           {
             "clave": "550100-1160",
@@ -2202,7 +2386,8 @@
             "unidad": "pza",
             "cantidad": 0.0003,
             "costoUnitario": 341.04,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.1
           },
           {
             "clave": "550100-1200",
@@ -2210,7 +2395,8 @@
             "unidad": "pza",
             "cantidad": 0.00166,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2.9
           },
           {
             "clave": "103205-1005",
@@ -2218,7 +2404,8 @@
             "unidad": "L",
             "cantidad": 0.022,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.39
           },
           {
             "clave": "A100110-2020",
@@ -2226,7 +2413,8 @@
             "unidad": "Jor",
             "cantidad": 0.026,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 38.48
           }
         ],
         "children": []
@@ -2247,7 +2435,8 @@
             "unidad": "kg",
             "cantidad": 0.0045,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.34
           },
           {
             "clave": "HID-TEE-01",
@@ -2255,7 +2444,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 6,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 6
           },
           {
             "clave": "A100110-2020",
@@ -2263,7 +2453,8 @@
             "unidad": "Jor",
             "cantidad": 0.0156,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 23.09
           },
           {
             "clave": "103205-1005",
@@ -2271,7 +2462,8 @@
             "unidad": "L",
             "cantidad": 0.0054,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.1
           },
           {
             "clave": "550100-1200",
@@ -2279,7 +2471,8 @@
             "unidad": "pza",
             "cantidad": 0.0011,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.92
           },
           {
             "clave": "550100-1140",
@@ -2287,7 +2480,8 @@
             "unidad": "pza",
             "cantidad": 0.0005,
             "costoUnitario": 85.27,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.04
           }
         ],
         "children": []
@@ -2308,7 +2502,8 @@
             "unidad": "kg",
             "cantidad": 0.003,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.23
           },
           {
             "clave": "200120-5910",
@@ -2316,7 +2511,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 20,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 20
           },
           {
             "clave": "550100-1140",
@@ -2324,7 +2520,8 @@
             "unidad": "pza",
             "cantidad": 0.0002,
             "costoUnitario": 85.27,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.02
           },
           {
             "clave": "550100-1200",
@@ -2332,7 +2529,8 @@
             "unidad": "pza",
             "cantidad": 0.00067,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.17
           },
           {
             "clave": "103205-1005",
@@ -2340,7 +2538,8 @@
             "unidad": "L",
             "cantidad": 0.0025,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.04
           },
           {
             "clave": "A100110-2020",
@@ -2348,7 +2547,8 @@
             "unidad": "Jor",
             "cantidad": 0.0104,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 15.39
           }
         ],
         "children": []
@@ -2369,7 +2569,8 @@
             "unidad": "kg",
             "cantidad": 0.003,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.23
           },
           {
             "clave": "200120-5605",
@@ -2377,7 +2578,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 42,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 42
           },
           {
             "clave": "550100-1140",
@@ -2385,7 +2587,8 @@
             "unidad": "pza",
             "cantidad": 0.0003,
             "costoUnitario": 85.27,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.03
           },
           {
             "clave": "550100-1200",
@@ -2393,7 +2596,8 @@
             "unidad": "pza",
             "cantidad": 0.00067,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.17
           },
           {
             "clave": "103205-1005",
@@ -2401,7 +2605,8 @@
             "unidad": "L",
             "cantidad": 0.0025,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.04
           },
           {
             "clave": "A100110-2020",
@@ -2409,7 +2614,8 @@
             "unidad": "Jor",
             "cantidad": 0.0104,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 15.39
           }
         ],
         "children": []
@@ -2430,7 +2636,8 @@
             "unidad": "kg",
             "cantidad": 0.002,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.15
           },
           {
             "clave": "550100-1140",
@@ -2438,7 +2645,8 @@
             "unidad": "pza",
             "cantidad": 0.001,
             "costoUnitario": 85.27,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.09
           },
           {
             "clave": "550100-1200",
@@ -2446,7 +2654,8 @@
             "unidad": "pza",
             "cantidad": 0.0007,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.22
           },
           {
             "clave": "103205-1005",
@@ -2454,7 +2663,8 @@
             "unidad": "L",
             "cantidad": 0.002,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.04
           },
           {
             "clave": "A100110-2020",
@@ -2462,7 +2672,8 @@
             "unidad": "Jor",
             "cantidad": 0.003,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 4.44
           },
           {
             "clave": "200120-6100",
@@ -2470,7 +2681,8 @@
             "unidad": "tmo",
             "cantidad": 0.2575,
             "costoUnitario": 88,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 22.66
           }
         ],
         "children": []
@@ -2491,7 +2703,8 @@
             "unidad": "kg",
             "cantidad": 0.0189,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.42
           },
           {
             "clave": "200120-5790",
@@ -2499,7 +2712,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 23.72,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 23.72
           },
           {
             "clave": "550100-1155",
@@ -2507,7 +2721,8 @@
             "unidad": "pza",
             "cantidad": 0.0003,
             "costoUnitario": 264.32,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.08
           },
           {
             "clave": "550100-1200",
@@ -2515,7 +2730,8 @@
             "unidad": "pza",
             "cantidad": 0.00133,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2.33
           },
           {
             "clave": "103205-1005",
@@ -2523,7 +2739,8 @@
             "unidad": "L",
             "cantidad": 0.0158,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.28
           },
           {
             "clave": "A100110-2020",
@@ -2531,7 +2748,8 @@
             "unidad": "Jor",
             "cantidad": 0.0208,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 30.79
           }
         ],
         "children": []
@@ -2552,7 +2770,8 @@
             "unidad": "Jor",
             "cantidad": 0.0104,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 15.39
           },
           {
             "clave": "VALVULA-01",
@@ -2560,7 +2779,8 @@
             "unidad": "pza",
             "cantidad": 0,
             "costoUnitario": 0,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0
           }
         ],
         "children": []
@@ -2581,7 +2801,8 @@
             "unidad": "kg",
             "cantidad": 0.0075,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.56
           },
           {
             "clave": "200120-5850",
@@ -2589,7 +2810,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 6.78,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 6.78
           },
           {
             "clave": "550100-1140",
@@ -2597,7 +2819,8 @@
             "unidad": "pza",
             "cantidad": 0.0003,
             "costoUnitario": 85.27,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.03
           },
           {
             "clave": "550100-1150",
@@ -2605,7 +2828,8 @@
             "unidad": "pza",
             "cantidad": 0.0003,
             "costoUnitario": 179.04,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.05
           },
           {
             "clave": "550100-1200",
@@ -2613,7 +2837,8 @@
             "unidad": "pza",
             "cantidad": 0.0009,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.57
           },
           {
             "clave": "103205-1005",
@@ -2621,7 +2846,8 @@
             "unidad": "L",
             "cantidad": 0.0068,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.12
           },
           {
             "clave": "A100110-2020",
@@ -2629,7 +2855,8 @@
             "unidad": "Jor",
             "cantidad": 0.0135,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 19.98
           }
         ],
         "children": []
@@ -2650,7 +2877,8 @@
             "unidad": "kg",
             "cantidad": 0.0045,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.34
           },
           {
             "clave": "200120-5950",
@@ -2658,7 +2886,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 12,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 12
           },
           {
             "clave": "550100-1140",
@@ -2666,7 +2895,8 @@
             "unidad": "pza",
             "cantidad": 0.0005,
             "costoUnitario": 85.27,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.04
           },
           {
             "clave": "550100-1200",
@@ -2674,7 +2904,8 @@
             "unidad": "pza",
             "cantidad": 0.0011,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.92
           },
           {
             "clave": "103205-1005",
@@ -2682,7 +2913,8 @@
             "unidad": "L",
             "cantidad": 0.0054,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.1
           },
           {
             "clave": "A100110-2020",
@@ -2690,7 +2922,8 @@
             "unidad": "Jor",
             "cantidad": 0.0156,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 23.09
           }
         ],
         "children": []
@@ -2711,7 +2944,8 @@
             "unidad": "kg",
             "cantidad": 0.0068,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.51
           },
           {
             "clave": "200120-5615",
@@ -2719,7 +2953,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 62,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 62
           },
           {
             "clave": "550100-1145",
@@ -2727,7 +2962,8 @@
             "unidad": "pza",
             "cantidad": 0.0003,
             "costoUnitario": 116.2,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.03
           },
           {
             "clave": "550100-1200",
@@ -2735,7 +2971,8 @@
             "unidad": "pza",
             "cantidad": 0.00083,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.45
           },
           {
             "clave": "103205-1005",
@@ -2743,7 +2980,8 @@
             "unidad": "L",
             "cantidad": 0.0057,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.1
           },
           {
             "clave": "A100110-2020",
@@ -2751,7 +2989,8 @@
             "unidad": "Jor",
             "cantidad": 0.013,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 19.24
           }
         ],
         "children": []
@@ -2772,7 +3011,8 @@
             "unidad": "kg",
             "cantidad": 0.0068,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.51
           },
           {
             "clave": "200120-5735",
@@ -2780,7 +3020,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 62,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 62
           },
           {
             "clave": "550100-1145",
@@ -2788,7 +3029,8 @@
             "unidad": "pza",
             "cantidad": 0.0002,
             "costoUnitario": 116.2,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.02
           },
           {
             "clave": "550100-1200",
@@ -2796,7 +3038,8 @@
             "unidad": "pza",
             "cantidad": 0.00083,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.45
           },
           {
             "clave": "103205-1005",
@@ -2804,7 +3047,8 @@
             "unidad": "L",
             "cantidad": 0.0057,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.1
           },
           {
             "clave": "A100110-2020",
@@ -2812,7 +3056,8 @@
             "unidad": "Jor",
             "cantidad": 0.013,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 19.24
           }
         ],
         "children": []
@@ -2833,7 +3078,8 @@
             "unidad": "kg",
             "cantidad": 0.002,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.15
           },
           {
             "clave": "550100-1140",
@@ -2841,7 +3087,8 @@
             "unidad": "pza",
             "cantidad": 0.001,
             "costoUnitario": 85.27,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.09
           },
           {
             "clave": "550100-1200",
@@ -2849,7 +3096,8 @@
             "unidad": "pza",
             "cantidad": 0.0008,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.4
           },
           {
             "clave": "103205-1005",
@@ -2857,7 +3105,8 @@
             "unidad": "L",
             "cantidad": 0.002,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.04
           },
           {
             "clave": "A100110-2020",
@@ -2865,7 +3114,8 @@
             "unidad": "Jor",
             "cantidad": 0.0035,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 5.18
           },
           {
             "clave": "200120-6102",
@@ -2873,7 +3123,8 @@
             "unidad": "tmo",
             "cantidad": 0.2575,
             "costoUnitario": 135,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 34.76
           }
         ],
         "children": []
@@ -2894,7 +3145,8 @@
             "unidad": "kg",
             "cantidad": 0.0068,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.51
           },
           {
             "clave": "200120-5780",
@@ -2902,7 +3154,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 20,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 20
           },
           {
             "clave": "550100-1145",
@@ -2910,7 +3163,8 @@
             "unidad": "pza",
             "cantidad": 0.0003,
             "costoUnitario": 116.2,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.03
           },
           {
             "clave": "550100-1200",
@@ -2918,7 +3172,8 @@
             "unidad": "pza",
             "cantidad": 0.00083,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.45
           },
           {
             "clave": "103205-1005",
@@ -2926,7 +3181,8 @@
             "unidad": "L",
             "cantidad": 0.0057,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.1
           },
           {
             "clave": "A100110-2020",
@@ -2934,7 +3190,8 @@
             "unidad": "Jor",
             "cantidad": 0.013,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 19.24
           }
         ],
         "children": []
@@ -2955,7 +3212,8 @@
             "unidad": "Jor",
             "cantidad": 0.0104,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 15.39
           },
           {
             "clave": "VALVULA-02",
@@ -2963,7 +3221,8 @@
             "unidad": "pza",
             "cantidad": 0,
             "costoUnitario": 0,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0
           }
         ],
         "children": []
@@ -2984,7 +3243,8 @@
             "unidad": "kg",
             "cantidad": 0.0049,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.37
           },
           {
             "clave": "200120-5845",
@@ -2992,7 +3252,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 13.5,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 13.5
           },
           {
             "clave": "550100-1140",
@@ -3000,7 +3261,8 @@
             "unidad": "pza",
             "cantidad": 0.0003,
             "costoUnitario": 85.27,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.03
           },
           {
             "clave": "550100-1145",
@@ -3008,7 +3270,8 @@
             "unidad": "pza",
             "cantidad": 0.0003,
             "costoUnitario": 116.2,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.03
           },
           {
             "clave": "550100-1200",
@@ -3016,7 +3279,8 @@
             "unidad": "pza",
             "cantidad": 0.0008,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.4
           },
           {
             "clave": "103205-1005",
@@ -3024,7 +3288,8 @@
             "unidad": "L",
             "cantidad": 0.0047,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.08
           },
           {
             "clave": "A100110-2020",
@@ -3032,7 +3297,8 @@
             "unidad": "Jor",
             "cantidad": 0.0117,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 17.32
           }
         ],
         "children": []
@@ -3053,7 +3319,8 @@
             "unidad": "kg",
             "cantidad": 0.0102,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.77
           },
           {
             "clave": "200120-5955",
@@ -3061,7 +3328,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 28,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 28
           },
           {
             "clave": "550100-1145",
@@ -3069,7 +3337,8 @@
             "unidad": "pza",
             "cantidad": 0.0005,
             "costoUnitario": 116.2,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.06
           },
           {
             "clave": "550100-1200",
@@ -3077,7 +3346,8 @@
             "unidad": "pza",
             "cantidad": 0.0012,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2.1
           },
           {
             "clave": "103205-1005",
@@ -3085,7 +3355,8 @@
             "unidad": "L",
             "cantidad": 0.0086,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.15
           },
           {
             "clave": "A100110-2020",
@@ -3093,7 +3364,8 @@
             "unidad": "Jor",
             "cantidad": 0.0195,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 28.86
           }
         ],
         "children": []
@@ -3114,7 +3386,8 @@
             "unidad": "kg",
             "cantidad": 0.012,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.9
           },
           {
             "clave": "200120-5630",
@@ -3122,7 +3395,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 140,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 140
           },
           {
             "clave": "550100-1150",
@@ -3130,7 +3404,8 @@
             "unidad": "pza",
             "cantidad": 0.0003,
             "costoUnitario": 179.04,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.05
           },
           {
             "clave": "550100-1200",
@@ -3138,7 +3413,8 @@
             "unidad": "pza",
             "cantidad": 0.00105,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.84
           },
           {
             "clave": "103205-1005",
@@ -3146,7 +3422,8 @@
             "unidad": "L",
             "cantidad": 0.01,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.18
           },
           {
             "clave": "A100110-2020",
@@ -3154,7 +3431,8 @@
             "unidad": "Jor",
             "cantidad": 0.0166,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 24.57
           }
         ],
         "children": []
@@ -3175,7 +3453,8 @@
             "unidad": "kg",
             "cantidad": 0.012,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.9
           },
           {
             "clave": "200120-5745",
@@ -3183,7 +3462,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 140,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 140
           },
           {
             "clave": "550100-1150",
@@ -3191,7 +3471,8 @@
             "unidad": "pza",
             "cantidad": 0.0002,
             "costoUnitario": 179.04,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.04
           },
           {
             "clave": "550100-1200",
@@ -3199,7 +3480,8 @@
             "unidad": "pza",
             "cantidad": 0.00105,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.84
           },
           {
             "clave": "103205-1005",
@@ -3207,7 +3489,8 @@
             "unidad": "L",
             "cantidad": 0.01,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.18
           },
           {
             "clave": "A100110-2020",
@@ -3215,7 +3498,8 @@
             "unidad": "Jor",
             "cantidad": 0.0166,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 24.57
           }
         ],
         "children": []
@@ -3236,7 +3520,8 @@
             "unidad": "kg",
             "cantidad": 0.002,
             "costoUnitario": 75,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.15
           },
           {
             "clave": "550100-1145",
@@ -3244,7 +3529,8 @@
             "unidad": "pza",
             "cantidad": 0.001,
             "costoUnitario": 116.2,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.12
           },
           {
             "clave": "550100-1200",
@@ -3252,7 +3538,8 @@
             "unidad": "pza",
             "cantidad": 0.0008,
             "costoUnitario": 1749.39,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.4
           },
           {
             "clave": "103205-1005",
@@ -3260,7 +3547,8 @@
             "unidad": "L",
             "cantidad": 0.002,
             "costoUnitario": 17.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.04
           },
           {
             "clave": "A100110-2020",
@@ -3268,7 +3556,8 @@
             "unidad": "Jor",
             "cantidad": 0.0037,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 5.48
           },
           {
             "clave": "200120-6104",
@@ -3276,7 +3565,8 @@
             "unidad": "tmo",
             "cantidad": 0.2575,
             "costoUnitario": 279,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 71.84
           }
         ],
         "children": []
@@ -3297,7 +3587,8 @@
             "unidad": "Jor",
             "cantidad": 1,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 1480.07
           },
           {
             "clave": "550110-8450",
@@ -3305,7 +3596,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 6458,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 6458
           }
         ],
         "children": []
@@ -3326,7 +3618,8 @@
             "unidad": "Jor",
             "cantidad": 0.055,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 81.4
           }
         ],
         "children": []
@@ -3347,7 +3640,8 @@
             "unidad": "Jor",
             "cantidad": 0.1,
             "costoUnitario": 1202.39,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 120.24
           },
           {
             "clave": "A100110-2020",
@@ -3355,7 +3649,8 @@
             "unidad": "Jor",
             "cantidad": 0.25,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 370.02
           },
           {
             "clave": "200150-1374",
@@ -3363,7 +3658,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 1352.91,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1352.91
           }
         ],
         "children": []
@@ -3384,7 +3680,8 @@
             "unidad": "Jor",
             "cantidad": 0.25,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 370.02
           },
           {
             "clave": "LAVADERO-01",
@@ -3392,7 +3689,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 1150,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1150
           }
         ],
         "children": []
@@ -3413,7 +3711,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 2500,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2500
           },
           {
             "clave": "LLAVE-04",
@@ -3421,7 +3720,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 750,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 750
           },
           {
             "clave": "A100110-2020",
@@ -3429,7 +3729,8 @@
             "unidad": "Jor",
             "cantidad": 0.2,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 296.01
           }
         ],
         "children": []
@@ -3450,7 +3751,8 @@
             "unidad": "Jor",
             "cantidad": 0.35,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 518.02
           },
           {
             "clave": "550110-7164",
@@ -3458,7 +3760,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 2500,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2500
           }
         ],
         "children": []
@@ -3479,7 +3782,8 @@
             "unidad": "Jor",
             "cantidad": 0.25,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 370.02
           },
           {
             "clave": "550120-1402",
@@ -3487,7 +3791,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 2100,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2100
           }
         ],
         "children": []
@@ -3508,7 +3813,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 2310.4,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2310.4
           },
           {
             "clave": "A100110-2020",
@@ -3516,7 +3822,8 @@
             "unidad": "Jor",
             "cantidad": 0.25,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 370.02
           }
         ],
         "children": []
@@ -3537,7 +3844,8 @@
             "unidad": "Jor",
             "cantidad": 0.25,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 370.02
           },
           {
             "clave": "550110-8248",
@@ -3545,7 +3853,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 3200,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 3200
           }
         ],
         "children": []
@@ -3566,7 +3875,8 @@
             "unidad": "m",
             "cantidad": 1.8,
             "costoUnitario": 1.25,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2.25
           },
           {
             "clave": "175100-1115",
@@ -3574,7 +3884,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 132.46,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 132.46
           },
           {
             "clave": "200105-1045",
@@ -3582,7 +3893,8 @@
             "unidad": "m",
             "cantidad": 2.5,
             "costoUnitario": 54.86,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 137.15
           },
           {
             "clave": "200105-2135",
@@ -3590,7 +3902,8 @@
             "unidad": "pza",
             "cantidad": 3,
             "costoUnitario": 8.42,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 25.26
           },
           {
             "clave": "200105-2515",
@@ -3598,7 +3911,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 10.68,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 10.68
           },
           {
             "clave": "550110-2515",
@@ -3606,7 +3920,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 159.09,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 159.09
           },
           {
             "clave": "200130-5705",
@@ -3614,7 +3929,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 350,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 350
           },
           {
             "clave": "200130-3045",
@@ -3622,7 +3938,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 97.69,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 97.69
           },
           {
             "clave": "200300-1025",
@@ -3630,7 +3947,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 1920.6,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1920.6
           },
           {
             "clave": "200100-2345",
@@ -3638,7 +3956,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 20,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 20
           },
           {
             "clave": "200118-1665",
@@ -3646,7 +3965,8 @@
             "unidad": "m",
             "cantidad": 3.05,
             "costoUnitario": 13.9,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 42.4
           },
           {
             "clave": "A100110-2020",
@@ -3654,7 +3974,8 @@
             "unidad": "Jor",
             "cantidad": 0.75,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 1110.05
           }
         ],
         "children": []
@@ -3687,7 +4008,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 80.44,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 80.44
           },
           {
             "clave": "A100110-1015",
@@ -3695,7 +4017,8 @@
             "unidad": "Jor",
             "cantidad": 0.0312,
             "costoUnitario": 1202.39,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 37.51
           }
         ],
         "children": []
@@ -3716,7 +4039,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 3687,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 3687
           }
         ],
         "children": []
@@ -3737,7 +4061,8 @@
             "unidad": "cb/1L",
             "cantidad": 0.168,
             "costoUnitario": 121.55,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 20.42
           },
           {
             "clave": "600350-3005",
@@ -3745,7 +4070,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 56.62,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 56.62
           },
           {
             "clave": "600350-5015",
@@ -3753,7 +4079,8 @@
             "unidad": "pza",
             "cantidad": 2,
             "costoUnitario": 51.72,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 103.44
           },
           {
             "clave": "600250-1070",
@@ -3761,7 +4088,8 @@
             "unidad": "kg",
             "cantidad": 1.656,
             "costoUnitario": 101.05,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 167.34
           },
           {
             "clave": "103205-1075",
@@ -3769,7 +4097,8 @@
             "unidad": "L",
             "cantidad": 0.0168,
             "costoUnitario": 53.45,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.9
           },
           {
             "clave": "C990140-3510",
@@ -3777,7 +4106,8 @@
             "unidad": "hr",
             "cantidad": 0.047,
             "costoUnitario": 70.75,
-            "tipo": "Equipo"
+            "tipo": "Equipo",
+            "importe": 3.33
           },
           {
             "clave": "F103130-2185",
@@ -3785,7 +4115,8 @@
             "unidad": "m3",
             "cantidad": 0.053,
             "costoUnitario": 2251.3,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 119.32
           },
           {
             "clave": "G110100-1005",
@@ -3793,7 +4124,8 @@
             "unidad": "Ton",
             "cantidad": 0.0008,
             "costoUnitario": 40649.54,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 32.52
           },
           {
             "clave": "G110100-1015",
@@ -3801,7 +4133,8 @@
             "unidad": "Ton",
             "cantidad": 0.0043,
             "costoUnitario": 29464.61,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 126.7
           },
           {
             "clave": "G500140-2040",
@@ -3809,7 +4142,8 @@
             "unidad": "m2",
             "cantidad": 8.4,
             "costoUnitario": 228.32,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 1917.89
           },
           {
             "clave": "G110105-1135",
@@ -3817,7 +4151,8 @@
             "unidad": "m2",
             "cantidad": 0.738,
             "costoUnitario": 291.89,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 215.41
           },
           {
             "clave": "G115105-2045",
@@ -3825,7 +4160,8 @@
             "unidad": "m2",
             "cantidad": 0.567,
             "costoUnitario": 325.5,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 184.56
           },
           {
             "clave": "A100105-2000",
@@ -3833,7 +4169,8 @@
             "unidad": "Jor",
             "cantidad": 0.15,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 222.01
           },
           {
             "clave": "A100115-1130",
@@ -3841,7 +4178,8 @@
             "unidad": "Jor",
             "cantidad": 0.2,
             "costoUnitario": 1077.6,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 215.52
           },
           {
             "clave": "G145115-1110",
@@ -3849,7 +4187,8 @@
             "unidad": "m2",
             "cantidad": 4.2,
             "costoUnitario": 215.47,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 904.97
           },
           {
             "clave": "G500170-1115",
@@ -3857,7 +4196,8 @@
             "unidad": "m2",
             "cantidad": 6.63,
             "costoUnitario": 52.75,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 349.73
           },
           {
             "clave": "G110115-1030",
@@ -3865,7 +4205,8 @@
             "unidad": "m2",
             "cantidad": 0.567,
             "costoUnitario": 136.8,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 77.57
           }
         ],
         "children": []
@@ -3886,7 +4227,8 @@
             "unidad": "Jor",
             "cantidad": 0.12,
             "costoUnitario": 1202.39,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 144.29
           },
           {
             "clave": "300165-2024",
@@ -3894,7 +4236,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 450,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 450
           }
         ],
         "children": []
@@ -3915,7 +4258,8 @@
             "unidad": "m",
             "cantidad": 6,
             "costoUnitario": 8.64,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 51.84
           },
           {
             "clave": "G140150-3050",
@@ -3923,7 +4267,8 @@
             "unidad": "m",
             "cantidad": 1.5,
             "costoUnitario": 37,
-            "tipo": "Subcontrato"
+            "tipo": "Subcontrato",
+            "importe": 55.5
           },
           {
             "clave": "ELE-07",
@@ -3931,7 +4276,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 13,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 13
           },
           {
             "clave": "300160-2185",
@@ -3939,7 +4285,8 @@
             "unidad": "pza",
             "cantidad": 0.05,
             "costoUnitario": 40,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2
           },
           {
             "clave": "300130-1030",
@@ -3947,7 +4294,8 @@
             "unidad": "m",
             "cantidad": 24,
             "costoUnitario": 10.8,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 259.2
           },
           {
             "clave": "ELEC-06",
@@ -3955,7 +4303,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 85,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 85
           },
           {
             "clave": "A100110-1015",
@@ -3963,7 +4312,8 @@
             "unidad": "Jor",
             "cantidad": 0.8,
             "costoUnitario": 1202.39,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 961.91
           }
         ],
         "children": []
@@ -3984,7 +4334,8 @@
             "unidad": "Jor",
             "cantidad": 0.3,
             "costoUnitario": 1202.39,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 360.72
           },
           {
             "clave": "ELE-10",
@@ -3992,7 +4343,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 150,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 150
           },
           {
             "clave": "ELE-08",
@@ -4000,7 +4352,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 18,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 18
           },
           {
             "clave": "300130-1030",
@@ -4008,7 +4361,8 @@
             "unidad": "m",
             "cantidad": 17,
             "costoUnitario": 10.8,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 183.6
           },
           {
             "clave": "300105-1515",
@@ -4016,7 +4370,8 @@
             "unidad": "m",
             "cantidad": 3,
             "costoUnitario": 8.64,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 25.92
           }
         ],
         "children": []
@@ -4037,7 +4392,8 @@
             "unidad": "m",
             "cantidad": 6,
             "costoUnitario": 8.64,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 51.84
           },
           {
             "clave": "ELE-08",
@@ -4045,7 +4401,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 18,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 18
           },
           {
             "clave": "ELE-09",
@@ -4053,7 +4410,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 60,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 60
           },
           {
             "clave": "ELE-10",
@@ -4061,7 +4419,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 150,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 150
           },
           {
             "clave": "ELE-07",
@@ -4069,7 +4428,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 13,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 13
           },
           {
             "clave": "300130-1030",
@@ -4077,7 +4437,8 @@
             "unidad": "m",
             "cantidad": 34,
             "costoUnitario": 10.8,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 367.2
           },
           {
             "clave": "A100110-1015",
@@ -4085,7 +4446,8 @@
             "unidad": "Jor",
             "cantidad": 0.44,
             "costoUnitario": 1202.39,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 529.05
           }
         ],
         "children": []
@@ -4118,7 +4480,8 @@
             "unidad": "L",
             "cantidad": 0.1,
             "costoUnitario": 0.16,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.02
           },
           {
             "clave": "500135-1000",
@@ -4126,7 +4489,8 @@
             "unidad": "m2",
             "cantidad": 0.105,
             "costoUnitario": 350,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 36.75
           },
           {
             "clave": "500135-9925",
@@ -4134,7 +4498,8 @@
             "unidad": "bulto",
             "cantidad": 0.03,
             "costoUnitario": 295,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 8.85
           },
           {
             "clave": "500135-9045",
@@ -4142,7 +4507,8 @@
             "unidad": "pza",
             "cantidad": 0.0111,
             "costoUnitario": 146.12,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.62
           },
           {
             "clave": "E140220-1010",
@@ -4150,7 +4516,8 @@
             "unidad": "L",
             "cantidad": 0.00015,
             "costoUnitario": 25.57,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 0
           },
           {
             "clave": "A100115-1045",
@@ -4158,7 +4525,8 @@
             "unidad": "Jor",
             "cantidad": 0.04,
             "costoUnitario": 1198.4,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 47.94
           }
         ],
         "children": []
@@ -4179,7 +4547,8 @@
             "unidad": "m3",
             "cantidad": 0.01,
             "costoUnitario": 160,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.6
           },
           {
             "clave": "500135-9945",
@@ -4187,7 +4556,8 @@
             "unidad": "pza",
             "cantidad": 0.33,
             "costoUnitario": 171.37,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 56.55
           },
           {
             "clave": "500135-9045",
@@ -4195,7 +4565,8 @@
             "unidad": "pza",
             "cantidad": 0.07,
             "costoUnitario": 146.12,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 10.23
           },
           {
             "clave": "500135-4501",
@@ -4203,7 +4574,8 @@
             "unidad": "m2",
             "cantidad": 1.08,
             "costoUnitario": 350,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 378
           },
           {
             "clave": "A100115-1045",
@@ -4211,7 +4583,8 @@
             "unidad": "Jor",
             "cantidad": 0.09,
             "costoUnitario": 1198.4,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 107.86
           },
           {
             "clave": "C990215-1205",
@@ -4219,7 +4592,8 @@
             "unidad": "hr",
             "cantidad": 0.3333,
             "costoUnitario": 50.94,
-            "tipo": "Equipo"
+            "tipo": "Equipo",
+            "importe": 16.98
           }
         ],
         "children": []
@@ -4240,7 +4614,8 @@
             "unidad": "m3",
             "cantidad": 0.01,
             "costoUnitario": 160,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.6
           },
           {
             "clave": "500135-9945",
@@ -4248,7 +4623,8 @@
             "unidad": "pza",
             "cantidad": 0.33,
             "costoUnitario": 171.37,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 56.55
           },
           {
             "clave": "500135-9045",
@@ -4256,7 +4632,8 @@
             "unidad": "pza",
             "cantidad": 0.07,
             "costoUnitario": 146.12,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 10.23
           },
           {
             "clave": "500135-4501",
@@ -4264,7 +4641,8 @@
             "unidad": "m2",
             "cantidad": 1.08,
             "costoUnitario": 350,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 378
           },
           {
             "clave": "A100115-1045",
@@ -4272,7 +4650,8 @@
             "unidad": "Jor",
             "cantidad": 0.09,
             "costoUnitario": 1198.4,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 107.86
           },
           {
             "clave": "C990215-1205",
@@ -4280,7 +4659,8 @@
             "unidad": "hr",
             "cantidad": 0.3333,
             "costoUnitario": 50.94,
-            "tipo": "Equipo"
+            "tipo": "Equipo",
+            "importe": 16.98
           }
         ],
         "children": []
@@ -4301,7 +4681,8 @@
             "unidad": "m3",
             "cantidad": 0.01,
             "costoUnitario": 160,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1.6
           },
           {
             "clave": "500135-9945",
@@ -4309,7 +4690,8 @@
             "unidad": "pza",
             "cantidad": 0.33,
             "costoUnitario": 171.37,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 56.55
           },
           {
             "clave": "500135-9045",
@@ -4317,7 +4699,8 @@
             "unidad": "pza",
             "cantidad": 0.07,
             "costoUnitario": 146.12,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 10.23
           },
           {
             "clave": "500135-4501",
@@ -4325,7 +4708,8 @@
             "unidad": "m2",
             "cantidad": 1.08,
             "costoUnitario": 350,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 378
           },
           {
             "clave": "A100115-1045",
@@ -4333,7 +4717,8 @@
             "unidad": "Jor",
             "cantidad": 0.09,
             "costoUnitario": 1198.4,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 107.86
           },
           {
             "clave": "C990215-1205",
@@ -4341,7 +4726,8 @@
             "unidad": "hr",
             "cantidad": 0.3333,
             "costoUnitario": 50.94,
-            "tipo": "Equipo"
+            "tipo": "Equipo",
+            "importe": 16.98
           }
         ],
         "children": []
@@ -4362,7 +4748,8 @@
             "unidad": "cb/19L",
             "cantidad": 0.05,
             "costoUnitario": 1625,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 81.25
           },
           {
             "clave": "A100115-1205",
@@ -4370,7 +4757,8 @@
             "unidad": "Jor",
             "cantidad": 0.02,
             "costoUnitario": 1226.42,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 24.53
           }
         ],
         "children": []
@@ -4391,7 +4779,8 @@
             "unidad": "m3",
             "cantidad": 0.005,
             "costoUnitario": 160,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.8
           },
           {
             "clave": "PINTURA-01",
@@ -4399,7 +4788,8 @@
             "unidad": "Cb/19L",
             "cantidad": 0.0126,
             "costoUnitario": 1544,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 19.45
           },
           {
             "clave": "F990105-3010",
@@ -4407,7 +4797,8 @@
             "unidad": "r/d",
             "cantidad": 0.045,
             "costoUnitario": 127.51,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 5.74
           },
           {
             "clave": "500170-1110",
@@ -4415,7 +4806,8 @@
             "unidad": "cb/19L",
             "cantidad": 0.0026,
             "costoUnitario": 800.86,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2.08
           },
           {
             "clave": "A100115-1015",
@@ -4423,7 +4815,8 @@
             "unidad": "Jor",
             "cantidad": 0.045,
             "costoUnitario": 1116.93,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 50.26
           }
         ],
         "children": []
@@ -4444,7 +4837,8 @@
             "unidad": "m3",
             "cantidad": 0.00561,
             "costoUnitario": 160,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.9
           },
           {
             "clave": "F990105-3010",
@@ -4452,7 +4846,8 @@
             "unidad": "r/d",
             "cantidad": 0.04,
             "costoUnitario": 127.51,
-            "tipo": "Flete"
+            "tipo": "Flete",
+            "importe": 5.1
           },
           {
             "clave": "500170-1060",
@@ -4460,7 +4855,8 @@
             "unidad": "cb/19L",
             "cantidad": 0.01415,
             "costoUnitario": 1544.82,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 21.86
           },
           {
             "clave": "500170-1110",
@@ -4468,7 +4864,8 @@
             "unidad": "cb/19L",
             "cantidad": 0.00292,
             "costoUnitario": 800.86,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2.34
           },
           {
             "clave": "A100115-1015",
@@ -4476,7 +4873,8 @@
             "unidad": "Jor",
             "cantidad": 0.04,
             "costoUnitario": 1116.93,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 44.68
           }
         ],
         "children": []
@@ -4509,7 +4907,8 @@
             "unidad": "m2",
             "cantidad": 0.25,
             "costoUnitario": 743.29,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 185.82
           },
           {
             "clave": "600350-5020",
@@ -4517,7 +4916,8 @@
             "unidad": "pza",
             "cantidad": 3,
             "costoUnitario": 12.32,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 36.96
           },
           {
             "clave": "500106-1015",
@@ -4525,7 +4925,8 @@
             "unidad": "kg",
             "cantidad": 1.12,
             "costoUnitario": 90.95,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 101.86
           },
           {
             "clave": "103247-1196",
@@ -4533,7 +4934,8 @@
             "unidad": "Hoja",
             "cantidad": 2.82,
             "costoUnitario": 9.23,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 26.03
           },
           {
             "clave": "500165-2510",
@@ -4541,7 +4943,8 @@
             "unidad": "pza",
             "cantidad": 2,
             "costoUnitario": 2200,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 4400
           },
           {
             "clave": "500165-1035",
@@ -4549,7 +4952,8 @@
             "unidad": "pt",
             "cantidad": 10.92,
             "costoUnitario": 31.55,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 344.53
           },
           {
             "clave": "175125-5290",
@@ -4557,7 +4961,8 @@
             "unidad": "pza",
             "cantidad": 25.2,
             "costoUnitario": 0.42,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 10.58
           },
           {
             "clave": "175125-2010",
@@ -4565,7 +4970,8 @@
             "unidad": "kg",
             "cantidad": 0.462,
             "costoUnitario": 12.1,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 5.59
           },
           {
             "clave": "A100115-1110",
@@ -4573,7 +4979,8 @@
             "unidad": "Jor",
             "cantidad": 1.5,
             "costoUnitario": 2158.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 3237.11
           },
           {
             "clave": "A100115-1190",
@@ -4581,7 +4988,8 @@
             "unidad": "Jor",
             "cantidad": 0.5,
             "costoUnitario": 1176.23,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 588.12
           }
         ],
         "children": []
@@ -4602,7 +5010,8 @@
             "unidad": "pza",
             "cantidad": 3,
             "costoUnitario": 12.32,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 36.96
           },
           {
             "clave": "500106-1015",
@@ -4610,7 +5019,8 @@
             "unidad": "kg",
             "cantidad": 0.8,
             "costoUnitario": 90.95,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 72.76
           },
           {
             "clave": "103247-1196",
@@ -4618,7 +5028,8 @@
             "unidad": "Hoja",
             "cantidad": 2,
             "costoUnitario": 9.23,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 18.46
           },
           {
             "clave": "500165-1035",
@@ -4626,7 +5037,8 @@
             "unidad": "pt",
             "cantidad": 7.8,
             "costoUnitario": 31.55,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 246.09
           },
           {
             "clave": "500165-2520",
@@ -4634,7 +5046,8 @@
             "unidad": "pza",
             "cantidad": 2,
             "costoUnitario": 750,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1500
           },
           {
             "clave": "175125-5290",
@@ -4642,7 +5055,8 @@
             "unidad": "pza",
             "cantidad": 18,
             "costoUnitario": 0.42,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 7.56
           },
           {
             "clave": "175125-2010",
@@ -4650,7 +5064,8 @@
             "unidad": "kg",
             "cantidad": 0.33,
             "costoUnitario": 12.1,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 3.99
           },
           {
             "clave": "A100115-1110",
@@ -4658,7 +5073,8 @@
             "unidad": "Jor",
             "cantidad": 0.77,
             "costoUnitario": 2158.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 1661.71
           }
         ],
         "children": []
@@ -4691,7 +5107,8 @@
             "unidad": "r/d",
             "cantidad": 1,
             "costoUnitario": 13.33,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 13.33
           },
           {
             "clave": "600110-4110",
@@ -4699,7 +5116,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 4500,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 4500
           },
           {
             "clave": "A100115-1135",
@@ -4707,7 +5125,8 @@
             "unidad": "Jor",
             "cantidad": 1,
             "costoUnitario": 1198.4,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 1198.4
           }
         ],
         "children": []
@@ -4740,7 +5159,8 @@
             "unidad": "m2",
             "cantidad": 1,
             "costoUnitario": 2836.07,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 2836.07
           }
         ],
         "children": []
@@ -4773,7 +5193,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 1080,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1080
           }
         ],
         "children": []
@@ -4794,7 +5215,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 1080,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 1080
           }
         ],
         "children": []
@@ -4815,7 +5237,8 @@
             "unidad": "r/d",
             "cantidad": 0.025,
             "costoUnitario": 13.33,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.33
           },
           {
             "clave": "350101-1000",
@@ -4823,7 +5246,8 @@
             "unidad": "m",
             "cantidad": 1.03,
             "costoUnitario": 110.18,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 113.49
           },
           {
             "clave": "A100110-2020",
@@ -4831,7 +5255,8 @@
             "unidad": "Jor",
             "cantidad": 0.025,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 37
           }
         ],
         "children": []
@@ -4852,7 +5277,8 @@
             "unidad": "r/d",
             "cantidad": 0.014,
             "costoUnitario": 13.33,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.19
           },
           {
             "clave": "350101-1020",
@@ -4860,7 +5286,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 292.52,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 292.52
           },
           {
             "clave": "A100110-2020",
@@ -4868,7 +5295,8 @@
             "unidad": "Jor",
             "cantidad": 0.014,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 20.72
           }
         ],
         "children": []
@@ -4889,7 +5317,8 @@
             "unidad": "r/d",
             "cantidad": 0.013,
             "costoUnitario": 13.33,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.17
           },
           {
             "clave": "350101-1040",
@@ -4897,7 +5326,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 232.09,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 232.09
           },
           {
             "clave": "A100110-2020",
@@ -4905,7 +5335,8 @@
             "unidad": "Jor",
             "cantidad": 0.013,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 19.24
           }
         ],
         "children": []
@@ -4926,7 +5357,8 @@
             "unidad": "r/d",
             "cantidad": 0.012,
             "costoUnitario": 13.33,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.16
           },
           {
             "clave": "350101-1010",
@@ -4934,7 +5366,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 151.28,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 151.28
           },
           {
             "clave": "A100110-2020",
@@ -4942,7 +5375,8 @@
             "unidad": "Jor",
             "cantidad": 0.012,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 17.76
           }
         ],
         "children": []
@@ -4963,7 +5397,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 326.6,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 326.6
           },
           {
             "clave": "170100-1000",
@@ -4971,7 +5406,8 @@
             "unidad": "r/d",
             "cantidad": 0.016,
             "costoUnitario": 13.33,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.21
           },
           {
             "clave": "A100110-2020",
@@ -4979,7 +5415,8 @@
             "unidad": "Jor",
             "cantidad": 0.016,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 23.68
           }
         ],
         "children": []
@@ -5000,7 +5437,8 @@
             "unidad": "L",
             "cantidad": 0.35,
             "costoUnitario": 23.5,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 8.23
           },
           {
             "clave": "910100-1411",
@@ -5008,7 +5446,8 @@
             "unidad": "pza",
             "cantidad": 0.01,
             "costoUnitario": 73.96,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 0.74
           },
           {
             "clave": "200100-9510",
@@ -5016,7 +5455,8 @@
             "unidad": "pza",
             "cantidad": 0.2,
             "costoUnitario": 67.83,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 13.57
           },
           {
             "clave": "200100-9560",
@@ -5024,7 +5464,8 @@
             "unidad": "pza",
             "cantidad": 0.05,
             "costoUnitario": 388.24,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 19.41
           },
           {
             "clave": "350110-1040",
@@ -5032,7 +5473,8 @@
             "unidad": "pza",
             "cantidad": 1,
             "costoUnitario": 6785.5,
-            "tipo": "Material"
+            "tipo": "Material",
+            "importe": 6785.5
           },
           {
             "clave": "A100110-2020",
@@ -5040,7 +5482,8 @@
             "unidad": "Jor",
             "cantidad": 1,
             "costoUnitario": 1480.07,
-            "tipo": "Mano de Obra"
+            "tipo": "Mano de Obra",
+            "importe": 1480.07
           },
           {
             "clave": "C990130-1010",
@@ -5048,7 +5491,8 @@
             "unidad": "hr",
             "cantidad": 0.15,
             "costoUnitario": 139.01,
-            "tipo": "Equipo"
+            "tipo": "Equipo",
+            "importe": 20.85
           }
         ],
         "children": []

@@ -1,12 +1,12 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261117_cf30';
-import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261117_cf30';
-import { getFactorSobrecosto } from '../../core/calculations.js?v=20261117_cf30';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf30';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf30';
-import { updateModalIfOpen } from './matrizModal.js?v=20261117_cf30';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261117_cf30';
-import { isTabLocked } from '../../ui/tabLockController.js?v=20261117_cf30';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261117_cf30';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf35';
+import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261119_cf35';
+import { getFactorSobrecosto, computeMatrixBreakdown, isPercentInsumo, explodeInsumoQty, explodeInsumoImporte } from '../../core/calculations.js?v=20261119_cf35';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf35';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf35';
+import { updateModalIfOpen } from './matrizModal.js?v=20261119_cf35';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261119_cf35';
+import { isTabLocked } from '../../ui/tabLockController.js?v=20261119_cf35';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf35';
 
 // Renderizar tabla Matriz APU del concepto seleccionado
 let selectedApuInsumoIdx = null;
@@ -59,7 +59,10 @@ export function renderAPUInsumos(node, options = {}) {
 
   const fragment = document.createDocumentFragment();
 
-  let sumMat = 0, sumMO = 0, sumHerr = 0, sumEq = 0, sumMaq = 0, sumSub = 0;
+  // Motor canónico: sincroniza insumos en % (sobre MO) y calcula subtotales exactos por rubro
+  const breakdown = computeMatrixBreakdown(node.insumos);
+  const sumMat = breakdown.mat, sumMO = breakdown.mo, sumHerr = breakdown.herr, sumEq = breakdown.eq, sumMaq = breakdown.maq;
+  const sumSub = round2(breakdown.sub + breakdown.otros);
 
   let visibleCount = 0;
   const isCatLocked = isTabLocked('cat') || !canCurrentUserEditProject();
@@ -69,13 +72,7 @@ export function renderAPUInsumos(node, options = {}) {
     const cant = round5(ins.cantidad || 0);
     const costo = round2(ins.costoUnitario || 0);
     const total = round2(cant * costo);
-    
-    if (ins.tipo === 'Material') sumMat = round2(sumMat + total);
-    else if (ins.tipo === 'Mano de Obra') sumMO = round2(sumMO + total);
-    else if (ins.tipo === 'Herramienta') sumHerr = round2(sumHerr + total);
-    else if (ins.tipo === 'Equipo') sumEq = round2(sumEq + total);
-    else if (ins.tipo === 'Maquinaria') sumMaq = round2(sumMaq + total);
-    else if (ins.tipo === 'Subcontrato' || ins.tipo === 'Flete' || ins.tipo === 'Auxiliar') sumSub = round2(sumSub + total);
+    const isPct = isPercentInsumo(ins);
 
     // Filtro activo por tipo en la matriz
     if (state.currentMatrizFilter !== 'Todos' && ins.tipo !== state.currentMatrizFilter) {
@@ -135,7 +132,7 @@ export function renderAPUInsumos(node, options = {}) {
       <td class="p-1 border-b border-slate-100 text-right w-24 min-w-[90px] align-top pt-1.5">
         <div class="flex items-center justify-end">
           <span class="text-slate-500 mr-0.5 text-[9px] font-semibold">${getCurrencySymbol()}</span>
-          <input type="number" step="0.01" ${isCatLocked ? 'disabled readonly' : ''} value="${Number(ins.costoUnitario || 0).toFixed(2)}" onchange="updateInsumo(${idx}, 'costoUnitario', parseFloat(this.value)||0)" class="w-16 text-right bg-transparent text-[10px] font-semibold font-mono focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1">
+          <input type="number" step="0.01" ${(isCatLocked || isPct) ? 'disabled readonly' : ''} value="${Number(ins.costoUnitario || 0).toFixed(2)}" ${isPct ? 'title="Base automática: suma de Mano de Obra del concepto (la cantidad es la fracción, ej. 0.03 = 3%)"' : ''} onchange="updateInsumo(${idx}, 'costoUnitario', parseFloat(this.value)||0)" class="w-16 text-right bg-transparent text-[10px] font-semibold font-mono focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1">
         </div>
       </td>
       <td class="p-1 border-b border-slate-100 text-right font-bold text-slate-700 font-mono w-20 min-w-[80px] align-top pt-1.5">
@@ -162,7 +159,7 @@ export function renderAPUInsumos(node, options = {}) {
 
   tbody.replaceChildren(fragment);
 
-  const totalCD = round2(sumMat + sumMO + sumHerr + sumEq + sumMaq + sumSub);
+  const totalCD = breakdown.cd;
   node.costoDirecto = totalCD;
 
   const factor = getFactorSobrecosto();
@@ -296,10 +293,9 @@ export function renderInsumosUnitarios(node) {
   let grandTotalInsumosObra = 0;
 
   filteredInsumos.forEach(ins => {
-    const cant = round5(ins.cantidad || 0);
-    const cantidadTotalObra = round2(cant * conceptoCantidad);
-    const costoUnit = round2(ins.costoUnitario || 0);
-    const totalImporteObra = round2(cantidadTotalObra * costoUnit);
+    // Cantidad total = consumo unitario × cantidad del concepto (sin truncar a 2 decimales antes de costear)
+    const cantidadTotalObra = explodeInsumoQty(ins, conceptoCantidad);
+    const totalImporteObra = explodeInsumoImporte(ins, conceptoCantidad);
     grandTotalInsumosObra = round2(grandTotalInsumosObra + totalImporteObra);
 
     const tr = document.createElement('tr');
@@ -319,7 +315,7 @@ export function renderInsumosUnitarios(node) {
         ${ins.descripcion || 'Sin descripción'}
       </td>
       <td class="p-1 border-b border-slate-100 text-right text-[9px] font-bold text-blue-900 align-top">
-        ${formatQty(cantidadTotalObra)}
+        ${Math.abs(cantidadTotalObra) < 1 ? formatMatrixQty(cantidadTotalObra) : formatQty(cantidadTotalObra)}
       </td>
       <td class="p-1 border-b border-slate-100 text-center text-[9px] text-slate-500 align-top">
         ${ins.unidad || 'pza'}

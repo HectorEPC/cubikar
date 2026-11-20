@@ -1,25 +1,26 @@
 // js/modules/reference/masterCatalogModal.js
 // Modal de Catálogo Maestro y Biblioteca de Referencia (Opción 1)
 
-import { state, persistLocalData } from '../../state/store.js?v=20261117_cf30';
-import { saveState } from '../../state/history.js?v=20261117_cf30';
-import { showToast } from '../../ui/notifications.js?v=20261117_cf30';
-import { formatMoney } from '../../core/formatters.js?v=20261117_cf30';
-import { findNodeById, recalculateClaves, guardConceptLimit } from '../catalog/treeService.js?v=20261117_cf30';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261117_cf30';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf35';
+import { saveState } from '../../state/history.js?v=20261119_cf35';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
+import { formatMoney, round2 } from '../../core/formatters.js?v=20261119_cf35';
+import { findNodeById, findParentArrayOfNode, recalculateClaves, guardConceptLimit } from '../catalog/treeService.js?v=20261119_cf35';
+import { recalcNodeFromMatrix, getFactorSobrecosto } from '../../core/calculations.js?v=20261119_cf35';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf35';
 import {
   listReferenceCatalogs,
   searchReferenceItems,
   deleteReferenceCatalog,
   getReferenceDatabaseStats,
   syncMasterCatalogsFromCloud
-} from './referenceDb.js?v=20261117_cf30';
-import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetCatalogs.js?v=20261117_cf30';
-import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js?v=20261117_cf30';
-import { openImportModal } from '../io/universalImporter.js?v=20261117_cf30';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261117_cf30';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261117_cf30';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261117_cf30';
+} from './referenceDb.js?v=20261119_cf35';
+import { ensureDefaultMasterCatalogs, getPresetCatalogManifest } from './presetCatalogs.js?v=20261119_cf35';
+import { getHostStorageSummary, renderStorageMeterHtml } from '../../services/storageQuotaService.js?v=20261119_cf35';
+import { openImportModal } from '../io/universalImporter.js?v=20261119_cf35';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf35';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf35';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf35';
 
 let debounceTimer = null;
 let currentSearchResults = [];
@@ -451,8 +452,10 @@ export function insertConceptIntoBudget(resultIndex) {
     ? JSON.parse(JSON.stringify(item.insumos))
     : generateIntegratedMatrixForConcept(item);
 
+  const newUuid = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') ? crypto.randomUUID() : null;
   const newNode = {
-    id: '_' + Math.random().toString(36).substr(2, 9),
+    id: newUuid || ('_' + Math.random().toString(36).substr(2, 9)),
+    ...(newUuid ? { uuid: newUuid } : {}),
     clave: item.clave || '',
     descripcion: item.descripcion || '',
     unidad: item.unidad || 'pza',
@@ -464,14 +467,27 @@ export function insertConceptIntoBudget(resultIndex) {
     insumos: integratedInsumos,
     children: []
   };
+  // El concepto es el resultado de su matriz: CD = Σ insumos y PU = CD × factor de sobrecosto del proyecto
+  if (Array.isArray(newNode.insumos) && newNode.insumos.length > 0) {
+    recalcNodeFromMatrix(newNode);
+  } else {
+    newNode.precioUnitario = round2((Number(newNode.costoDirecto) || 0) * getFactorSobrecosto());
+  }
 
-  // Si hay una fila seleccionada en TAB1, insertarlo como hijo o a continuación
+  // Si hay una fila seleccionada en TAB1: dentro de una partida se agrega como hijo;
+  // junto a un concepto se agrega a continuación (nunca convierte un concepto con matriz en partida)
   if (state.activeSelectedId) {
     const selectedNode = findNodeById(state.treeData, state.activeSelectedId);
-    if (selectedNode) {
+    const selectedIsGroup = selectedNode && Array.isArray(selectedNode.children) && selectedNode.children.length > 0;
+    const selectedHasMatrix = selectedNode && Array.isArray(selectedNode.insumos) && selectedNode.insumos.length > 0;
+    if (selectedNode && (selectedIsGroup || (!selectedHasMatrix && !(Number(selectedNode.precioUnitario) > 0)))) {
       if (!selectedNode.children) selectedNode.children = [];
       selectedNode.children.push(newNode);
       selectedNode.expanded = true;
+    } else if (selectedNode) {
+      const siblings = findParentArrayOfNode(state.treeData, selectedNode.id) || state.treeData;
+      const idx = siblings.findIndex(n => n.id === selectedNode.id);
+      siblings.splice(idx >= 0 ? idx + 1 : siblings.length, 0, newNode);
     } else {
       state.treeData.push(newNode);
     }
