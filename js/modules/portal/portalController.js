@@ -6,7 +6,7 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261119_cf42';
+} from '../../config/constants.js?v=20261119_cf43';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -45,6 +45,7 @@ import {
   rejectProjectInvitation,
   getPendingInvitationsForUser,
   getWorkspaceInviters,
+  getUserRoleInProject,
   resolveCleanHostName,
   getPlanLimits,
   getUserPlanId,
@@ -74,15 +75,15 @@ import {
   isProjectTrashedLocal,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261119_cf42';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf42';
-import { persistLocalData, state, initStore } from '../../state/store.js?v=20261119_cf42';
-import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261119_cf42';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf42';
-import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261119_cf42';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261119_cf42';
-import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261119_cf42';
-import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261119_cf42';
+} from './projectService.js?v=20261119_cf43';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf43';
+import { persistLocalData, state, initStore } from '../../state/store.js?v=20261119_cf43';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261119_cf43';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf43';
+import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261119_cf43';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261119_cf43';
+import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261119_cf43';
+import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261119_cf43';
 import {
   signUp,
   signInWithPassword,
@@ -92,25 +93,39 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js?v=20261119_cf42';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261119_cf42';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf42';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf42';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf42';
+} from '../../core/authService.js?v=20261119_cf43';
+import {
+  INVITE_TOKEN_STORAGE_KEY,
+  captureInviteTokenFromUrl,
+  hasPendingInviteToken,
+  getPendingInviteToken,
+  sendSecureProjectInvitation,
+  getAnyLatestCachedInviteUrl,
+  copyTextWithFeedback,
+  renderInviteAuthBannerHtml,
+  bindInviteAuthBannerActions,
+  processPendingInviteFlow,
+  showAwaitEmailConfirmationOverlay,
+  renderProjectInviteStatusesInto
+} from './inviteTokenService.js?v=20261119_cf43';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261119_cf43';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf43';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf43';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf43';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
   openCubikarAdminModal
-} from '../admin/cubikarAdmin.js?v=20261119_cf42';
-import { syncProjectToCloud, fetchCloudProjects, getTrashedCloudProjectIds } from '../../core/cloudProjectService.js?v=20261119_cf42';
+} from '../admin/cubikarAdmin.js?v=20261119_cf43';
+import { syncProjectToCloud, fetchCloudProjects, getTrashedCloudProjectIds } from '../../core/cloudProjectService.js?v=20261119_cf43';
 import {
   isProjectHostOwner,
   fetchTrashedProjectsForHost,
   getCachedTrashCount,
   updateTrashBadgeUI,
   openTrashModal
-} from './trashService.js?v=20261119_cf42';
-import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261119_cf42';
+} from './trashService.js?v=20261119_cf43';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261119_cf43';
 
 function readStoredJson(key) {
   try {
@@ -166,10 +181,50 @@ let wizardData = {
 };
 
 // ==========================================
+// FLUJO FORMAL DE INVITACIONES POR CORREO
+// ==========================================
+export async function runPortalInviteDecision() {
+  const token = captureInviteTokenFromUrl() || getPendingInviteToken();
+  if (!token) return { active: false };
+  return processPendingInviteFlow({
+    isMobile: false,
+    onAuthRequired: () => {
+      showPortalView('login');
+    },
+    onSwitchAccount: async (preservedToken, preservedMeta) => {
+      try { await signOut({ scope: 'local' }); } catch (_) {}
+      try { purgeLocalAuthSessionOnly(); } catch (_) {}
+      saveCurrentUser(null);
+      if (preservedToken) {
+        try { localStorage.setItem(INVITE_TOKEN_STORAGE_KEY, preservedToken); } catch (_) {}
+      }
+      if (preservedMeta) {
+        try { localStorage.setItem('cubikar_pending_invite_meta_v1', JSON.stringify(preservedMeta)); } catch (_) {}
+      }
+      showPortalView('login');
+    },
+    onGoDashboard: () => {
+      const u = getCurrentUser();
+      setActiveProjectId(null);
+      showPortalView(u ? 'dashboard' : 'login');
+    },
+    onAcceptedOpenProject: async (res) => {
+      if (res?.projectId) {
+        openProjectInWorkspace(res.projectId);
+      } else {
+        setActiveProjectId(null);
+        showPortalView('dashboard');
+      }
+    }
+  });
+}
+
+// ==========================================
 // INICIALIZACIÓN DEL PORTAL
 // ==========================================
 export function initPortal() {
   enforceGlobalSessionRevocation();
+  const capturedInviteToken = captureInviteTokenFromUrl();
   const urlParams = new URLSearchParams(window.location.search);
   const projIdFromUrl = urlParams.get('project');
   const user = getCurrentUser();
@@ -180,6 +235,15 @@ export function initPortal() {
         window.autoSyncCollaborationOnStartup(user);
       }
     } catch (_) {}
+  }
+
+  if (capturedInviteToken || hasPendingInviteToken()) {
+    setActiveProjectId(null);
+    showPortalView(user ? 'dashboard' : 'login');
+    setTimeout(() => {
+      runPortalInviteDecision().catch(() => {});
+    }, 0);
+    return false;
   }
 
   // Detectar retorno desde Stripe Checkout sin confiar en parámetros manipulables de URL (?plan=)
@@ -311,78 +375,24 @@ function showWorkspaceView(user, project) {
   }
 
   if (project && project.id) {
-    setActiveProjectId(project.id);
-    // Si el usuario es un invitado abriendo la obra, promover automáticamente su membresía a 'active' / 'accepted'
     const myEmail = (user?.email || '').toLowerCase().trim();
     const ownerEmail = (project.ownerEmail || '').toLowerCase().trim();
-    if (myEmail && ownerEmail && myEmail !== ownerEmail) {
-      try {
-        const invs = getStoredInvitations();
-        let invUpdated = false;
-        let matchedInv = null;
-        invs.forEach(i => {
-          if ((i.projectId === project.id || i.projectId === project.cloudId) && (i.email || '').toLowerCase().trim() === myEmail) {
-            if (!matchedInv) matchedInv = i;
-            if (i.status === 'pending') {
-              i.status = 'accepted';
-              i.acceptedAt = new Date().toISOString();
-              invUpdated = true;
-            }
-          }
-        });
-        if (invUpdated) saveStoredInvitations(invs);
-
-        const planInvs = getStoredPlanInvitations();
-        let planInvUpdated = false;
-        let matchedPlanInv = null;
-        planInvs.forEach(pi => {
-          if ((pi.ownerEmail || '').toLowerCase().trim() === ownerEmail && (pi.email || '').toLowerCase().trim() === myEmail) {
-            if (!matchedPlanInv) matchedPlanInv = pi;
-            if (pi.status === 'pending') {
-              pi.status = 'accepted';
-              pi.acceptedAt = new Date().toISOString();
-              planInvUpdated = true;
-            }
-          }
-        });
-        if (planInvUpdated) saveStoredPlanInvitations(planInvs);
-
-        const list = getProjectsList();
-        const pObj = list.find(p => p.id === project.id || p.cloudId === project.id);
-        let memUpdated = false;
-        const resolvedRole = matchedInv?.role || matchedPlanInv?.role || project.cloudRole || pObj?.cloudRole || 'leer';
-        let myRole = resolvedRole;
-        if (pObj) {
-          if (!Array.isArray(pObj.members)) pObj.members = [];
-          const mem = pObj.members.find(m => (m.email || '').toLowerCase().trim() === myEmail);
-          if (mem) {
-            myRole = mem.role || resolvedRole;
-            if (mem.status !== 'active' && mem.status !== 'accepted') {
-              mem.status = 'active';
-              memUpdated = true;
-            }
-          } else if (matchedInv || matchedPlanInv || project.cloudRole || pObj.cloudRole) {
-            pObj.members.push({
-              id: 'mem-' + myEmail,
-              name: user.name || myEmail.split('@')[0],
-              email: myEmail,
-              avatar: user.avatar || AVATARS_BY_SEX['Masculino'],
-              role: resolvedRole,
-              allowedTabs: Array.isArray(matchedInv?.allowedTabs) ? [...matchedInv.allowedTabs] : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'],
-              status: 'active'
-            });
-            memUpdated = true;
-          }
-          if (memUpdated) {
-            saveProjectsList(list);
-          }
-        }
-
-        if ((memUpdated || invUpdated || planInvUpdated) && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
-          window.addCollaboratorToCloud(project.id, myEmail, myRole, 'accepted');
-        }
-      } catch (_) {}
+    const isForeign = Boolean(
+      myEmail && ownerEmail && myEmail !== ownerEmail &&
+      ownerEmail !== 'admin@constructora.com' &&
+      ownerEmail !== 'local@cubikar.app' &&
+      ownerEmail !== 'admin.general@constructora.com'
+    );
+    if (isForeign && !project.isSample) {
+      const roleInfo = getUserRoleInProject(project.id, user);
+      if (!roleInfo) {
+        showToast('🔒 No tienes una invitación aceptada para abrir esta obra.', 'warning');
+        setActiveProjectId(null);
+        showPortalView('dashboard');
+        return;
+      }
     }
+    setActiveProjectId(project.id);
   }
   if (project && project.ownerEmail) {
     const hostEmail = (project.ownerEmail || '').toLowerCase().trim();
@@ -423,6 +433,8 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
         </div>
         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight font-sans">cubikar<span class="text-rose-500 font-black">.</span></h1>
       </div>
+
+      ${renderInviteAuthBannerHtml()}
 
       <!-- Botón Rápido: Registrarse / Conectar con Gmail (Google Identity Services) -->
       <div class="px-6 sm:px-8 pt-5 pb-1">
@@ -705,6 +717,9 @@ export function renderPortalAuth(initialTab = 'login', returnProjectId = null) {
   `;
 
   mountPortalGoogleButton(returnProjectId, true);
+  bindInviteAuthBannerActions({
+    onDismiss: () => renderPortalAuth(initialTab, returnProjectId)
+  });
 }
 
 // Cambiar entre Iniciar Sesión y Registrarse
@@ -849,7 +864,22 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
     }
 
     try {
-      const { user } = await signUp({ email, password, fullName: name });
+      const signUpRes = await signUp({ email, password, fullName: name });
+      const user = signUpRes?.user;
+      const session = signUpRes?.session;
+
+      if (hasPendingInviteToken() && !session) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnText;
+        }
+        showToast('Cuenta creada. Confirma tu correo desde tu bandeja para abrir la invitación.', 'info');
+        showAwaitEmailConfirmationOverlay({
+          email,
+          onGoDashboard: () => renderPortalAuth('login', returnProjectId)
+        });
+        return;
+      }
 
       if (user) {
         localAccount.id = user.id;
@@ -873,6 +903,15 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
 
       showToast(`¡Bienvenido a Cubikar, ${name}! Tu cuenta fue creada exitosamente.`, 'success');
 
+      if (hasPendingInviteToken()) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnText;
+        }
+        await runPortalInviteDecision();
+        return;
+      }
+
       const proceedSb = () => {
         if (returnProjectId) {
           openProjectInWorkspace(returnProjectId);
@@ -889,14 +928,14 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
       console.warn('[Registro Supabase] Error:', err);
 
       // Si Supabase excede el límite de correos (rate limit) u ocurre un fallo de red/servidor,
-      // permitir registrar y guardar localmente en localStorage sin bloquear al usuario
+      // permitir registrar y guardar localmente en localStorage sin bloquear al usuario (salvo invitación activa)
       const isRateLimit = err?.message && (
         err.message.toLowerCase().includes('rate limit') ||
         err.message.toLowerCase().includes('limit exceeded') ||
         err.message.toLowerCase().includes('too many requests')
       );
 
-      if (isRateLimit) {
+      if (isRateLimit && !hasPendingInviteToken()) {
         showToast('Límite temporal de correos en la nube. Tu cuenta se creó y guardó localmente.', 'info');
         // Continuar al guardado local de abajo
       } else {
@@ -908,6 +947,11 @@ export async function handleRegisterSubmit(e, returnProjectId = '') {
         return;
       }
     }
+  }
+
+  if (hasPendingInviteToken()) {
+    showToast('Para aceptar o rechazar una invitación debes completar tu registro en la nube.', 'warning');
+    return;
   }
 
   // Fallback local (localStorage)
@@ -994,6 +1038,15 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
       saveRegisteredUserAccount(loggedUser);
       showToast(`¡Hola de nuevo, ${resolvedDisplayName}!`, 'success');
 
+      if (hasPendingInviteToken()) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnText;
+        }
+        await runPortalInviteDecision();
+        return;
+      }
+
       const proceedSb = () => {
         if (returnProjectId) {
           openProjectInWorkspace(returnProjectId);
@@ -1019,6 +1072,11 @@ export async function handleLoginSubmit(e, returnProjectId = '') {
       }
       return;
     }
+  }
+
+  if (hasPendingInviteToken()) {
+    showToast('Las invitaciones requieren iniciar sesión en la nube con tu contraseña o Google.', 'warning');
+    return;
   }
 
   // 3. Fallback de cuenta registrada localmente
@@ -1145,6 +1203,13 @@ if (typeof window !== 'undefined') {
 export function quickLoginWithFeaturedUser(email, returnProjectId = '') {
   if (!email) return;
   const cleanEmail = email.toLowerCase().trim();
+  if (hasPendingInviteToken()) {
+    const emailInput = document.getElementById('login-email');
+    if (emailInput) emailInput.value = cleanEmail;
+    document.getElementById('login-password')?.focus();
+    showToast('Por seguridad, inicia sesión con tu contraseña o Google para validar la invitación.', 'warning');
+    return;
+  }
   const current = getCurrentUser();
   if (current && current.email && current.email.toLowerCase().trim() !== cleanEmail) {
     try {
@@ -1293,6 +1358,11 @@ async function handleGoogleLoginSuccess(result, returnProjectId = null) {
     markSessionOpen(activeUser.email);
   }
   showToast(`Sesión iniciada con Google como ${activeUser?.name || cleanEmail || 'usuario'}`, 'success');
+
+  if (hasPendingInviteToken()) {
+    await runPortalInviteDecision();
+    return;
+  }
 
   const proceedNormal = () => {
     if (returnProjectId) {
@@ -4037,7 +4107,9 @@ function purgeLocalAuthSessionOnly() {
       'cubikar_dismissed_notifications_v1',
       'control_obra_closed_sessions_v1',
       'cubikar_last_signout_ts',
-      'cubikar_auth_session_version'
+      'cubikar_auth_session_version',
+      'cubikar_pending_invite_token_v1',
+      'cubikar_pending_invite_meta_v1'
     ]);
     const exactSessionKeys = [
       'control_obra_user_profile_v1',
@@ -4490,6 +4562,53 @@ export function getActiveOrFallbackProjectId() {
   return 'proj-default-01';
 }
 
+let lastGeneratedInviteLink = { email: '', url: '' };
+
+function hideLastInviteLinkBanner() {
+  lastGeneratedInviteLink = { email: '', url: '' };
+  const banner = document.getElementById('invite-last-link-banner');
+  const input = document.getElementById('invite-last-link-input');
+  const em = document.getElementById('invite-last-link-email');
+  if (banner) banner.classList.add('hidden');
+  if (input) input.value = '';
+  if (em) em.textContent = '---';
+}
+
+function showLastInviteLinkBanner(email, url) {
+  if (!url) return;
+  lastGeneratedInviteLink = { email: String(email || '').trim().toLowerCase(), url };
+  const banner = document.getElementById('invite-last-link-banner');
+  const input = document.getElementById('invite-last-link-input');
+  const em = document.getElementById('invite-last-link-email');
+  if (em) em.textContent = email || 'colaborador';
+  if (input) input.value = url;
+  if (banner) banner.classList.remove('hidden');
+}
+
+export function copyLastGeneratedInviteLink() {
+  const url = lastGeneratedInviteLink.url || document.getElementById('invite-last-link-input')?.value || '';
+  if (!url) {
+    showToast('Primero envía una invitación para generar un enlace personal de un solo uso.', 'info');
+    return;
+  }
+  copyTextWithFeedback(url, '¡Enlace personal de un solo uso copiado al portapapeles!');
+}
+
+export async function refreshInviteModalStatuses() {
+  const pId = activeInviteProjectId || getActiveOrFallbackProjectId();
+  const proj = pId ? getProjectById(pId) : null;
+  const listEl = document.getElementById('invite-status-list');
+  if (!proj || !listEl) return;
+  await renderProjectInviteStatusesInto(listEl, proj, {
+    onLinkGenerated: ({ email, inviteUrl }) => showLastInviteLinkBanner(email, inviteUrl),
+    onMutated: () => {
+      renderInviteModalMembersList();
+      renderHeaderCollaborators();
+      renderSidebarNotificationsUI();
+    }
+  });
+}
+
 export function openInviteModal(projectId, defaultTab = 'members') {
   if (typeof projectId !== 'string' || !projectId) {
     projectId = getActiveOrFallbackProjectId();
@@ -4523,7 +4642,8 @@ export function openInviteModal(projectId, defaultTab = 'members') {
     nameBadge.textContent = proj.projectName || state.settings?.projectName || 'Proyecto de Obra';
   }
 
-  // Limpiar campos
+  // Limpiar campos y banner previo
+  hideLastInviteLinkBanner();
   const nameInput = document.getElementById('invite-member-name');
   const emailInput = document.getElementById('invite-member-email');
   if (nameInput) nameInput.value = '';
@@ -4566,20 +4686,20 @@ export function closeInviteModal() {
   renderHeaderCollaborators();
 }
 
-// Copiar enlace directo de invitación al proyecto
+// Copiar último enlace único generado para el proyecto (nunca el viejo ?invite=1 inseguro)
 export function copyProjectInviteLink() {
   const pId = activeInviteProjectId || getActiveOrFallbackProjectId();
-  const url = `${window.location.origin}${window.location.pathname}?project=${encodeURIComponent(pId)}&invite=1`;
-  
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(url).then(() => {
-      showToast('¡Enlace de invitación copiado al portapapeles! Compártelo con los colaboradores para darles acceso.');
-    }).catch(() => {
-      prompt('Copia este enlace de invitación para compartirlo:', url);
-    });
-  } else {
-    prompt('Copia este enlace de invitación para compartirlo:', url);
+  const proj = pId ? getProjectById(pId) : null;
+  const cachedUrl = getAnyLatestCachedInviteUrl(pId, proj?.cloudId) || lastGeneratedInviteLink.url || '';
+
+  if (cachedUrl) {
+    copyTextWithFeedback(cachedUrl, '¡Enlace personal de un solo uso copiado al portapapeles!');
+    return;
   }
+
+  switchInviteModalTab('invite');
+  document.getElementById('invite-member-email')?.focus();
+  showToast('Por seguridad, cada enlace es único por correo. Ingresa el correo y haz clic en "Enviar Invitación" para generarlo.', 'info');
 }
 
 // ==========================================
@@ -5027,6 +5147,7 @@ export function switchInviteModalTab(tab = 'members') {
     if (viewMembers) viewMembers.classList.remove('hidden');
     if (viewInvite) viewInvite.classList.add('hidden');
     renderInviteModalMembersList();
+    refreshInviteModalStatuses().catch(() => {});
   }
 }
 
@@ -5107,13 +5228,14 @@ export function setMemberAllTabsPermission(memberId, grantAll) {
   }
 }
 
-export function submitInviteMember(e) {
+export async function submitInviteMember(e) {
   if (e) e.preventDefault();
   if (!activeInviteProjectId) {
     activeInviteProjectId = getActiveOrFallbackProjectId();
   }
   if (!activeInviteProjectId) return;
 
+  const proj = getProjectById(activeInviteProjectId);
   const nameInput = document.getElementById('invite-member-name');
   const emailInput = document.getElementById('invite-member-email');
   const roleRadio = document.querySelector('input[name="invite-role"]:checked');
@@ -5121,7 +5243,7 @@ export function submitInviteMember(e) {
   const allowedTabs = Array.from(tabChecks).map(cb => cb.value);
 
   const name = nameInput ? nameInput.value.trim() : '';
-  const email = emailInput ? emailInput.value.trim() : '';
+  const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
   const role = roleRadio ? roleRadio.value : 'editar';
 
   if (!name || !email) {
@@ -5140,29 +5262,53 @@ export function submitInviteMember(e) {
     return;
   }
 
-  // Crear la invitación formal persistente para que aparezca en la campana de notificaciones del usuario X
-  const inv = createProjectInvitation({
-    projectId: activeInviteProjectId,
-    email,
-    name,
-    role,
-    allowedTabs,
-    invitedBy: currentUser
-  });
+  const submitBtn = document.getElementById('btn-submit-invite-member');
+  const originalHtml = submitBtn ? submitBtn.innerHTML : '';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-xs"></i><span>Generando enlace seguro y enviando...</span>';
+  }
 
-  if (inv) {
-    showToast(`Invitación enviada a ${email}. Aparecerá en sus notificaciones de campana.`);
+  try {
+    const res = await sendSecureProjectInvitation({
+      proj,
+      email,
+      name,
+      role,
+      allowedTabs,
+      invitedBy: currentUser,
+      avatar
+    });
+
+    if (!res?.ok) {
+      showToast(res?.error || 'No se pudo generar y enviar la invitación.', 'error');
+      return;
+    }
+
+    showLastInviteLinkBanner(email, res.inviteUrl);
+    if (res.emailSent) {
+      showToast(`Correo de invitación enviado a ${email} (enlace único de un solo uso).`, 'success');
+    } else {
+      showToast(`Enlace único generado para ${email}${res.emailError ? ` (${res.emailError})` : ''}. Cópialo manualmente.`, 'warning');
+    }
+
     if (nameInput) nameInput.value = '';
     if (emailInput) emailInput.value = '';
     inviteCustomAvatarTemp = null;
     updateInviteAvatarPreview();
     setInviteTabCheckboxes(false);
-    
-    // Cambiar automáticamente a la pestaña 1 (Miembros con Acceso) para ver al nuevo miembro
+
     switchInviteModalTab('members');
     renderHeaderCollaborators();
     renderAllTabAssignedMembers();
     renderSidebarNotificationsUI();
+  } catch (err) {
+    showToast(err?.message || 'Error al enviar la invitación.', 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalHtml;
+    }
   }
 }
 
@@ -5694,4 +5840,7 @@ if (typeof window !== 'undefined') {
   window.onWizardSignatureChange = onWizardSignatureChange;
   window.resetWizardDefaultSignatures = resetWizardDefaultSignatures;
   window.applyBodegueroInvitePreset = applyBodegueroInvitePreset;
+  window.copyLastGeneratedInviteLink = copyLastGeneratedInviteLink;
+  window.refreshInviteModalStatuses = refreshInviteModalStatuses;
+  window.runPortalInviteDecision = runPortalInviteDecision;
 }

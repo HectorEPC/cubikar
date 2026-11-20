@@ -1,7 +1,7 @@
 // js/modules/portal/projectService.js
 // Servicio centralizado para usuarios, proyectos multi-obra y almacenamiento aislado
 
-import { enforceLocalDataOwner } from '../../core/localDataIsolation.js?v=20261119_cf42';
+import { enforceLocalDataOwner } from '../../core/localDataIsolation.js?v=20261119_cf43';
 import {
   STORAGE_KEY_USER,
   STORAGE_KEY_PROJECTS,
@@ -16,15 +16,15 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261119_cf42';
+} from '../../config/constants.js?v=20261119_cf43';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
 export const STORAGE_KEY_TRASHED_PROJECTS = 'cubikar_trashed_project_ids_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261119_cf42';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261119_cf42';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261119_cf42';
-import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261119_cf42';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261119_cf42';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261119_cf43';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261119_cf43';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261119_cf43';
+import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261119_cf43';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261119_cf43';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -642,7 +642,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261119_cf42').then(m => {
+            import('../../core/supabaseClient.js?v=20261119_cf43').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -1901,6 +1901,7 @@ export function addProjectMember(projectId, memberData) {
     email: memberData.email.trim(),
     avatar: memberData.avatar || AVATARS_BY_SEX['Masculino'],
     role: memberData.role || 'editar', // 'editar', 'escribir', 'leer'
+    status: memberData.status || 'active',
     allowedTabs: Array.isArray(memberData.allowedTabs) ? memberData.allowedTabs : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'],
     ...(memberData.pendingCloudAdd ? { pendingCloudAdd: true } : {})
   };
@@ -2065,7 +2066,7 @@ export function getTabAssignedMembers(projectId, tabId) {
 // Enviar proyecto a la Papelera (retención 7 días - solo Anfitrión)
 export async function deleteProject(projectId) {
   if (!projectId) return { success: false, reason: 'Proyecto no especificado' };
-  const { moveProjectToTrash } = await import('./trashService.js?v=20261119_cf42');
+  const { moveProjectToTrash } = await import('./trashService.js?v=20261119_cf43');
   const res = await moveProjectToTrash(projectId);
   return (res && typeof res === 'object') ? res : { success: Boolean(res) };
 }
@@ -2395,7 +2396,7 @@ export function getPendingInvitationsForUser(userEmail) {
 }
 
 // Crear o actualizar una invitación de proyecto
-export function createProjectInvitation({ projectId, email, name, role = 'editar', allowedTabs = [], invitedBy = null }) {
+export function createProjectInvitation({ projectId, email, name, role = 'editar', allowedTabs = [], invitedBy = null, avatar = null, id = null, skipCloudCollaboratorPush = false }) {
   if (!projectId || !email) return null;
   const list = getProjectsList();
   const proj = list.find(p => p.id === projectId);
@@ -2414,7 +2415,7 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
   // Eliminar invitaciones previas pendientes hacia este mismo email y proyecto
   const filteredInvs = invs.filter(i => !(i.projectId === projectId && (i.email || '').toLowerCase() === emailClean));
 
-  const invId = 'inv-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+  const invId = id || ('inv-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5));
   const newInvitation = {
     id: invId,
     projectId,
@@ -2439,21 +2440,19 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
   filteredInvs.unshift(newInvitation);
   saveStoredInvitations(filteredInvs);
 
-  // Registrar también al miembro en el proyecto en estado 'pending' (pendiente de alta en la nube)
+  // Registrar también al miembro en el proyecto en estado 'pending' (pendiente de alta/aceptación en la nube)
   addProjectMember(projectId, {
     name: newInvitation.name,
     email: newInvitation.email,
-    avatar: AVATARS_BY_SEX['Masculino'],
+    avatar: avatar || AVATARS_BY_SEX['Masculino'],
     role: newInvitation.role,
     allowedTabs: newInvitation.allowedTabs,
     status: 'pending',
-    pendingCloudAdd: true
+    pendingCloudAdd: !skipCloudCollaboratorPush
   });
 
   // Sincronizar colaborador primero en Postgres antes del broadcast privado Realtime (RLS verifica proyecto_colaboradores)
-  Promise.resolve(
-    pushCollaboratorToCloud(proj, newInvitation.email, newInvitation.role, 'pending')
-  ).finally(() => {
+  const emitRealtime = () => {
     try {
       if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastNewInvitation === 'function') {
         const updatedProj = getProjectById(projectId);
@@ -2462,7 +2461,14 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
     } catch (e) {
       console.warn('[Realtime] Error emitiendo invitación:', e);
     }
-  });
+  };
+  if (skipCloudCollaboratorPush) {
+    emitRealtime();
+  } else {
+    Promise.resolve(
+      pushCollaboratorToCloud(proj, newInvitation.email, newInvitation.role, 'pending')
+    ).finally(emitRealtime);
+  }
 
   return newInvitation;
 }
@@ -3155,7 +3161,10 @@ export function canUserCreateProject(user = null, targetScope = null) {
     for (const p of hostProjects) {
       if (p.ownerName && !isInvalidUserName(p.ownerName, hostEmail, p)) hostName = p.ownerName;
       if (Array.isArray(p.members)) {
-        const mem = p.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
+        const mem = p.members.find(m => {
+          const st = (m?.status || '').toLowerCase().trim();
+          return (m?.email || '').toLowerCase().trim() === uEmail && (st === 'accepted' || st === 'active');
+        });
         if (mem && mem.role === 'editar') {
           userHasEditorRole = true;
         }
@@ -3396,7 +3405,7 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
       const mem = p.members.find(m => {
         const mEmail = (m.email || '').toLowerCase().trim();
         const mStatus = (m.status || '').toLowerCase().trim();
-        return mEmail === uEmail && (mStatus === 'active' || mStatus === 'accepted' || mStatus === 'pending' || !mStatus);
+        return mEmail === uEmail && (mStatus === 'active' || mStatus === 'accepted');
       });
       if (mem) {
         if (!map.has(oEmail)) {
@@ -3478,7 +3487,7 @@ export function getWorkspaceInviters(user = null, allProjectsList = null) {
         return Array.isArray(p.members) && p.members.some(m => {
           const mEmail = (m.email || '').toLowerCase().trim();
           const status = (m.status || '').toLowerCase().trim();
-          return mEmail === uEmail && (status === 'active' || status === 'accepted' || status === 'pending' || !status);
+          return mEmail === uEmail && (status === 'active' || status === 'accepted');
         });
       });
     })
@@ -3511,7 +3520,10 @@ export function canUserInviteToProject(projectId, user = null, targetEmail = '')
   // Si no es el dueño, verificar si es miembro con rol 'editar' (Editor)
   let isEditor = false;
   if (Array.isArray(proj.members)) {
-    const mem = proj.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && m.status !== 'pending');
+    const mem = proj.members.find(m => {
+      const st = (m?.status || '').toLowerCase().trim();
+      return (m?.email || '').toLowerCase().trim() === uEmail && (st === 'accepted' || st === 'active');
+    });
     if (mem && mem.role === 'editar') {
       isEditor = true;
     }
@@ -3527,7 +3539,11 @@ export function canUserInviteToProject(projectId, user = null, targetEmail = '')
   const effectivePlanId = getProjectEffectivePlan(projectId);
   const limits = getPlanLimits(effectivePlanId);
   const members = Array.isArray(proj.members) ? proj.members : [];
-  const currentMembersCount = members.length;
+  const activeOrPendingMembers = members.filter(m => {
+    const st = (m?.status || '').toLowerCase().trim();
+    return st !== 'rejected' && st !== 'cancelled';
+  });
+  const currentMembersCount = activeOrPendingMembers.length;
   const ownerEmail = (proj.ownerEmail || uEmail).toLowerCase().trim();
   const normalizedTarget = (targetEmail || '').toLowerCase().trim();
 
@@ -3547,7 +3563,7 @@ export function canUserInviteToProject(projectId, user = null, targetEmail = '')
   }
 
   const accountStats = countAccountUsersForOwner(ownerEmail);
-  const projEmails = new Set(members.map(m => (m?.email || '').toLowerCase().trim()).filter(Boolean));
+  const projEmails = new Set(activeOrPendingMembers.map(m => (m?.email || '').toLowerCase().trim()).filter(Boolean));
   const hasUnassignedAccountCollab = [...accountStats.collaboratorsSet].some(em => !projEmails.has(em));
 
   if (accountStats.totalUsers >= limits.maxMembers && !hasUnassignedAccountCollab) {
@@ -3584,17 +3600,21 @@ export function getUserRoleInProject(projectId, user = null) {
   }
 
   if (Array.isArray(proj.members)) {
-    const mem = proj.members.find(m => (m.email || '').toLowerCase().trim() === uEmail && (m.status || '').toLowerCase().trim() !== 'rejected');
+    const mem = proj.members.find(m => {
+      const st = (m.status || '').toLowerCase().trim();
+      return (m.email || '').toLowerCase().trim() === uEmail && (st === 'accepted' || st === 'active');
+    });
     if (mem && mem.role) return mem.role;
   }
 
   try {
     const allPlanInvs = getStoredPlanInvitations();
-    const planInv = allPlanInvs.find(inv =>
-      (inv.ownerEmail || '').toLowerCase().trim() === (proj.ownerEmail || '').toLowerCase().trim() &&
-      (inv.email || '').toLowerCase().trim() === uEmail &&
-      (inv.status || '').toLowerCase().trim() !== 'rejected'
-    );
+    const planInv = allPlanInvs.find(inv => {
+      const st = (inv.status || '').toLowerCase().trim();
+      return (inv.ownerEmail || '').toLowerCase().trim() === (proj.ownerEmail || '').toLowerCase().trim() &&
+        (inv.email || '').toLowerCase().trim() === uEmail &&
+        (st === 'accepted' || st === 'active');
+    });
     if (planInv && planInv.role) {
       return planInv.role;
     }
@@ -3701,6 +3721,8 @@ export function getPlanCollaboratorsForOwner(ownerEmail) {
   });
 
   const result = Array.from(map.values()).filter(inv => {
+    const st = (inv.status || '').toLowerCase().trim();
+    if (st === 'rejected' || st === 'cancelled') return false;
     const n = (inv.name || '').toLowerCase().trim();
     const em = (inv.email || '').toLowerCase().trim();
     if (!n || GENERIC_BLACKLIST.has(n)) return false;
@@ -4130,6 +4152,8 @@ export function countAccountUsersForOwner(ownerEmail) {
   try {
     const planCollabs = typeof getPlanCollaboratorsForOwner === 'function' ? getPlanCollaboratorsForOwner(oEmail) : [];
     (Array.isArray(planCollabs) ? planCollabs : []).forEach(c => {
+      const st = (c?.status || '').toLowerCase().trim();
+      if (st === 'rejected' || st === 'cancelled') return;
       const em = (c?.email || '').toLowerCase().trim();
       if (em && em !== oEmail) {
         usersSet.add(em);
@@ -4143,7 +4167,7 @@ export function countAccountUsersForOwner(ownerEmail) {
     const planInvs = typeof getStoredPlanInvitations === 'function' ? getStoredPlanInvitations() : [];
     (Array.isArray(planInvs) ? planInvs : []).forEach(inv => {
       if ((inv?.ownerEmail || '').toLowerCase().trim() !== oEmail) return;
-      if (inv?.status === 'rejected') return;
+      if (inv?.status === 'rejected' || inv?.status === 'cancelled') return;
       const em = (inv?.email || '').toLowerCase().trim();
       if (em && em !== oEmail) {
         usersSet.add(em);
@@ -4158,7 +4182,7 @@ export function countAccountUsersForOwner(ownerEmail) {
     const projInvs = typeof getStoredInvitations === 'function' ? getStoredInvitations() : [];
     (Array.isArray(projInvs) ? projInvs : []).forEach(inv => {
       if ((inv?.ownerEmail || '').toLowerCase().trim() !== oEmail) return;
-      if (inv?.status === 'rejected') return;
+      if (inv?.status === 'rejected' || inv?.status === 'cancelled') return;
       const em = (inv?.email || '').toLowerCase().trim();
       if (em && em !== oEmail) {
         usersSet.add(em);
@@ -4176,7 +4200,8 @@ export function countAccountUsersForOwner(ownerEmail) {
       .forEach(p => {
         (Array.isArray(p.members) ? p.members : []).forEach(m => {
           const em = (m?.email || '').toLowerCase().trim();
-          if (!em || em === oEmail || m?.status === 'pending') return;
+          const st = (m?.status || '').toLowerCase().trim();
+          if (!em || em === oEmail || st === 'pending' || st === 'rejected' || st === 'cancelled') return;
           if (DEFAULT_SAMPLE_DEMO_EMAILS.has(em) && !explicitlyInvitedEmails.has(em)) return;
           usersSet.add(em);
           collaboratorsSet.add(em);
@@ -4241,15 +4266,16 @@ export function canAddUserToOwnerAccount(ownerEmail, targetEmail = '', targetPro
   if (targetProjectId) {
     const proj = getProjectById(targetProjectId);
     if (proj && Array.isArray(proj.members)) {
-      const existingInProj = proj.members.some(m => (m?.email || '').toLowerCase().trim() === tEmail);
-      if (!existingInProj && proj.members.length >= limits.maxMembers) {
+      const nonRejectedMembers = proj.members.filter(m => !['rejected', 'cancelled'].includes((m?.status || '').toLowerCase().trim()));
+      const existingInProj = nonRejectedMembers.some(m => (m?.email || '').toLowerCase().trim() === tEmail);
+      if (!existingInProj && nonRejectedMembers.length >= limits.maxMembers) {
         return {
           allowed: false,
           limitReached: true,
           planId,
           maxMembers: limits.maxMembers,
-          currentUsers: proj.members.length,
-          reason: `Este proyecto ya tiene ${proj.members.length} de ${limits.maxMembers} miembros permitidos en Plan ${limits.name}. Remueve un colaborador existente o actualiza tu plan.`
+          currentUsers: nonRejectedMembers.length,
+          reason: `Este proyecto ya tiene ${nonRejectedMembers.length} de ${limits.maxMembers} miembros permitidos en Plan ${limits.name}. Remueve un colaborador existente o actualiza tu plan.`
         };
       }
     }

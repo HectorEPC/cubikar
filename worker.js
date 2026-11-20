@@ -1,6 +1,7 @@
 import { onRequest as adminUsersHandler } from './api/admin-users.js';
 import { onRequest as geminiApuHandler } from './api/gemini-apu.js';
 import { onRequest as s3PresignHandler } from './api/s3-presign.js';
+import { onRequest as invitesHandler } from './api/invites.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -14,6 +15,9 @@ export default {
     }
     if (path === '/api/s3-presign') {
       return s3PresignHandler({ request, env, ctx });
+    }
+    if (path === '/api/invites' || path.startsWith('/api/invites/')) {
+      return invitesHandler({ request, env, ctx });
     }
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);

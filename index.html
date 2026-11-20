@@ -32,7 +32,7 @@
       }
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="css/styles.css?v=20261119_cf42">
+  <link rel="stylesheet" href="css/styles.css?v=20261119_cf43">
 </head>
 <body class="bg-slate-100 font-sans h-screen flex flex-col text-slate-800">
 
@@ -4178,9 +4178,38 @@
             </button>
           </div>
 
+          <!-- Enlace único recién generado para copiar manualmente -->
+          <div id="invite-last-link-banner" class="hidden rounded-2xl border border-emerald-300 bg-emerald-50 p-3 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-bold text-emerald-900 flex items-center gap-1.5">
+                <i class="fa-solid fa-key text-emerald-600"></i>
+                Enlace único generado para <span id="invite-last-link-email" class="font-mono">---</span>
+              </span>
+              <button type="button" onclick="copyLastGeneratedInviteLink()" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer flex items-center gap-1 shrink-0">
+                <i class="fa-solid fa-copy text-[10px]"></i> Copiar enlace
+              </button>
+            </div>
+            <input type="text" id="invite-last-link-input" readonly onclick="this.select()" class="w-full bg-white border border-emerald-200 rounded-lg px-2.5 py-1 text-[11px] font-mono text-slate-700">
+          </div>
+
           <!-- Contenedor dinámico de miembros -->
-          <div id="invite-members-list" class="space-y-2.5 max-h-[50vh] overflow-y-auto custom-scroll pr-1">
+          <div id="invite-members-list" class="space-y-2.5 max-h-[42vh] overflow-y-auto custom-scroll pr-1">
             <!-- Se llena dinámicamente con renderInviteModalMembersList() -->
+          </div>
+
+          <!-- Estado real de invitaciones enviadas por correo -->
+          <div id="invite-status-list-section" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-paper-plane text-blue-600 text-[11px]"></i> Invitaciones enviadas (Pendiente / Aceptada / Rechazada)
+              </span>
+              <button type="button" onclick="refreshInviteModalStatuses()" class="text-[11px] font-semibold text-blue-600 hover:text-blue-800 cursor-pointer flex items-center gap-1">
+                <i class="fa-solid fa-rotate text-[10px]"></i> Actualizar
+              </button>
+            </div>
+            <div id="invite-status-list" class="space-y-2 max-h-48 overflow-y-auto custom-scroll pr-1 text-xs">
+              <div class="text-[11px] text-slate-400">Cargando estado de invitaciones...</div>
+            </div>
           </div>
 
           <!-- Probar y Simular Vista de Invitado -->
@@ -4326,11 +4355,12 @@
                 </div>
               </div>
 
-              <!-- Botón Agregar -->
-              <button type="button" onclick="submitInviteMember(event)" class="w-full bg-blue-600 hover:bg-blue-500 active:scale-98 text-white font-bold py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer mt-1">
-                <i class="fa-solid fa-user-plus text-xs"></i>
-                <span>Agregar Colaborador al Proyecto</span>
+              <!-- Botón Agregar / Enviar Invitación -->
+              <button type="button" id="btn-submit-invite-member" onclick="submitInviteMember(event)" class="w-full bg-blue-600 hover:bg-blue-500 active:scale-98 text-white font-bold py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer mt-1">
+                <i class="fa-solid fa-paper-plane text-xs"></i>
+                <span>Enviar Invitación por Correo</span>
               </button>
+              <p class="text-[10.5px] text-slate-500 text-center">Se enviará un correo con enlace personal de un solo uso (256 bits) vinculado exclusivamente al correo invitado.</p>
             </div>
           </div>
         </div>
@@ -5971,10 +6001,10 @@
       setInterval(purgeInvalidScopeOptions, 300);
     })();
   </script>
-  <script type="module" src="js/app.js?v=20261119_cf42"></script>
+  <script type="module" src="js/app.js?v=20261119_cf43"></script>
   <script type="module">
-    import { switchTab } from './js/ui/modalController.js?v=20261119_cf42';
-    import { renderBitacoraView } from './js/modules/bitacora/bitacoraView.js?v=20261119_cf42';
+    import { switchTab } from './js/ui/modalController.js?v=20261119_cf43';
+    import { renderBitacoraView } from './js/modules/bitacora/bitacoraView.js?v=20261119_cf43';
 
     try {
       const p = new URLSearchParams(window.location.search);

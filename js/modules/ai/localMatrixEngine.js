@@ -7,7 +7,7 @@
 //         armados, diámetros, calibres, proporciones, piezas incluidas...) y armar la matriz
 //         desde cero con insumos reales de los catálogos cargados (con conversión de unidades).
 
-import { computeMatrixDirectCost } from '../../core/matrixMath.js?v=20261119_cf42';
+import { computeMatrixDirectCost } from '../../core/matrixMath.js?v=20261119_cf43';
 
 const r5 = (v) => Math.round(((Number(v) || 0) + 1e-12) * 100000) / 100000;
 const r2 = (v) => Math.round(((Number(v) || 0) + 1e-12) * 100) / 100;

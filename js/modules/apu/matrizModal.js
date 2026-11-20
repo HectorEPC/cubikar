@@ -1,16 +1,16 @@
 // js/modules/apu/matrizModal.js
 // Controlador de la Ventana Maximizada de Matriz APU (Estilo Configuración del Sistema)
 
-import { state, persistLocalData } from '../../state/store.js?v=20261119_cf42';
-import { saveState } from '../../state/history.js?v=20261119_cf42';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf42';
-import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261119_cf42';
-import { getFactorSobrecosto, computeMatrixBreakdown, explodeInsumoQty, explodeInsumoImporte } from '../../core/calculations.js?v=20261119_cf42';
-import { findNodeById } from '../catalog/treeService.js?v=20261119_cf42';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf42';
-import { renderAPUInsumos, renderInsumosUnitarios } from './apuView.js?v=20261119_cf42';
-import { addInsumo, removeInsumo, updateInsumo, filterMatriz } from './apuService.js?v=20261119_cf42';
-import { isTabLocked } from '../../ui/tabLockController.js?v=20261119_cf42';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf43';
+import { saveState } from '../../state/history.js?v=20261119_cf43';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf43';
+import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261119_cf43';
+import { getFactorSobrecosto, computeMatrixBreakdown, explodeInsumoQty, explodeInsumoImporte } from '../../core/calculations.js?v=20261119_cf43';
+import { findNodeById } from '../catalog/treeService.js?v=20261119_cf43';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf43';
+import { renderAPUInsumos, renderInsumosUnitarios } from './apuView.js?v=20261119_cf43';
+import { addInsumo, removeInsumo, updateInsumo, filterMatriz } from './apuService.js?v=20261119_cf43';
+import { isTabLocked } from '../../ui/tabLockController.js?v=20261119_cf43';
 
 function escapeMatrizHtml(str = '') {
   return String(str ?? '')

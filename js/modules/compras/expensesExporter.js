@@ -1,17 +1,17 @@
 ﻿// js/modules/compras/expensesExporter.js
 // Exportación a Excel (.xlsx) y generación de formatos imprimibles oficiales de Orden de Compra y Reportes
 
-import { state } from '../../state/store.js?v=20261119_cf42';
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261119_cf42';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf42';
-import { openPrintWindow } from '../io/printService.js?v=20261119_cf42';
-import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesSignatures, getExpenseRecordsByOrderGroup } from './expensesModel.js?v=20261119_cf42';
-import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261119_cf42';
-import { getConceptCostTrackingReport } from './conceptExplosionHelper.js?v=20261119_cf42';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf42';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf42';
-import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261119_cf42';
-import { isNightMode } from '../../ui/themeController.js?v=20261119_cf42';
+import { state } from '../../state/store.js?v=20261119_cf43';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261119_cf43';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf43';
+import { openPrintWindow } from '../io/printService.js?v=20261119_cf43';
+import { getExpensesRecords, getExpensesSuppliers, getSupplierById, getExpensesSignatures, getExpenseRecordsByOrderGroup } from './expensesModel.js?v=20261119_cf43';
+import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261119_cf43';
+import { getConceptCostTrackingReport } from './conceptExplosionHelper.js?v=20261119_cf43';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf43';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf43';
+import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261119_cf43';
+import { isNightMode } from '../../ui/themeController.js?v=20261119_cf43';
 
 /**
  * Renderizar bloque dinámico de firmas configuradas para los reportes de Compras y Pagos

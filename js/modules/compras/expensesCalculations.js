@@ -1,16 +1,16 @@
 // js/modules/compras/expensesCalculations.js
 // Motor de cálculos financieros, KPIs de obra y cruce con la Explosión de Insumos
 
-import { state } from '../../state/store.js?v=20261119_cf42';
-import { round2, round5 } from '../../core/formatters.js?v=20261119_cf42';
-import { getFactorSobrecosto } from '../../core/calculations.js?v=20261119_cf42';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf42';
-import { explodeInsumoQty, explodeInsumoImporte } from '../../core/matrixMath.js?v=20261119_cf42';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261119_cf42';
-import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf42';
-import { loadEstimacionesData, getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261119_cf42';
-import { getExpensesRecords, getExpensesConfig } from './expensesModel.js?v=20261119_cf42';
-import { getWarehouseNetConsumptionMap } from '../almacen/almacenModel.js?v=20261119_cf42';
+import { state } from '../../state/store.js?v=20261119_cf43';
+import { round2, round5 } from '../../core/formatters.js?v=20261119_cf43';
+import { getFactorSobrecosto } from '../../core/calculations.js?v=20261119_cf43';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf43';
+import { explodeInsumoQty, explodeInsumoImporte } from '../../core/matrixMath.js?v=20261119_cf43';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261119_cf43';
+import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf43';
+import { loadEstimacionesData, getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261119_cf43';
+import { getExpensesRecords, getExpensesConfig } from './expensesModel.js?v=20261119_cf43';
+import { getWarehouseNetConsumptionMap } from '../almacen/almacenModel.js?v=20261119_cf43';
 
 /**
  * Obtener Monto Total Contratado / Presupuestado de la obra

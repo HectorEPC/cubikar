@@ -106,13 +106,13 @@ BEGIN
         RETURN TRUE;
     END IF;
 
-    -- Colaboradores activos (no rechazados/revocados) en proyecto_colaboradores o configuracion del proyecto
+    -- Colaboradores activos y explícitamente aceptados en proyecto_colaboradores o configuracion del proyecto
     IF EXISTS (
         SELECT 1 FROM public.proyecto_colaboradores pc
         WHERE pc.proyecto_id::text = v_clean_pid
           AND LOWER(TRIM(pc.email_colaborador)) = u_email
           AND pc.rol = ANY(req_roles)
-          AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'accepted'))) <> 'rejected'
+          AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'pending'))) = 'accepted'
     ) THEN
         RETURN TRUE;
     END IF;
@@ -122,15 +122,34 @@ BEGIN
         WHERE p.id::text = v_clean_pid
           AND p.deleted_at IS NULL
           AND (
-              (jsonb_typeof(p.configuracion->'memberTabs') = 'object' AND (p.configuracion->'memberTabs') ? u_email AND ('editar' = ANY(req_roles) OR 'leer' = ANY(req_roles)))
+              (
+                  jsonb_typeof(p.configuracion->'memberTabs') = 'object'
+                  AND (p.configuracion->'memberTabs') ? u_email
+                  AND 'leer' = ANY(req_roles)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM public.proyecto_colaboradores pc_blk
+                      WHERE pc_blk.proyecto_id = p.id
+                        AND LOWER(TRIM(pc_blk.email_colaborador)) = u_email
+                        AND LOWER(TRIM(COALESCE(pc_blk.estado_invitacion, 'pending'))) <> 'accepted'
+                  )
+                  AND NOT (
+                      jsonb_typeof(p.configuracion->'collaborators') = 'array'
+                      AND EXISTS (
+                          SELECT 1
+                          FROM jsonb_array_elements(p.configuracion->'collaborators') ce
+                          WHERE LOWER(TRIM(COALESCE(ce->>'email', ''))) = u_email
+                            AND LOWER(TRIM(COALESCE(ce->>'status', 'pending'))) NOT IN ('accepted', 'active')
+                      )
+                  )
+              )
               OR (
                   jsonb_typeof(p.configuracion->'collaborators') = 'array'
                   AND EXISTS (
                       SELECT 1
                       FROM jsonb_array_elements(p.configuracion->'collaborators') elem
                       WHERE LOWER(TRIM(COALESCE(elem->>'email', ''))) = u_email
-                        AND LOWER(TRIM(COALESCE(elem->>'status', 'accepted'))) <> 'rejected'
-                        AND COALESCE(NULLIF(TRIM(elem->>'role'), ''), 'editar') = ANY(req_roles)
+                        AND LOWER(TRIM(COALESCE(elem->>'status', 'pending'))) IN ('accepted', 'active')
+                        AND COALESCE(NULLIF(TRIM(elem->>'role'), ''), 'leer') = ANY(req_roles)
                   )
               )
           )
@@ -216,7 +235,7 @@ DROP POLICY IF EXISTS "proyectos_delete_colaboracion" ON public.proyectos;
 CREATE POLICY "proyectos_delete_colaboracion" ON public.proyectos
     FOR DELETE USING (public.is_proyecto_owner(id));
 
--- 7. Excluir proyectos en papelera de get_my_collaboration_workspaces()
+-- 7. Excluir proyectos en papelera de get_my_collaboration_workspaces() sin auto-aceptar invitaciones pendientes
 CREATE OR REPLACE FUNCTION public.get_my_collaboration_workspaces()
 RETURNS TABLE (
     proyecto_id UUID,
@@ -237,149 +256,6 @@ BEGIN
         RETURN;
     END IF;
 
-    -- 1. Promover invitaciones activas (no rechazadas ni de obras eliminadas o en papelera)
-    UPDATE public.proyecto_colaboradores pc
-    SET estado_invitacion = 'accepted',
-        updated_at = timezone('utc'::text, now())
-    FROM public.proyectos p
-    WHERE pc.proyecto_id = p.id
-      AND p.deleted_at IS NULL
-      AND LOWER(TRIM(pc.email_colaborador)) = u_email
-      AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'pending'))) = 'pending'
-      AND LOWER(TRIM(COALESCE(p.owner_email, ''))) <> u_email
-      AND (
-          to_regclass('public.proyectos_eliminados') IS NULL
-          OR NOT EXISTS (
-              SELECT 1 FROM public.proyectos_eliminados pe
-              WHERE pe.proyecto_id = p.id::text
-          )
-      );
-
-    -- 2. Reconciliar invitados registrados en proyectos.configuracion
-    INSERT INTO public.proyecto_colaboradores (
-        proyecto_id,
-        email_colaborador,
-        nombre_colaborador,
-        rol,
-        estado_invitacion,
-        updated_at
-    )
-    SELECT DISTINCT ON (p.id)
-        p.id,
-        u_email,
-        COALESCE(
-            (
-                SELECT NULLIF(TRIM(elem->>'name'), '')
-                FROM jsonb_array_elements(
-                    CASE WHEN jsonb_typeof(p.configuracion->'collaborators') = 'array'
-                         THEN p.configuracion->'collaborators'
-                         ELSE '[]'::jsonb
-                    END
-                ) elem
-                WHERE LOWER(TRIM(COALESCE(elem->>'email', ''))) = u_email
-                LIMIT 1
-            ),
-            SPLIT_PART(u_email, '@', 1)
-        ),
-        COALESCE(
-            (
-                SELECT NULLIF(TRIM(elem->>'role'), '')
-                FROM jsonb_array_elements(
-                    CASE WHEN jsonb_typeof(p.configuracion->'collaborators') = 'array'
-                         THEN p.configuracion->'collaborators'
-                         ELSE '[]'::jsonb
-                    END
-                ) elem
-                WHERE LOWER(TRIM(COALESCE(elem->>'email', ''))) = u_email
-                LIMIT 1
-            ),
-            'editar'
-        ),
-        'accepted',
-        timezone('utc'::text, now())
-    FROM public.proyectos p
-    WHERE p.deleted_at IS NULL
-      AND LOWER(TRIM(COALESCE(p.owner_email, ''))) <> u_email
-      AND (
-          (jsonb_typeof(p.configuracion->'memberTabs') = 'object' AND (p.configuracion->'memberTabs') ? u_email)
-          OR (
-              jsonb_typeof(p.configuracion->'collaborators') = 'array'
-              AND EXISTS (
-                  SELECT 1
-                  FROM jsonb_array_elements(p.configuracion->'collaborators') elem
-                  WHERE LOWER(TRIM(COALESCE(elem->>'email', ''))) = u_email
-                    AND LOWER(TRIM(COALESCE(elem->>'status', 'accepted'))) <> 'rejected'
-              )
-          )
-      )
-      AND (
-          to_regclass('public.proyectos_eliminados') IS NULL
-          OR NOT EXISTS (
-              SELECT 1 FROM public.proyectos_eliminados pe
-              WHERE pe.proyecto_id = p.id::text
-          )
-      )
-    ON CONFLICT ON CONSTRAINT uq_proyecto_colaborador DO UPDATE
-    SET estado_invitacion = CASE
-            WHEN LOWER(TRIM(COALESCE(public.proyecto_colaboradores.estado_invitacion, ''))) = 'rejected' THEN 'rejected'
-            ELSE 'accepted'
-        END,
-        updated_at = timezone('utc'::text, now());
-
-    -- 3. Reconciliar invitaciones activas desde metadatos de cuentas anfitrionas en auth.users
-    BEGIN
-        INSERT INTO public.proyecto_colaboradores (
-            proyecto_id,
-            email_colaborador,
-            nombre_colaborador,
-            rol,
-            estado_invitacion,
-            updated_at
-        )
-        SELECT DISTINCT ON (p.id)
-            p.id,
-            u_email,
-            SPLIT_PART(u_email, '@', 1),
-            COALESCE(NULLIF(TRIM(inv_elem->>'role'), ''), 'editar'),
-            'accepted',
-            timezone('utc'::text, now())
-        FROM auth.users au
-        CROSS JOIN LATERAL jsonb_array_elements(
-            (CASE WHEN jsonb_typeof(au.raw_user_meta_data->'cubikar_cloud_state_v2'->'sentPlanInvitations') = 'array'
-                  THEN au.raw_user_meta_data->'cubikar_cloud_state_v2'->'sentPlanInvitations'
-                  ELSE '[]'::jsonb END)
-            ||
-            (CASE WHEN jsonb_typeof(au.raw_user_meta_data->'cubikar_cloud_state_v2'->'sentProjectInvitations') = 'array'
-                  THEN au.raw_user_meta_data->'cubikar_cloud_state_v2'->'sentProjectInvitations'
-                  ELSE '[]'::jsonb END)
-        ) inv_elem
-        INNER JOIN public.proyectos p
-            ON LOWER(TRIM(COALESCE(p.owner_email, ''))) = LOWER(TRIM(COALESCE(au.email, inv_elem->>'ownerEmail', '')))
-           AND p.deleted_at IS NULL
-           AND (
-               COALESCE(TRIM(inv_elem->>'projectId'), '') = ''
-               OR inv_elem->>'projectId' = p.id::text
-           )
-        WHERE LOWER(TRIM(COALESCE(inv_elem->>'email', ''))) = u_email
-          AND LOWER(TRIM(COALESCE(inv_elem->>'status', 'accepted'))) <> 'rejected'
-          AND LOWER(TRIM(COALESCE(p.owner_email, ''))) <> u_email
-          AND (
-              to_regclass('public.proyectos_eliminados') IS NULL
-              OR NOT EXISTS (
-                  SELECT 1 FROM public.proyectos_eliminados pe
-                  WHERE pe.proyecto_id = p.id::text
-              )
-          )
-        ON CONFLICT ON CONSTRAINT uq_proyecto_colaborador DO UPDATE
-        SET estado_invitacion = CASE
-                WHEN LOWER(TRIM(COALESCE(public.proyecto_colaboradores.estado_invitacion, ''))) = 'rejected' THEN 'rejected'
-                ELSE 'accepted'
-            END,
-            updated_at = timezone('utc'::text, now());
-    EXCEPTION WHEN others THEN
-        NULL;
-    END;
-
     RETURN QUERY
     SELECT
         p.id AS proyecto_id,
@@ -397,8 +273,8 @@ BEGIN
             NULLIF(TRIM(p.cliente), ''),
             ''
         )::text AS company_name,
-        COALESCE(pc.rol, 'editar')::text AS rol,
-        COALESCE(pc.estado_invitacion, 'accepted')::text AS estado_invitacion,
+        COALESCE(pc.rol, 'leer')::text AS rol,
+        pc.estado_invitacion::text AS estado_invitacion,
         GREATEST(COALESCE(pc.updated_at, p.updated_at), COALESCE(p.updated_at, pc.updated_at)) AS updated_at
     FROM public.proyecto_colaboradores pc
     INNER JOIN public.proyectos p ON p.id = pc.proyecto_id
@@ -413,7 +289,7 @@ BEGIN
         ON LOWER(TRIM(COALESCE(pf.email, ''))) = LOWER(TRIM(COALESCE(p.owner_email, owner_pc.email_colaborador, '')))
     WHERE p.deleted_at IS NULL
       AND LOWER(TRIM(pc.email_colaborador)) = u_email
-      AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'accepted'))) <> 'rejected'
+      AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'pending'))) = 'accepted'
       AND LOWER(TRIM(COALESCE(p.owner_email, owner_pc.email_colaborador, ''))) <> u_email
       AND (
           to_regclass('public.proyectos_eliminados') IS NULL
@@ -424,7 +300,7 @@ BEGIN
       )
     ORDER BY GREATEST(COALESCE(pc.updated_at, p.updated_at), COALESCE(p.updated_at, pc.updated_at)) DESC NULLS LAST;
 END;
-$$ LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public;
 
 REVOKE ALL ON FUNCTION public.get_my_collaboration_workspaces() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_my_collaboration_workspaces() TO authenticated;

@@ -1,14 +1,14 @@
 // js/modules/almacen/almacenModel.js
 // Modelo de datos y lógica física para el módulo opcional de ALMACÉN DE OBRA (Aislado de costos/precios para el Bodeguero)
 
-import { state } from '../../state/store.js?v=20261119_cf42';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf42';
-import { round2, round5 } from '../../core/formatters.js?v=20261119_cf42';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf42';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261119_cf42';
-import { normalizeInsumoText, normalizeConsolidatedTipo, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf42';
-import { getExpensesRecords, getSupplierById } from '../compras/expensesModel.js?v=20261119_cf42';
-import { scheduleAlmacenCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261119_cf42';
+import { state } from '../../state/store.js?v=20261119_cf43';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf43';
+import { round2, round5 } from '../../core/formatters.js?v=20261119_cf43';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf43';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261119_cf43';
+import { normalizeInsumoText, normalizeConsolidatedTipo, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf43';
+import { getExpensesRecords, getSupplierById } from '../compras/expensesModel.js?v=20261119_cf43';
+import { scheduleAlmacenCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261119_cf43';
 
 const STORAGE_KEY_PREFIX = 'adm_const_almacen_';
 

@@ -1,17 +1,17 @@
-﻿import { printCalendarioObraFormat } from '../io/printService.js?v=20261119_cf42';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf42';
-import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf42';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf42';
+﻿import { printCalendarioObraFormat } from '../io/printService.js?v=20261119_cf43';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf43';
+import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf43';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf43';
 // js/modules/calendario/calendarioView.js
 // Renderizador y controlador de la pestaña CALENDARIO DE OBRA
 // Diseño ejecutivo de alta fidelidad, interactivo y sincronizado 100% con Catálogo Base
 
-import { state } from '../../state/store.js?v=20261119_cf42';
-import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261119_cf42';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf42';
-import { isNightMode } from '../../ui/themeController.js?v=20261119_cf42';
-import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261119_cf42';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261119_cf42';
+import { state } from '../../state/store.js?v=20261119_cf43';
+import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261119_cf43';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf43';
+import { isNightMode } from '../../ui/themeController.js?v=20261119_cf43';
+import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261119_cf43';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261119_cf43';
 
 function escapeCalHtml(val) {
   if (val === null || val === undefined) return '';
@@ -62,14 +62,14 @@ import {
   hasScheduleRedoSnapshot,
   undoLastScheduleChange,
   redoLastScheduleChange
-} from './calendarioModel.js?v=20261119_cf42';
+} from './calendarioModel.js?v=20261119_cf43';
 import {
   WORK_TYPE_PROFILES,
   detectProjectWorkType,
   generateLocalConstructiveProposal,
   generateGeminiConstructiveProposal
-} from './calendarioAiService.js?v=20261119_cf42';
-import { exportScheduleToExcel } from './calendarioExporter.js?v=20261119_cf42';
+} from './calendarioAiService.js?v=20261119_cf43';
+import { exportScheduleToExcel } from './calendarioExporter.js?v=20261119_cf43';
 
 let currentScheduleData = null;
 let calendarioLinkClickMode = false;

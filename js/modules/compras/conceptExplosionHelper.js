@@ -1,16 +1,16 @@
 // js/modules/compras/conceptExplosionHelper.js
 // Motor de Explosión Semanal por Concepto(s), Proyección desde Calendario, Histórico de Precios y Seguimiento por Concepto
 
-import { state } from '../../state/store.js?v=20261119_cf42';
-import { round2, round5 } from '../../core/formatters.js?v=20261119_cf42';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf42';
-import { explodeInsumoQty } from '../../core/matrixMath.js?v=20261119_cf42';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261119_cf42';
-import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf42';
-import { getExpensesRecords, getSupplierById, getUnitFactorForInsumo } from './expensesModel.js?v=20261119_cf42';
-import { resolveInsumoTipo, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261119_cf42';
-import { getWarehouseMovements, getWarehouseNetConsumptionMap } from '../almacen/almacenModel.js?v=20261119_cf42';
-import { loadEstimacionesData } from '../estimaciones/estimacionesModel.js?v=20261119_cf42';
+import { state } from '../../state/store.js?v=20261119_cf43';
+import { round2, round5 } from '../../core/formatters.js?v=20261119_cf43';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf43';
+import { explodeInsumoQty } from '../../core/matrixMath.js?v=20261119_cf43';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261119_cf43';
+import { normalizeConsolidatedTipo, normalizeInsumoText, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf43';
+import { getExpensesRecords, getSupplierById, getUnitFactorForInsumo } from './expensesModel.js?v=20261119_cf43';
+import { resolveInsumoTipo, getInsumosBudgetVsActualComparison } from './expensesCalculations.js?v=20261119_cf43';
+import { getWarehouseMovements, getWarehouseNetConsumptionMap } from '../almacen/almacenModel.js?v=20261119_cf43';
+import { loadEstimacionesData } from '../estimaciones/estimacionesModel.js?v=20261119_cf43';
 import {
   extractScheduleItems,
   ensureInitialDates,
@@ -19,7 +19,7 @@ import {
   formatDate,
   addDays,
   diffDays
-} from '../calendario/calendarioModel.js?v=20261119_cf42';
+} from '../calendario/calendarioModel.js?v=20261119_cf43';
 
 function buildRecordMatcherKey(r) {
   if (r.insumoId && r.insumoId !== 'EXTRA' && !String(r.insumoId).startsWith('extra_')) {

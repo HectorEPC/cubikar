@@ -7,9 +7,9 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261119_cf42';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf42';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf42';
+} from '../../config/constants.js?v=20261119_cf43';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf43';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf43';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -25,7 +25,7 @@ import {
   isProjectMarkedDeleted,
   markProjectTrashedLocal,
   unmarkProjectTrashedLocal
-} from './projectService.js?v=20261119_cf42';
+} from './projectService.js?v=20261119_cf43';
 import {
   isValidUUID,
   resolveCloudProjectId,
@@ -34,8 +34,8 @@ import {
   fetchCloudProjects,
   getCachedTrashedCloudProjects,
   removeFromCloudTrashCache
-} from '../../core/cloudProjectService.js?v=20261119_cf42';
-import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261119_cf42';
+} from '../../core/cloudProjectService.js?v=20261119_cf43';
+import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261119_cf43';
 
 export const TRASH_RETENTION_DAYS = 7;
 export const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;

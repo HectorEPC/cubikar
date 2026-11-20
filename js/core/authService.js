@@ -1,10 +1,10 @@
 // js/core/authService.js
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
-import { STORAGE_KEY_USER } from '../config/constants.js?v=20261119_cf42';
-import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261119_cf42';
-import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261119_cf42';
-import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261119_cf42';
+import { STORAGE_KEY_USER } from '../config/constants.js?v=20261119_cf43';
+import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261119_cf43';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261119_cf43';
+import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261119_cf43';
 import {
   writeSharedSsoCookie,
   clearSharedSsoCookie,
@@ -14,7 +14,7 @@ import {
   scrubSsoHashParams,
   hasPendingIncomingSso,
   getLastSignOutTimestamp
-} from './ssoHelper.js?v=20261119_cf42';
+} from './ssoHelper.js?v=20261119_cf43';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -589,15 +589,38 @@ export async function ensureGoogleGsiScript(timeoutMs = 8000) {
   return googleGsiLoadPromise;
 }
 
+function resolveInviteAuthRedirectUrl(explicitRedirect = null) {
+  if (explicitRedirect) return explicitRedirect;
+  if (typeof window === 'undefined') return '';
+  try {
+    const url = new URL(window.location.href);
+    let token = String(url.searchParams.get('invite') || '').trim();
+    if (!token && typeof localStorage !== 'undefined') {
+      token = String(localStorage.getItem('cubikar_pending_invite_token_v1') || '').trim();
+    }
+    const base = window.location.protocol.startsWith('http')
+      ? `${window.location.origin}/`
+      : url.href.split('#')[0].split('?')[0];
+    const target = new URL(base);
+    if (token && token !== '1') {
+      target.searchParams.set('invite', token);
+    }
+    return target.toString();
+  } catch (_) {
+    return window.location.href.split('#')[0].split('?')[0];
+  }
+}
+
 /**
  * Registro con Correo Electrónico y Contraseña
  */
-export async function signUp({ email, password, fullName }) {
+export async function signUp({ email, password, fullName, emailRedirectTo = null }) {
   const sb = getSupabaseClient();
   if (!isSupabaseConfigured() || !sb) {
     throw new Error('Supabase no está disponible en este momento.');
   }
 
+  const resolvedRedirect = resolveInviteAuthRedirectUrl(emailRedirectTo);
   explicitAuthDepth += 1;
   explicitAuthRemember = true;
   if (email) markSessionOpen(email);
@@ -608,7 +631,8 @@ export async function signUp({ email, password, fullName }) {
       options: {
         data: {
           full_name: fullName
-        }
+        },
+        ...(resolvedRedirect ? { emailRedirectTo: resolvedRedirect } : {})
       }
     });
 
@@ -740,7 +764,7 @@ export async function signInWithGoogle() {
     throw new Error('Supabase no está disponible en este momento.');
   }
 
-  let cleanRedirect = window.location.href.split('#')[0].split('?')[0];
+  let cleanRedirect = resolveInviteAuthRedirectUrl();
   if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
     cleanRedirect = 'http://localhost:3000/index.html';
   }
@@ -1146,7 +1170,7 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
       initialSyncedUserIds.add(user.id);
       setTimeout(() => {
         autoSyncCollaborationOnStartup(user, { force: Boolean(force && explicitAuthDepth > 0) });
-        import('../modules/ai/aiQuotaAndCacheService.js?v=20261119_cf42')
+        import('../modules/ai/aiQuotaAndCacheService.js?v=20261119_cf43')
           .then(m => m.syncAiQuotaFromSupabase())
           .catch(() => {});
       }, 50);

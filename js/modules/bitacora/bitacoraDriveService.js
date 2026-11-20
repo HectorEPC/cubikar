@@ -2,25 +2,25 @@
 // Servicio de Almacenamiento Unificado (AWS S3 + IndexedDB + Cuotas) para Bitácora de Obra.
 // Reemplaza por completo la antigua integración con Google Drive manteniendo propiedad única del Anfitrión.
 
-import { state } from '../../state/store.js?v=20261119_cf42';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf42';
-import { getCurrentUser, getProjectById } from '../portal/projectService.js?v=20261119_cf42';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf42';
+import { state } from '../../state/store.js?v=20261119_cf43';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf43';
+import { getCurrentUser, getProjectById } from '../portal/projectService.js?v=20261119_cf43';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf43';
 import {
   downloadManagedFileToDevice,
   resolveManagedFileDataUrl,
   resolveManagedFileUrl,
   syncPendingMediaUploads,
   uploadManagedFile
-} from '../../services/s3StorageService.js?v=20261119_cf42';
+} from '../../services/s3StorageService.js?v=20261119_cf43';
 import {
   getHostStorageSummary,
   resolveHostStorageContext
-} from '../../services/storageQuotaService.js?v=20261119_cf42';
+} from '../../services/storageQuotaService.js?v=20261119_cf43';
 import {
   attachCloudArtifactsToSealedNote,
   getBitacoraNotes
-} from './bitacoraModel.js?v=20261119_cf42';
+} from './bitacoraModel.js?v=20261119_cf43';
 
 /**
  * Determina el propietario/anfitrión real del proyecto y si el usuario actual es ese anfitrión.

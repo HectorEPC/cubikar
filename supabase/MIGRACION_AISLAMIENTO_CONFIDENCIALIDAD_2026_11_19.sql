@@ -38,14 +38,14 @@ BEGIN
                   SELECT 1 FROM public.proyecto_colaboradores pc
                   WHERE pc.proyecto_id = p.id
                     AND LOWER(TRIM(pc.email_colaborador)) = v_email
-                    AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'accepted'))) <> 'rejected'
+                    AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'pending'))) = 'accepted'
               )
               OR (
                   jsonb_typeof(p.configuracion->'collaborators') = 'array'
                   AND EXISTS (
                       SELECT 1 FROM jsonb_array_elements(p.configuracion->'collaborators') e
                       WHERE LOWER(TRIM(COALESCE(e->>'email', ''))) = v_email
-                        AND LOWER(TRIM(COALESCE(e->>'status', 'accepted'))) <> 'rejected'
+                        AND LOWER(TRIM(COALESCE(e->>'status', 'pending'))) IN ('accepted', 'active')
                   )
               )
           )
@@ -211,7 +211,7 @@ BEGIN
         WHERE pc.proyecto_id::text = v_clean_pid
           AND LOWER(TRIM(pc.email_colaborador)) = u_email
           AND pc.rol = ANY(req_roles)
-          AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'accepted'))) <> 'rejected'
+          AND LOWER(TRIM(COALESCE(pc.estado_invitacion, 'pending'))) = 'accepted'
     ) THEN
         RETURN TRUE;
     END IF;
@@ -221,16 +221,35 @@ BEGIN
         WHERE p.id::text = v_clean_pid
           AND p.deleted_at IS NULL
           AND (
-              -- memberTabs ya no concede escritura (solo lectura)
-              (jsonb_typeof(p.configuracion->'memberTabs') = 'object' AND (p.configuracion->'memberTabs') ? u_email AND 'leer' = ANY(req_roles))
+              -- memberTabs ya no concede escritura (solo lectura) y exige que no exista invitación pendiente/rechazada
+              (
+                  jsonb_typeof(p.configuracion->'memberTabs') = 'object'
+                  AND (p.configuracion->'memberTabs') ? u_email
+                  AND 'leer' = ANY(req_roles)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM public.proyecto_colaboradores pc_blk
+                      WHERE pc_blk.proyecto_id = p.id
+                        AND LOWER(TRIM(pc_blk.email_colaborador)) = u_email
+                        AND LOWER(TRIM(COALESCE(pc_blk.estado_invitacion, 'pending'))) <> 'accepted'
+                  )
+                  AND NOT (
+                      jsonb_typeof(p.configuracion->'collaborators') = 'array'
+                      AND EXISTS (
+                          SELECT 1
+                          FROM jsonb_array_elements(p.configuracion->'collaborators') ce
+                          WHERE LOWER(TRIM(COALESCE(ce->>'email', ''))) = u_email
+                            AND LOWER(TRIM(COALESCE(ce->>'status', 'pending'))) NOT IN ('accepted', 'active')
+                      )
+                  )
+              )
               OR (
                   jsonb_typeof(p.configuracion->'collaborators') = 'array'
                   AND EXISTS (
                       SELECT 1
                       FROM jsonb_array_elements(p.configuracion->'collaborators') elem
                       WHERE LOWER(TRIM(COALESCE(elem->>'email', ''))) = u_email
-                        AND LOWER(TRIM(COALESCE(elem->>'status', 'accepted'))) <> 'rejected'
-                        AND COALESCE(NULLIF(TRIM(elem->>'role'), ''), 'editar') = ANY(req_roles)
+                        AND LOWER(TRIM(COALESCE(elem->>'status', 'pending'))) IN ('accepted', 'active')
+                        AND COALESCE(NULLIF(TRIM(elem->>'role'), ''), 'leer') = ANY(req_roles)
                   )
               )
           )
