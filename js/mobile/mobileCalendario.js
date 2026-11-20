@@ -2,8 +2,8 @@
 // Calendario de Obra móvil/tablet para cubikar Construcción:
 // Sub-vistas Agenda | Gantt | Curva S, Dependencias FS reales, bloqueo seguro y Ruta Crítica CPM.
 
-import { state } from '../state/store.js?v=20261119_cf36';
-import { formatMoney, round2 } from '../core/formatters.js?v=20261119_cf36';
+import { state } from '../state/store.js?v=20261119_cf37';
+import { formatMoney, round2 } from '../core/formatters.js?v=20261119_cf37';
 import {
   extractScheduleItems,
   ensureInitialDates,
@@ -21,12 +21,12 @@ import {
   addDays,
   diffDays,
   formatDate
-} from '../modules/calendario/calendarioModel.js?v=20261119_cf36';
-import { getEstimacionesCalculatedData } from '../modules/estimaciones/estimacionesModel.js?v=20261119_cf36';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf36';
-import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf36';
-import { showToast } from '../ui/notifications.js?v=20261119_cf36';
-import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf36';
+} from '../modules/calendario/calendarioModel.js?v=20261119_cf37';
+import { getEstimacionesCalculatedData } from '../modules/estimaciones/estimacionesModel.js?v=20261119_cf37';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf37';
+import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf37';
+import { showToast } from '../ui/notifications.js?v=20261119_cf37';
+import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf37';
 
 const MONTHS_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 

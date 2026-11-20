@@ -2,10 +2,10 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf36';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261119_cf36';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261119_cf36';
-import { showToast } from '../ui/notifications.js?v=20261119_cf36';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf37';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261119_cf37';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261119_cf37';
+import { showToast } from '../ui/notifications.js?v=20261119_cf37';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;

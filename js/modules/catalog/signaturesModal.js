@@ -2,8 +2,8 @@
 // Modal para configurar los responsables y firmantes del Catálogo y Presupuesto de Obra (TAB1-CAT-BASE)
 // Los nombres y cargos configurados se imprimen en la parte inferior del formato oficial.
 
-import { state, persistSettings } from '../../state/store.js?v=20261119_cf36';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf36';
+import { state, persistSettings } from '../../state/store.js?v=20261119_cf37';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf37';
 
 // Sanitizar texto con posibles caracteres corruptos (mojibake)
 export function sanitizeSignatureText(str) {

@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf36';
-import { state } from '../state/store.js?v=20261119_cf36';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf37';
+import { state } from '../state/store.js?v=20261119_cf37';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -22,10 +22,10 @@ import {
   unmarkProjectTrashedLocal,
   isProjectTrashedLocal,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261119_cf36';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261119_cf36';
-import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261119_cf36';
-import { showToast } from '../ui/notifications.js?v=20261119_cf36';
+} from '../modules/portal/projectService.js?v=20261119_cf37';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261119_cf37';
+import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261119_cf37';
+import { showToast } from '../ui/notifications.js?v=20261119_cf37';
 
 const CLOUD_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isCloudUuid = (s) => CLOUD_UUID_RE.test(String(s || '').trim());
@@ -1201,7 +1201,7 @@ export function unsubscribeFromProjectRealtime() {
 // =========================================================================
 // Canales privados de Realtime: se activan después de aplicar en Supabase
 // MIGRACION_AISLAMIENTO_CONFIDENCIALIDAD_2026_11_19.sql (políticas RLS en realtime.messages).
-const CUBIKAR_PRIVATE_REALTIME = false;
+const CUBIKAR_PRIVATE_REALTIME = true;
 
 let globalSyncChannel = null;
 

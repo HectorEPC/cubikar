@@ -1,21 +1,21 @@
 // js/modules/compras/conceptExplosionUI.js
 // Controlador visual de Compras por Explosión de Concepto(s), Proyección de Calendario y Seguimiento por Concepto
 
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261119_cf36';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf36';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261119_cf37';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf37';
 import {
   getExpensesSuppliers,
   getSupplierById,
   saveExpenseRecordsBatch,
   generateNextOrderGroupId,
   getExpensesRecords
-} from './expensesModel.js?v=20261119_cf36';
+} from './expensesModel.js?v=20261119_cf37';
 import {
   getLeafConceptsCatalogSummary,
   explodeWeeklyConceptsBasket,
   getCalendarUpcomingConceptsSummary,
   getConceptCostTrackingReport
-} from './conceptExplosionHelper.js?v=20261119_cf36';
+} from './conceptExplosionHelper.js?v=20261119_cf37';
 
 let weeklyBasket = []; // [{ conceptId, qtyToExecute, moveType }]
 let explodedRows = []; // Filas editables generadas de weeklyBasket

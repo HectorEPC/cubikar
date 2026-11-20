@@ -3,8 +3,8 @@
 // conectada con Partidas de Nivel 1 (icono de alta visibilidad fa-comments),
 // Usuarios Asignados (@), Estimaciones (#), Reportes (!) y Notificaciones de Menciones en la barra lateral izquierda.
 
-import { state } from '../../state/store.js?v=20261119_cf36';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf36';
+import { state } from '../../state/store.js?v=20261119_cf37';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf37';
 import {
   getProjectById,
   getProjectByIdReadOnly,
@@ -22,17 +22,17 @@ import {
   getStoredPlanInvitations,
   saveStoredPlanInvitations,
   getDeletedProjectsList
-} from '../portal/projectService.js?v=20261119_cf36';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf36';
-import { buildFallbackAvatarSvg } from '../../core/authService.js?v=20261119_cf36';
-import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261119_cf36';
-import { getExpensesRecords } from '../compras/expensesModel.js?v=20261119_cf36';
-import { getWarehouseStockSummary } from '../almacen/almacenModel.js?v=20261119_cf36';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf36';
-import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261119_cf36';
-import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261119_cf36';
-import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261119_cf36';
-import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261119_cf36';
+} from '../portal/projectService.js?v=20261119_cf37';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf37';
+import { buildFallbackAvatarSvg } from '../../core/authService.js?v=20261119_cf37';
+import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261119_cf37';
+import { getExpensesRecords } from '../compras/expensesModel.js?v=20261119_cf37';
+import { getWarehouseStockSummary } from '../almacen/almacenModel.js?v=20261119_cf37';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf37';
+import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261119_cf37';
+import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261119_cf37';
+import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261119_cf37';
+import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261119_cf37';
 
 export const ALL_PROJECT_PERMISSION_TABS = ['cat', 'insumos', 'calendario', 'compras', 'almacen', 'estimaciones', 'bitacora'];
 

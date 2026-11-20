@@ -13,12 +13,12 @@ import {
   getNoteTypeMeta,
   getWeatherMeta
 } from '../modules/bitacora/bitacoraModel.js?v=20261118_b6';
-import { uploadBitacoraEvidenceFile } from '../modules/bitacora/bitacoraDriveService.js?v=20261119_cf36';
-import { resolveManagedFileUrl, deleteManagedFile } from '../services/s3StorageService.js?v=20261119_cf36';
-import { canCurrentUserEditProject, getCurrentUser } from '../modules/portal/projectService.js?v=20261119_cf36';
-import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf36';
-import { showToast } from '../ui/notifications.js?v=20261119_cf36';
-import { escapeHtml } from './mobileBridge.js?v=20261119_cf36';
+import { uploadBitacoraEvidenceFile } from '../modules/bitacora/bitacoraDriveService.js?v=20261119_cf37';
+import { resolveManagedFileUrl, deleteManagedFile } from '../services/s3StorageService.js?v=20261119_cf37';
+import { canCurrentUserEditProject, getCurrentUser } from '../modules/portal/projectService.js?v=20261119_cf37';
+import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf37';
+import { showToast } from '../ui/notifications.js?v=20261119_cf37';
+import { escapeHtml } from './mobileBridge.js?v=20261119_cf37';
 
 const MAX_BITACORA_EVIDENCIAS = 6;
 let filterState = 'all'; // 'all' | 'draft' | 'sealed'
