@@ -1,11 +1,11 @@
-import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261119_cf41';
-import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261119_cf41';
-import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted, canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf41';
-import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261119_cf41';
-import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261119_cf41';
-import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261119_cf41';
-import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261119_cf41';
-import { recalcTreeFromMatrices, computeFactorSobrecosto } from '../core/matrixMath.js?v=20261119_cf41';
+import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261119_cf42';
+import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261119_cf42';
+import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted, canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf42';
+import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261119_cf42';
+import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261119_cf42';
+import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261119_cf42';
+import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261119_cf42';
+import { recalcTreeFromMatrices, computeFactorSobrecosto } from '../core/matrixMath.js?v=20261119_cf42';
 
 // Estado global reactivo y centralizado de la aplicación
 export const state = {

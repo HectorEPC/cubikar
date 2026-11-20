@@ -1,11 +1,11 @@
 // js/mobile/mobileBridge.js
 // Puente aislado entre los modelos/servicios reales de PC y el entorno móvil/tablet.
 
-import { getActiveProjectId } from '../config/constants.js?v=20261119_cf41';
-import { getCurrentUser, getProjectByIdReadOnly, canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf41';
-import { isNightMode } from '../ui/themeController.js?v=20261119_cf41';
-import { isTabLocked } from '../ui/tabLockController.js?v=20261119_cf41';
-import { autoSyncCollaborationOnStartup, syncHostWorkspaceProjects, triggerDebouncedCloudStateSync } from '../core/collaborationCloudService.js?v=20261119_cf41';
+import { getActiveProjectId } from '../config/constants.js?v=20261119_cf42';
+import { getCurrentUser, getProjectByIdReadOnly, canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf42';
+import { isNightMode } from '../ui/themeController.js?v=20261119_cf42';
+import { isTabLocked } from '../ui/tabLockController.js?v=20261119_cf42';
+import { autoSyncCollaborationOnStartup, syncHostWorkspaceProjects, triggerDebouncedCloudStateSync } from '../core/collaborationCloudService.js?v=20261119_cf42';
 
 export function escapeHtml(str) {
   if (str === null || str === undefined) return '';

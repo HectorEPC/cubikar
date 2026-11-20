@@ -10,9 +10,9 @@ import {
   getStorageKey,
   getSettingsKey,
   getActiveProjectId
-} from '../../config/constants.js?v=20261119_cf41';
-import { defaultSettings } from '../../config/defaultData.js?v=20261119_cf41';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf41';
+} from '../../config/constants.js?v=20261119_cf42';
+import { defaultSettings } from '../../config/defaultData.js?v=20261119_cf42';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf42';
 import {
   generateUUID,
   isValidUUID,
@@ -20,7 +20,7 @@ import {
   loadProjectTreeFromCloud,
   syncProjectToCloud,
   invalidateCloudProjectsCache
-} from '../../core/cloudProjectService.js?v=20261119_cf41';
+} from '../../core/cloudProjectService.js?v=20261119_cf42';
 import {
   hydrateProjectModulesFromCloud,
   syncBitacoraNow,
@@ -29,7 +29,7 @@ import {
   syncEstimacionesNow,
   syncCronogramaNow,
   syncChatNow
-} from '../../core/cloudModulesSyncService.js?v=20261119_cf41';
+} from '../../core/cloudModulesSyncService.js?v=20261119_cf42';
 import {
   AVATARS_BY_SEX,
   getCurrentUser,
@@ -43,30 +43,30 @@ import {
   calculateTreeTotal,
   countTreeConcepts,
   countTreePartidas
-} from './projectService.js?v=20261119_cf41';
+} from './projectService.js?v=20261119_cf42';
 import {
   getAllCachedMediaRecords,
   getCachedMediaRecord,
   putCachedMediaBlob
-} from '../../services/mediaCacheDb.js?v=20261119_cf41';
+} from '../../services/mediaCacheDb.js?v=20261119_cf42';
 import {
   uploadManagedFile,
   resolveManagedFileUrl
-} from '../../services/s3StorageService.js?v=20261119_cf41';
+} from '../../services/s3StorageService.js?v=20261119_cf42';
 import {
   getPlanStorageSpec,
   getHostStorageSummary,
   refreshAllStorageMeters,
   notifyStorageUsageChanged
-} from '../../services/storageQuotaService.js?v=20261119_cf41';
+} from '../../services/storageQuotaService.js?v=20261119_cf42';
 import {
   blobToDataUrl,
   computeSha256Hex,
   dataUrlToBlob,
   formatBytes,
   getFileExtension
-} from '../../utils/fileCompressor.js?v=20261119_cf41';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf41';
+} from '../../utils/fileCompressor.js?v=20261119_cf42';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf42';
 
 const PACKAGE_SCHEMA = 'cubikar.project.package';
 const PACKAGE_FORMAT_VERSION = 1;

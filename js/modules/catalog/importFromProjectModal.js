@@ -1,16 +1,16 @@
 // js/modules/catalog/importFromProjectModal.js
 // Asistente visual para explorar, seleccionar y copiar conceptos con sus matrices APU desde otro proyecto
 
-import { state, persistLocalData } from '../../state/store.js?v=20261119_cf41';
-import { saveState } from '../../state/history.js?v=20261119_cf41';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf41';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../../config/constants.js?v=20261119_cf41';
-import { getProjectsList, getProjectById, getCurrentUser, getProjectsForUser, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf41';
-import { recalculateClaves, guardConceptLimit, countTreeConcepts } from './treeService.js?v=20261119_cf41';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf41';
-import { renderTAB1, selectRow } from './catalogView.js?v=20261119_cf41';
-import { getFactorSobrecosto, round2, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf41';
-import { formatMoney, getCurrencySymbol } from '../../core/formatters.js?v=20261119_cf41';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf42';
+import { saveState } from '../../state/history.js?v=20261119_cf42';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf42';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../../config/constants.js?v=20261119_cf42';
+import { getProjectsList, getProjectById, getCurrentUser, getProjectsForUser, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf42';
+import { recalculateClaves, guardConceptLimit, countTreeConcepts } from './treeService.js?v=20261119_cf42';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf42';
+import { renderTAB1, selectRow } from './catalogView.js?v=20261119_cf42';
+import { getFactorSobrecosto, round2, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf42';
+import { formatMoney, getCurrencySymbol } from '../../core/formatters.js?v=20261119_cf42';
 
 let activeSourceProjectId = null;
 let activeSourceTreeData = [];

@@ -1,14 +1,14 @@
-﻿import { printEstimacionesFormat } from '../io/printService.js?v=20261119_cf41';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf41';
+﻿import { printEstimacionesFormat } from '../io/printService.js?v=20261119_cf42';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf42';
 // js/modules/estimaciones/estimacionesView.js
 // Renderizador y controlador de eventos para la pestaña ESTIMACIONES DE OBRA
 // Sincronizado reactivamente con Catálogo Base, con soporte multiestimaciones,
 // amortización progresiva de anticipo al 100%, reflejo de cantidades acumuladas,
 // justificación de conceptos, encabezados en una sola línea y resizer vertical de columna de concepto.
 
-import { state } from '../../state/store.js?v=20261119_cf41';
-import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261119_cf41';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf41';
+import { state } from '../../state/store.js?v=20261119_cf42';
+import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261119_cf42';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf42';
 import {
   getEstimacionesCalculatedData,
   getActiveEstimacion,
@@ -28,13 +28,13 @@ import {
   loadEstimacionesData,
   saveEstimacionesData,
   createDefaultFacturaData
-} from './estimacionesModel.js?v=20261119_cf41';
-import { guardTabUnlocked, applyTabLocksToDOM, toggleTabLock } from '../../ui/tabLockController.js?v=20261119_cf41';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261119_cf41';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf41';
-import { uploadManagedFile, resolveManagedFileUrl, deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261119_cf41';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf41';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf41';
+} from './estimacionesModel.js?v=20261119_cf42';
+import { guardTabUnlocked, applyTabLocksToDOM, toggleTabLock } from '../../ui/tabLockController.js?v=20261119_cf42';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261119_cf42';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf42';
+import { uploadManagedFile, resolveManagedFileUrl, deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261119_cf42';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf42';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf42';
 
 function escapeEstHtml(val) {
   return String(val ?? '')

@@ -1,14 +1,14 @@
-import { state } from '../../state/store.js?v=20261119_cf41';
-import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js?v=20261119_cf41';
-import { getHierarchyColor } from '../../core/colors.js?v=20261119_cf41';
-import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge, recalcNodeFromMatrix, leafImporte } from '../../core/calculations.js?v=20261119_cf41';
-import { findNodeById } from './treeService.js?v=20261119_cf41';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf41';
-import { APU_WIDTH_KEY } from '../../config/constants.js?v=20261119_cf41';
-import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261119_cf41';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261119_cf41';
-import { getClampedApuWidth } from '../../ui/resizer.js?v=20261119_cf41';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf41';
+import { state } from '../../state/store.js?v=20261119_cf42';
+import { formatMoney, formatQty, getCurrencySymbol, round2 } from '../../core/formatters.js?v=20261119_cf42';
+import { getHierarchyColor } from '../../core/colors.js?v=20261119_cf42';
+import { calculateParentTotal, updateGrandTotal, updateSobrecostoBadge, recalcNodeFromMatrix, leafImporte } from '../../core/calculations.js?v=20261119_cf42';
+import { findNodeById } from './treeService.js?v=20261119_cf42';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf42';
+import { APU_WIDTH_KEY } from '../../config/constants.js?v=20261119_cf42';
+import { isTabLocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261119_cf42';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261119_cf42';
+import { getClampedApuWidth } from '../../ui/resizer.js?v=20261119_cf42';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf42';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';

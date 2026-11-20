@@ -2,11 +2,11 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf41';
-import { getCurrentUser, saveCurrentUser, getProjectsList, saveProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261119_cf41';
-import { getSettingsKey } from '../config/constants.js?v=20261119_cf41';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261119_cf41';
-import { showToast } from '../ui/notifications.js?v=20261119_cf41';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf42';
+import { getCurrentUser, saveCurrentUser, getProjectsList, saveProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261119_cf42';
+import { getSettingsKey } from '../config/constants.js?v=20261119_cf42';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261119_cf42';
+import { showToast } from '../ui/notifications.js?v=20261119_cf42';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -89,6 +89,15 @@ export function getTrashedCloudProjectIds() {
 
 export function getCachedTrashedCloudProjects() {
   return Array.isArray(cachedTrashedCloudProjects) ? [...cachedTrashedCloudProjects] : [];
+}
+
+export function removeFromCloudTrashCache(ids) {
+  const idSet = new Set((Array.isArray(ids) ? ids : [ids]).map(v => String(v || '').trim()).filter(Boolean));
+  if (idSet.size === 0) return;
+  idSet.forEach(id => trashedCloudProjectIds.delete(id));
+  cachedTrashedCloudProjects = cachedTrashedCloudProjects.filter(
+    p => p && !idSet.has(String(p.id || '').trim()) && !(p.cloudId && idSet.has(String(p.cloudId).trim()))
+  );
 }
 
 export function invalidateCloudProjectsCache() {
@@ -943,9 +952,10 @@ export async function fetchCloudProjects(opts = {}) {
     const nextTrashedList = [];
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
     const nowMs = Date.now();
+    const localDeletedSet = new Set((Array.isArray(deletedList) ? deletedList : []).map(v => String(v || '').trim()).filter(Boolean));
     for (const tp of trashedRows) {
       const tid = tp?.id ? String(tp.id).trim() : '';
-      if (!tid || cloudDeletedIds.has(tid)) continue;
+      if (!tid || cloudDeletedIds.has(tid) || localDeletedSet.has(tid)) continue;
       const tpOwner = (tp.owner_email || '').toLowerCase().trim();
       const isHostOwner = tpOwner ? (tpOwner === myEmail) : (tp.creado_por && tp.creado_por === user.id);
       if (!isHostOwner) continue;
@@ -2113,6 +2123,7 @@ export async function deleteProjectFromCloud(projectId, opts = {}) {
       }
     }
 
+    removeFromCloudTrashCache([rawId, targetUuid]);
     invalidateCloudProjectsCache();
     return { success: true, deletedId: targetUuid || rawId };
   } catch (err) {
@@ -2126,6 +2137,7 @@ if (typeof window !== 'undefined') {
   window.fetchCloudProjects = fetchCloudProjects;
   window.getTrashedCloudProjectIds = getTrashedCloudProjectIds;
   window.getCachedTrashedCloudProjects = getCachedTrashedCloudProjects;
+  window.removeFromCloudTrashCache = removeFromCloudTrashCache;
   window.loadProjectTreeFromCloud = loadProjectTreeFromCloud;
   window.addCollaboratorToCloud = addCollaboratorToCloud;
   window.updateCollaboratorRoleInCloud = updateCollaboratorRoleInCloud;

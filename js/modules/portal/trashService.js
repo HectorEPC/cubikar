@@ -7,9 +7,9 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261119_cf41';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf41';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf41';
+} from '../../config/constants.js?v=20261119_cf42';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf42';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf42';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -22,18 +22,20 @@ import {
   canUserCreateProject,
   markProjectDeleted,
   unmarkProjectDeleted,
+  isProjectMarkedDeleted,
   markProjectTrashedLocal,
   unmarkProjectTrashedLocal
-} from './projectService.js?v=20261119_cf41';
+} from './projectService.js?v=20261119_cf42';
 import {
   isValidUUID,
   resolveCloudProjectId,
   deleteProjectFromCloud,
   invalidateCloudProjectsCache,
   fetchCloudProjects,
-  getCachedTrashedCloudProjects
-} from '../../core/cloudProjectService.js?v=20261119_cf41';
-import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261119_cf41';
+  getCachedTrashedCloudProjects,
+  removeFromCloudTrashCache
+} from '../../core/cloudProjectService.js?v=20261119_cf42';
+import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261119_cf42';
 
 export const TRASH_RETENTION_DAYS = 7;
 export const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
@@ -42,6 +44,7 @@ const APP_LABEL = 'Construccion';
 
 let cachedTrashCount = 0;
 let cachedTrashItems = [];
+let hasLoadedTrashFromSource = false;
 let isTrashLoading = false;
 let trashEscListenerBound = false;
 
@@ -415,24 +418,36 @@ function mapTrashRow(row, user) {
 export async function fetchTrashedProjectsForHost(opts = {}) {
   const user = getCurrentUser();
   const myEmail = String(user?.email || '').toLowerCase().trim();
-  const localEntries = purgeExpiredLocalTrashEntries().filter(e => isProjectHostOwner(e, user));
+  const isDeletedFlag = (item) => Boolean(
+    item && (isProjectMarkedDeleted(item.id) || (item.cloudId && isProjectMarkedDeleted(item.cloudId)))
+  );
+  const localEntries = purgeExpiredLocalTrashEntries().filter(e => isProjectHostOwner(e, user) && !isDeletedFlag(e));
 
   let cloudItems = [];
+  let loadedCloudFromNetwork = false;
   const sb = getSupabaseClient();
   if (isSupabaseConfigured() && sb && user?.id && myEmail) {
     try {
       const { data: rpcRows, error: rpcErr } = await sb.rpc('listar_papelera_anfitrion');
       if (!rpcErr && Array.isArray(rpcRows)) {
-        cloudItems = rpcRows.map(r => mapTrashRow(r, user)).filter(item => isProjectHostOwner(item, user));
-      } else if (rpcErr && isMissingRpcOrColumnError(rpcErr)) {
-        const cached = getCachedTrashedCloudProjects();
-        cloudItems = cached.map(r => mapTrashRow(r, user)).filter(item => isProjectHostOwner(item, user));
+        cloudItems = rpcRows.map(r => mapTrashRow(r, user)).filter(item => isProjectHostOwner(item, user) && !isDeletedFlag(item));
+        loadedCloudFromNetwork = true;
       } else {
-        const cached = getCachedTrashedCloudProjects();
-        cloudItems = cached.map(r => mapTrashRow(r, user)).filter(item => isProjectHostOwner(item, user));
+        const { data: directRows, error: directErr } = await sb
+          .from('proyectos')
+          .select('id, nombre, cliente, ubicacion, tipo_obra, moneda, simbolo_moneda, owner_email, deleted_by_email, deleted_at, configuracion, created_at, updated_at')
+          .not('deleted_at', 'is', null)
+          .order('deleted_at', { ascending: false });
+        if (!directErr && Array.isArray(directRows)) {
+          cloudItems = directRows.map(r => mapTrashRow(r, user)).filter(item => isProjectHostOwner(item, user) && !isDeletedFlag(item));
+          loadedCloudFromNetwork = true;
+        }
       }
-    } catch (_) {
-      cloudItems = getCachedTrashedCloudProjects().map(r => mapTrashRow(r, user)).filter(item => isProjectHostOwner(item, user));
+    } catch (_) {}
+    if (!loadedCloudFromNetwork) {
+      cloudItems = getCachedTrashedCloudProjects()
+        .map(r => mapTrashRow(r, user))
+        .filter(item => isProjectHostOwner(item, user) && !isDeletedFlag(item));
     }
   }
 
@@ -447,6 +462,7 @@ export async function fetchTrashedProjectsForHost(opts = {}) {
   const now = Date.now();
   const activeTrash = merged
     .filter(item => {
+      if (isDeletedFlag(item)) return false;
       const expMs = new Date(item.expiresAt).getTime();
       return !Number.isNaN(expMs) && expMs > now;
     })
@@ -454,21 +470,29 @@ export async function fetchTrashedProjectsForHost(opts = {}) {
 
   cachedTrashItems = activeTrash;
   cachedTrashCount = activeTrash.length;
+  hasLoadedTrashFromSource = true;
   updateTrashBadgeUI();
   return activeTrash;
 }
 
 export function getCachedTrashCount() {
+  if (hasLoadedTrashFromSource) return cachedTrashCount;
   const user = getCurrentUser();
-  const cloudCount = getCachedTrashedCloudProjects().filter(p => isProjectHostOwner(p, user)).length;
-  const localCount = purgeExpiredLocalTrashEntries().filter(p => isProjectHostOwner(p, user)).length;
-  return Math.max(cachedTrashCount, cloudCount, localCount);
+  const isDeletedFlag = (p) => Boolean(p && (isProjectMarkedDeleted(p.id) || (p.cloudId && isProjectMarkedDeleted(p.cloudId))));
+  const seen = new Set();
+  getCachedTrashedCloudProjects()
+    .filter(p => isProjectHostOwner(p, user) && !isDeletedFlag(p))
+    .forEach(p => seen.add(String(p.cloudId || p.id)));
+  purgeExpiredLocalTrashEntries()
+    .filter(p => isProjectHostOwner(p, user) && !isDeletedFlag(p))
+    .forEach(p => seen.add(String(p.cloudId || p.id)));
+  return Math.max(cachedTrashCount, seen.size);
 }
 
 export function updateTrashBadgeUI() {
   const badge = document.getElementById('portal-trash-badge');
   if (!badge) return;
-  const count = cachedTrashItems.length > 0 ? cachedTrashCount : getCachedTrashCount();
+  const count = hasLoadedTrashFromSource ? cachedTrashCount : getCachedTrashCount();
   if (count > 0) {
     badge.textContent = count > 99 ? '99+' : String(count);
     badge.classList.remove('hidden');
@@ -603,6 +627,17 @@ export async function restoreProjectFromTrash(projectId) {
     }
   } catch (_) {}
 
+  const restoredIds = [target?.id, target?.cloudId, restoredObj?.id, restoredObj?.cloudId].filter(Boolean);
+  removeFromCloudTrashCache(restoredIds);
+  if (Array.isArray(cachedTrashItems) && restoredIds.length > 0) {
+    const idSet = new Set(restoredIds.map(v => String(v).trim()));
+    cachedTrashItems = cachedTrashItems.filter(
+      item => !idSet.has(String(item?.id || '').trim()) && !idSet.has(String(item?.cloudId || '').trim())
+    );
+    cachedTrashCount = cachedTrashItems.length;
+    hasLoadedTrashFromSource = true;
+    updateTrashBadgeUI();
+  }
   await fetchTrashedProjectsForHost({ force: true, silent: true }).catch(() => {});
   return { success: true, project: restoredObj || target };
 }
@@ -610,7 +645,7 @@ export async function restoreProjectFromTrash(projectId) {
 /**
  * Elimina definitivamente un proyecto desde la Papelera. Exclusivo del Anfitrión.
  */
-export async function permanentlyDeleteTrashedProject(projectId) {
+export async function permanentlyDeleteTrashedProject(projectId, opts = {}) {
   if (!projectId) return { success: false, reason: 'ID de proyecto inválido.' };
 
   const user = getCurrentUser();
@@ -642,13 +677,20 @@ export async function permanentlyDeleteTrashedProject(projectId) {
       if (s3Keys.length > 0) {
         await Promise.allSettled(s3Keys.map(k => deleteManagedFile({ s3Key: k })));
       }
-    } else if (isMissingRpcOrColumnError(rpcErr)) {
-      await deleteProjectFromCloud(targetUuid, {
+    } else if (
+      isMissingRpcOrColumnError(rpcErr) ||
+      String(rpcErr?.code || '') === '23503' ||
+      /foreign key|violates/i.test(String(rpcErr?.message || ''))
+    ) {
+      const delRes = await deleteProjectFromCloud(targetUuid, {
         project: target,
         cloudId: targetUuid,
         ownerEmail: target.ownerEmail || myEmail,
         deletedByEmail: myEmail
       });
+      if (delRes && delRes.success === false) {
+        return { success: false, reason: delRes.error || 'No se pudo eliminar definitivamente el proyecto de la nube.' };
+      }
     } else {
       return { success: false, reason: rpcErr.message || 'No tienes permiso para eliminar este proyecto.' };
     }
@@ -677,8 +719,21 @@ export async function permanentlyDeleteTrashedProject(projectId) {
     }
   } catch (_) {}
 
+  const purgeSet = new Set(idsToPurge.map(v => String(v).trim()));
+  removeFromCloudTrashCache(idsToPurge);
+  if (Array.isArray(cachedTrashItems)) {
+    cachedTrashItems = cachedTrashItems.filter(
+      item => !purgeSet.has(String(item?.id || '').trim()) && !purgeSet.has(String(item?.cloudId || '').trim())
+    );
+    cachedTrashCount = cachedTrashItems.length;
+    hasLoadedTrashFromSource = true;
+  }
+
   invalidateCloudProjectsCache();
-  await fetchTrashedProjectsForHost({ force: true, silent: true }).catch(() => {});
+  updateTrashBadgeUI();
+  if (!opts?.skipRefresh) {
+    await fetchTrashedProjectsForHost({ force: true, silent: true }).catch(() => {});
+  }
   return { success: true };
 }
 
@@ -1139,12 +1194,15 @@ export async function emptyTrashAction(btnEl = null) {
     let failedCount = 0;
     let lastReason = '';
     for (const item of [...items]) {
-      const res = await permanentlyDeleteTrashedProject(item.id);
+      const res = await permanentlyDeleteTrashedProject(item.id, { skipRefresh: true });
       if (!res?.success) {
         failedCount++;
         lastReason = res?.reason || lastReason;
       }
     }
+    invalidateCloudProjectsCache();
+    await fetchTrashedProjectsForHost({ force: true, silent: true }).catch(() => {});
+    updateTrashBadgeUI();
     if (failedCount > 0) {
       showToast(lastReason || `No se pudieron eliminar ${failedCount} proyecto(s) de la papelera.`, 'warning');
     } else {

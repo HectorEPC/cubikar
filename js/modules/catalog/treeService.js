@@ -1,15 +1,15 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261119_cf41';
-import { saveState } from '../../state/history.js?v=20261119_cf41';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf41';
-import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261119_cf41';
-import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf41';
-import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261119_cf41';
-import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261119_cf41';
-import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf41';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf42';
+import { saveState } from '../../state/history.js?v=20261119_cf42';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf42';
+import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261119_cf42';
+import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf42';
+import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261119_cf42';
+import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261119_cf42';
+import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf42';
 export { countTreeConcepts };
-import { getFactorSobrecosto, round2, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf41';
-import { guardTabUnlocked, isTabLocked } from '../../ui/tabLockController.js?v=20261119_cf41';
-import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261119_cf41';
+import { getFactorSobrecosto, round2, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf42';
+import { guardTabUnlocked, isTabLocked } from '../../ui/tabLockController.js?v=20261119_cf42';
+import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261119_cf42';
 
 function createNodeUuid() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
