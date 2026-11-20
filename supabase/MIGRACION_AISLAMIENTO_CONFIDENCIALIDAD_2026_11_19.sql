@@ -442,27 +442,38 @@ END $$;
 -- C3. Realtime privado: cada obra solo para sus miembros; buzón personal por usuario
 --     Tópicos usados por las apps:  obra_<uuid>   y   cubikar_user_<correo>
 -- ------------------------------------------------------------------------------
-ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
+-- Nota: realtime.messages pertenece al rol interno de Supabase y ya tiene RLS activo por defecto;
+-- solo se agregan políticas. Si el rol actual no tuviera permiso, el resto del script se aplica igual.
+DO $rt$
+BEGIN
+    EXECUTE 'DROP POLICY IF EXISTS "cubikar_realtime_select" ON realtime.messages';
+    EXECUTE $p$
+        CREATE POLICY "cubikar_realtime_select" ON realtime.messages
+            FOR SELECT TO authenticated
+            USING (
+                (realtime.topic() LIKE 'obra\_%' AND public.check_user_project_access(substring(realtime.topic() FROM 6)))
+                OR realtime.topic() = 'cubikar_user_' || public.current_user_email()
+                OR (realtime.topic() = 'cubikar-superadmin-realtime' AND public.current_user_email() = 'hepc.90@gmail.com')
+            )
+    $p$;
 
-DROP POLICY IF EXISTS "cubikar_realtime_select" ON realtime.messages;
-CREATE POLICY "cubikar_realtime_select" ON realtime.messages
-    FOR SELECT TO authenticated
-    USING (
-        (realtime.topic() LIKE 'obra\_%' AND public.check_user_project_access(substring(realtime.topic() FROM 6)))
-        OR realtime.topic() = 'cubikar_user_' || public.current_user_email()
-        OR (realtime.topic() = 'cubikar-superadmin-realtime' AND public.current_user_email() = 'hepc.90@gmail.com')
-    );
-
-DROP POLICY IF EXISTS "cubikar_realtime_insert" ON realtime.messages;
-CREATE POLICY "cubikar_realtime_insert" ON realtime.messages
-    FOR INSERT TO authenticated
-    WITH CHECK (
-        (realtime.topic() LIKE 'obra\_%' AND public.check_user_project_access(substring(realtime.topic() FROM 6)))
-        OR (
-            realtime.topic() LIKE 'cubikar\_user\_%'
-            AND public.cubikar_comparte_obra_con(substring(realtime.topic() FROM 14))
-        )
-    );
+    EXECUTE 'DROP POLICY IF EXISTS "cubikar_realtime_insert" ON realtime.messages';
+    EXECUTE $p$
+        CREATE POLICY "cubikar_realtime_insert" ON realtime.messages
+            FOR INSERT TO authenticated
+            WITH CHECK (
+                (realtime.topic() LIKE 'obra\_%' AND public.check_user_project_access(substring(realtime.topic() FROM 6)))
+                OR (
+                    realtime.topic() LIKE 'cubikar\_user\_%'
+                    AND public.cubikar_comparte_obra_con(substring(realtime.topic() FROM 14))
+                )
+            )
+    $p$;
+    RAISE NOTICE 'Políticas de Realtime privado creadas correctamente.';
+EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'Sin permiso sobre realtime.messages: créalas desde Database > Policies > realtime.messages (el resto de la migración sí se aplicó).';
+END
+$rt$;
 
 -- Permisos de ejecución
 GRANT EXECUTE ON FUNCTION public.cubikar_es_miembro_proyecto(UUID, TEXT) TO authenticated;
