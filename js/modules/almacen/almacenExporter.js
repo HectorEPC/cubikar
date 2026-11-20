@@ -1,18 +1,18 @@
 ﻿// js/modules/almacen/almacenExporter.js
 // Exportación a Excel e Impresión PDF de Vales de Salida, Recepciones e Inventario Físico (Cero montos/precios $)
 
-import { state } from '../../state/store.js?v=20261119_cf39';
-import { formatNumber } from '../../core/formatters.js?v=20261119_cf39';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
-import { openPrintWindow } from '../io/printService.js?v=20261119_cf39';
-import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261119_cf39';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf39';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf39';
+import { state } from '../../state/store.js?v=20261119_cf40';
+import { formatNumber } from '../../core/formatters.js?v=20261119_cf40';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf40';
+import { openPrintWindow } from '../io/printService.js?v=20261119_cf40';
+import { resolveActivePrintBranding } from '../io/printBrandingService.js?v=20261119_cf40';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf40';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf40';
 import {
   getAlmacenSignatures,
   getWarehouseStockSummary,
   getWarehouseMovements
-} from './almacenModel.js?v=20261119_cf39';
+} from './almacenModel.js?v=20261119_cf40';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';

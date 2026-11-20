@@ -2,10 +2,11 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf39';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261119_cf39';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261119_cf39';
-import { showToast } from '../ui/notifications.js?v=20261119_cf39';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf40';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261119_cf40';
+import { getSettingsKey } from '../config/constants.js?v=20261119_cf40';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261119_cf40';
+import { showToast } from '../ui/notifications.js?v=20261119_cf40';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -1111,6 +1112,61 @@ async function fetchInChunksPaged(buildQueryForIds, ids, chunkSize = 150) {
   return { data: all, error: null };
 }
 
+function buildCloudSettingsFromProjectRow(projRow) {
+  if (!projRow || typeof projRow !== 'object') return null;
+  const rawCfg = (projRow.configuracion && typeof projRow.configuracion === 'object') ? { ...projRow.configuracion } : {};
+  delete rawCfg.apiKey;
+  delete rawCfg.collaborators;
+  delete rawCfg.memberTabs;
+  delete rawCfg.clearedMatrixIds;
+  delete rawCfg.customizedMatrixIds;
+
+  if (projRow.nombre) rawCfg.projectName = projRow.nombre;
+  if (projRow.ubicacion !== undefined && projRow.ubicacion !== null) rawCfg.projectLocation = projRow.ubicacion;
+  if (projRow.cliente !== undefined && projRow.cliente !== null) rawCfg.client = projRow.cliente;
+  if (projRow.tipo_obra) rawCfg.tipoObra = projRow.tipo_obra;
+  if (projRow.moneda) rawCfg.currency = projRow.moneda;
+  if (projRow.simbolo_moneda) rawCfg.currencySymbol = projRow.simbolo_moneda;
+  if (projRow.aplica_sobrecosto !== undefined && projRow.aplica_sobrecosto !== null) {
+    rawCfg.applySobrecosto = Boolean(projRow.aplica_sobrecosto);
+  }
+  if (projRow.pct_indirectos !== undefined && projRow.pct_indirectos !== null) rawCfg.pctIndirectos = Number(projRow.pct_indirectos) || 0;
+  if (projRow.pct_financiamiento !== undefined && projRow.pct_financiamiento !== null) rawCfg.pctFinanciamiento = Number(projRow.pct_financiamiento) || 0;
+  if (projRow.pct_utilidad !== undefined && projRow.pct_utilidad !== null) rawCfg.pctUtilidad = Number(projRow.pct_utilidad) || 0;
+  if (projRow.pct_adicionales !== undefined && projRow.pct_adicionales !== null) rawCfg.pctAdicionales = Number(projRow.pct_adicionales) || 0;
+  if (projRow.pct_seguros_fianzas !== undefined && projRow.pct_seguros_fianzas !== null) rawCfg.pctSegurosFianzas = Number(projRow.pct_seguros_fianzas) || 0;
+  if (projRow.pct_fasar !== undefined && projRow.pct_fasar !== null) rawCfg.pctFasar = Number(projRow.pct_fasar) || 0;
+  if (projRow.anticipo_pct !== undefined && projRow.anticipo_pct !== null) rawCfg.anticipoPct = Number(projRow.anticipo_pct) || 0;
+  if (projRow.iva_pct !== undefined && projRow.iva_pct !== null) rawCfg.ivaPct = Number(projRow.iva_pct) || 0;
+  return rawCfg;
+}
+
+function hydrateLocalProjectSettingsFromCloudRow(projectId, targetUuid, projRow) {
+  if (!projRow || typeof localStorage === 'undefined') return false;
+  const cloudSettings = buildCloudSettingsFromProjectRow(projRow);
+  if (!cloudSettings) return false;
+  const sKeys = Array.from(new Set([getSettingsKey(projectId), getSettingsKey(targetUuid)].filter(Boolean)));
+  const isDirty = Boolean(
+    localStorage.getItem(`cubikar_dirty_${projectId}`) ||
+    localStorage.getItem(`cubikar_dirty_${targetUuid}`)
+  );
+  let wroteAny = false;
+  sKeys.forEach((sKey) => {
+    try {
+      const rawLocal = localStorage.getItem(sKey);
+      if (isDirty && rawLocal) return;
+      const curLocal = rawLocal ? JSON.parse(rawLocal) : {};
+      const next = Object.assign({}, curLocal, cloudSettings);
+      const nextJson = JSON.stringify(next);
+      if (nextJson !== rawLocal) {
+        localStorage.setItem(sKey, nextJson);
+        wroteAny = true;
+      }
+    } catch (_) {}
+  });
+  return wroteAny;
+}
+
 export async function loadProjectTreeFromCloud(projectId) {
   const sb = getSupabaseClient();
   const targetUuid = resolveCloudProjectId(projectId);
@@ -1122,11 +1178,31 @@ export async function loadProjectTreeFromCloud(projectId) {
 
   const reqPromise = (async () => {
   try {
-    // 1. Obtener conceptos y metadatos de configuración (matrices vaciadas intencionalmente)
+    // 1. Obtener conceptos y metadatos completos de configuración y sobrecosto del proyecto
+    const fetchProjMetaRow = async () => {
+      let res = await sb
+        .from('proyectos')
+        .select('nombre, cliente, ubicacion, tipo_obra, moneda, simbolo_moneda, aplica_sobrecosto, pct_indirectos, pct_financiamiento, pct_utilidad, pct_adicionales, pct_seguros_fianzas, pct_fasar, anticipo_pct, iva_pct, configuracion')
+        .eq('id', targetUuid)
+        .maybeSingle();
+      if (res?.error && (res.error.code === '42703' || /does not exist|column/i.test(String(res.error.message || '')))) {
+        res = await sb
+          .from('proyectos')
+          .select('nombre, cliente, ubicacion, tipo_obra, moneda, simbolo_moneda, aplica_sobrecosto, pct_indirectos, pct_financiamiento, pct_utilidad, pct_adicionales, configuracion')
+          .eq('id', targetUuid)
+          .maybeSingle();
+      }
+      return res;
+    };
+
     const [{ data: concepts, error: cErr }, { data: projRow }] = await Promise.all([
       fetchAllRowsPaged(() => sb.from('catalogo_conceptos').select('*').eq('proyecto_id', targetUuid).order('orden', { ascending: true }).order('id', { ascending: true })),
-      sb.from('proyectos').select('configuracion').eq('id', targetUuid).maybeSingle()
+      fetchProjMetaRow()
     ]);
+
+    if (projRow) {
+      hydrateLocalProjectSettingsFromCloudRow(projectId, targetUuid, projRow);
+    }
 
     if (cErr || !Array.isArray(concepts)) {
       return null;

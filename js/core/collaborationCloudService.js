@@ -3,8 +3,8 @@
 // persistencia total de proyectos, anfitriones, invitaciones y membresías
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf39';
-import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache, getTrashedCloudProjectIds } from './cloudProjectService.js?v=20261119_cf39';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf40';
+import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache, getTrashedCloudProjectIds } from './cloudProjectService.js?v=20261119_cf40';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -23,9 +23,9 @@ import {
   isProjectMarkedDeleted,
   isProjectTrashedLocal,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261119_cf39';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261119_cf39';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261119_cf39';
+} from '../modules/portal/projectService.js?v=20261119_cf40';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261119_cf40';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261119_cf40';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;
@@ -1317,18 +1317,49 @@ export function restoreUserCollaborationFromCloud(user = null) {
   return hasChanges;
 }
 
+const CHAT_SCHEMA_CACHE_KEY = 'cubikar_chat_missing_cols_v1';
+
+function getAuxMissingCols() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(CHAT_SCHEMA_CACHE_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return new Set(arr.map(String));
+      }
+    }
+  } catch (_) {}
+  return new Set();
+}
+
+function rememberAuxMissingCol(col) {
+  if (!col) return;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const set = getAuxMissingCols();
+      set.add(String(col));
+      localStorage.setItem(CHAT_SCHEMA_CACHE_KEY, JSON.stringify(Array.from(set)));
+    }
+  } catch (_) {}
+}
+
 async function upsertChatAuxRowSafe(sb, row) {
   let payload = { ...row };
-  for (let attempt = 0; attempt < 2; attempt++) {
+  getAuxMissingCols().forEach((col) => {
+    if (Object.prototype.hasOwnProperty.call(payload, col)) delete payload[col];
+  });
+  for (let attempt = 0; attempt < 4; attempt++) {
     const res = await sb.from('chat_mensajes').upsert(payload, { onConflict: 'id' });
     if (!res?.error) return true;
     const msg = String(res.error?.message || '');
-    const missingMatch = msg.match(/Could not find the '([^']+)' column/i);
+    const missingMatch = msg.match(/Could not find the ['"]([^'"]+)['"] column/i);
     if (missingMatch && missingMatch[1] && Object.prototype.hasOwnProperty.call(payload, missingMatch[1])) {
+      rememberAuxMissingCol(missingMatch[1]);
       delete payload[missingMatch[1]];
       continue;
     }
     if (/payload_json/i.test(msg) && Object.prototype.hasOwnProperty.call(payload, 'payload_json')) {
+      rememberAuxMissingCol('payload_json');
       delete payload.payload_json;
       continue;
     }

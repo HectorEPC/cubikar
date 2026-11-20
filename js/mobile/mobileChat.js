@@ -1,9 +1,9 @@
 // js/mobile/mobileChat.js
 // Chat de Obra en Tiempo Real: Canales por permiso, menciones @Usuario, etiquetas a conceptos y mensajes sin leer
 
-import { getActiveProjectId } from '../config/constants.js?v=20261119_cf39';
-import { state } from '../state/store.js?v=20261119_cf39';
-import { getCurrentUser, canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf39';
+import { getActiveProjectId } from '../config/constants.js?v=20261119_cf40';
+import { state } from '../state/store.js?v=20261119_cf40';
+import { getCurrentUser, canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf40';
 import {
   getAllowedChatChannelsForUser,
   getMessageSection,
@@ -15,10 +15,10 @@ import {
   deleteProjectChatMessage,
   canUserDeleteChatMessage,
   isChatMessageReadForCurrentUser
-} from '../modules/chat/projectChat.js?v=20261119_cf39';
-import { broadcastChatMessage, hydrateProjectChatFromCloud } from '../core/realtimeSync.js?v=20261119_cf39';
-import { showToast } from '../ui/notifications.js?v=20261119_cf39';
-import { escapeHtml } from './mobileBridge.js?v=20261119_cf39';
+} from '../modules/chat/projectChat.js?v=20261119_cf40';
+import { broadcastChatMessage, hydrateProjectChatFromCloud } from '../core/realtimeSync.js?v=20261119_cf40';
+import { showToast } from '../ui/notifications.js?v=20261119_cf40';
+import { escapeHtml } from './mobileBridge.js?v=20261119_cf40';
 
 const CHANNEL_META = [
   { id: 'general', label: 'General', icon: 'fa-solid fa-comments' },

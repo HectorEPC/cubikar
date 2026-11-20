@@ -27,6 +27,8 @@ $RECYCLE.BIN/
 respaldos/
 *.zip
 !data/Catalogo_Muestra_Proyecto_Residencial_APU.zip
+!data/Catalogo_Ingenieria_e_Infraestructura_2026_APU.zip
+!data/Catalogo_Vivienda_2026_APU.zip
 scratch/
 test_*
 *.ps1

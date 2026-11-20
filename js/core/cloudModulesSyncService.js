@@ -1,7 +1,7 @@
-import { getActiveProjectId } from '../config/constants.js?v=20261119_cf39';
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf39';
-import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261119_cf39';
-import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261119_cf39';
+import { getActiveProjectId } from '../config/constants.js?v=20261119_cf40';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf40';
+import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261119_cf40';
+import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261119_cf40';
 
 const pendingTimers = new Map();
 const inFlightModuleHydrateByProject = new Map();
@@ -75,8 +75,54 @@ function deferSyncUntilHydrated(projectId) {
   }, 0);
 }
 
+const CHAT_SCHEMA_CACHE_KEY = 'cubikar_chat_missing_cols_v1';
+const CHAT_MENSAJES_OPTIONAL_COLS = ['autor_avatar', 'autor_avatar_url', 'partida_id', 'etiquetas', 'adjuntos', 'payload_json'];
+
+function loadPersistedMissingChatCols() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(CHAT_SCHEMA_CACHE_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) arr.forEach((c) => { if (c) missingChatMensajeColumns.add(String(c)); });
+      }
+    }
+  } catch (_) {}
+}
+
+function savePersistedMissingChatCol(col) {
+  if (!col) return;
+  missingChatMensajeColumns.add(String(col));
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const prevRaw = localStorage.getItem(CHAT_SCHEMA_CACHE_KEY);
+      const prev = prevRaw ? JSON.parse(prevRaw) : [];
+      const set = new Set(Array.isArray(prev) ? prev : []);
+      set.add(String(col));
+      localStorage.setItem(CHAT_SCHEMA_CACHE_KEY, JSON.stringify(Array.from(set)));
+    }
+  } catch (_) {}
+}
+
+function reconcileChatSchemaFromRow(row) {
+  if (!row || typeof row !== 'object') return;
+  const keys = new Set(Object.keys(row));
+  if (keys.size === 0) return;
+  try {
+    loadPersistedMissingChatCols();
+    CHAT_MENSAJES_OPTIONAL_COLS.forEach((col) => {
+      if (keys.has(col)) missingChatMensajeColumns.delete(col);
+      else missingChatMensajeColumns.add(col);
+    });
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(CHAT_SCHEMA_CACHE_KEY, JSON.stringify(Array.from(missingChatMensajeColumns)));
+    }
+  } catch (_) {}
+}
+
 async function upsertChatRowsResilient(sb, rows) {
   if (!sb || !Array.isArray(rows) || rows.length === 0) return { error: null };
+  loadPersistedMissingChatCols();
   const stripMissing = (list) => list.map((r) => {
     const clean = { ...r };
     missingChatMensajeColumns.forEach((col) => { delete clean[col]; });
@@ -90,7 +136,7 @@ async function upsertChatRowsResilient(sb, rows) {
     const m = msg.match(/Could not find the ['"]([^'"]+)['"] column/i)
       || msg.match(/column\s+["']?([a-z0-9_]+)["']?(?:\s+of\s+relation)?\s+does not exist/i);
     if (m && m[1] && !CHAT_MENSAJES_BASE_COLS.includes(m[1])) {
-      missingChatMensajeColumns.add(m[1]);
+      savePersistedMissingChatCol(m[1]);
       payload = stripMissing(payload);
       continue;
     }
@@ -983,6 +1029,7 @@ export async function hydrateProjectModulesFromCloud(projectIdOverride = '', opt
         .order('created_at', { ascending: true });
 
       if (Array.isArray(chatRows) && chatRows.length > 0) {
+        reconcileChatSchemaFromRow(chatRows[0]);
         const localRaw = localStorage.getItem(`adm_const_project_chat_${pid}`);
         const localMsgs = localRaw ? JSON.parse(localRaw) : [];
         const localMap = new Map();

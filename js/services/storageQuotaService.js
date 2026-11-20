@@ -1,9 +1,9 @@
-﻿import { getActiveProjectId } from '../config/constants.js?v=20261119_cf39';
-import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261119_cf39';
-import { getCurrentUser, getProjectById, getUserPlanId } from '../modules/portal/projectService.js?v=20261119_cf39';
-import { recordStorageUsage } from '../modules/admin/cubikarAdmin.js?v=20261119_cf39';
-import { formatBytes } from '../utils/fileCompressor.js?v=20261119_cf39';
-import { getLocalMediaStats } from './mediaCacheDb.js?v=20261119_cf39';
+﻿import { getActiveProjectId } from '../config/constants.js?v=20261119_cf40';
+import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261119_cf40';
+import { getCurrentUser, getProjectById, getUserPlanId } from '../modules/portal/projectService.js?v=20261119_cf40';
+import { recordStorageUsage } from '../modules/admin/cubikarAdmin.js?v=20261119_cf40';
+import { formatBytes } from '../utils/fileCompressor.js?v=20261119_cf40';
+import { getLocalMediaStats } from './mediaCacheDb.js?v=20261119_cf40';
 
 export const MB_BYTES = 1024 * 1024;
 export const GB_BYTES = 1024 * MB_BYTES;
@@ -149,7 +149,7 @@ function withTimeout(promise, ms, fallbackValue) {
 
 async function fetchLocalCatalogUsageBytes(ownerEmail = '') {
   try {
-    const mod = await import('../modules/reference/referenceDb.js?v=20261119_cf39');
+    const mod = await import('../modules/reference/referenceDb.js?v=20261119_cf40');
     if (typeof mod.getReferenceDatabaseStats === 'function') {
       const stats = await mod.getReferenceDatabaseStats(ownerEmail || null);
       return Number(stats?.totalBytes ?? stats?.estimatedBytes ?? 0);

@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf39';
-import { state } from '../state/store.js?v=20261119_cf39';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf40';
+import { state } from '../state/store.js?v=20261119_cf40';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -22,10 +22,10 @@ import {
   unmarkProjectTrashedLocal,
   isProjectTrashedLocal,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261119_cf39';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261119_cf39';
-import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261119_cf39';
-import { showToast } from '../ui/notifications.js?v=20261119_cf39';
+} from '../modules/portal/projectService.js?v=20261119_cf40';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261119_cf40';
+import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261119_cf40';
+import { showToast } from '../ui/notifications.js?v=20261119_cf40';
 
 const CLOUD_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isCloudUuid = (s) => CLOUD_UUID_RE.test(String(s || '').trim());
@@ -918,6 +918,17 @@ export function handleIncomingProjectUpdate(data) {
     } catch (_) {}
     if (isCurrentActive) {
       state.settings = Object.assign({}, state.settings, data.settings);
+      if (typeof window !== 'undefined') {
+        if (typeof window.recalcAllConceptsFromMatrices === 'function') {
+          try { window.recalcAllConceptsFromMatrices(state.treeData); } catch (_) {}
+        }
+        if (typeof window.renderBrandingUI === 'function') {
+          try { window.renderBrandingUI(); } catch (_) {}
+        }
+        if (typeof window.updateSobrecostoBadge === 'function') {
+          try { window.updateSobrecostoBadge(); } catch (_) {}
+        }
+      }
     }
   }
 
@@ -2909,14 +2920,59 @@ export function broadcastChatDelete(projectId, messageId) {
 }
 
 const CHAT_MENSAJES_BASE_COLS = ['id', 'proyecto_id', 'autor_nombre', 'autor_email', 'mensaje', 'created_at'];
+const CHAT_MENSAJES_OPTIONAL_COLS = ['autor_avatar', 'autor_avatar_url', 'partida_id', 'etiquetas', 'adjuntos', 'payload_json'];
+const CHAT_SCHEMA_CACHE_KEY = 'cubikar_chat_missing_cols_v1';
 const missingChatMensajeColumns = new Set();
 const inFlightChatHydrateByProject = new Map();
 const lastChatHydrateAtByProject = new Map();
 let inFlightAllChatHydratePromise = null;
 
+function loadPersistedMissingChatCols() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(CHAT_SCHEMA_CACHE_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) arr.forEach((c) => { if (c) missingChatMensajeColumns.add(String(c)); });
+      }
+    }
+  } catch (_) {}
+}
+
+function savePersistedMissingChatCol(col) {
+  if (!col) return;
+  missingChatMensajeColumns.add(String(col));
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const prevRaw = localStorage.getItem(CHAT_SCHEMA_CACHE_KEY);
+      const prev = prevRaw ? JSON.parse(prevRaw) : [];
+      const set = new Set(Array.isArray(prev) ? prev : []);
+      set.add(String(col));
+      localStorage.setItem(CHAT_SCHEMA_CACHE_KEY, JSON.stringify(Array.from(set)));
+    }
+  } catch (_) {}
+}
+
+function reconcileChatSchemaFromRow(row) {
+  if (!row || typeof row !== 'object') return;
+  const keys = new Set(Object.keys(row));
+  if (keys.size === 0) return;
+  try {
+    loadPersistedMissingChatCols();
+    CHAT_MENSAJES_OPTIONAL_COLS.forEach((col) => {
+      if (keys.has(col)) missingChatMensajeColumns.delete(col);
+      else missingChatMensajeColumns.add(col);
+    });
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(CHAT_SCHEMA_CACHE_KEY, JSON.stringify(Array.from(missingChatMensajeColumns)));
+    }
+  } catch (_) {}
+}
+
 async function upsertChatRowsResilient(sb, rowOrRows) {
   const rows = Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows];
   if (!sb || typeof sb.from !== 'function' || rows.length === 0) return { error: null };
+  loadPersistedMissingChatCols();
   const stripMissing = (list) => list.map((r) => {
     const clean = { ...r };
     missingChatMensajeColumns.forEach((col) => { delete clean[col]; });
@@ -2931,7 +2987,7 @@ async function upsertChatRowsResilient(sb, rowOrRows) {
     const m = msg.match(/Could not find the ['"]([^'"]+)['"] column/i)
       || msg.match(/column\s+["']?([a-z0-9_]+)["']?(?:\s+of\s+relation)?\s+does not exist/i);
     if (m && m[1] && !CHAT_MENSAJES_BASE_COLS.includes(m[1])) {
-      missingChatMensajeColumns.add(m[1]);
+      savePersistedMissingChatCol(m[1]);
       payload = stripMissing(payload);
       continue;
     }
@@ -3051,6 +3107,7 @@ export async function hydrateProjectChatFromCloud(projectId, opts = {}) {
       }
 
       if (Array.isArray(data) && data.length > 0) {
+        reconcileChatSchemaFromRow(data[0]);
         const chatKey = resolveChatStorageKey(effectivePid);
         let localMessages = [];
         try {

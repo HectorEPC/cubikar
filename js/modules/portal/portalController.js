@@ -6,7 +6,7 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261119_cf39';
+} from '../../config/constants.js?v=20261119_cf40';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -74,15 +74,15 @@ import {
   isProjectTrashedLocal,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261119_cf39';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
-import { persistLocalData, state, initStore } from '../../state/store.js?v=20261119_cf39';
-import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261119_cf39';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf39';
-import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261119_cf39';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261119_cf39';
-import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261119_cf39';
-import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261119_cf39';
+} from './projectService.js?v=20261119_cf40';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf40';
+import { persistLocalData, state, initStore } from '../../state/store.js?v=20261119_cf40';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261119_cf40';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf40';
+import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261119_cf40';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261119_cf40';
+import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261119_cf40';
+import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261119_cf40';
 import {
   signUp,
   signInWithPassword,
@@ -92,25 +92,25 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js?v=20261119_cf39';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261119_cf39';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf39';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf39';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf39';
+} from '../../core/authService.js?v=20261119_cf40';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261119_cf40';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf40';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf40';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf40';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
   openCubikarAdminModal
-} from '../admin/cubikarAdmin.js?v=20261119_cf39';
-import { syncProjectToCloud, fetchCloudProjects, getTrashedCloudProjectIds } from '../../core/cloudProjectService.js?v=20261119_cf39';
+} from '../admin/cubikarAdmin.js?v=20261119_cf40';
+import { syncProjectToCloud, fetchCloudProjects, getTrashedCloudProjectIds } from '../../core/cloudProjectService.js?v=20261119_cf40';
 import {
   isProjectHostOwner,
   fetchTrashedProjectsForHost,
   getCachedTrashCount,
   updateTrashBadgeUI,
   openTrashModal
-} from './trashService.js?v=20261119_cf39';
-import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261119_cf39';
+} from './trashService.js?v=20261119_cf40';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261119_cf40';
 
 function readStoredJson(key) {
   try {
