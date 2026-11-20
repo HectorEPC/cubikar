@@ -1,7 +1,7 @@
-import { getActiveProjectId } from '../config/constants.js?v=20261119_cf35';
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf35';
-import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261119_cf35';
-import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261119_cf35';
+import { getActiveProjectId } from '../config/constants.js?v=20261119_cf36';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf36';
+import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261119_cf36';
+import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261119_cf36';
 
 const pendingTimers = new Map();
 const inFlightModuleHydrateByProject = new Map();
@@ -9,6 +9,71 @@ const lastModuleHydrateAtByProject = new Map();
 const MODULE_HYDRATE_COOLDOWN_MS = 6000;
 const CHAT_MENSAJES_BASE_COLS = ['id', 'proyecto_id', 'autor_nombre', 'autor_email', 'mensaje', 'created_at'];
 const missingChatMensajeColumns = new Set();
+
+// ============================================================================
+// GUARDIA DE HIDRATACIÓN (protección contra borrado en espejo de datos de la nube)
+// ============================================================================
+const MODULE_HYDRATED_PREFIX = 'cubikar_hydrated_';
+const IGNORABLE_HYDRATE_ERROR_CODES = new Set(['PGRST116', 'PGRST205', '42P01', '42703', 'PGRST204']);
+
+export function isProjectModulesHydrated(...ids) {
+  try {
+    return ids.some(id => id && localStorage.getItem(MODULE_HYDRATED_PREFIX + id));
+  } catch (_) {
+    return false;
+  }
+}
+
+function markProjectModulesHydrated(...ids) {
+  const stamp = String(Date.now());
+  ids.filter(Boolean).forEach(id => { try { localStorage.setItem(MODULE_HYDRATED_PREFIX + id, stamp); } catch (_) {} });
+}
+
+function isBlockingHydrateError(err) {
+  if (!err) return false;
+  const code = String(err.code || '');
+  return !IGNORABLE_HYDRATE_ERROR_CODES.has(code);
+}
+
+// Envuelve el cliente para detectar respuestas con error durante la hidratación (Supabase no lanza excepciones)
+function trackSupabaseErrors(client, onError) {
+  if (!client || typeof client.from !== 'function') return client;
+  const wrapBuilder = (b) => new Proxy(b, {
+    get(t, p) {
+      if (p === 'then') {
+        return (res, rej) => t.then((r) => { if (r && r.error) onError(r.error); return r; }).then(res, rej);
+      }
+      const v = t[p];
+      if (typeof v === 'function') {
+        return (...args) => {
+          const out = v.apply(t, args);
+          return (out && typeof out === 'object' && typeof out.then === 'function') ? wrapBuilder(out) : out;
+        };
+      }
+      return v;
+    }
+  });
+  return new Proxy(client, {
+    get(t, p) {
+      if (p === 'from') return (...a) => wrapBuilder(t.from(...a));
+      const v = t[p];
+      return typeof v === 'function' ? v.bind(t) : v;
+    }
+  });
+}
+
+const pendingHydrationResync = new Set();
+function deferSyncUntilHydrated(projectId) {
+  const pid = String(projectId || '').trim();
+  if (!pid || pendingHydrationResync.has(pid)) return;
+  pendingHydrationResync.add(pid);
+  setTimeout(() => {
+    Promise.resolve()
+      .then(() => hydrateProjectModulesFromCloud(pid, { force: true }))
+      .catch(() => {})
+      .finally(() => pendingHydrationResync.delete(pid));
+  }, 0);
+}
 
 async function upsertChatRowsResilient(sb, rows) {
   if (!sb || !Array.isArray(rows) || rows.length === 0) return { error: null };
@@ -96,6 +161,10 @@ async function getCloudSyncContext(projectIdOverride = '', options = {}) {
   const cloudUuid = isValidUUID(project?.cloudId)
     ? String(project.cloudId).trim()
     : (isValidUUID(projectId) ? projectId : '');
+  if (!options?.forHydrate && !isProjectModulesHydrated(projectId, cloudUuid)) {
+    deferSyncUntilHydrated(projectId);
+    return null;
+  }
   const currentUser = getCurrentUser();
   const ownerEmail = String(
     project?.ownerEmail ||
@@ -209,9 +278,8 @@ export async function syncBitacoraNow(projectIdOverride = '') {
   });
 
   if (rows.length > 0) {
-    await ctx.sb.from('bitacora_notas').upsert(rows, { onConflict: 'id' });
-  } else {
-    await ctx.sb.from('bitacora_notas').delete().eq('proyecto_id', targetPid);
+    const { error: upErr } = await ctx.sb.from('bitacora_notas').upsert(rows, { onConflict: 'id' });
+    if (upErr) throw new Error(upErr.message || 'Error al respaldar bitácora');
   }
 
   const { data: existingRemoteNotes } = await ctx.sb
@@ -646,8 +714,11 @@ export async function hydrateProjectModulesFromCloud(projectIdOverride = '', opt
   }
 
   const runPromise = (async () => {
-    const ctx = await getCloudSyncContext(projectIdOverride, { skipEmpresaLookup: true });
+    const ctx = await getCloudSyncContext(projectIdOverride, { skipEmpresaLookup: true, forHydrate: true });
     if (!ctx) return { ok: false, skipped: true };
+    let hydrateErrorCount = 0;
+    const wasHydratedBefore = isProjectModulesHydrated(ctx.projectId, ctx.cloudUuid);
+    ctx.sb = trackSupabaseErrors(ctx.sb, (err) => { if (isBlockingHydrateError(err)) hydrateErrorCount++; });
 
     const pid = ctx.projectId;
     lastModuleHydrateAtByProject.set(pid, Date.now());
@@ -975,7 +1046,20 @@ export async function hydrateProjectModulesFromCloud(projectIdOverride = '', opt
     window.dispatchEvent(new CustomEvent('cubikar:cloud-modules-hydrated', { detail: { projectId: pid, hydrated } }));
   }
 
-    return { ok: true, projectId: pid, hydrated };
+    if (hydrateErrorCount === 0) {
+      markProjectModulesHydrated(pid, ctx.cloudUuid);
+      if (!wasHydratedBefore) {
+        // Primera hidratación exitosa: subir lo local ya fusionado con la nube
+        [scheduleBitacoraCloudSync, scheduleExpensesCloudSync, scheduleAlmacenCloudSync,
+          scheduleEstimacionesCloudSync, scheduleCronogramaCloudSync, scheduleChatCloudSync]
+          .forEach(fn => { try { fn(pid); } catch (_) {} });
+      }
+    } else {
+      console.warn(`[cloudModulesSyncService] Hidratación incompleta (${hydrateErrorCount} errores): la sincronización de módulos queda en pausa para proteger los datos de la nube.`);
+      lastModuleHydrateAtByProject.delete(pid);
+    }
+
+    return { ok: hydrateErrorCount === 0, projectId: pid, hydrated, errors: hydrateErrorCount };
   })();
 
   if (prePid) {

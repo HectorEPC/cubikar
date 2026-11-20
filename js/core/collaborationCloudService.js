@@ -3,8 +3,8 @@
 // persistencia total de proyectos, anfitriones, invitaciones y membresías
 // al iniciar sesión en cualquier computadora, navegador o dispositivo.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf35';
-import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache, getTrashedCloudProjectIds } from './cloudProjectService.js?v=20261119_cf35';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf36';
+import { syncProjectToCloud, fetchCloudProjects, invalidateCloudProjectsCache, getTrashedCloudProjectIds } from './cloudProjectService.js?v=20261119_cf36';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -23,9 +23,9 @@ import {
   isProjectMarkedDeleted,
   isProjectTrashedLocal,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261119_cf35';
-import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261119_cf35';
-import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261119_cf35';
+} from '../modules/portal/projectService.js?v=20261119_cf36';
+import { getSettingsKey, getStorageKey } from '../config/constants.js?v=20261119_cf36';
+import { getChatStorageKey } from '../modules/chat/projectChat.js?v=20261119_cf36';
 
 let syncDebounceTimer = null;
 let isCloudSyncInFlight = false;

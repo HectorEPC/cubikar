@@ -1,11 +1,11 @@
-import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261119_cf35';
-import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261119_cf35';
-import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted } from '../modules/portal/projectService.js?v=20261119_cf35';
-import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261119_cf35';
-import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261119_cf35';
-import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261119_cf35';
-import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261119_cf35';
-import { recalcTreeFromMatrices, computeFactorSobrecosto } from '../core/matrixMath.js?v=20261119_cf35';
+import { getStorageKey, getSettingsKey, getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../config/constants.js?v=20261119_cf36';
+import { defaultTreeData, defaultSettings } from '../config/defaultData.js?v=20261119_cf36';
+import { syncActiveProjectSummary, getProjectById, getProjectsList, saveProjectsList, isProjectMarkedDeleted, canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf36';
+import { syncProjectToCloud, loadProjectTreeFromCloud } from '../core/cloudProjectService.js?v=20261119_cf36';
+import { broadcastProjectMutation } from '../core/realtimeSync.js?v=20261119_cf36';
+import { sanitizeCatalogNodes } from '../core/textSanitizer.js?v=20261119_cf36';
+import { CASA_LAURA_PROJECT } from '../modules/io/casaLauraData.js?v=20261119_cf36';
+import { recalcTreeFromMatrices, computeFactorSobrecosto } from '../core/matrixMath.js?v=20261119_cf36';
 
 // Estado global reactivo y centralizado de la aplicación
 export const state = {
@@ -158,6 +158,10 @@ export function initStore() {
         if (Array.isArray(cloudTree) && cloudTree.length > 0) {
           const currentProjMeta = getProjectById(activePId);
           const localHasNodes = savedData && Array.isArray(state.treeData) && state.treeData.length > 0;
+          if (localHasNodes && isCloudDirty(activePId)) {
+            triggerDebouncedCloudSync();
+            return;
+          }
           if ((hasPendingInitial || !currentProjMeta?.isCloudSynced) && localHasNodes && cloudTree.length < state.treeData.length) {
             triggerDebouncedCloudSync();
             return;
@@ -326,9 +330,60 @@ function hasPendingInitialUpload(projectId) {
   try { return sessionStorage.getItem(`cubikar_pending_initial_upload_${projectId}`) === '1'; } catch (_) { return false; }
 }
 
+
+// ============================================================================
+// BANDERA PERSISTENTE DE CAMBIOS PENDIENTES DE SUBIR A LA NUBE
+// Si la pestaña se cierra antes de sincronizar, al volver se sube lo local en vez de
+// reemplazarlo por una copia más antigua de la nube.
+// ============================================================================
+const CLOUD_DIRTY_PREFIX = 'cubikar_dirty_';
+let pendingCloudSyncTask = null;
+
+function markCloudDirty(projectId) {
+  if (!projectId) return;
+  // Solo quien puede editar genera cambios por subir (los invitados de solo lectura siempre reciben la nube)
+  try { if (typeof canCurrentUserEditProject === 'function' && !canCurrentUserEditProject()) return; } catch (_) { return; }
+  try { localStorage.setItem(CLOUD_DIRTY_PREFIX + projectId, String(Date.now())); } catch (_) {}
+}
+
+function clearCloudDirty(projectId) {
+  if (!projectId) return;
+  try { localStorage.removeItem(CLOUD_DIRTY_PREFIX + projectId); } catch (_) {}
+}
+
+export function isCloudDirty(projectId) {
+  if (!projectId) return false;
+  try {
+    const ts = Number(localStorage.getItem(CLOUD_DIRTY_PREFIX + projectId) || 0);
+    // Vigencia de 12 h: evita bloquear indefinidamente la descarga si la subida nunca se pudo completar
+    return ts > 0 && (Date.now() - ts) < 12 * 60 * 60 * 1000;
+  } catch (_) { return false; }
+}
+
+function notifyLocalStorageQuota(err) {
+  const isQuota = err && (err.name === 'QuotaExceededError' || /quota/i.test(String(err.message || '')));
+  if (!isQuota) return;
+  try {
+    if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+      window.showToast('⚠️ El almacenamiento local del navegador está lleno. Tus cambios se están respaldando directamente en la nube; libera espacio (fotos/adjuntos) para seguir trabajando sin conexión.', 'warning');
+    }
+  } catch (_) {}
+}
+
+export function flushPendingCloudSync() {
+  if (cloudSyncTimer && pendingCloudSyncTask) {
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = null;
+    const task = pendingCloudSyncTask;
+    pendingCloudSyncTask = null;
+    try { task(); } catch (_) {}
+  }
+}
+
 export function triggerDebouncedCloudSync() {
   if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
-  cloudSyncTimer = setTimeout(async () => {
+  markCloudDirty(getActiveProjectId());
+  const runSyncTask = async () => {
     cloudSyncTimer = null;
     const projectId = getActiveProjectId();
     if (!projectId) return;
@@ -344,6 +399,7 @@ export function triggerDebouncedCloudSync() {
       const syncRes = await syncProjectToCloud(project, state.settings, treeChanged ? state.treeData : null);
       syncSuccess = Boolean(syncRes && syncRes.success);
       if (syncSuccess) {
+        clearCloudDirty(projectId);
         if (treeChanged) {
           rememberSyncedTreeFingerprint(projectId, treeFingerprint);
           try { sessionStorage.removeItem(`cubikar_pending_initial_upload_${projectId}`); } catch (_) {}
@@ -382,7 +438,9 @@ export function triggerDebouncedCloudSync() {
         window.triggerDebouncedCloudStateSync();
       }
     } catch (_) {}
-  }, 1200);
+  };
+  pendingCloudSyncTask = runSyncTask;
+  cloudSyncTimer = setTimeout(() => { pendingCloudSyncTask = null; runSyncTask(); }, 1200);
 }
 
 // Persistencia de configuración en localStorage y emisión en tiempo real
@@ -444,6 +502,8 @@ export function persistLocalData(immediate = false, meta = {}) {
       }
     } catch (e) {
       console.error('Error guardando en localStorage:', e);
+      notifyLocalStorageQuota(e);
+      try { triggerDebouncedCloudSync(); } catch (_) {}
     }
   };
   if (immediate) {
@@ -462,4 +522,14 @@ export function persistLocalData(immediate = false, meta = {}) {
 // Guardado forzado al cerrar o recargar ventana (solo si había escritura pendiente)
 window.addEventListener('beforeunload', () => {
   if (persistTimer) persistLocalData(true);
+});
+
+// Al ocultar/cerrar la pestaña: guardar lo pendiente y enviar a la nube sin esperar el debounce
+const flushOnHide = () => {
+  try { if (persistTimer) persistLocalData(true); } catch (_) {}
+  try { flushPendingCloudSync(); } catch (_) {}
+};
+window.addEventListener('pagehide', flushOnHide);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushOnHide();
 });

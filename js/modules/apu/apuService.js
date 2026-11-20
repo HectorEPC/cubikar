@@ -1,13 +1,13 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261119_cf35';
-import { saveState } from '../../state/history.js?v=20261119_cf35';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
-import { findNodeById, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261119_cf35';
-import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from './apuView.js?v=20261119_cf35';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf35';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf35';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf35';
-import { round2, round5 } from '../../core/formatters.js?v=20261119_cf35';
-import { getFactorSobrecosto, updateGrandTotal, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf35';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf36';
+import { saveState } from '../../state/history.js?v=20261119_cf36';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf36';
+import { findNodeById, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261119_cf36';
+import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from './apuView.js?v=20261119_cf36';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf36';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf36';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf36';
+import { round2, round5 } from '../../core/formatters.js?v=20261119_cf36';
+import { getFactorSobrecosto, updateGrandTotal, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf36';
 
 // Filtro de botones en la tabla Matriz APU
 export function filterMatriz(tipo) {

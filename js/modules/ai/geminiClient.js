@@ -1,12 +1,12 @@
-import { state, persistSettings, persistLocalData } from '../../state/store.js?v=20261119_cf35';
-import { saveState } from '../../state/history.js?v=20261119_cf35';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
-import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261119_cf35';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf35';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf35';
+import { state, persistSettings, persistLocalData } from '../../state/store.js?v=20261119_cf36';
+import { saveState } from '../../state/history.js?v=20261119_cf36';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf36';
+import { findNodeById, getNodeHierarchyPath, getSelectedLeafConcepts } from '../catalog/treeService.js?v=20261119_cf36';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf36';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf36';
 import { closeAiGeneratorModal, openAiGeneratorModal, aiModalTargetMode, aiModalSingleNodeId } from '../../ui/modalController.js?v=20261118_b6';
-import { round2, getFactorSobrecosto, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf35';
-import { round5 } from '../../core/formatters.js?v=20261119_cf35';
+import { round2, getFactorSobrecosto, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf36';
+import { round5 } from '../../core/formatters.js?v=20261119_cf36';
 import {
   tryResolveConceptLocally,
   setCachedSupplyPrices,
@@ -17,7 +17,7 @@ import {
   applyServerQuotaSnapshot,
   resolveActiveAiExecutionContext,
   callGeminiProxyApi
-} from './aiQuotaAndCacheService.js?v=20261119_cf35';
+} from './aiQuotaAndCacheService.js?v=20261119_cf36';
 
 // Extractor robusto de JSON para respuestas de Gemini
 export function extractJsonFromAiResponse(text) {

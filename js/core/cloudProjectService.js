@@ -2,10 +2,10 @@
 // Servicio de persistencia y sincronización de Proyectos y Presupuestos con Supabase PostgreSQL
 // Diseñado para operar en segundo plano con alta resiliencia y sincronización multiusuario en la nube.
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf35';
-import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261119_cf35';
-import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261119_cf35';
-import { showToast } from '../ui/notifications.js?v=20261119_cf35';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf36';
+import { getCurrentUser, saveCurrentUser, getProjectsList, getUserPlanId, unmarkProjectTrashedLocal, clearMemberPendingCloudAdd } from '../modules/portal/projectService.js?v=20261119_cf36';
+import { fetchUserProfile, resolveUserDisplayName, resolveUserRoleLabel, buildFallbackAvatarSvg } from './authService.js?v=20261119_cf36';
+import { showToast } from '../ui/notifications.js?v=20261119_cf36';
 
 export function isValidUUID(str) {
   if (!str || typeof str !== 'string') return false;
@@ -1083,6 +1083,34 @@ export async function fetchCloudProjects(opts = {}) {
 /**
  * Descargar y reconstruir el árbol de catálogo desde Supabase PostgreSQL
  */
+
+// Descarga TODAS las filas de una consulta paginando con .range() (PostgREST limita a 1000 por respuesta)
+async function fetchAllRowsPaged(buildQuery, pageSize = 1000) {
+  const all = [];
+  let from = 0;
+  for (let guard = 0; guard < 500; guard++) {
+    const { data, error } = await buildQuery().range(from, from + pageSize - 1);
+    if (error) return { data: null, error };
+    if (!Array.isArray(data)) return { data: null, error: new Error('Respuesta inválida de Supabase') };
+    all.push(...data);
+    if (data.length === 0 || data.length < pageSize) break;
+    from += data.length;
+  }
+  return { data: all, error: null };
+}
+
+// Consulta .in() por bloques (URLs cortas) y con paginación por bloque
+async function fetchInChunksPaged(buildQueryForIds, ids, chunkSize = 150) {
+  const all = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const slice = ids.slice(i, i + chunkSize);
+    const { data, error } = await fetchAllRowsPaged(() => buildQueryForIds(slice));
+    if (error) return { data: null, error };
+    all.push(...data);
+  }
+  return { data: all, error: null };
+}
+
 export async function loadProjectTreeFromCloud(projectId) {
   const sb = getSupabaseClient();
   const targetUuid = resolveCloudProjectId(projectId);
@@ -1096,7 +1124,7 @@ export async function loadProjectTreeFromCloud(projectId) {
   try {
     // 1. Obtener conceptos y metadatos de configuración (matrices vaciadas intencionalmente)
     const [{ data: concepts, error: cErr }, { data: projRow }] = await Promise.all([
-      sb.from('catalogo_conceptos').select('*').eq('proyecto_id', targetUuid).order('orden', { ascending: true }),
+      fetchAllRowsPaged(() => sb.from('catalogo_conceptos').select('*').eq('proyecto_id', targetUuid).order('orden', { ascending: true }).order('id', { ascending: true })),
       sb.from('proyectos').select('configuracion').eq('id', targetUuid).maybeSingle()
     ]);
 
@@ -1118,11 +1146,12 @@ export async function loadProjectTreeFromCloud(projectId) {
       .map(c => c.id);
 
     if (candidateConceptIds.length > 0) {
-      const { data: insumos } = await sb
-        .from('insumos_apu')
-        .select('*')
-        .in('concepto_id', candidateConceptIds)
-        .order('orden', { ascending: true });
+      const { data: insumos, error: insErr } = await fetchInChunksPaged(
+        (idsSlice) => sb.from('insumos_apu').select('*').in('concepto_id', idsSlice).order('orden', { ascending: true }).order('id', { ascending: true }),
+        candidateConceptIds
+      );
+      // Si falla la descarga de matrices no se devuelve un árbol incompleto que pudiera sobrescribir el local
+      if (insErr) return null;
 
       if (Array.isArray(insumos)) {
         insumos.forEach(ins => {

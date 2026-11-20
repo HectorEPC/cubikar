@@ -357,6 +357,47 @@ async function verifyStorageRecordAccess(s3Key, callerJwt) {
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 }
 
+function emailPrefixOf(email) {
+  return sanitizeSegment(String(email || '').toLowerCase().trim().replace('@', '_at_'), 'anon', 48) + '/';
+}
+
+// El prefijo por correo solo identifica sin ambigüedad si la sanitización no alteró el correo
+function isLosslessEmailPrefix(email) {
+  const raw = String(email || '').toLowerCase().trim().replace('@', '_at_');
+  return raw.length > 0 && raw.length <= 48 && sanitizeSegment(raw, 'anon', 48) === raw;
+}
+
+async function callerHasProjectAccess(proyectoId, callerJwt, roles = null) {
+  const pid = String(proyectoId || '').trim();
+  if (!pid) return false;
+  const sb = getSupabaseServerConfig();
+  try {
+    const res = await fetch(`${sb.url}/rest/v1/rpc/check_user_project_access`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: sb.anonKey || sb.serviceRoleKey, Authorization: `Bearer ${callerJwt}` },
+      body: JSON.stringify(roles ? { proj_id: pid, req_roles: roles } : { proj_id: pid })
+    });
+    if (!res.ok) return false;
+    return (await res.json()) === true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * Un registro de archivos_almacen solo autoriza la llave si:
+ *  1) la llave S3 fue generada bajo el prefijo del dueño del registro (evita registros falsificados), y
+ *  2) el solicitante es el dueño o miembro de la obra del registro (escritura para eliminar).
+ */
+async function isStorageRecordAuthorized(record, s3Key, callerEmail, callerJwt, needWrite = false) {
+  if (!record) return false;
+  const owner = String(record.owner_email || '').toLowerCase().trim();
+  if (!owner || !s3Key.startsWith(emailPrefixOf(owner))) return false;
+  if (owner === String(callerEmail || '').toLowerCase().trim()) return true;
+  const roles = needWrite ? ['owner', 'admin', 'editar', 'escribir'] : null;
+  return callerHasProjectAccess(record.proyecto_id, callerJwt, roles);
+}
+
 export function validateUploadQuota({ spec, projectFilesBytes, masterCatalogBytes, categoria, incomingBytes, originalBytes }) {
   if (!Number.isFinite(incomingBytes) || incomingBytes <= 0) {
     return { allowed: false, status: 400, reason: 'El tamaño del archivo debe ser mayor a 0 bytes.' };
@@ -456,7 +497,27 @@ export default async function handler(req, res) {
         ? body.categoria
         : (modulo === 'catalogos_maestros' ? 'master_catalog' : (modulo === 'branding' || modulo === 'avatares' ? 'branding' : 'project_files'));
       const proyectoId = String(body.proyectoId || '').trim();
-      const ownerEmail = String(body.ownerEmail || callerUser.email).trim().toLowerCase();
+      const callerEmailLower = String(callerUser.email || '').trim().toLowerCase();
+      let ownerEmail = String(body.ownerEmail || callerEmailLower).trim().toLowerCase();
+      if (ownerEmail !== callerEmailLower) {
+        // Subir al espacio de otro anfitrión solo si el solicitante edita una obra de ESE anfitrión
+        let allowedForHost = false;
+        if (proyectoId && await callerHasProjectAccess(proyectoId, token, ['owner', 'admin', 'editar', 'escribir'])) {
+          try {
+            const sbCfg = getSupabaseServerConfig();
+            const pr = await fetch(`${sbCfg.url}/rest/v1/proyectos?id=eq.${encodeURIComponent(proyectoId)}&select=owner_email&limit=1`, {
+              headers: { apikey: sbCfg.anonKey || sbCfg.serviceRoleKey, Authorization: `Bearer ${token}` }
+            });
+            const rows = pr.ok ? await pr.json() : [];
+            allowedForHost = Array.isArray(rows) && rows.length > 0 && String(rows[0].owner_email || '').toLowerCase().trim() === ownerEmail;
+          } catch (_) {
+            allowedForHost = false;
+          }
+        }
+        if (!allowedForHost) {
+          return res.status(403).json({ error: 'No tienes permiso para subir archivos al espacio de otro usuario.' });
+        }
+      }
       const fileSizeBytes = Number(body.fileSizeBytes || 0);
       const originalBytes = Number(body.originalBytes || fileSizeBytes);
       const ext = extractExtension(fileName);
@@ -520,8 +581,9 @@ export default async function handler(req, res) {
       }
 
       const record = await verifyStorageRecordAccess(s3Key, token);
-      const callerPrefix = sanitizeSegment(callerUser.email.replace('@', '_at_'), 'anon', 48) + '/';
-      if (!record && !s3Key.startsWith(callerPrefix)) {
+      const recordOk = await isStorageRecordAuthorized(record, s3Key, callerUser.email, token, false);
+      const ownPrefixOk = isLosslessEmailPrefix(callerUser.email) && s3Key.startsWith(emailPrefixOf(callerUser.email));
+      if (!recordOk && !ownPrefixOk) {
         return res.status(403).json({ error: 'No tienes permiso para descargar este archivo.' });
       }
 
@@ -557,8 +619,9 @@ export default async function handler(req, res) {
       }
 
       const record = await verifyStorageRecordAccess(s3Key, token);
-      const callerPrefix = sanitizeSegment(callerUser.email.replace('@', '_at_'), 'anon', 48) + '/';
-      if (!record && !s3Key.startsWith(callerPrefix)) {
+      const recordOk = await isStorageRecordAuthorized(record, s3Key, callerUser.email, token, true);
+      const ownPrefixOk = isLosslessEmailPrefix(callerUser.email) && s3Key.startsWith(emailPrefixOf(callerUser.email));
+      if (!recordOk && !ownPrefixOk) {
         return res.status(403).json({ error: 'No tienes permiso para eliminar este archivo de S3.' });
       }
 

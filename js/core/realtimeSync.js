@@ -1,8 +1,8 @@
 // js/core/realtimeSync.js
 // Sincronización en tiempo real vía WebSockets (Supabase Realtime) y Colaboración en vivo
 
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf35';
-import { state } from '../state/store.js?v=20261119_cf35';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf36';
+import { state } from '../state/store.js?v=20261119_cf36';
 import {
   getCurrentUser,
   getStoredInvitations,
@@ -22,10 +22,10 @@ import {
   unmarkProjectTrashedLocal,
   isProjectTrashedLocal,
   saveCurrentUser
-} from '../modules/portal/projectService.js?v=20261119_cf35';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261119_cf35';
-import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261119_cf35';
-import { showToast } from '../ui/notifications.js?v=20261119_cf35';
+} from '../modules/portal/projectService.js?v=20261119_cf36';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261119_cf36';
+import { findNodeById, recalculateClaves } from '../modules/catalog/treeService.js?v=20261119_cf36';
+import { showToast } from '../ui/notifications.js?v=20261119_cf36';
 
 const CLOUD_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isCloudUuid = (s) => CLOUD_UUID_RE.test(String(s || '').trim());
@@ -429,6 +429,8 @@ export function subscribeToProjectRealtime(projectId) {
 
   activeChannel = sb.channel(channelName, {
     config: {
+      // Canal privado: Supabase valida en realtime.messages que el usuario sea miembro de la obra
+      private: CUBIKAR_PRIVATE_REALTIME,
       broadcast: { ack: true },
       presence: {
         key: getCurrentUser()?.id || `user_${Math.random().toString(36).substring(2, 7)}`
@@ -1197,19 +1199,132 @@ export function unsubscribeFromProjectRealtime() {
 // =========================================================================
 // CANAL GLOBAL DE INVITACIONES Y COLABORACIÓN EN TIEMPO REAL
 // =========================================================================
+// Canales privados de Realtime: se activan después de aplicar en Supabase
+// MIGRACION_AISLAMIENTO_CONFIDENCIALIDAD_2026_11_19.sql (políticas RLS en realtime.messages).
+const CUBIKAR_PRIVATE_REALTIME = false;
+
 let globalSyncChannel = null;
+
+// =========================================================================
+// ENRUTAMIENTO SEGURO DE NOTIFICACIONES (BUZÓN PRIVADO POR USUARIO)
+// Cada evento "global" se entrega únicamente a los miembros de la obra involucrada
+// (dueño + colaboradores) y a los demás dispositivos del propio usuario.
+// =========================================================================
+function getUserInboxTopic(email) {
+  return `cubikar_user_${String(email || '').toLowerCase().trim()}`;
+}
+
+const outboundInboxChannels = new Map();
+
+function getOutboundInboxChannel(sb, email) {
+  const topic = getUserInboxTopic(email);
+  if (outboundInboxChannels.has(topic)) return outboundInboxChannels.get(topic);
+  try {
+    const ch = sb.channel(topic, { config: { private: CUBIKAR_PRIVATE_REALTIME, broadcast: { self: false } } });
+    outboundInboxChannels.set(topic, ch);
+    if (outboundInboxChannels.size > 60) {
+      const oldestKey = outboundInboxChannels.keys().next().value;
+      const oldest = outboundInboxChannels.get(oldestKey);
+      outboundInboxChannels.delete(oldestKey);
+      try { sb.removeChannel(oldest); } catch (_) {}
+    }
+    return ch;
+  } catch (_) {
+    return null;
+  }
+}
+
+function normalizeEmailCandidate(val) {
+  const e = String(val || '').toLowerCase().trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : '';
+}
+
+function collectProjectAudienceEmails(projectIds) {
+  const out = new Set();
+  const ids = new Set((projectIds || []).map(v => String(v || '').trim()).filter(Boolean));
+  if (ids.size === 0) return out;
+  let list = [];
+  try { list = getProjectsList() || []; } catch (_) { list = []; }
+  list.forEach(p => {
+    if (!p || !(ids.has(String(p.id || '')) || ids.has(String(p.cloudId || '')))) return;
+    [p.ownerEmail, p.createdByEmail].forEach(e => { const n = normalizeEmailCandidate(e); if (n) out.add(n); });
+    (Array.isArray(p.members) ? p.members : []).forEach(m => {
+      const n = normalizeEmailCandidate(m?.email);
+      if (n && String(m?.status || '').toLowerCase() !== 'rejected') out.add(n);
+    });
+  });
+  return out;
+}
+
+function resolveSecureBroadcastRecipients(event, payload) {
+  // La sincronización entre dispositivos del mismo usuario nunca sale de su propio buzón
+  if (event === 'solicitar_sincronizacion_peer' || event === 'responder_sincronizacion_peer') return new Set();
+  const data = payload || {};
+  const projectIds = [
+    data.projectId, data.cloudId, data.projectCloudId, data.project?.id, data.project?.cloudId,
+    data.invitation?.projectId, data.invitation?.cloudId
+  ];
+  const recipients = collectProjectAudienceEmails(projectIds);
+  [
+    data.ownerEmail, data.email, data.targetEmail, data.removedEmail, data.collaboratorEmail,
+    data.invitation?.email, data.invitation?.ownerEmail, data.project?.ownerEmail
+  ].forEach(e => { const n = normalizeEmailCandidate(e); if (n) recipients.add(n); });
+  (Array.isArray(data.project?.members) ? data.project.members : []).forEach(m => {
+    const n = normalizeEmailCandidate(m?.email);
+    if (n) recipients.add(n);
+  });
+  (Array.isArray(data.collaboratorEmails) ? data.collaboratorEmails : []).forEach(e => {
+    const n = normalizeEmailCandidate(e);
+    if (n) recipients.add(n);
+  });
+  return recipients;
+}
+
+function installSecureInboxRouting(sb, channel, myEmail) {
+  if (!channel || channel.__cubikarSecureRouting) return;
+  const rawSend = channel.send.bind(channel);
+  channel.__cubikarSecureRouting = true;
+  channel.__cubikarInboxEmail = myEmail;
+  channel.send = (msg = {}) => {
+    const tasks = [];
+    // Otros dispositivos/pestañas del mismo usuario
+    tasks.push(Promise.resolve().then(() => rawSend(msg)).catch(() => 'error'));
+    const recipients = resolveSecureBroadcastRecipients(msg.event, msg.payload);
+    recipients.forEach(email => {
+      if (!email || email === myEmail) return;
+      const ch = getOutboundInboxChannel(sb, email);
+      if (!ch) return;
+      tasks.push(Promise.resolve().then(() => (
+        typeof ch.httpSend === 'function' ? ch.httpSend(msg.event, msg.payload) : ch.send(msg)
+      )).catch(() => 'error'));
+    });
+    return Promise.all(tasks).then(() => 'ok');
+  };
+}
 
 export function initGlobalRealtimeSync() {
   const sb = getSupabaseClient();
   if (!isSupabaseConfigured() || !sb) return null;
 
-  if (globalSyncChannel) return globalSyncChannel;
+  const inboxEmail = String(getCurrentUser()?.email || '').toLowerCase().trim();
+  if (!inboxEmail) return null;
 
-  globalSyncChannel = sb.channel('cubikar_global_sync', {
+  if (globalSyncChannel) {
+    if (globalSyncChannel.__cubikarInboxEmail === inboxEmail) return globalSyncChannel;
+    // Cambio de cuenta en el mismo navegador: nunca reutilizar el buzón del usuario anterior
+    try { sb.removeChannel(globalSyncChannel); } catch (_) {}
+    globalSyncChannel = null;
+  }
+
+  // Buzón personal privado (antes: canal global compartido por todos los usuarios).
+  // Solo el titular puede escucharlo y solo usuarios que comparten obra con él pueden escribirle.
+  globalSyncChannel = sb.channel(getUserInboxTopic(inboxEmail), {
     config: {
+      private: CUBIKAR_PRIVATE_REALTIME,
       broadcast: { self: false }
     }
   });
+  installSecureInboxRouting(sb, globalSyncChannel, inboxEmail);
 
   // 1. Escuchar invitaciones en tiempo real
   globalSyncChannel.on('broadcast', { event: 'nueva_invitacion' }, (payload) => {

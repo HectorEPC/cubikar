@@ -1,15 +1,15 @@
 // js/modules/reference/apuAssistantModal.js
 // Asistente de Insumos para Matrices de Precios Unitarios (Opción 2)
 
-import { state } from '../../state/store.js?v=20261119_cf35';
-import { saveState } from '../../state/history.js?v=20261119_cf35';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
-import { formatMoney, round2 } from '../../core/formatters.js?v=20261119_cf35';
-import { findNodeById } from '../catalog/treeService.js?v=20261119_cf35';
-import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from '../apu/apuView.js?v=20261119_cf35';
-import { searchReferenceItems, listReferenceCatalogs } from './referenceDb.js?v=20261119_cf35';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf35';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf35';
+import { state } from '../../state/store.js?v=20261119_cf36';
+import { saveState } from '../../state/history.js?v=20261119_cf36';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf36';
+import { formatMoney, round2 } from '../../core/formatters.js?v=20261119_cf36';
+import { findNodeById } from '../catalog/treeService.js?v=20261119_cf36';
+import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from '../apu/apuView.js?v=20261119_cf36';
+import { searchReferenceItems, listReferenceCatalogs } from './referenceDb.js?v=20261119_cf36';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf36';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf36';
 
 let apuSearchDebounce = null;
 let currentApuSearchResults = [];

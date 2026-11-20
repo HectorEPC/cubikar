@@ -1,15 +1,15 @@
-﻿import { state, persistLocalData } from '../../state/store.js?v=20261119_cf35';
-import { saveState } from '../../state/history.js?v=20261119_cf35';
-import { guardConceptLimit } from '../catalog/treeService.js?v=20261119_cf35';
-import { countTreeConcepts } from '../portal/projectService.js?v=20261119_cf35';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf35';
-import { calculateParentTotal, calculateParentDirectTotal, leafImporte, leafDirectImporte, insumoImporte, syncPercentInsumos } from '../../core/calculations.js?v=20261119_cf35';
-import { recalculateClaves } from '../catalog/treeService.js?v=20261119_cf35';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf35';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf35';
-import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf35';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf35';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf35';
+﻿import { state, persistLocalData } from '../../state/store.js?v=20261119_cf36';
+import { saveState } from '../../state/history.js?v=20261119_cf36';
+import { guardConceptLimit } from '../catalog/treeService.js?v=20261119_cf36';
+import { countTreeConcepts } from '../portal/projectService.js?v=20261119_cf36';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf36';
+import { calculateParentTotal, calculateParentDirectTotal, leafImporte, leafDirectImporte, insumoImporte, syncPercentInsumos } from '../../core/calculations.js?v=20261119_cf36';
+import { recalculateClaves } from '../catalog/treeService.js?v=20261119_cf36';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf36';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf36';
+import { archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf36';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf36';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf36';
 
 // Abrir modal interactivo de selección de formato de exportación
 export function openExportModal() {
