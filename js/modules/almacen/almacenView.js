@@ -1,13 +1,13 @@
 ﻿// js/modules/almacen/almacenView.js
 // Interfaz gráfica de la 6ª pestaña principal ALMACÉN (Cero precios/costos $, apta para rol aislado de Bodeguero)
 
-import { state } from '../../state/store.js?v=20261119_cf37';
-import { formatNumber, round2, round5 } from '../../core/formatters.js?v=20261119_cf37';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf37';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf37';
-import { canCurrentUserEditProject, getCurrentUser } from '../portal/projectService.js?v=20261119_cf37';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf37';
-import { processExpenseEvidenceUpload, openExpenseEvidence } from '../compras/driveExpenseService.js?v=20261119_cf37';
+import { state } from '../../state/store.js?v=20261119_cf38';
+import { formatNumber, round2, round5 } from '../../core/formatters.js?v=20261119_cf38';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf38';
+import { canCurrentUserEditProject, getCurrentUser } from '../portal/projectService.js?v=20261119_cf38';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf38';
+import { processExpenseEvidenceUpload, openExpenseEvidence } from '../compras/driveExpenseService.js?v=20261119_cf38';
 import {
   getAlmacenSignatures,
   saveAlmacenSignatures,
@@ -21,12 +21,12 @@ import {
   cancelWarehouseMovement,
   deleteWarehouseMovement,
   getConceptCatalogForWarehouse
-} from './almacenModel.js?v=20261119_cf37';
+} from './almacenModel.js?v=20261119_cf38';
 import {
   printWarehouseExitVoucher,
   printAlmacenActiveReport,
   exportAlmacenToExcel
-} from './almacenExporter.js?v=20261119_cf37';
+} from './almacenExporter.js?v=20261119_cf38';
 
 let activeAlmacenSubTab = 'stock'; // 'stock' | 'recepciones' | 'salidas' | 'herramienta'
 let almacenSearchTerm = '';

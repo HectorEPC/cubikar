@@ -3,19 +3,19 @@
 // Incluye: KPIs de obra, Timeline cronológico con filtros, Redacción con conceptos y fotos,
 // Canvas táctil de firma digital, Configuración S3 del Anfitrión y Lightbox de evidencias.
 
-import { state } from '../../state/store.js?v=20261119_cf37';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf37';
-import { guardTabUnlocked, isTabLocked, toggleTabLock } from '../../ui/tabLockController.js?v=20261119_cf37';
-import { getCurrentUser, resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261119_cf37';
+import { state } from '../../state/store.js?v=20261119_cf38';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
+import { guardTabUnlocked, isTabLocked, toggleTabLock } from '../../ui/tabLockController.js?v=20261119_cf38';
+import { getCurrentUser, resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261119_cf38';
 
 function isLegalBitacoraAllowed() {
   const planId = resolveWorkspacePlanContext()?.planId || 'free';
   return planId === 'plus' || planId === 'pro';
 }
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf37';
-import { formatDate } from '../calendario/calendarioModel.js?v=20261119_cf37';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf37';
-import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261119_cf37';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf38';
+import { formatDate } from '../calendario/calendarioModel.js?v=20261119_cf38';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf38';
+import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261119_cf38';
 import {
   BITACORA_NOTE_TYPES,
   BITACORA_WEATHER_OPTIONS,
@@ -42,12 +42,12 @@ import {
   openBitacoraPdfArtifact,
   resolveBitacoraPhotoUrl,
   syncPendingBitacoraArtifactsToCloud
-} from './bitacoraDriveService.js?v=20261119_cf37';
+} from './bitacoraDriveService.js?v=20261119_cf38';
 import {
   generateNotePdfArtifact,
   downloadSingleNotePdf,
   generateAndDownloadFullBitacoraBook
-} from './bitacoraPdfService.js?v=20261119_cf37';
+} from './bitacoraPdfService.js?v=20261119_cf38';
 
 // Estado de UI y filtros del Timeline
 const MAX_BITACORA_EVIDENCIAS = 6;

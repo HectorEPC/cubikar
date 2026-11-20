@@ -2,10 +2,10 @@
 // js/modules/compras/expensesView.js
 // Renderizador y controlador de eventos para la pestaña COMPRAS Y PAGOS (Control de Gastos y ERP Financiero)
 
-import { state } from '../../state/store.js?v=20261119_cf37';
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261119_cf37';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf37';
-import { normalizeInsumoText } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf37';
+import { state } from '../../state/store.js?v=20261119_cf38';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261119_cf38';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
+import { normalizeInsumoText } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf38';
 import {
   loadExpensesData,
   saveExpensesData,
@@ -27,37 +27,37 @@ import {
   saveUnitFactorForInsumo,
   findDuplicateCfdiUuid,
   registerExpensePaymentInstallment
-} from './expensesModel.js?v=20261119_cf37';
-import { parseMexicanCfdiXml } from './xmlCfdiParser.js?v=20261119_cf37';
+} from './expensesModel.js?v=20261119_cf38';
+import { parseMexicanCfdiXml } from './xmlCfdiParser.js?v=20261119_cf38';
 import {
   getLeafConceptsCatalogSummary,
   getSupplierPriceHistoryForInsumo
-} from './conceptExplosionHelper.js?v=20261119_cf37';
+} from './conceptExplosionHelper.js?v=20261119_cf38';
 import {
   resetConceptExplosionPanel,
   renderConceptExplosionPanel,
   saveConceptExplosionOrders,
   renderComparativaByConceptView
-} from './conceptExplosionUI.js?v=20261119_cf37';
+} from './conceptExplosionUI.js?v=20261119_cf38';
 import {
   getExpensesKpiMetrics,
   getAllBudgetInsumosExplosion,
   getInsumosBudgetVsActualComparison
-} from './expensesCalculations.js?v=20261119_cf37';
+} from './expensesCalculations.js?v=20261119_cf38';
 import {
   processExpenseEvidenceUpload,
   openExpenseEvidence,
   deleteExpenseEvidence
-} from './driveExpenseService.js?v=20261119_cf37';
-import { resolveHostStorageContext } from '../../services/storageQuotaService.js?v=20261119_cf37';
+} from './driveExpenseService.js?v=20261119_cf38';
+import { resolveHostStorageContext } from '../../services/storageQuotaService.js?v=20261119_cf38';
 import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
   printExpensesActiveReport
-} from './expensesExporter.js?v=20261119_cf37';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf37';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261119_cf37';
-import { isNightMode } from '../../ui/themeController.js?v=20261119_cf37';
+} from './expensesExporter.js?v=20261119_cf38';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf38';
+import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261119_cf38';
+import { isNightMode } from '../../ui/themeController.js?v=20261119_cf38';
 
 function isAdvancedExpensesAllowed() {
   return true;

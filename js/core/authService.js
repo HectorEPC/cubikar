@@ -1,10 +1,10 @@
 // js/core/authService.js
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
-import { STORAGE_KEY_USER } from '../config/constants.js?v=20261119_cf37';
-import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261119_cf37';
-import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261119_cf37';
-import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261119_cf37';
+import { STORAGE_KEY_USER } from '../config/constants.js?v=20261119_cf38';
+import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261119_cf38';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261119_cf38';
+import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261119_cf38';
 import {
   writeSharedSsoCookie,
   clearSharedSsoCookie,
@@ -14,7 +14,7 @@ import {
   scrubSsoHashParams,
   hasPendingIncomingSso,
   getLastSignOutTimestamp
-} from './ssoHelper.js?v=20261119_cf37';
+} from './ssoHelper.js?v=20261119_cf38';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -1143,7 +1143,7 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
       initialSyncedUserIds.add(user.id);
       setTimeout(() => {
         autoSyncCollaborationOnStartup(user, { force: Boolean(force && explicitAuthDepth > 0) });
-        import('../modules/ai/aiQuotaAndCacheService.js?v=20261119_cf37')
+        import('../modules/ai/aiQuotaAndCacheService.js?v=20261119_cf38')
           .then(m => m.syncAiQuotaFromSupabase())
           .catch(() => {});
       }, 50);

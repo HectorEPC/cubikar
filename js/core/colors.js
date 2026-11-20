@@ -1,4 +1,4 @@
-import { isNightMode } from '../ui/themeController.js?v=20261119_cf37';
+import { isNightMode } from '../ui/themeController.js?v=20261119_cf38';
 
 // Cache de colores jerárquicos para evitar cálculos repetitivos
 export const hierarchyColorCache = new Map();

@@ -1,7 +1,7 @@
-import { getActiveProjectId } from '../config/constants.js?v=20261119_cf37';
-import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf37';
-import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261119_cf37';
-import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261119_cf37';
+import { getActiveProjectId } from '../config/constants.js?v=20261119_cf38';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient.js?v=20261119_cf38';
+import { isValidUUID, resolveUserEmpresaId } from './cloudProjectService.js?v=20261119_cf38';
+import { getCurrentUser, getProjectById } from '../modules/portal/projectService.js?v=20261119_cf38';
 
 const pendingTimers = new Map();
 const inFlightModuleHydrateByProject = new Map();

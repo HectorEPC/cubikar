@@ -1,7 +1,7 @@
 // js/mobile/mobileCompras.js
 // Control de Compras y Gastos: Resumen, Órdenes, Explosión 7/15 días, Base vs Real, Evidencia S3 y Envío a Almacén
 
-import { formatMoney, formatQty, round2 } from '../core/formatters.js?v=20261119_cf37';
+import { formatMoney, formatQty, round2 } from '../core/formatters.js?v=20261119_cf38';
 import {
   getExpensesRecords,
   saveExpenseRecord,
@@ -10,14 +10,14 @@ import {
   toggleRecordPaymentStatus,
   getExpensesSuppliers,
   saveSupplier
-} from '../modules/compras/expensesModel.js?v=20261119_cf37';
-import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison, getAllBudgetInsumosExplosion } from '../modules/compras/expensesCalculations.js?v=20261119_cf37';
-import { getCalendarUpcomingConceptsSummary, explodeWeeklyConceptsBasket } from '../modules/compras/conceptExplosionHelper.js?v=20261119_cf37';
-import { processExpenseEvidenceUpload, openExpenseEvidence } from '../modules/compras/driveExpenseService.js?v=20261119_cf37';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf37';
-import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf37';
-import { showToast } from '../ui/notifications.js?v=20261119_cf37';
-import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf37';
+} from '../modules/compras/expensesModel.js?v=20261119_cf38';
+import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison, getAllBudgetInsumosExplosion } from '../modules/compras/expensesCalculations.js?v=20261119_cf38';
+import { getCalendarUpcomingConceptsSummary, explodeWeeklyConceptsBasket } from '../modules/compras/conceptExplosionHelper.js?v=20261119_cf38';
+import { processExpenseEvidenceUpload, openExpenseEvidence } from '../modules/compras/driveExpenseService.js?v=20261119_cf38';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf38';
+import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf38';
+import { showToast } from '../ui/notifications.js?v=20261119_cf38';
+import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf38';
 
 let subTab = 'ordenes'; // 'resumen' | 'ordenes' | 'explosion' | 'comparativa'
 let statusFilter = 'all'; // 'all' | 'pending' | 'paid' | 'warehouse' | 'direct'

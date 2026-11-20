@@ -4,7 +4,7 @@
 // ya contenga su desglose completo de Materiales, Mano de Obra y Equipo/Herramienta,
 // con consumos estrictamente unitarios y suma exacta igual al Costo Unitario del concepto.
 
-import { computeMatrixDirectCost, isPercentInsumo } from './matrixMath.js?v=20261119_cf37';
+import { computeMatrixDirectCost, isPercentInsumo } from './matrixMath.js?v=20261119_cf38';
 
 /**
  * Genera la matriz integrada (insumos) para un concepto de obra.

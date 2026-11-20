@@ -1,20 +1,20 @@
 // js/mobile/mobilePresupuesto.js
 // Presupuesto de Obra: Catálogo Base, Insumos Base (6 categorías), bloqueo seguro y Matriz APU por concepto
 
-import { state, persistLocalData } from '../state/store.js?v=20261119_cf37';
-import { formatMoney, formatQty, formatMatrixQty, round2, round5 } from '../core/formatters.js?v=20261119_cf37';
-import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal, syncPercentInsumos, computeMatrixDirectCost, explodeInsumoQty, explodeInsumoImporte } from '../core/calculations.js?v=20261119_cf37';
-import { generateIntegratedMatrixForConcept } from '../core/matrixGenerator.js?v=20261119_cf37';
-import { getExactOpusInsumosForClave } from '../modules/io/casaLauraData.js?v=20261119_cf37';
-import { findNodeById, updateNode, addRootRow, addChildRow } from '../modules/catalog/treeService.js?v=20261119_cf37';
-import { getConsolidatedDataMap, getInsumoConsolidationKey } from '../modules/insumosGenerales/insumosConsolidator.js?v=20261119_cf37';
-import { getExpensesRecords } from '../modules/compras/expensesModel.js?v=20261119_cf37';
-import { getWarehouseNetConsumptionMap, getWarehouseStockSummary } from '../modules/almacen/almacenModel.js?v=20261119_cf37';
-import { getPartidaChatCount } from '../modules/chat/projectChat.js?v=20261119_cf37';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf37';
-import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf37';
-import { showToast } from '../ui/notifications.js?v=20261119_cf37';
-import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf37';
+import { state, persistLocalData } from '../state/store.js?v=20261119_cf38';
+import { formatMoney, formatQty, formatMatrixQty, round2, round5 } from '../core/formatters.js?v=20261119_cf38';
+import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal, syncPercentInsumos, computeMatrixDirectCost, explodeInsumoQty, explodeInsumoImporte } from '../core/calculations.js?v=20261119_cf38';
+import { generateIntegratedMatrixForConcept } from '../core/matrixGenerator.js?v=20261119_cf38';
+import { getExactOpusInsumosForClave } from '../modules/io/casaLauraData.js?v=20261119_cf38';
+import { findNodeById, updateNode, addRootRow, addChildRow } from '../modules/catalog/treeService.js?v=20261119_cf38';
+import { getConsolidatedDataMap, getInsumoConsolidationKey } from '../modules/insumosGenerales/insumosConsolidator.js?v=20261119_cf38';
+import { getExpensesRecords } from '../modules/compras/expensesModel.js?v=20261119_cf38';
+import { getWarehouseNetConsumptionMap, getWarehouseStockSummary } from '../modules/almacen/almacenModel.js?v=20261119_cf38';
+import { getPartidaChatCount } from '../modules/chat/projectChat.js?v=20261119_cf38';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf38';
+import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf38';
+import { showToast } from '../ui/notifications.js?v=20261119_cf38';
+import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf38';
 
 let subTab = 'cat'; // 'cat' | 'insumos'
 let insumoCatFilter = 'Todos';

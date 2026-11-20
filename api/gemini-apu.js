@@ -170,7 +170,8 @@ export default async function handler(req, res) {
   if (!usingOwnApiKey) {
     const authHeader = String(req.headers.authorization || '');
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-    let verifiedPlanId = (sbUrl && serviceRoleKey) ? 'free' : normalizePlan(body.planId || 'free');
+    // El plan SOLO se obtiene de la base de datos (empresas.plan_const / empresas.plan)
+    let verifiedPlanId = 'free';
     let verifiedUserId = null;
     let verifiedUserEmail = '';
 
@@ -183,13 +184,24 @@ export default async function handler(req, res) {
           const uJson = await uRes.json();
           verifiedUserId = uJson?.id || null;
           verifiedUserEmail = String(uJson?.email || '').toLowerCase().trim();
-          const metaPlan = uJson?.user_metadata?.subscription?.planId || uJson?.user_metadata?.cubikar_cloud_state_v2?.subscription?.planId;
-          verifiedPlanId = normalizePlan(metaPlan || (serviceRoleKey ? 'free' : (body.planId || 'free')));
+          // Plan autoritativo leído de la base de datos con la sesión del propio usuario (RLS: solo su empresa)
+          try {
+            const ownPerfRes = await fetch(
+              `${sbUrl}/rest/v1/perfiles?id=eq.${encodeURIComponent(verifiedUserId)}&select=empresas(plan,plan_const)&limit=1`,
+              { headers: { apikey: sbReadKey, Authorization: `Bearer ${serviceRoleKey || token}` } }
+            );
+            if (ownPerfRes.ok) {
+              const ownRows = await ownPerfRes.json();
+              const ownEmp = ownRows?.[0]?.empresas;
+              const ownDbPlan = ownEmp?.plan_const || ownEmp?.plan || '';
+              if (ownDbPlan) verifiedPlanId = normalizePlan(ownDbPlan);
+            }
+          } catch (_) {}
         }
       } catch (_) {}
     }
 
-    if (sbUrl && serviceRoleKey && !verifiedUserId) {
+    if (sbUrl && !verifiedUserId) {
       return res.status(401).json({
         success: false,
         errorCode: 'AUTH_REQUIRED_FOR_PLATFORM_AI',
@@ -211,8 +223,8 @@ export default async function handler(req, res) {
           const perfRows = await perfRes.json();
           const emp = perfRows?.[0]?.empresas;
           const dbPlan = emp?.plan_const ? normalizePlan(emp.plan_const) : (emp?.plan ? normalizePlan(emp.plan) : '');
-          // No degradar a 'free' si user_metadata ya registra una suscripción pagada (plus/pro) aún no sincronizada en empresas.plan
-          if (dbPlan && (dbPlan !== 'free' || verifiedPlanId === 'free')) {
+          // El plan de la base de datos es la única fuente válida (el Plus de cortesía ya vive en empresas.plan_const)
+          if (dbPlan) {
             verifiedPlanId = dbPlan;
           }
         }
@@ -224,7 +236,7 @@ export default async function handler(req, res) {
           let isAcceptedCollaborator = false;
           if (isUuidProj) {
             const pRes = await fetch(
-              `${sbUrl}/rest/v1/proyectos?id=eq.${encodeURIComponent(reqProjectId)}&select=id,owner_email,proyecto_colaboradores!inner(email_colaborador,estado_invitacion)&proyecto_colaboradores.email_colaborador=ilike.${encodeURIComponent(verifiedUserEmail)}&proyecto_colaboradores.estado_invitacion=eq.accepted&limit=1`,
+              `${sbUrl}/rest/v1/proyectos?id=eq.${encodeURIComponent(reqProjectId)}&select=id,owner_email,proyecto_colaboradores!inner(email_colaborador,estado_invitacion)&proyecto_colaboradores.email_colaborador=eq.${encodeURIComponent(verifiedUserEmail)}&proyecto_colaboradores.estado_invitacion=eq.accepted&limit=1`,
               { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } }
             );
             const pRows = pRes.ok ? await pRes.json() : [];
@@ -233,7 +245,7 @@ export default async function handler(req, res) {
             }
           } else {
             const cRes = await fetch(
-              `${sbUrl}/rest/v1/proyecto_colaboradores?email_colaborador=ilike.${encodeURIComponent(verifiedUserEmail)}&estado_invitacion=eq.accepted&select=proyecto_id,proyectos!inner(owner_email)&proyectos.owner_email=ilike.${encodeURIComponent(reqOwnerEmail)}&limit=1`,
+              `${sbUrl}/rest/v1/proyecto_colaboradores?email_colaborador=eq.${encodeURIComponent(verifiedUserEmail)}&estado_invitacion=eq.accepted&select=proyecto_id,proyectos!inner(owner_email)&proyectos.owner_email=eq.${encodeURIComponent(reqOwnerEmail)}&limit=1`,
               { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } }
             );
             const cRows = cRes.ok ? await cRes.json() : [];
@@ -244,26 +256,14 @@ export default async function handler(req, res) {
 
           if (isAcceptedCollaborator) {
             const ownerPerfRes = await fetch(
-              `${sbUrl}/rest/v1/perfiles?email=ilike.${encodeURIComponent(reqOwnerEmail)}&select=id,email,empresas(plan,plan_const)&limit=1`,
+              `${sbUrl}/rest/v1/perfiles?email=eq.${encodeURIComponent(reqOwnerEmail)}&select=id,email,empresas(plan,plan_const)&limit=1`,
               { headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` } }
             );
             const ownerRows = ownerPerfRes.ok ? await ownerPerfRes.json() : [];
             if (ownerRows?.[0]?.id) {
               quotaUserId = ownerRows[0].id;
               const ownerEmp = ownerRows[0]?.empresas;
-              let ownerPlan = ownerEmp?.plan_const ? normalizePlan(ownerEmp.plan_const) : (ownerEmp?.plan ? normalizePlan(ownerEmp.plan) : 'free');
-              if (ownerPlan === 'free') {
-                try {
-                  const admRes = await fetch(`${sbUrl}/auth/v1/admin/users/${encodeURIComponent(ownerRows[0].id)}`, {
-                    headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` }
-                  });
-                  if (admRes.ok) {
-                    const admUser = await admRes.json();
-                    const ownerMetaPlan = admUser?.user_metadata?.subscription?.planId || admUser?.user_metadata?.cubikar_cloud_state_v2?.subscription?.planId;
-                    if (ownerMetaPlan) ownerPlan = normalizePlan(ownerMetaPlan);
-                  }
-                } catch (_) {}
-              }
+              const ownerPlan = ownerEmp?.plan_const ? normalizePlan(ownerEmp.plan_const) : (ownerEmp?.plan ? normalizePlan(ownerEmp.plan) : 'free');
               verifiedPlanId = ownerPlan;
             }
           }

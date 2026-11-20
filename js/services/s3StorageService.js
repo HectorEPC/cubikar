@@ -1,13 +1,13 @@
-import { resolveUserEmpresaId } from '../core/cloudProjectService.js?v=20261119_cf37';
-import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261119_cf37';
-import { getCurrentUser } from '../modules/portal/projectService.js?v=20261119_cf37';
-import { showToast } from '../ui/notifications.js?v=20261119_cf37';
+import { resolveUserEmpresaId } from '../core/cloudProjectService.js?v=20261119_cf38';
+import { getSupabaseClient, isSupabaseConfigured } from '../core/supabaseClient.js?v=20261119_cf38';
+import { getCurrentUser } from '../modules/portal/projectService.js?v=20261119_cf38';
+import { showToast } from '../ui/notifications.js?v=20261119_cf38';
 import {
   computeSha256Hex,
   formatBytes,
   getFileExtension,
   processFileForUpload
-} from '../utils/fileCompressor.js?v=20261119_cf37';
+} from '../utils/fileCompressor.js?v=20261119_cf38';
 import {
   deleteCachedMediaRecord,
   getCachedMediaDataUrl,
@@ -16,13 +16,13 @@ import {
   listPendingUploads,
   markMediaUploaded,
   putCachedMediaBlob
-} from './mediaCacheDb.js?v=20261119_cf37';
+} from './mediaCacheDb.js?v=20261119_cf38';
 import {
   notifyStorageUsageChanged,
   resolveHostStorageContext,
   validatePostCompressionQuota,
   validatePreCompressionFile
-} from './storageQuotaService.js?v=20261119_cf37';
+} from './storageQuotaService.js?v=20261119_cf38';
 
 function getPresignApiUrl() {
   const customBase = (typeof window !== 'undefined' && window.__CUBIKAR_API_BASE__) ? String(window.__CUBIKAR_API_BASE__).replace(/\/+$/, '') : '';
@@ -538,6 +538,80 @@ export async function deleteManagedFile(ref = {}) {
   return true;
 }
 
+// Registros locales de módulos que guardan referencias a archivos ({ mediaId, s3Key, archivoId })
+const LINKABLE_STORAGE_KEYS = [
+  { re: /^adm_const_bitacora_(.+)$/, modulo: 'bitacora' },
+  { re: /^expenses_control_(.+)$/, modulo: 'compras' },
+  { re: /^estimaciones_data_(.+)$/, modulo: 'estimaciones' },
+  { re: /^adm_const_almacen_(.+)$/, modulo: 'almacen' }
+];
+
+function patchMediaReferences(node, mediaId, patch, depth = 0) {
+  if (!node || typeof node !== 'object' || depth > 14) return false;
+  let changed = false;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      if (patchMediaReferences(item, mediaId, patch, depth + 1)) changed = true;
+    }
+    return changed;
+  }
+  if (node.mediaId === mediaId) {
+    if (patch.s3Key && node.s3Key !== patch.s3Key) { node.s3Key = patch.s3Key; changed = true; }
+    if (patch.archivoId && node.archivoId !== patch.archivoId) { node.archivoId = patch.archivoId; changed = true; }
+    if (node.pendingSync === true || node.pendingUpload === true) {
+      node.pendingSync = false;
+      node.pendingUpload = false;
+      changed = true;
+    }
+  }
+  for (const key of Object.keys(node)) {
+    const val = node[key];
+    if (val && typeof val === 'object' && patchMediaReferences(val, mediaId, patch, depth + 1)) changed = true;
+  }
+  return changed;
+}
+
+/**
+ * Tras subir un archivo que estaba en cola sin conexión, enlaza su llave S3 en la nota de bitácora,
+ * factura, estimación o movimiento de almacén que lo usa y reprograma el respaldo de ese módulo,
+ * para que el archivo pueda abrirse desde cualquier otro dispositivo.
+ */
+async function linkUploadedMediaToRecords(mediaId, patch) {
+  if (!mediaId || typeof localStorage === 'undefined') return 0;
+  const touched = new Map();
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    const def = key ? LINKABLE_STORAGE_KEYS.find(d => d.re.test(key)) : null;
+    if (!def) continue;
+    let data = null;
+    try { data = JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { data = null; }
+    if (!data || !patchMediaReferences(data, mediaId, patch)) continue;
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+      touched.set(`${def.modulo}|${key.match(def.re)[1]}`, { modulo: def.modulo, projectId: key.match(def.re)[1] });
+    } catch (err) {
+      console.warn('[s3StorageService] No se pudo enlazar el archivo en el registro local:', err?.message || err);
+    }
+  }
+  if (touched.size > 0) {
+    try {
+      const sync = await import('../core/cloudModulesSyncService.js?v=20261119_cf38');
+      touched.forEach(({ modulo, projectId }) => {
+        if (modulo === 'bitacora') sync.scheduleBitacoraCloudSync(projectId);
+        else if (modulo === 'compras') sync.scheduleExpensesCloudSync(projectId);
+        else if (modulo === 'estimaciones') sync.scheduleEstimacionesCloudSync(projectId);
+        else if (modulo === 'almacen') sync.scheduleAlmacenCloudSync(projectId);
+      });
+    } catch (err) {
+      console.warn('[s3StorageService] No se pudo reprogramar el respaldo del módulo:', err?.message || err);
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('cubikar:media-linked', { detail: { mediaId, ...patch } }));
+    }
+  }
+  return touched.size;
+}
+
 /**
  * Reintenta subir todos los archivos retenidos en cola local IndexedDB hacia AWS S3.
  */
@@ -570,6 +644,7 @@ export async function syncPendingMediaUploads(proyectoId = '') {
           s3Key: res.s3Key,
           archivoId: res.archivoId
         });
+        await linkUploadedMediaToRecords(item.mediaId, { s3Key: res.s3Key, archivoId: res.archivoId });
         synced += 1;
       }
     } catch (err) {
