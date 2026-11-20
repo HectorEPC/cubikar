@@ -10,9 +10,9 @@ import {
   getStorageKey,
   getSettingsKey,
   getActiveProjectId
-} from '../../config/constants.js?v=20261119_cf38';
-import { defaultSettings } from '../../config/defaultData.js?v=20261119_cf38';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf38';
+} from '../../config/constants.js?v=20261119_cf39';
+import { defaultSettings } from '../../config/defaultData.js?v=20261119_cf39';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf39';
 import {
   generateUUID,
   isValidUUID,
@@ -20,7 +20,7 @@ import {
   loadProjectTreeFromCloud,
   syncProjectToCloud,
   invalidateCloudProjectsCache
-} from '../../core/cloudProjectService.js?v=20261119_cf38';
+} from '../../core/cloudProjectService.js?v=20261119_cf39';
 import {
   hydrateProjectModulesFromCloud,
   syncBitacoraNow,
@@ -29,7 +29,7 @@ import {
   syncEstimacionesNow,
   syncCronogramaNow,
   syncChatNow
-} from '../../core/cloudModulesSyncService.js?v=20261119_cf38';
+} from '../../core/cloudModulesSyncService.js?v=20261119_cf39';
 import {
   AVATARS_BY_SEX,
   getCurrentUser,
@@ -43,30 +43,30 @@ import {
   calculateTreeTotal,
   countTreeConcepts,
   countTreePartidas
-} from './projectService.js?v=20261119_cf38';
+} from './projectService.js?v=20261119_cf39';
 import {
   getAllCachedMediaRecords,
   getCachedMediaRecord,
   putCachedMediaBlob
-} from '../../services/mediaCacheDb.js?v=20261119_cf38';
+} from '../../services/mediaCacheDb.js?v=20261119_cf39';
 import {
   uploadManagedFile,
   resolveManagedFileUrl
-} from '../../services/s3StorageService.js?v=20261119_cf38';
+} from '../../services/s3StorageService.js?v=20261119_cf39';
 import {
   getPlanStorageSpec,
   getHostStorageSummary,
   refreshAllStorageMeters,
   notifyStorageUsageChanged
-} from '../../services/storageQuotaService.js?v=20261119_cf38';
+} from '../../services/storageQuotaService.js?v=20261119_cf39';
 import {
   blobToDataUrl,
   computeSha256Hex,
   dataUrlToBlob,
   formatBytes,
   getFileExtension
-} from '../../utils/fileCompressor.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
+} from '../../utils/fileCompressor.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
 
 const PACKAGE_SCHEMA = 'cubikar.project.package';
 const PACKAGE_FORMAT_VERSION = 1;
@@ -1852,7 +1852,7 @@ function remapStructuralIdsRecursive(obj, nodeIdMap, supplierIdMap = new Map(), 
     } else if (SUPPLIER_REF_KEYS.has(k) && (typeof v === 'string' || typeof v === 'number')) {
       const mappedSup = supplierIdMap.get(String(v).trim());
       out[k] = mappedSup || v;
-    } else if ((k === 'conceptos' || k === 'conceptPhotos') && v && typeof v === 'object' && !Array.isArray(v)) {
+    } else if ((k === 'conceptos' || k === 'conceptPhotos' || k === 'fotos') && v && typeof v === 'object' && !Array.isArray(v)) {
       const remappedDict = remapDictionaryKeys(v, nodeIdMap);
       out[k] = remapStructuralIdsRecursive(remappedDict, nodeIdMap, supplierIdMap, k);
     } else {

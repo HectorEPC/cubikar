@@ -1,21 +1,21 @@
 // js/modules/compras/conceptExplosionUI.js
 // Controlador visual de Compras por Explosión de Concepto(s), Proyección de Calendario y Seguimiento por Concepto
 
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
 import {
   getExpensesSuppliers,
   getSupplierById,
   saveExpenseRecordsBatch,
   generateNextOrderGroupId,
   getExpensesRecords
-} from './expensesModel.js?v=20261119_cf38';
+} from './expensesModel.js?v=20261119_cf39';
 import {
   getLeafConceptsCatalogSummary,
   explodeWeeklyConceptsBasket,
   getCalendarUpcomingConceptsSummary,
   getConceptCostTrackingReport
-} from './conceptExplosionHelper.js?v=20261119_cf38';
+} from './conceptExplosionHelper.js?v=20261119_cf39';
 
 let weeklyBasket = []; // [{ conceptId, qtyToExecute, moveType }]
 let explodedRows = []; // Filas editables generadas de weeklyBasket
@@ -669,8 +669,15 @@ export function saveConceptExplosionOrders() {
 
 export function onComparativaConceptSearchChange(val) {
   comparativaConceptSearch = val;
+  const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+  const cursorPos = activeEl && activeEl.id === 'comparativa-concept-search-input' ? activeEl.selectionStart : null;
   if (typeof window.refreshComparativaSubView === 'function') {
     window.refreshComparativaSubView();
+  }
+  const nextEl = typeof document !== 'undefined' ? document.getElementById('comparativa-concept-search-input') : null;
+  if (nextEl && cursorPos !== null) {
+    nextEl.focus();
+    try { nextEl.setSelectionRange(cursorPos, cursorPos); } catch (_) {}
   }
 }
 
@@ -709,7 +716,7 @@ export function renderComparativaByConceptView() {
       <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
         <div class="relative flex-1 min-w-[220px]">
           <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-          <input type="text" value="${escapeHtml(comparativaConceptSearch)}" oninput="onComparativaConceptSearchChange(this.value)"
+          <input id="comparativa-concept-search-input" type="text" value="${escapeHtml(comparativaConceptSearch)}" oninput="onComparativaConceptSearchChange(this.value)"
                  placeholder="Buscar concepto por clave, nombre o partida (ej: Castillo C-1)..."
                  class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800">
         </div>

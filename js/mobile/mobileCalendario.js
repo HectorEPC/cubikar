@@ -2,8 +2,8 @@
 // Calendario de Obra móvil/tablet para cubikar Construcción:
 // Sub-vistas Agenda | Gantt | Curva S, Dependencias FS reales, bloqueo seguro y Ruta Crítica CPM.
 
-import { state } from '../state/store.js?v=20261119_cf38';
-import { formatMoney, round2 } from '../core/formatters.js?v=20261119_cf38';
+import { state } from '../state/store.js?v=20261119_cf39';
+import { formatMoney, round2 } from '../core/formatters.js?v=20261119_cf39';
 import {
   extractScheduleItems,
   ensureInitialDates,
@@ -21,12 +21,12 @@ import {
   addDays,
   diffDays,
   formatDate
-} from '../modules/calendario/calendarioModel.js?v=20261119_cf38';
-import { getEstimacionesCalculatedData } from '../modules/estimaciones/estimacionesModel.js?v=20261119_cf38';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf38';
-import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf38';
-import { showToast } from '../ui/notifications.js?v=20261119_cf38';
-import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf38';
+} from '../modules/calendario/calendarioModel.js?v=20261119_cf39';
+import { getEstimacionesCalculatedData } from '../modules/estimaciones/estimacionesModel.js?v=20261119_cf39';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf39';
+import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf39';
+import { showToast } from '../ui/notifications.js?v=20261119_cf39';
+import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf39';
 
 const MONTHS_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
@@ -565,8 +565,8 @@ function openConceptScheduleSheet({ target, concepts, items, pctMap, editable, c
             <input id="m-ce-start" type="date" required class="m-input" value="${escapeHtml(target.startDate || '')}">
           </div>
           <div>
-            <label class="m-label">Duración (mín. 3 días)</label>
-            <input id="m-ce-dur" type="number" min="3" required class="m-input m-mono" value="${Math.max(3, Number(target.durationDays || 3))}">
+            <label class="m-label">Duración (mín. 1 día)</label>
+            <input id="m-ce-dur" type="number" min="1" required class="m-input m-mono" value="${Math.max(1, Number(target.durationDays || 1))}">
           </div>
         </div>
         <div>
@@ -597,7 +597,7 @@ function openConceptScheduleSheet({ target, concepts, items, pctMap, editable, c
   document.getElementById('m-cal-edit-form')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
     const startVal = document.getElementById('m-ce-start').value;
-    const durVal = Math.max(3, parseInt(document.getElementById('m-ce-dur').value, 10) || 3);
+    const durVal = Math.max(1, parseInt(document.getElementById('m-ce-dur').value, 10) || 1);
     const checkedIds = Array.from(document.querySelectorAll('#m-cal-edit-form .m-pred-chk:checked')).map(el => el.value);
 
     const predChanged = checkedIds.length !== currentPredIds.length || checkedIds.some(id => !currentPredIds.includes(id));

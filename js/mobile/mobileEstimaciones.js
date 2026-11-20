@@ -1,7 +1,7 @@
 ﻿// js/mobile/mobileEstimaciones.js
 // Estimaciones y Generadores: Anticipo 0, avance ejecutado +/-, fotos S3, Neto a Cobrar y bloqueo por estimación
 
-import { formatMoney, formatQty, round2 } from '../core/formatters.js?v=20261119_cf38';
+import { formatMoney, formatQty, round2 } from '../core/formatters.js?v=20261119_cf39';
 import {
   getEstimacionesCalculatedData,
   createNewEstimacion,
@@ -15,11 +15,11 @@ import {
   setEstimacionesAnticipoPct,
   setEstimacionesIvaPct,
   normalizeCloudImageUrl
-} from '../modules/estimaciones/estimacionesModel.js?v=20261119_cf38';
-import { uploadManagedFile, resolveManagedFileUrl } from '../services/s3StorageService.js?v=20261119_cf38';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf38';
-import { showToast } from '../ui/notifications.js?v=20261119_cf38';
-import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf38';
+} from '../modules/estimaciones/estimacionesModel.js?v=20261119_cf39';
+import { uploadManagedFile, resolveManagedFileUrl } from '../services/s3StorageService.js?v=20261119_cf39';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf39';
+import { showToast } from '../ui/notifications.js?v=20261119_cf39';
+import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf39';
 
 let searchText = '';
 
@@ -101,7 +101,7 @@ export function renderMobileEstimaciones(container, { openSheet, closeSheet }) {
         <div><div style="color:var(--muted);">Avance Global</div><strong class="m-mono">${Number(data.kpis.pctAvanceGlobal || 0).toFixed(1)}%</strong></div>
       </div>
 
-      ${canEditRole ? `
+      ${editable ? `
         <div class="m-row-between" style="padding-top:6px;border-top:1px solid var(--border);">
           <span style="font-size:11px;color:var(--muted);">Anticipo ${data.kpis.anticipo.pct}% &bull; IVA ${data.kpis.iva.pct}%</span>
           <button type="button" id="m-est-cfg" class="m-btn m-btn-soft m-btn-sm"><i class="fa-solid fa-sliders"></i> Parámetros</button>
@@ -158,6 +158,7 @@ export function renderMobileEstimaciones(container, { openSheet, closeSheet }) {
   `;
 
   container.querySelector('#m-est-lock-btn')?.addEventListener('click', () => {
+    if (!canEditRole) return;
     toggleActiveEstimacionLockState();
     renderMobileEstimaciones(container, { openSheet, closeSheet });
   });
@@ -170,6 +171,7 @@ export function renderMobileEstimaciones(container, { openSheet, closeSheet }) {
   });
 
   container.querySelector('#m-est-new')?.addEventListener('click', () => {
+    if (!canEditRole) return;
     const nextNum = (data.estimacionesAvance?.length || 0) + 1;
     const created = createNewEstimacion(`Estimación ${nextNum}`);
     if (created) {
@@ -179,21 +181,23 @@ export function renderMobileEstimaciones(container, { openSheet, closeSheet }) {
   });
 
   container.querySelector('#m-est-toggle-cobro')?.addEventListener('click', () => {
-    if (!activeEst) return;
+    if (!canEditRole || !activeEst) return;
     updateEstimacionFactura(activeEst.id, { status: isCobrada ? 'pendiente' : 'cobrada' });
     showToast(isCobrada ? 'Marcada como pendiente.' : 'Marcada como cobrada.', 'success');
     renderMobileEstimaciones(container, { openSheet, closeSheet });
   });
 
   container.querySelector('#m-est-cfg')?.addEventListener('click', () => {
+    if (!editable) return;
+    const estZeroLocked = isEstimacionLocked('est_0');
     openSheet({
       title: 'Parámetros Financieros',
       bodyHtml: `
         <form id="m-est-cfg-form" style="display:flex;flex-direction:column;gap:10px;">
           <div class="m-grid-2">
             <div>
-              <label class="m-label" for="m-ec-ant">% Anticipo</label>
-              <input id="m-ec-ant" type="number" step="0.1" min="0" max="100" class="m-input m-mono" value="${data.kpis.anticipo.pct}">
+              <label class="m-label" for="m-ec-ant">% Anticipo ${estZeroLocked ? '(Est. 0 bloqueada)' : ''}</label>
+              <input id="m-ec-ant" type="number" step="0.1" min="0" max="100" class="m-input m-mono" value="${data.kpis.anticipo.pct}" ${estZeroLocked ? 'disabled readonly' : ''}>
             </div>
             <div>
               <label class="m-label" for="m-ec-iva">% IVA</label>
@@ -210,7 +214,9 @@ export function renderMobileEstimaciones(container, { openSheet, closeSheet }) {
     document.getElementById('m-ec-cancel')?.addEventListener('click', closeSheet);
     document.getElementById('m-est-cfg-form')?.addEventListener('submit', (ev) => {
       ev.preventDefault();
-      setEstimacionesAnticipoPct(parseFloat(document.getElementById('m-ec-ant').value) || 0);
+      if (!estZeroLocked) {
+        setEstimacionesAnticipoPct(parseFloat(document.getElementById('m-ec-ant').value) || 0);
+      }
       setEstimacionesIvaPct(parseFloat(document.getElementById('m-ec-iva').value) || 0);
       closeSheet();
       showToast('Parámetros actualizados.', 'success');
@@ -230,6 +236,15 @@ export function renderMobileEstimaciones(container, { openSheet, closeSheet }) {
     }
   });
 
+  const warnOverContracted = (cId, nextVal) => {
+    const r = leafRows.find(x => String(x.id) === String(cId));
+    if (!r || !(Number(r.cantBase) > 0)) return;
+    const nextAcum = round2((Number(r.cantAnt) || 0) + nextVal);
+    if (nextAcum > Number(r.cantBase) * 1.0001) {
+      showToast(`⚠️ Acumulado (${nextAcum}) supera el contratado (${round2(r.cantBase)}) en ${r.clave || ''}.`, 'warning');
+    }
+  };
+
   container.querySelectorAll('[data-est-step]').forEach(btn => {
     btn.addEventListener('click', () => {
       const cId = btn.dataset.estStep;
@@ -238,6 +253,7 @@ export function renderMobileEstimaciones(container, { openSheet, closeSheet }) {
       if (!r) return;
       const next = Math.max(0, round2((r.cantEje || 0) + delta));
       setConceptoCantidadEjecutada(cId, next);
+      warnOverContracted(cId, next);
       renderMobileEstimaciones(container, { openSheet, closeSheet });
     });
   });
@@ -246,6 +262,7 @@ export function renderMobileEstimaciones(container, { openSheet, closeSheet }) {
     inp.addEventListener('change', () => {
       const val = Math.max(0, round2(parseFloat(inp.value) || 0));
       setConceptoCantidadEjecutada(inp.dataset.estQty, val);
+      warnOverContracted(inp.dataset.estQty, val);
       renderMobileEstimaciones(container, { openSheet, closeSheet });
     });
   });
@@ -260,6 +277,7 @@ export function renderMobileEstimaciones(container, { openSheet, closeSheet }) {
 async function openPhotosSheet(conceptId, editable, container, ctx) {
   const existing = getConceptoFotosEstimacion(conceptId) || [];
   const slots = [existing[0] ? { ...existing[0] } : null, existing[1] ? { ...existing[1] } : null];
+  const draftNotas = [slots[0]?.nota || '', slots[1]?.nota || ''];
 
   const resolveThumb = async (slot) => {
     if (!slot) return '';
@@ -292,7 +310,7 @@ async function openPhotosSheet(conceptId, editable, container, ctx) {
                 <i class="fa-solid fa-camera"></i> ${slot ? 'Reemplazar foto' : 'Tomar / Subir foto'}
                 <input type="file" data-up-slot="${idx}" accept="image/*" style="display:none;">
               </label>
-              <input type="text" data-nota-slot="${idx}" class="m-input" placeholder="Descripción o pie de foto..." value="${escapeHtml(slot?.nota || '')}">
+              <input type="text" data-nota-slot="${idx}" class="m-input" placeholder="Descripción o pie de foto..." value="${escapeHtml(draftNotas[idx] || '')}">
             ` : (slot?.nota ? `<div style="font-size:12px;color:var(--text-soft);">${escapeHtml(slot.nota)}</div>` : '')}
           </div>
         `;
@@ -329,7 +347,7 @@ async function openPhotosSheet(conceptId, editable, container, ctx) {
               fileName: res.fileName || '',
               sizeLabel: res.sizeLabel || '',
               displayUrl: res.dataUrl || '',
-              nota: slots[idx]?.nota || ''
+              nota: draftNotas[idx] || slots[idx]?.nota || ''
             };
             renderBody();
           }
@@ -341,21 +359,22 @@ async function openPhotosSheet(conceptId, editable, container, ctx) {
     document.querySelectorAll('[data-nota-slot]').forEach(inp => {
       inp.addEventListener('input', () => {
         const idx = parseInt(inp.dataset.notaSlot, 10);
+        draftNotas[idx] = inp.value;
         if (slots[idx]) slots[idx].nota = inp.value;
       });
     });
     document.getElementById('m-ef-save')?.addEventListener('click', () => {
-      const clean = slots.filter(Boolean).map(s => ({
+      const clean = slots.map((s, idx) => s ? ({
         url: s.url || '',
         displayUrl: s.s3Key ? '' : (s.displayUrl || ''),
-        nota: s.nota || '',
+        nota: draftNotas[idx] ?? s.nota ?? '',
         mediaId: s.mediaId || '',
         s3Key: s.s3Key || '',
         archivoId: s.archivoId || '',
         bucket: s.bucket || '',
         fileName: s.fileName || '',
         sizeLabel: s.sizeLabel || ''
-      }));
+      }) : null).filter(Boolean);
       setConceptoFotosEstimacion(conceptId, clean);
       ctx.closeSheet();
       showToast('Reporte fotográfico guardado.', 'success');

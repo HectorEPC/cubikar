@@ -7,9 +7,9 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261119_cf38';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
+} from '../../config/constants.js?v=20261119_cf39';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -24,7 +24,7 @@ import {
   unmarkProjectDeleted,
   markProjectTrashedLocal,
   unmarkProjectTrashedLocal
-} from './projectService.js?v=20261119_cf38';
+} from './projectService.js?v=20261119_cf39';
 import {
   isValidUUID,
   resolveCloudProjectId,
@@ -32,8 +32,8 @@ import {
   invalidateCloudProjectsCache,
   fetchCloudProjects,
   getCachedTrashedCloudProjects
-} from '../../core/cloudProjectService.js?v=20261119_cf38';
-import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261119_cf38';
+} from '../../core/cloudProjectService.js?v=20261119_cf39';
+import { deleteManagedFile } from '../../services/s3StorageService.js?v=20261119_cf39';
 
 export const TRASH_RETENTION_DAYS = 7;
 export const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
@@ -64,6 +64,8 @@ const PROJECT_LOCAL_PREFIXES = [
   'adm_arq_expenses_',
   'adm_const_suppliers_',
   'adm_arq_suppliers_',
+  'adm_const_almacen_',
+  'adm_const_tab_locks_',
   'adm_arq_seguimiento_',
   'seguimiento_data_'
 ];
@@ -75,6 +77,14 @@ function escapeHtml(val) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function escapeJsString(val) {
+  return String(val ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/[\r\n\u2028\u2029]/g, ' ');
 }
 
 function csvEsc(val) {
@@ -979,7 +989,7 @@ function renderTrashModalContent() {
                     <span>Respaldar</span>
                   </button>
                   <button type="button"
-                          onclick="permanentDeleteFromTrashAction('${escapeHtml(item.id)}', '${escapeHtml(item.projectName).replace(/'/g, "\\'")}', this)"
+                          onclick="permanentDeleteFromTrashAction('${escapeHtml(escapeJsString(item.id))}', '${escapeHtml(escapeJsString(item.projectName))}', this)"
                           class="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
                           title="Eliminar definitivamente ahora">
                     <i class="fa-solid fa-trash text-[11px]"></i>
@@ -1126,10 +1136,20 @@ export async function emptyTrashAction(btnEl = null) {
   }
   if (btnEl) btnEl.disabled = true;
   try {
+    let failedCount = 0;
+    let lastReason = '';
     for (const item of [...items]) {
-      await permanentlyDeleteTrashedProject(item.id);
+      const res = await permanentlyDeleteTrashedProject(item.id);
+      if (!res?.success) {
+        failedCount++;
+        lastReason = res?.reason || lastReason;
+      }
     }
-    showToast('Papelera vaciada definitivamente.', 'info');
+    if (failedCount > 0) {
+      showToast(lastReason || `No se pudieron eliminar ${failedCount} proyecto(s) de la papelera.`, 'warning');
+    } else {
+      showToast('Papelera vaciada definitivamente.', 'info');
+    }
     renderTrashModalContent();
   } finally {
     if (btnEl) btnEl.disabled = false;

@@ -1,15 +1,15 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261119_cf38';
-import { saveState } from '../../state/history.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261119_cf38';
-import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf38';
-import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261119_cf38';
-import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261119_cf38';
-import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf38';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf39';
+import { saveState } from '../../state/history.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { renderTAB1, closeApuPanel, selectRow } from './catalogView.js?v=20261119_cf39';
+import { renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf39';
+import { renderInsumosGenerales } from '../insumosGenerales/insumosView.js?v=20261119_cf39';
+import { getActiveProjectId, STORAGE_KEY_CLIPBOARD } from '../../config/constants.js?v=20261119_cf39';
+import { getProjectById, validateConceptAdditionLimit, countTreeConcepts, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf39';
 export { countTreeConcepts };
-import { getFactorSobrecosto, round2, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf38';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf38';
-import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261119_cf38';
+import { getFactorSobrecosto, round2, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf39';
+import { guardTabUnlocked, isTabLocked } from '../../ui/tabLockController.js?v=20261119_cf39';
+import { broadcastConceptChange, pushConceptUpdateToSupabase } from '../../core/realtimeSync.js?v=20261119_cf39';
 
 function createNodeUuid() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -773,11 +773,11 @@ export function updateNode(id, field, value) {
   if (!canCurrentUserEditProject()) {
     showToast('🔒 Modo solo lectura: No tienes permisos para editar conceptos en este proyecto.', 'warning');
     renderTAB1();
-    return;
+    return false;
   }
   if (!guardTabUnlocked('cat')) {
     renderTAB1();
-    return;
+    return false;
   }
   const node = findNodeById(state.treeData, id);
   if (node) {
@@ -1043,7 +1043,9 @@ export function toggleSelectNode(id, isChecked, e) {
   }
 
   setSelectRecursive(node, isChecked);
-  persistLocalData();
+  if (canCurrentUserEditProject() && !isTabLocked('cat')) {
+    persistLocalData();
+  }
   renderTAB1();
 
   const viewInsumos = document.getElementById('view-insumos');
@@ -1070,7 +1072,9 @@ export function toggleSelectAll(isChecked) {
   const domChecks = document.querySelectorAll('#tb1-body input[type="checkbox"]');
   domChecks.forEach(cb => { cb.checked = val; });
 
-  persistLocalData();
+  if (canCurrentUserEditProject() && !isTabLocked('cat')) {
+    persistLocalData();
+  }
   renderTAB1();
 
   const viewInsumos = document.getElementById('view-insumos');

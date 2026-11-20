@@ -2,10 +2,10 @@
 // js/modules/compras/expensesView.js
 // Renderizador y controlador de eventos para la pestaña COMPRAS Y PAGOS (Control de Gastos y ERP Financiero)
 
-import { state } from '../../state/store.js?v=20261119_cf38';
-import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { normalizeInsumoText } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf38';
+import { state } from '../../state/store.js?v=20261119_cf39';
+import { formatCurrency, formatNumber, round2 } from '../../core/formatters.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { normalizeInsumoText } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf39';
 import {
   loadExpensesData,
   saveExpensesData,
@@ -27,37 +27,38 @@ import {
   saveUnitFactorForInsumo,
   findDuplicateCfdiUuid,
   registerExpensePaymentInstallment
-} from './expensesModel.js?v=20261119_cf38';
-import { parseMexicanCfdiXml } from './xmlCfdiParser.js?v=20261119_cf38';
+} from './expensesModel.js?v=20261119_cf39';
+import { parseMexicanCfdiXml } from './xmlCfdiParser.js?v=20261119_cf39';
 import {
   getLeafConceptsCatalogSummary,
   getSupplierPriceHistoryForInsumo
-} from './conceptExplosionHelper.js?v=20261119_cf38';
+} from './conceptExplosionHelper.js?v=20261119_cf39';
 import {
   resetConceptExplosionPanel,
   renderConceptExplosionPanel,
   saveConceptExplosionOrders,
   renderComparativaByConceptView
-} from './conceptExplosionUI.js?v=20261119_cf38';
+} from './conceptExplosionUI.js?v=20261119_cf39';
 import {
   getExpensesKpiMetrics,
   getAllBudgetInsumosExplosion,
   getInsumosBudgetVsActualComparison
-} from './expensesCalculations.js?v=20261119_cf38';
+} from './expensesCalculations.js?v=20261119_cf39';
 import {
   processExpenseEvidenceUpload,
   openExpenseEvidence,
   deleteExpenseEvidence
-} from './driveExpenseService.js?v=20261119_cf38';
-import { resolveHostStorageContext } from '../../services/storageQuotaService.js?v=20261119_cf38';
+} from './driveExpenseService.js?v=20261119_cf39';
+import { resolveHostStorageContext } from '../../services/storageQuotaService.js?v=20261119_cf39';
 import {
   exportExpensesToExcel,
   printSingleOrdenCompra,
   printExpensesActiveReport
-} from './expensesExporter.js?v=20261119_cf38';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf38';
-import { resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261119_cf38';
-import { isNightMode } from '../../ui/themeController.js?v=20261119_cf38';
+} from './expensesExporter.js?v=20261119_cf39';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf39';
+import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf39';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf39';
+import { isNightMode } from '../../ui/themeController.js?v=20261119_cf39';
 
 function isAdvancedExpensesAllowed() {
   return true;
@@ -1351,7 +1352,7 @@ function renderComparativaInsumosView() {
         <!-- Fila 1: Búsqueda en Vivo a todo lo ancho -->
         <div class="relative w-full">
           <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-          <input type="text" value="${comparativaSearchTerm}" oninput="onComparativaSearchChange(this.value)" placeholder="Buscar insumo por clave o descripción en todos los rubros..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition">
+          <input id="comparativa-search-input" type="text" value="${escapeHtml(comparativaSearchTerm)}" oninput="onComparativaSearchChange(this.value)" placeholder="Buscar insumo por clave o descripción en todos los rubros..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition">
         </div>
 
         <!-- Fila 2: BARRA EN UNA MISMA FILA: BOTONES DE RUBRO + ESTADO Y ALERTAS (Entran todos juntos) -->
@@ -1608,9 +1609,16 @@ function renderComparativaRowHtml(item) {
 
 export function onExpensesSearchChange(val) {
   expensesSearchTerm = val;
+  const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+  const cursorPos = activeEl && activeEl.id === 'expenses-search-input' ? activeEl.selectionStart : null;
   const container = document.getElementById('expenses-subview-container');
   if (container && activeExpensesSubTab === 'bitacora') {
     container.innerHTML = renderBitacoraEgresosView();
+  }
+  const nextEl = typeof document !== 'undefined' ? document.getElementById('expenses-search-input') : null;
+  if (nextEl && cursorPos !== null) {
+    nextEl.focus();
+    try { nextEl.setSelectionRange(cursorPos, cursorPos); } catch (_) {}
   }
 }
 
@@ -1642,9 +1650,16 @@ export function clearExpensesFilters() {
 
 export function onComparativaSearchChange(val) {
   comparativaSearchTerm = val;
+  const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+  const cursorPos = activeEl && activeEl.id === 'comparativa-search-input' ? activeEl.selectionStart : null;
   const container = document.getElementById('expenses-subview-container');
   if (container && activeExpensesSubTab === 'comparativa') {
     container.innerHTML = renderComparativaInsumosView();
+  }
+  const nextEl = typeof document !== 'undefined' ? document.getElementById('comparativa-search-input') : null;
+  if (nextEl && cursorPos !== null) {
+    nextEl.focus();
+    try { nextEl.setSelectionRange(cursorPos, cursorPos); } catch (_) {}
   }
 }
 
@@ -1665,6 +1680,11 @@ export function onComparativaAlertFilterChange(val) {
 }
 
 export function toggleExpenseStatusAction(recordId) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite cambiar estados de pago.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('compras')) return;
   const updated = toggleRecordPaymentStatus(recordId);
   if (updated) {
     showToast(`Estado actualizado: ${updated.paymentStatus === 'paid' ? 'Pagado' : 'Por Pagar'}`, 'info');
@@ -1673,6 +1693,11 @@ export function toggleExpenseStatusAction(recordId) {
 }
 
 export function deleteExpenseAction(recordId) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite eliminar gastos.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('compras')) return;
   if (confirm(`¿Estás seguro de eliminar el registro de gasto ${recordId}? Esta acción no se puede deshacer.`)) {
     const rec = getExpenseRecordById(recordId);
     if (rec?.evidence) {
@@ -1727,6 +1752,11 @@ export function refreshComparativaSubView() {
 }
 
 export function abonarExpenseAction(recordId) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite registrar pagos.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('compras')) return;
   const rec = getExpenseRecordById(recordId);
   if (!rec) return;
   const total = parseFloat(rec.total) || 0;
@@ -1786,6 +1816,11 @@ function populateExpenseConceptSelect(selectedConceptId = '') {
 }
 
 export function openNewExpenseModal(editId = null, options = {}) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite crear ni editar compras.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('compras')) return;
   activeEditingExpenseId = editId;
   currentTempEvidence = null;
   pendingPurchaseConversion = null;
@@ -2409,6 +2444,7 @@ function updateEvidenceUI() {
 }
 
 export function saveExpenseModalActiveMode() {
+  if (!canCurrentUserEditProject() || !guardTabUnlocked('compras')) return;
   if (activeExpenseModalMode === 'concept' && !activeEditingExpenseId) {
     const ok = saveConceptExplosionOrders();
     if (ok) {
@@ -2421,6 +2457,7 @@ export function saveExpenseModalActiveMode() {
 }
 
 export function saveExpenseModalForm() {
+  if (!canCurrentUserEditProject() || !guardTabUnlocked('compras')) return;
   const desc = document.getElementById('expense-form-desc')?.value.trim();
   if (!desc) {
     showToast('Ingresa una descripción para la compra o gasto.', 'warning');
@@ -2570,6 +2607,7 @@ export function closeSupplierModal() {
 }
 
 export function saveSupplierModalForm() {
+  if (!canCurrentUserEditProject() || !guardTabUnlocked('compras')) return;
   const name = document.getElementById('supplier-form-name')?.value.trim();
   if (!name) {
     showToast('Ingresa la razón social o nombre del proveedor.', 'warning');
@@ -2595,6 +2633,7 @@ export function saveSupplierModalForm() {
 }
 
 export function deleteSupplierAction(supplierId) {
+  if (!canCurrentUserEditProject() || !guardTabUnlocked('compras')) return;
   const sup = getSupplierById(supplierId);
   if (confirm(`¿Deseas eliminar al proveedor "${sup?.name || supplierId}"?`)) {
     deleteSupplier(supplierId);
@@ -2620,6 +2659,11 @@ function escapeHtml(str) {
 let draftExpensesSignatures = [];
 
 export function openExpensesSignaturesModal() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite editar firmas de Compras.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('compras')) return;
   const modal = document.getElementById('modal-compras-firmas');
   if (!modal) return;
 
@@ -2755,6 +2799,7 @@ export function resetDefaultExpensesSignatures() {
 }
 
 export function saveExpensesSignaturesModal() {
+  if (!canCurrentUserEditProject() || !guardTabUnlocked('compras')) return;
   const cleaned = (Array.isArray(draftExpensesSignatures) && draftExpensesSignatures.length > 0)
     ? draftExpensesSignatures.map(s => ({
         rol: (s.rol || 'FIRMA').trim().toUpperCase(),

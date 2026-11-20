@@ -3,8 +3,8 @@
 // conectada con Partidas de Nivel 1 (icono de alta visibilidad fa-comments),
 // Usuarios Asignados (@), Estimaciones (#), Reportes (!) y Notificaciones de Menciones en la barra lateral izquierda.
 
-import { state } from '../../state/store.js?v=20261119_cf38';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf38';
+import { state } from '../../state/store.js?v=20261119_cf39';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf39';
 import {
   getProjectById,
   getProjectByIdReadOnly,
@@ -21,18 +21,20 @@ import {
   saveStoredInvitations,
   getStoredPlanInvitations,
   saveStoredPlanInvitations,
-  getDeletedProjectsList
-} from '../portal/projectService.js?v=20261119_cf38';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf38';
-import { buildFallbackAvatarSvg } from '../../core/authService.js?v=20261119_cf38';
-import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261119_cf38';
-import { getExpensesRecords } from '../compras/expensesModel.js?v=20261119_cf38';
-import { getWarehouseStockSummary } from '../almacen/almacenModel.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261119_cf38';
-import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261119_cf38';
-import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261119_cf38';
-import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261119_cf38';
+  getDeletedProjectsList,
+  canCurrentUserEditProject,
+  getUserRoleInProject
+} from '../portal/projectService.js?v=20261119_cf39';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf39';
+import { buildFallbackAvatarSvg } from '../../core/authService.js?v=20261119_cf39';
+import { loadEstimacionesData, setActiveEstimacionId } from '../estimaciones/estimacionesModel.js?v=20261119_cf39';
+import { getExpensesRecords } from '../compras/expensesModel.js?v=20261119_cf39';
+import { getWarehouseStockSummary } from '../almacen/almacenModel.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { getActiveUserConsumptionAlert } from '../admin/cubikarAdmin.js?v=20261119_cf39';
+import { openSubscriptionModal } from '../portal/subscriptionModal.js?v=20261119_cf39';
+import { scheduleChatCloudSync } from '../../core/cloudModulesSyncService.js?v=20261119_cf39';
+import { broadcastChatMessage, broadcastChatDelete } from '../../core/realtimeSync.js?v=20261119_cf39';
 
 export const ALL_PROJECT_PERMISSION_TABS = ['cat', 'insumos', 'calendario', 'compras', 'almacen', 'estimaciones', 'bitacora'];
 
@@ -2250,14 +2252,18 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
     loadProjectChatMessages().filter(m => isChatMessageVisibleToUser(m))
   );
 
-  // Filtrar según la sección seleccionada
-  const filteredMessages = allMessages.filter(m => {
-    const sec = getMessageSection(m);
-    if (targetSection !== 'todos' && sec !== targetSection) return false;
+  // Filtrar según contexto base (partida/tipo) y dejar el filtro por sección listo para el toolbar interactivo del reporte
+  const baseMessages = allMessages.filter(m => {
     if (activePartidaFilterId && String(m.partidaId) !== String(activePartidaFilterId)) return false;
     if (activeChatFilter === 'mentions') return Array.isArray(m.mentions) && m.mentions.includes(selectedAuthorHandle);
     if (activeChatFilter === 'estimaciones') return Array.isArray(m.estimaciones) && m.estimaciones.length > 0;
     if (activeChatFilter === 'reportes') return Array.isArray(m.reportes) && m.reportes.length > 0;
+    return true;
+  });
+
+  const filteredMessages = baseMessages.filter(m => {
+    const sec = getMessageSection(m);
+    if (targetSection !== 'todos' && sec !== targetSection) return false;
     return true;
   });
 
@@ -2327,10 +2333,10 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
           ${participantsList.map((p, idx) => `
             <tr>
               <td style="text-align:center; font-weight:700; color:#475569;">${idx + 1}</td>
-              <td><strong>${p.name}</strong> <span style="font-size:7.5pt; color:#2563eb;">(${p.handle})</span></td>
-              <td><span style="font-size:7.5pt; padding:1px 6px; border-radius:4px; background:#e2e8f0; font-weight:700; color:#334155;">${p.role}</span></td>
+              <td><strong>${escapeChatHtml(p.name)}</strong> <span style="font-size:7.5pt; color:#2563eb;">(${escapeChatHtml(p.handle)})</span></td>
+              <td><span style="font-size:7.5pt; padding:1px 6px; border-radius:4px; background:#e2e8f0; font-weight:700; color:#334155;">${escapeChatHtml(p.role)}</span></td>
               <td style="text-align:center; font-weight:800; color:#0f172a;">${p.count}</td>
-              <td style="font-family:monospace; font-size:7.5pt; color:#475569;">${p.firstTime || '-'} &rarr; ${p.lastTime || '-'}</td>
+              <td style="font-family:monospace; font-size:7.5pt; color:#475569;">${escapeChatHtml(p.firstTime || '-')} &rarr; ${escapeChatHtml(p.lastTime || '-')}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -2347,44 +2353,46 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
     bitacora: { cls: 'tag-compra', text: '📓 Bitácora' }
   };
 
-  const rowsHtml = filteredMessages.length === 0
+  const rowsHtml = baseMessages.length === 0
     ? `<tr><td colspan="5" style="text-align:center; padding:18px; color:#64748b;">No hay asientos ni comentarios registrados en este canal para imprimir.</td></tr>`
-    : filteredMessages.map((m, idx) => {
+    : baseMessages.map((m, idx) => {
         const sec = getMessageSection(m);
         const pObj = m.partidaId ? partidas.find(p => String(p.id) === String(m.partidaId)) : null;
         const secInfo = printSectionBadgeMap[sec] || printSectionBadgeMap.presupuesto;
-        const tags = [`<span class="tag ${secInfo.cls}">${secInfo.text}</span>`];
-        if (pObj) tags.push(`<span class="tag tag-partida">/${pObj.clave} ${pObj.descripcion}</span>`);
-        (m.mentions || []).forEach(u => tags.push(`<span class="tag tag-user">${u}</span>`));
-        (m.estimaciones || []).forEach(e => tags.push(`<span class="tag tag-est">${e}</span>`));
-        (m.compras || []).forEach(c => tags.push(`<span class="tag tag-compra">${c}</span>`));
-        (m.almacen || []).forEach(a => tags.push(`<span class="tag tag-sec-alm">${a}</span>`));
-        (m.reportes || []).forEach(r => tags.push(`<span class="tag tag-rep">${r}</span>`));
+        const tags = [`<span class="tag ${secInfo.cls}">${escapeChatHtml(secInfo.text)}</span>`];
+        if (pObj) tags.push(`<span class="tag tag-partida">/${escapeChatHtml(pObj.clave)} ${escapeChatHtml(pObj.descripcion)}</span>`);
+        (m.mentions || []).forEach(u => tags.push(`<span class="tag tag-user">${escapeChatHtml(u)}</span>`));
+        (m.estimaciones || []).forEach(e => tags.push(`<span class="tag tag-est">${escapeChatHtml(e)}</span>`));
+        (m.compras || []).forEach(c => tags.push(`<span class="tag tag-compra">${escapeChatHtml(c)}</span>`));
+        (m.almacen || []).forEach(a => tags.push(`<span class="tag tag-sec-alm">${escapeChatHtml(a)}</span>`));
+        (m.reportes || []).forEach(r => tags.push(`<span class="tag tag-rep">${escapeChatHtml(r)}</span>`));
 
+        const hiddenAttr = (targetSection !== 'todos' && sec !== targetSection) ? ' style="display:none;"' : '';
         return `
-          <tr>
-            <td style="text-align:center; font-weight:700; color:#475569;">${idx + 1}</td>
-            <td style="white-space:nowrap; font-family:monospace; font-size:8pt; color:#334155;">${m.time || '-'}</td>
+          <tr class="chat-print-row" data-sec="${escapeChatHtml(sec)}"${hiddenAttr}>
+            <td class="chat-row-idx" style="text-align:center; font-weight:700; color:#475569;">${idx + 1}</td>
+            <td style="white-space:nowrap; font-family:monospace; font-size:8pt; color:#334155;">${escapeChatHtml(m.time || '-')}</td>
             <td>
-              <div style="font-weight:700; color:#0f172a;">${m.authorHandle || m.authorName || 'Usuario'}</div>
-              <div style="font-size:7.5pt; color:#64748b;">${m.authorName || ''} (${m.authorRole || 'Asignado'})</div>
+              <div style="font-weight:700; color:#0f172a;">${escapeChatHtml(m.authorHandle || m.authorName || 'Usuario')}</div>
+              <div style="font-size:7.5pt; color:#64748b;">${escapeChatHtml(m.authorName || '')} (${escapeChatHtml(m.authorRole || 'Asignado')})</div>
             </td>
             <td>${tags.join(' ')}</td>
-            <td style="color:#0f172a; line-height:1.45;">${String(m.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+            <td style="color:#0f172a; line-height:1.45;">${escapeChatHtml(m.text || '')}</td>
           </tr>
         `;
       }).join('');
 
   const toolbarButtonsHtml = allowedChannels.map(chId => {
     const meta = CHAT_CHANNEL_META[chId];
-    return `<button class="btn-filter ${targetSection === chId ? 'active' : ''}" onclick="window.location.search='?section=${chId}';">${meta ? meta.label : chId}</button>`;
+    const safeChJs = escapeChatHtml(escapeChatJsArg(chId));
+    return `<button class="btn-filter ${targetSection === chId ? 'active' : ''}" data-filter-sec="${escapeChatHtml(chId)}" onclick="filterPrintSection('${safeChJs}')">${escapeChatHtml(meta ? meta.label : chId)}</button>`;
   }).join('');
 
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>${sectionTitle} - ${projectName}</title>
+  <title>${escapeChatHtml(sectionTitle)} - ${escapeChatHtml(projectName)}</title>
   <style>
     @page { size: letter portrait; margin: 10mm; }
     * { box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -2457,8 +2465,8 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
 <body>
   <div class="toolbar">
     <div class="toolbar-left">
-      <strong>${sectionTitle}</strong>
-      <span style="font-size:8pt; color:#94a3b8;">(${filteredMessages.length} asiento(s) de bitácora)</span>
+      <strong>${escapeChatHtml(sectionTitle)}</strong>
+      <span id="chat-print-toolbar-count" style="font-size:8pt; color:#94a3b8;">(${filteredMessages.length} asiento(s) de bitácora)</span>
     </div>
     <div class="toolbar-buttons">
       ${toolbarButtonsHtml}
@@ -2470,29 +2478,29 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
   <div class="sheet">
     <div class="header">
       <div class="brand">
-        ${logoSrc ? `<img src="${logoSrc}" alt="Logo">` : ''}
+        ${logoSrc ? `<img src="${escapeChatHtml(logoSrc)}" alt="Logo">` : ''}
         <div>
-          <div style="font-size:12.5pt; font-weight:800; color:#0f172a;">${companyName}</div>
-          <div style="font-size:8pt; color:#475569;">${companySubtitle}</div>
+          <div style="font-size:12.5pt; font-weight:800; color:#0f172a;">${escapeChatHtml(companyName)}</div>
+          <div style="font-size:8pt; color:#475569;">${escapeChatHtml(companySubtitle)}</div>
         </div>
       </div>
       <div style="text-align:right;">
-        <div style="font-size:10pt; font-weight:800; color:#1e3a8a;">${sectionTitle}</div>
-        <div style="font-size:7.5pt; color:#64748b;">${sectionSubtitle}</div>
-        <div style="font-size:7.5pt; color:#64748b; margin-top:2px;">Fecha de emisión: ${fechaImpresion}</div>
+        <div style="font-size:10pt; font-weight:800; color:#1e3a8a;">${escapeChatHtml(sectionTitle)}</div>
+        <div style="font-size:7.5pt; color:#64748b;">${escapeChatHtml(sectionSubtitle)}</div>
+        <div style="font-size:7.5pt; color:#64748b; margin-top:2px;">Fecha de emisión: ${escapeChatHtml(fechaImpresion)}</div>
       </div>
     </div>
 
     <div class="meta-grid">
       <div>
-        <div><strong>Proyecto:</strong> ${projectName}</div>
-        <div><strong>Ubicación:</strong> ${projectLocation}</div>
-        <div><strong>Ámbito Documental:</strong> <span style="font-weight:700; color:#1e3a8a;">${chMeta.printSubtitle || chMeta.subtitle || 'Bitácora de Obra'}</span></div>
+        <div><strong>Proyecto:</strong> ${escapeChatHtml(projectName)}</div>
+        <div><strong>Ubicación:</strong> ${escapeChatHtml(projectLocation)}</div>
+        <div><strong>Ámbito Documental:</strong> <span style="font-weight:700; color:#1e3a8a;">${escapeChatHtml(chMeta.printSubtitle || chMeta.subtitle || 'Bitácora de Obra')}</span></div>
       </div>
       <div>
-        <div><strong>Filtro aplicado:</strong> ${filterLabel}</div>
+        <div><strong>Filtro aplicado:</strong> ${escapeChatHtml(filterLabel)}</div>
         <div><strong>Participantes en el periodo:</strong> ${participantsList.length} involucrado(s)</div>
-        <div><strong>Total de asientos:</strong> ${filteredMessages.length} registro(s)</div>
+        <div><strong>Total de asientos:</strong> <span id="chat-print-meta-count">${filteredMessages.length}</span> registro(s)</div>
       </div>
     </div>
 
@@ -2532,15 +2540,28 @@ export function printProjectChatReport(sectionFilter = null, event = null) {
   </div>
 
   <script>
-    // Manejar selector de secciones en la ventana de impresión
-    (function() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const secParam = urlParams.get('section');
-      if (secParam && secParam !== '${targetSection}' && window.opener && typeof window.opener.printProjectChatReport === 'function') {
-        window.close();
-        window.opener.printProjectChatReport(secParam);
-      }
-    })();
+    window.filterPrintSection = function(sec) {
+      var rows = document.querySelectorAll('.chat-print-row');
+      var visible = 0;
+      rows.forEach(function(tr) {
+        var rSec = tr.getAttribute('data-sec');
+        var show = (sec === 'todos' || rSec === sec);
+        tr.style.display = show ? '' : 'none';
+        if (show) {
+          visible++;
+          var idxCell = tr.querySelector('.chat-row-idx');
+          if (idxCell) idxCell.textContent = String(visible);
+        }
+      });
+      document.querySelectorAll('.btn-filter[data-filter-sec]').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-filter-sec') === sec);
+      });
+      var tbCount = document.getElementById('chat-print-toolbar-count');
+      if (tbCount) tbCount.textContent = '(' + visible + ' asiento(s) de bitácora)';
+      var metaCount = document.getElementById('chat-print-meta-count');
+      if (metaCount) metaCount.textContent = String(visible);
+    };
+    window.filterPrintSection('${escapeChatJsArg(targetSection)}');
   </script>
 </body>
 </html>`;
@@ -2921,6 +2942,10 @@ export function removeProjectChatPendingTag(kind, val) {
 }
 
 export function sendProjectChatMessage() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol solo permite consultar comentarios del chat.', 'warning');
+    return;
+  }
   const activeChannel = ensureValidActiveChatSection();
   if (!activeChannel) {
     showToast('🔒 No tienes permiso para escribir en ningún canal del chat.', 'warning');
@@ -3011,12 +3036,38 @@ export function sendProjectChatMessage() {
   }, 40);
 }
 
+export function canUserDeleteChatMessage(target, projectId = null) {
+  if (!target) return false;
+  if (!canCurrentUserEditProject(projectId)) return false;
+  if (!isChatMessageVisibleToUser(target, projectId)) return false;
+  const pid = resolveCanonicalChatPid(projectId);
+  const currentUser = getCurrentUser() || getLastKnownUser();
+  const uEmail = String(currentUser?.email || '').toLowerCase().trim();
+  const proj = getProjectByIdReadOnly(pid);
+  const ownerEmail = String(proj?.ownerEmail || '').toLowerCase().trim();
+  if (!uEmail || !ownerEmail || ownerEmail === uEmail) return true;
+  const role = getUserRoleInProject(pid, currentUser);
+  if (role === 'editar') return true;
+  const targetEmail = String(target.authorEmail || '').toLowerCase().trim();
+  if (targetEmail && targetEmail === uEmail) return true;
+  return false;
+}
+
 export function deleteProjectChatMessage(msgId) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite eliminar comentarios del chat.', 'warning');
+    return;
+  }
   const cleanId = normalizeChatMsgId(msgId);
   const messages = loadProjectChatMessages();
   const target = messages.find(m => normalizeChatMsgId(m.id) === cleanId);
-  if (target && !isChatMessageVisibleToUser(target)) {
+  if (!target) return;
+  if (!isChatMessageVisibleToUser(target)) {
     showToast('🔒 No tienes permiso para eliminar mensajes de este canal.', 'warning');
+    return;
+  }
+  if (!canUserDeleteChatMessage(target)) {
+    showToast('🔒 Solo el autor del comentario o el administrador del proyecto puede eliminarlo.', 'warning');
     return;
   }
   const next = messages.filter(m => normalizeChatMsgId(m.id) !== cleanId);
@@ -3653,11 +3704,13 @@ export function renderProjectChatDock() {
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
                   <span class="text-[10px] text-slate-400">${escapeChatHtml(m.time || '')}</span>
-                  <button type="button" onclick="deleteProjectChatMessage('${safeMsgIdJs}')"
-                          title="Eliminar comentario"
-                          class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 text-[10px] px-1 cursor-pointer transition">
-                    <i class="fa-solid fa-trash-can"></i>
-                  </button>
+                  ${canUserDeleteChatMessage(m) ? `
+                    <button type="button" onclick="deleteProjectChatMessage('${safeMsgIdJs}')"
+                            title="Eliminar comentario"
+                            class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 text-[10px] px-1 cursor-pointer transition">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  ` : ''}
                 </div>
               </div>
 

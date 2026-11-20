@@ -6,7 +6,7 @@ import {
   getActiveProjectId,
   getStorageKey,
   getSettingsKey
-} from '../../config/constants.js?v=20261119_cf38';
+} from '../../config/constants.js?v=20261119_cf39';
 import {
   getCurrentUser,
   getLastKnownUser,
@@ -74,15 +74,15 @@ import {
   isProjectTrashedLocal,
   setActiveWorkspaceData,
   getActiveWorkspaceData
-} from './projectService.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { persistLocalData, state, initStore } from '../../state/store.js?v=20261119_cf38';
-import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261119_cf38';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf38';
-import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261119_cf38';
-import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261119_cf38';
-import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261119_cf38';
-import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261119_cf38';
+} from './projectService.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { persistLocalData, state, initStore } from '../../state/store.js?v=20261119_cf39';
+import { renderBrandingUI, syncCompanyName, syncProjectName, syncProjectLocation } from '../../ui/brandingController.js?v=20261119_cf39';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf39';
+import { updateSobrecostoBadge, updateGrandTotal } from '../../core/calculations.js?v=20261119_cf39';
+import { updateSubscriptionBadgesUI, closeSubscriptionModal, saveSubscription, getCurrentSubscription, syncSubscriptionFromCloud } from './subscriptionModal.js?v=20261119_cf39';
+import { calculateProjectTotalEstimacionesSummary } from '../estimaciones/estimacionesModel.js?v=20261119_cf39';
+import { renderSidebarNotificationsUI, clearAllChatHistory } from '../chat/projectChat.js?v=20261119_cf39';
 import {
   signUp,
   signInWithPassword,
@@ -92,25 +92,25 @@ import {
   fetchUserProfile,
   resolveUserDisplayName,
   resolveUserRoleLabel
-} from '../../core/authService.js?v=20261119_cf38';
-import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261119_cf38';
-import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf38';
-import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf38';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf38';
+} from '../../core/authService.js?v=20261119_cf39';
+import { appendSsoToUrlFromStorage } from '../../core/ssoHelper.js?v=20261119_cf39';
+import { getSupabaseClient, isSupabaseConfigured } from '../../core/supabaseClient.js?v=20261119_cf39';
+import { uploadManagedFile, archiveGeneratedWorkbookReport } from '../../services/s3StorageService.js?v=20261119_cf39';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf39';
 import {
   isUserAdmin,
   showAdminDualLoginModal,
   openCubikarAdminModal
-} from '../admin/cubikarAdmin.js?v=20261119_cf38';
-import { syncProjectToCloud, fetchCloudProjects, getTrashedCloudProjectIds } from '../../core/cloudProjectService.js?v=20261119_cf38';
+} from '../admin/cubikarAdmin.js?v=20261119_cf39';
+import { syncProjectToCloud, fetchCloudProjects, getTrashedCloudProjectIds } from '../../core/cloudProjectService.js?v=20261119_cf39';
 import {
   isProjectHostOwner,
   fetchTrashedProjectsForHost,
   getCachedTrashCount,
   updateTrashBadgeUI,
   openTrashModal
-} from './trashService.js?v=20261119_cf38';
-import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261119_cf38';
+} from './trashService.js?v=20261119_cf39';
+import { DEFAULT_BUDGET_SIGNATURES, sanitizeSignatureText } from '../catalog/signaturesModal.js?v=20261119_cf39';
 
 function readStoredJson(key) {
   try {
@@ -137,6 +137,14 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function escapePortalJs(str) {
+  return String(str ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/[\r\n\u2028\u2029]/g, ' ');
 }
 
 let customPhotoTemp = null;
@@ -309,27 +317,58 @@ function showWorkspaceView(user, project) {
     const ownerEmail = (project.ownerEmail || '').toLowerCase().trim();
     if (myEmail && ownerEmail && myEmail !== ownerEmail) {
       try {
+        const invs = getStoredInvitations();
+        let invUpdated = false;
+        let matchedInv = null;
+        invs.forEach(i => {
+          if ((i.projectId === project.id || i.projectId === project.cloudId) && (i.email || '').toLowerCase().trim() === myEmail) {
+            if (!matchedInv) matchedInv = i;
+            if (i.status === 'pending') {
+              i.status = 'accepted';
+              i.acceptedAt = new Date().toISOString();
+              invUpdated = true;
+            }
+          }
+        });
+        if (invUpdated) saveStoredInvitations(invs);
+
+        const planInvs = getStoredPlanInvitations();
+        let planInvUpdated = false;
+        let matchedPlanInv = null;
+        planInvs.forEach(pi => {
+          if ((pi.ownerEmail || '').toLowerCase().trim() === ownerEmail && (pi.email || '').toLowerCase().trim() === myEmail) {
+            if (!matchedPlanInv) matchedPlanInv = pi;
+            if (pi.status === 'pending') {
+              pi.status = 'accepted';
+              pi.acceptedAt = new Date().toISOString();
+              planInvUpdated = true;
+            }
+          }
+        });
+        if (planInvUpdated) saveStoredPlanInvitations(planInvs);
+
         const list = getProjectsList();
         const pObj = list.find(p => p.id === project.id || p.cloudId === project.id);
         let memUpdated = false;
-        let myRole = 'editar';
+        const resolvedRole = matchedInv?.role || matchedPlanInv?.role || project.cloudRole || pObj?.cloudRole || 'leer';
+        let myRole = resolvedRole;
         if (pObj) {
           if (!Array.isArray(pObj.members)) pObj.members = [];
           const mem = pObj.members.find(m => (m.email || '').toLowerCase().trim() === myEmail);
           if (mem) {
-            myRole = mem.role || 'editar';
+            myRole = mem.role || resolvedRole;
             if (mem.status !== 'active' && mem.status !== 'accepted') {
               mem.status = 'active';
               memUpdated = true;
             }
-          } else {
+          } else if (matchedInv || matchedPlanInv || project.cloudRole || pObj.cloudRole) {
             pObj.members.push({
               id: 'mem-' + myEmail,
               name: user.name || myEmail.split('@')[0],
               email: myEmail,
               avatar: user.avatar || AVATARS_BY_SEX['Masculino'],
-              role: 'editar',
-              allowedTabs: ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'],
+              role: resolvedRole,
+              allowedTabs: Array.isArray(matchedInv?.allowedTabs) ? [...matchedInv.allowedTabs] : ['cat', 'insumos', 'calendario', 'estimaciones', 'compras', 'bitacora', 'almacen'],
               status: 'active'
             });
             memUpdated = true;
@@ -338,27 +377,6 @@ function showWorkspaceView(user, project) {
             saveProjectsList(list);
           }
         }
-        const invs = getStoredInvitations();
-        let invUpdated = false;
-        invs.forEach(i => {
-          if ((i.projectId === project.id || i.projectId === project.cloudId) && (i.email || '').toLowerCase().trim() === myEmail && i.status === 'pending') {
-            i.status = 'accepted';
-            i.acceptedAt = new Date().toISOString();
-            invUpdated = true;
-          }
-        });
-        if (invUpdated) saveStoredInvitations(invs);
-
-        const planInvs = getStoredPlanInvitations();
-        let planInvUpdated = false;
-        planInvs.forEach(pi => {
-          if ((pi.ownerEmail || '').toLowerCase().trim() === ownerEmail && (pi.email || '').toLowerCase().trim() === myEmail && pi.status === 'pending') {
-            pi.status = 'accepted';
-            pi.acceptedAt = new Date().toISOString();
-            planInvUpdated = true;
-          }
-        });
-        if (planInvUpdated) saveStoredPlanInvitations(planInvs);
 
         if ((memUpdated || invUpdated || planInvUpdated) && typeof window !== 'undefined' && typeof window.addCollaboratorToCloud === 'function') {
           window.addCollaboratorToCloud(project.id, myEmail, myRole, 'accepted');
@@ -4716,7 +4734,7 @@ export function renderPlanInviteModalContent() {
           <div class="flex items-center gap-2 shrink-0">
             <!-- Selector interactivo para editar el rol -->
             <div class="relative">
-              <select onchange="changePlanCollaboratorRole('${c.email}', this.value)" 
+              <select onchange="changePlanCollaboratorRole('${escapeHtml(escapePortalJs(c.email))}', this.value)" 
                       class="text-xs font-semibold py-1.5 pl-2.5 pr-7 rounded-xl border border-slate-300 bg-slate-50 hover:bg-white hover:border-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-700 transition cursor-pointer shadow-2xs appearance-none"
                       title="Editar rol asignado a este usuario en tu plan">
                 <option value="editar" ${c.role === 'editar' ? 'selected' : ''}>✏️ Editar</option>
@@ -4729,7 +4747,7 @@ export function renderPlanInviteModalContent() {
             </div>
 
             <button type="button" 
-                    onclick="onRemovePlanCollaboratorClick('${c.email}')" 
+                    onclick="onRemovePlanCollaboratorClick('${escapeHtml(escapePortalJs(c.email))}')" 
                     class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition cursor-pointer" 
                     title="Remover usuario de tu plan">
               <i class="fa-solid fa-trash-can text-xs"></i>
@@ -5031,6 +5049,12 @@ export function toggleMemberTabPermission(memberId, tabKey) {
   }
   if (!activeInviteProjectId) return;
 
+  const perm = canUserInviteToProject(activeInviteProjectId, getCurrentUser());
+  if (!perm?.allowed) {
+    showToast('🔒 Solo el dueño del proyecto o un Editor puede modificar permisos de pestañas.', 'warning');
+    return;
+  }
+
   const members = getProjectMembers(activeInviteProjectId);
   const mem = members.find(m => m.id === memberId);
   if (!mem) return;
@@ -5059,6 +5083,12 @@ export function setMemberAllTabsPermission(memberId, grantAll) {
     activeInviteProjectId = getActiveOrFallbackProjectId();
   }
   if (!activeInviteProjectId) return;
+
+  const perm = canUserInviteToProject(activeInviteProjectId, getCurrentUser());
+  if (!perm?.allowed) {
+    showToast('🔒 Solo el dueño del proyecto o un Editor puede modificar permisos de pestañas.', 'warning');
+    return;
+  }
 
   const members = getProjectMembers(activeInviteProjectId);
   const mem = members.find(m => m.id === memberId);
@@ -5135,6 +5165,12 @@ export function submitInviteMember(e) {
 
 export function changeMemberRole(memberId, newRole) {
   if (!activeInviteProjectId) return;
+  const perm = canUserInviteToProject(activeInviteProjectId, getCurrentUser());
+  if (!perm?.allowed) {
+    showToast('🔒 Solo el dueño del proyecto o un Editor puede cambiar roles de colaboradores.', 'warning');
+    renderInviteModalMembersList();
+    return;
+  }
   const ok = updateProjectMemberRole(activeInviteProjectId, memberId, newRole);
   if (ok) {
     showToast(`Permiso actualizado a "${PROJECT_ROLES[newRole]?.label || newRole}"`);
@@ -5239,14 +5275,14 @@ export function renderInviteModalMembersList() {
 
           <div class="flex items-center gap-2 shrink-0">
             <!-- Selector de Rol General -->
-            <select onchange="changeMemberRole('${m.id}', this.value)" class="text-xs font-semibold py-1 px-2 rounded-lg border border-slate-300 bg-white text-slate-700 focus:border-blue-500 focus:outline-none cursor-pointer" title="Modificar rol de acceso">
+            <select onchange="changeMemberRole('${escapeHtml(escapePortalJs(m.id))}', this.value)" class="text-xs font-semibold py-1 px-2 rounded-lg border border-slate-300 bg-white text-slate-700 focus:border-blue-500 focus:outline-none cursor-pointer" title="Modificar rol de acceso">
               <option value="editar" ${m.role === 'editar' ? 'selected' : ''}>✏️ Editar</option>
               <option value="escribir" ${m.role === 'escribir' ? 'selected' : ''}>📝 Escribir</option>
               <option value="leer" ${m.role === 'leer' ? 'selected' : ''}>👁️ Leer</option>
             </select>
 
             <!-- Botón Eliminar -->
-            <button type="button" onclick="removeMemberFromProject('${m.id}', '${m.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition cursor-pointer" title="Remover del proyecto">
+            <button type="button" onclick="removeMemberFromProject('${escapeHtml(escapePortalJs(m.id))}', '${escapeHtml(escapePortalJs(m.name))}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition cursor-pointer" title="Remover del proyecto">
               <i class="fa-solid fa-trash-can text-xs"></i>
             </button>
           </div>
@@ -5259,9 +5295,9 @@ export function renderInviteModalMembersList() {
               <i class="fa-solid fa-sliders text-blue-600 text-[10px]"></i> Pestañas autorizadas:
             </span>
             <div class="flex items-center gap-1.5 text-[10px]">
-              <button type="button" onclick="setMemberAllTabsPermission('${m.id}', true)" class="text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Autorizar todas las pestañas">Todas</button>
+              <button type="button" onclick="setMemberAllTabsPermission('${escapeHtml(escapePortalJs(m.id))}', true)" class="text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Autorizar todas las pestañas">Todas</button>
               <span class="text-slate-300">|</span>
-              <button type="button" onclick="setMemberAllTabsPermission('${m.id}', false)" class="text-slate-500 hover:text-rose-600 font-bold hover:underline cursor-pointer" title="Quitar todas las pestañas">Ninguna</button>
+              <button type="button" onclick="setMemberAllTabsPermission('${escapeHtml(escapePortalJs(m.id))}', false)" class="text-slate-500 hover:text-rose-600 font-bold hover:underline cursor-pointer" title="Quitar todas las pestañas">Ninguna</button>
             </div>
           </div>
 

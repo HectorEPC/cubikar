@@ -1,7 +1,7 @@
 // js/mobile/mobileAlmacen.js
 // Almacén de Obra — CERO precios ni montos monetarios (apto 100% para perfil aislado de Bodeguero)
 
-import { formatQty, round2 } from '../core/formatters.js?v=20261119_cf38';
+import { formatQty, round2 } from '../core/formatters.js?v=20261119_cf39';
 import {
   getWarehouseStockSummary,
   getWarehouseReceptionsView,
@@ -11,12 +11,12 @@ import {
   markToolLoanReturned,
   cancelWarehouseMovement,
   getConceptCatalogForWarehouse
-} from '../modules/almacen/almacenModel.js?v=20261119_cf38';
-import { processExpenseEvidenceUpload, openExpenseEvidence } from '../modules/compras/driveExpenseService.js?v=20261119_cf38';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf38';
-import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf38';
-import { showToast } from '../ui/notifications.js?v=20261119_cf38';
-import { escapeHtml } from './mobileBridge.js?v=20261119_cf38';
+} from '../modules/almacen/almacenModel.js?v=20261119_cf39';
+import { processExpenseEvidenceUpload, openExpenseEvidence } from '../modules/compras/driveExpenseService.js?v=20261119_cf39';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf39';
+import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf39';
+import { showToast } from '../ui/notifications.js?v=20261119_cf39';
+import { escapeHtml } from './mobileBridge.js?v=20261119_cf39';
 
 let subTab = 'stock'; // 'stock' | 'recepciones' | 'salidas' | 'herramienta'
 let searchTerm = '';

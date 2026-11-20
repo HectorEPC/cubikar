@@ -1,14 +1,14 @@
-﻿import { printEstimacionesFormat } from '../io/printService.js?v=20261119_cf38';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf38';
+﻿import { printEstimacionesFormat } from '../io/printService.js?v=20261119_cf39';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf39';
 // js/modules/estimaciones/estimacionesView.js
 // Renderizador y controlador de eventos para la pestaña ESTIMACIONES DE OBRA
 // Sincronizado reactivamente con Catálogo Base, con soporte multiestimaciones,
 // amortización progresiva de anticipo al 100%, reflejo de cantidades acumuladas,
 // justificación de conceptos, encabezados en una sola línea y resizer vertical de columna de concepto.
 
-import { state } from '../../state/store.js?v=20261119_cf38';
-import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
+import { state } from '../../state/store.js?v=20261119_cf39';
+import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
 import {
   getEstimacionesCalculatedData,
   getActiveEstimacion,
@@ -28,12 +28,30 @@ import {
   loadEstimacionesData,
   saveEstimacionesData,
   createDefaultFacturaData
-} from './estimacionesModel.js?v=20261119_cf38';
-import { guardTabUnlocked, applyTabLocksToDOM, toggleTabLock } from '../../ui/tabLockController.js?v=20261119_cf38';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261119_cf38';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf38';
-import { uploadManagedFile, resolveManagedFileUrl, deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261119_cf38';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf38';
+} from './estimacionesModel.js?v=20261119_cf39';
+import { guardTabUnlocked, applyTabLocksToDOM, toggleTabLock } from '../../ui/tabLockController.js?v=20261119_cf39';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261119_cf39';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf39';
+import { uploadManagedFile, resolveManagedFileUrl, deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261119_cf39';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf39';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf39';
+
+function escapeEstHtml(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeEstJs(val) {
+  return String(val ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/[\r\n\u2028\u2029]/g, ' ');
+}
 
 let estimacionesSearchTerm = '';
 let estimacionesCollapsedMap = {}; // { [nodeId]: boolean }
@@ -324,6 +342,8 @@ export function openFacturaModal(estId = null) {
   const hasPdf = Boolean(factura.pdfUrl || factura.pdfFileRef || factura.pdfFileName);
   const hasXml = Boolean(factura.xmlUrl || factura.xmlFileRef || factura.xmlFileName);
   const isCobrada = factura.status === 'cobrada';
+  const canEditRole = canCurrentUserEditProject();
+  const safeEstIdJs = escapeEstHtml(escapeEstJs(est.id));
 
   if (titleEl) {
     titleEl.textContent = `Comprobante Fiscal — ${est.numero === 0 ? 'Est. 0 (Anticipo)' : est.nombre}`;
@@ -349,10 +369,12 @@ export function openFacturaModal(estId = null) {
         </div>
       </div>
 
-      <button type="button" onclick="toggleEstimacionCobroStatus('${est.id}'); openFacturaModal('${est.id}')"
-              class="px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer ${isCobrada ? 'bg-amber-100 hover:bg-amber-200 text-amber-800' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}">
-        ${isCobrada ? 'Marcar como Pendiente' : 'Marcar como Cobrada'}
-      </button>
+      ${canEditRole ? `
+        <button type="button" onclick="toggleEstimacionCobroStatus('${safeEstIdJs}'); openFacturaModal('${safeEstIdJs}')"
+                class="px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer ${isCobrada ? 'bg-amber-100 hover:bg-amber-200 text-amber-800' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}">
+          ${isCobrada ? 'Marcar como Pendiente' : 'Marcar como Cobrada'}
+        </button>
+      ` : '<span class="text-[10px] font-bold text-slate-500 bg-slate-200 px-2.5 py-1 rounded-lg">🔒 Solo lectura</span>'}
     </div>
 
     <!-- Metadatos de la Factura -->
@@ -361,25 +383,25 @@ export function openFacturaModal(estId = null) {
         <label class="block font-bold text-slate-700 text-[11px] mb-1">
           <i class="fa-solid fa-hashtag text-indigo-600 mr-1"></i> Folio / UUID:
         </label>
-        <input type="text" value="${factura.folio || ''}" placeholder="Ej: F-1025..."
-               onchange="onFacturaFieldChange('${est.id}', 'folio', this.value.trim())"
-               class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-800 focus:outline-none focus:border-indigo-500">
+        <input type="text" value="${escapeEstHtml(factura.folio || '')}" placeholder="Ej: F-1025..." ${canEditRole ? '' : 'disabled readonly'}
+               onchange="onFacturaFieldChange('${safeEstIdJs}', 'folio', this.value.trim())"
+               class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-800 focus:outline-none focus:border-indigo-500 disabled:bg-slate-100">
       </div>
       <div>
         <label class="block font-bold text-slate-700 text-[11px] mb-1">
           <i class="fa-regular fa-calendar text-indigo-600 mr-1"></i> Fecha de Emisión:
         </label>
-        <input type="date" value="${factura.fechaEmision || ''}"
-               onchange="onFacturaFieldChange('${est.id}', 'fechaEmision', this.value)"
-               class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-indigo-500">
+        <input type="date" value="${escapeEstHtml(factura.fechaEmision || '')}" ${canEditRole ? '' : 'disabled readonly'}
+               onchange="onFacturaFieldChange('${safeEstIdJs}', 'fechaEmision', this.value)"
+               class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-indigo-500 disabled:bg-slate-100">
       </div>
       <div>
         <label class="block font-bold text-slate-700 text-[11px] mb-1">
           <i class="fa-solid fa-calendar-check text-emerald-600 mr-1"></i> Fecha de Pago:
         </label>
-        <input type="date" value="${factura.fechaPago || ''}"
-               onchange="onFacturaFieldChange('${est.id}', 'fechaPago', this.value)"
-               class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-indigo-500">
+        <input type="date" value="${escapeEstHtml(factura.fechaPago || '')}" ${canEditRole ? '' : 'disabled readonly'}
+               onchange="onFacturaFieldChange('${safeEstIdJs}', 'fechaPago', this.value)"
+               class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-indigo-500 disabled:bg-slate-100">
       </div>
     </div>
 
@@ -399,34 +421,38 @@ export function openFacturaModal(estId = null) {
             <div class="min-w-0">
               <span class="font-bold text-slate-800 text-xs block">Factura en Formato PDF</span>
               <span class="text-[11px] text-slate-500 truncate block font-mono">
-                ${factura.pdfFileName || 'Sin archivo PDF adjunto'}
+                ${escapeEstHtml(factura.pdfFileName || 'Sin archivo PDF adjunto')}
               </span>
             </div>
           </div>
 
           <div class="flex items-center gap-2 shrink-0">
             ${hasPdf ? `
-              <button type="button" onclick="viewFacturaFile('${est.id}', 'pdf')"
+              <button type="button" onclick="viewFacturaFile('${safeEstIdJs}', 'pdf')"
                       class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
                       title="Ver y abrir PDF en pantalla completa">
                 <i class="fa-solid fa-eye"></i> <span>Ver Factura</span>
               </button>
 
-              <button type="button" onclick="removeFacturaFile('${est.id}', 'pdf'); openFacturaModal('${est.id}')"
-                      class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-bold text-xs flex items-center gap-1 transition cursor-pointer"
-                      title="Eliminar este archivo PDF">
-                <i class="fa-solid fa-trash-can"></i> <span>Eliminar</span>
-              </button>
+              ${canEditRole ? `
+                <button type="button" onclick="removeFacturaFile('${safeEstIdJs}', 'pdf').then(() => openFacturaModal('${safeEstIdJs}'))"
+                        class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-bold text-xs flex items-center gap-1 transition cursor-pointer"
+                        title="Eliminar este archivo PDF">
+                  <i class="fa-solid fa-trash-can"></i> <span>Eliminar</span>
+                </button>
+              ` : ''}
             ` : ''}
 
-            <label class="px-3 py-1.5 rounded-lg ${hasPdf ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs'} font-bold text-xs flex items-center gap-1.5 transition cursor-pointer">
-              <i class="fa-solid fa-cloud-arrow-up"></i>
-              <span>${hasPdf ? 'Sustituir / Subir Otra' : 'Subir Factura PDF'}</span>
-              <input type="file" accept="application/pdf" class="hidden"
-                     onchange="if(this.files[0]) {
-                       onFacturaFileUpload('${est.id}', 'pdf', this.files[0]).then(() => openFacturaModal('${est.id}'));
-                     }">
-            </label>
+            ${canEditRole ? `
+              <label class="px-3 py-1.5 rounded-lg ${hasPdf ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs'} font-bold text-xs flex items-center gap-1.5 transition cursor-pointer">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>${hasPdf ? 'Sustituir / Subir Otra' : 'Subir Factura PDF'}</span>
+                <input type="file" accept="application/pdf" class="hidden"
+                       onchange="if(this.files[0]) {
+                         onFacturaFileUpload('${safeEstIdJs}', 'pdf', this.files[0]).then(() => openFacturaModal('${safeEstIdJs}'));
+                       }">
+              </label>
+            ` : ''}
           </div>
         </div>
 
@@ -436,7 +462,7 @@ export function openFacturaModal(estId = null) {
             <span class="text-slate-600 truncate flex items-center gap-1.5">
               <i class="fa-solid fa-link text-rose-500"></i> Enlace listo para consulta o auditoría fiscal
             </span>
-            <button type="button" onclick="viewFacturaFile('${est.id}', 'pdf')" class="text-rose-600 hover:text-rose-800 font-bold underline cursor-pointer shrink-0">
+            <button type="button" onclick="viewFacturaFile('${safeEstIdJs}', 'pdf')" class="text-rose-600 hover:text-rose-800 font-bold underline cursor-pointer shrink-0">
               Abrir visor externo ↗
             </button>
           </div>
@@ -453,34 +479,38 @@ export function openFacturaModal(estId = null) {
             <div class="min-w-0">
               <span class="font-bold text-slate-800 text-xs block">Comprobante Fiscal SAT (XML)</span>
               <span class="text-[11px] text-slate-500 truncate block font-mono">
-                ${factura.xmlFileName || 'Sin archivo XML adjunto'}
+                ${escapeEstHtml(factura.xmlFileName || 'Sin archivo XML adjunto')}
               </span>
             </div>
           </div>
 
           <div class="flex items-center gap-2 shrink-0">
             ${hasXml ? `
-              <button type="button" onclick="viewFacturaFile('${est.id}', 'xml')"
+              <button type="button" onclick="viewFacturaFile('${safeEstIdJs}', 'xml')"
                       class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer"
                       title="Descargar archivo XML oficial del SAT">
                 <i class="fa-solid fa-download"></i> <span>Descargar XML</span>
               </button>
 
-              <button type="button" onclick="removeFacturaFile('${est.id}', 'xml'); openFacturaModal('${est.id}')"
-                      class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-bold text-xs flex items-center gap-1 transition cursor-pointer"
-                      title="Eliminar este archivo XML">
-                <i class="fa-solid fa-trash-can"></i> <span>Eliminar</span>
-              </button>
+              ${canEditRole ? `
+                <button type="button" onclick="removeFacturaFile('${safeEstIdJs}', 'xml').then(() => openFacturaModal('${safeEstIdJs}'))"
+                        class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-bold text-xs flex items-center gap-1 transition cursor-pointer"
+                        title="Eliminar este archivo XML">
+                  <i class="fa-solid fa-trash-can"></i> <span>Eliminar</span>
+                </button>
+              ` : ''}
             ` : ''}
 
-            <label class="px-3 py-1.5 rounded-lg ${hasXml ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-xs'} font-bold text-xs flex items-center gap-1.5 transition cursor-pointer">
-              <i class="fa-solid fa-cloud-arrow-up"></i>
-              <span>${hasXml ? 'Sustituir XML' : 'Subir Archivo XML'}</span>
-              <input type="file" accept=".xml,text/xml,application/xml" class="hidden"
-                     onchange="if(this.files[0]) {
-                       onFacturaFileUpload('${est.id}', 'xml', this.files[0]).then(() => openFacturaModal('${est.id}'));
-                     }">
-            </label>
+            ${canEditRole ? `
+              <label class="px-3 py-1.5 rounded-lg ${hasXml ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-xs'} font-bold text-xs flex items-center gap-1.5 transition cursor-pointer">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>${hasXml ? 'Sustituir XML' : 'Subir Archivo XML'}</span>
+                <input type="file" accept=".xml,text/xml,application/xml" class="hidden"
+                       onchange="if(this.files[0]) {
+                         onFacturaFileUpload('${safeEstIdJs}', 'xml', this.files[0]).then(() => openFacturaModal('${safeEstIdJs}'));
+                       }">
+              </label>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -507,6 +537,10 @@ export function closeFacturaModal() {
 let estimacionesFacturaExpandedMap = {}; // { [estId]: boolean }
 
 export function toggleEstimacionCobroStatus(estId) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite cambiar el estado de cobro.', 'warning');
+    return;
+  }
   try {
     const data = loadEstimacionesData();
     const targetId = estId || data.activeEstimacionId;
@@ -992,7 +1026,11 @@ export function renderEstimacionesView() {
     }
   });
 
-  const isEstLocked = Boolean(activeEst.locked);
+  const canEditRole = canCurrentUserEditProject();
+  const isEstLocked = Boolean(activeEst.locked) || !canEditRole;
+  const estZero = data.estZero || estimacionesList.find(e => e.numero === 0 || e.id === 'est_0');
+  const isEstZeroLocked = Boolean(estZero?.locked);
+  const isFacturaLocked = !canEditRole;
   applyTabLocksToDOM();
 
   // Renderizado condicional si la estimación activa es la Est. 0 (Anticipo)
@@ -1122,12 +1160,12 @@ export function renderEstimacionesView() {
 
               <!-- Botón Nueva Estimación y Eliminar -->
               <div class="flex items-center gap-1.5 shrink-0">
-                <button type="button" onclick="promptCreateNewEstimacion()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center justify-center gap-1 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap" title="Crear nueva estimación consecutiva">
+                <button type="button" ${!canEditRole ? 'disabled' : ''} onclick="promptCreateNewEstimacion()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center justify-center gap-1 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed" title="${!canEditRole ? 'Solo lectura: sin permiso para crear estimaciones' : 'Crear nueva estimación consecutiva'}">
                   <i class="fa-solid fa-plus text-[10px]"></i> <span>+ Nueva Estimación</span>
                 </button>
 
                 ${(activeEst.numero > 0 && estimacionesList.filter(e => e.numero > 0).length > 1) ? `
-                  <button type="button" ${isEstLocked ? 'disabled' : ''} onclick="confirmDeleteCurrentEstimacion('${activeEst.id}', '${activeEst.nombre}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs p-1.5 rounded-lg transition active:scale-95 cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed" title="${isEstLocked ? 'Estimación bloqueada: desbloquee el candado para poder eliminarla' : `Eliminar ${activeEst.nombre}`}">
+                  <button type="button" ${isEstLocked ? 'disabled' : ''} onclick="confirmDeleteCurrentEstimacion('${escapeEstHtml(escapeEstJs(activeEst.id))}', '${escapeEstHtml(escapeEstJs(activeEst.nombre))}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs p-1.5 rounded-lg transition active:scale-95 cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed" title="${isEstLocked ? 'Estimación bloqueada o solo lectura: desbloquee el candado para poder eliminarla' : `Eliminar ${escapeEstHtml(activeEst.nombre)}`}">
                     <i class="fa-solid fa-trash text-xs"></i>
                   </button>
                 ` : ''}
@@ -1151,12 +1189,13 @@ export function renderEstimacionesView() {
                   <span class="text-[11px] uppercase tracking-wider text-slate-700">% Anticipo:</span>
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
-                  <input type="number" ${isEstLocked ? 'disabled readonly' : ''}
+                  <input type="number" ${(isEstLocked || isEstZeroLocked) ? 'disabled readonly' : ''}
                          min="0" 
                          max="100" 
                          step="any" 
                          value="${kpis.anticipo.pct}" 
                          onchange="onEstimacionesAnticipoInput(this.value)" 
+                         title="${isEstZeroLocked ? 'Estimación 0 (Anticipo) bloqueada: desbloquéala para modificar el % Anticipo' : 'Porcentaje de anticipo contractual'}"
                          class="w-14 text-center font-mono font-bold text-xs text-amber-800 bg-slate-50 border border-slate-200 hover:border-amber-400 focus:bg-white focus:border-amber-500 rounded px-1 py-0.5 outline-none cursor-text transition disabled:opacity-60 disabled:cursor-not-allowed">
                   <span class="font-bold text-slate-600">%</span>
                   <span class="text-[10px] text-slate-500 font-mono font-bold ml-0.5">
@@ -1261,7 +1300,7 @@ export function renderEstimacionesView() {
           
           <!-- Bloque de Comprobantes Fiscales por Estimación -->
           <div class="p-2 sm:px-3.5 sm:pt-2.5 sm:pb-1">
-            ${renderFacturaCardHTML(activeEst, isEstLocked)}
+            ${renderFacturaCardHTML(activeEst, isFacturaLocked)}
           </div>
 
           <!-- TABLA DE GENERADORES Y ESTIMACIONES CON ENCABEZADOS EN COLORES FUERTES Y LETRAS BLANCAS -->
@@ -1658,6 +1697,10 @@ export function onSwitchActiveEstimacion(estimacionId) {
 }
 
 export function promptCreateNewEstimacion() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite crear estimaciones.', 'warning');
+    return;
+  }
   const data = getEstimacionesCalculatedData();
   const avanceCount = Array.isArray(data.estimacionesAvance)
     ? data.estimacionesAvance.length
@@ -1801,18 +1844,35 @@ export function onEstimacionCantEjeInput(conceptId, val, inputEl = null) {
 
 // Al terminar de capturar en CANT EJE (blur / change / Enter), completa automáticamente .00 o el segundo decimal (.X0)
 export function onEstimacionCantEjeBlur(conceptId, inputEl) {
-  if (isEstimacionLocked()) return '';
+  if (!canCurrentUserEditProject() || isEstimacionLocked()) return '';
   const rawVal = inputEl && typeof inputEl === 'object' ? inputEl.value : inputEl;
   const formatted = formatCantEjeTwoDecimals(rawVal);
   if (inputEl && typeof inputEl === 'object') {
     inputEl.value = formatted;
   }
   onEstimacionCantEjeInput(conceptId, formatted || '0');
+  try {
+    const { rows } = getEstimacionesCalculatedData();
+    const row = rows.find(r => !r.isParent && String(r.id) === String(conceptId));
+    if (row && Number(row.cantBase) > 0 && Number(row.cantAcum) > Number(row.cantBase) * 1.0001) {
+      showToast(`⚠️ Volumen acumulado (${formatNumber(row.cantAcum, 2)}) supera el contratado (${formatNumber(row.cantBase, 2)}) en ${row.clave}.`, 'warning');
+    }
+  } catch (_) {}
   return formatted;
 }
 
 export function onEstimacionesAnticipoInput(val) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite modificar el anticipo.', 'warning');
+    renderEstimacionesView();
+    return;
+  }
   if (!guardTabUnlocked('estimaciones')) {
+    renderEstimacionesView();
+    return;
+  }
+  if (isEstimacionLocked('est_0')) {
+    showToast('🔒 La Estimación 0 (Anticipo) está bloqueada: desbloquéala para cambiar el % Anticipo.', 'warning');
     renderEstimacionesView();
     return;
   }
@@ -2239,6 +2299,11 @@ export function saveEstimacionConceptPhotosModal() {
 // CONTROLADORES DE EVENTOS DE COMPROBANTES FISCALES Y ANTICIPO 0
 // ==========================================
 export function onFacturaFieldChange(estId, field, val) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite modificar comprobantes fiscales.', 'warning');
+    renderEstimacionesView();
+    return;
+  }
   updateEstimacionFactura(estId, { [field]: val });
   if (field === 'status') {
     renderEstimacionesView();
@@ -2247,6 +2312,10 @@ export function onFacturaFieldChange(estId, field, val) {
 }
 
 export async function onFacturaFileUpload(estId, fileType, file) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite subir comprobantes fiscales.', 'warning');
+    return;
+  }
   if (!file) return;
 
   showToast('Subiendo ' + fileType.toUpperCase() + ' de factura a la nube...', 'info');
@@ -2325,6 +2394,10 @@ export async function viewFacturaFile(estId, fileType) {
 }
 
 export async function removeFacturaFile(estId, fileType) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite eliminar comprobantes fiscales.', 'warning');
+    return;
+  }
   if (!confirm('¿Deseas eliminar el archivo ' + fileType.toUpperCase() + ' de esta estimación?')) return;
 
   const data = getEstimacionesCalculatedData();
@@ -2354,6 +2427,11 @@ export async function removeFacturaFile(estId, fileType) {
 }
 
 export function onAnticipoZeroFieldChange(field, val) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite modificar el anticipo.', 'warning');
+    renderEstimacionesView();
+    return;
+  }
   if (isEstimacionLocked('est_0')) return;
   updateEstimacionAnticipoZero({ [field]: val });
   renderEstimacionesView();

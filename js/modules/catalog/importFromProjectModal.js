@@ -1,15 +1,16 @@
 // js/modules/catalog/importFromProjectModal.js
 // Asistente visual para explorar, seleccionar y copiar conceptos con sus matrices APU desde otro proyecto
 
-import { state, persistLocalData } from '../../state/store.js?v=20261119_cf38';
-import { saveState } from '../../state/history.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { getActiveProjectId, getStorageKey, getSettingsKey } from '../../config/constants.js?v=20261119_cf38';
-import { getProjectsList, getProjectById, getCurrentUser, getProjectsForUser } from '../portal/projectService.js?v=20261119_cf38';
-import { recalculateClaves, guardConceptLimit, countTreeConcepts } from './treeService.js?v=20261119_cf38';
-import { renderTAB1, selectRow } from './catalogView.js?v=20261119_cf38';
-import { getFactorSobrecosto, round2, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf38';
-import { formatMoney, getCurrencySymbol } from '../../core/formatters.js?v=20261119_cf38';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf39';
+import { saveState } from '../../state/history.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { getActiveProjectId, getStorageKey, getSettingsKey } from '../../config/constants.js?v=20261119_cf39';
+import { getProjectsList, getProjectById, getCurrentUser, getProjectsForUser, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf39';
+import { recalculateClaves, guardConceptLimit, countTreeConcepts } from './treeService.js?v=20261119_cf39';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf39';
+import { renderTAB1, selectRow } from './catalogView.js?v=20261119_cf39';
+import { getFactorSobrecosto, round2, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf39';
+import { formatMoney, getCurrencySymbol } from '../../core/formatters.js?v=20261119_cf39';
 
 let activeSourceProjectId = null;
 let activeSourceTreeData = [];
@@ -18,6 +19,11 @@ let sourceSearchQuery = '';
 
 // Abrir el modal de copia de conceptos desde otro proyecto
 export function openImportConceptsModal() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite importar conceptos al proyecto.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   const modal = document.getElementById('modal-copiar-de-otro-proyecto');
   if (!modal) return;
 
@@ -375,6 +381,11 @@ function renewNodeDeep(n) {
 
 // Copiar y pegar un solo concepto al instante
 export function quickCopyPasteSingleConcept(nodeId) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite copiar conceptos al proyecto.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   const flattened = flattenConcepts(activeSourceTreeData);
   const found = flattened.find(i => i.node.id === nodeId);
   if (!found) return;
@@ -419,6 +430,11 @@ export function quickCopyPasteSingleConcept(nodeId) {
 
 // Importar todos los conceptos seleccionados con sus matrices APU
 export function importSelectedConceptsToCurrentProject() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite importar conceptos al proyecto.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   if (selectedConceptIds.size === 0) {
     showToast('Selecciona al menos un concepto para copiar.', 'warning');
     return;

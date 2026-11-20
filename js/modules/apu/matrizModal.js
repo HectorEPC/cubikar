@@ -1,15 +1,25 @@
 // js/modules/apu/matrizModal.js
 // Controlador de la Ventana Maximizada de Matriz APU (Estilo Configuración del Sistema)
 
-import { state, persistLocalData } from '../../state/store.js?v=20261119_cf38';
-import { saveState } from '../../state/history.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261119_cf38';
-import { getFactorSobrecosto, computeMatrixBreakdown, explodeInsumoQty, explodeInsumoImporte } from '../../core/calculations.js?v=20261119_cf38';
-import { findNodeById } from '../catalog/treeService.js?v=20261119_cf38';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf38';
-import { renderAPUInsumos, renderInsumosUnitarios } from './apuView.js?v=20261119_cf38';
-import { addInsumo, removeInsumo, updateInsumo, filterMatriz } from './apuService.js?v=20261119_cf38';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf39';
+import { saveState } from '../../state/history.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { formatMoney, formatQty, getCurrencySymbol, round2, round5, formatMatrixQty, getInsumoRowColorClass } from '../../core/formatters.js?v=20261119_cf39';
+import { getFactorSobrecosto, computeMatrixBreakdown, explodeInsumoQty, explodeInsumoImporte } from '../../core/calculations.js?v=20261119_cf39';
+import { findNodeById } from '../catalog/treeService.js?v=20261119_cf39';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf39';
+import { renderAPUInsumos, renderInsumosUnitarios } from './apuView.js?v=20261119_cf39';
+import { addInsumo, removeInsumo, updateInsumo, filterMatriz } from './apuService.js?v=20261119_cf39';
+import { isTabLocked } from '../../ui/tabLockController.js?v=20261119_cf39';
+
+function escapeMatrizHtml(str = '') {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 let currentMatrizModalTab = 'matriz'; // 'matriz' | 'explosion'
 let selectedModalApuRowIdx = null;
@@ -170,6 +180,8 @@ export function renderModalMatriz(node) {
   // 3. Renderizar Filas de Matriz de Insumos Unitarios (TAB 1)
   const tbody = document.getElementById('modal-apu-insumos-body');
   if (tbody) {
+    const isCatLocked = isTabLocked('cat');
+    const disAttr = isCatLocked ? 'disabled' : '';
     const fragment = document.createDocumentFragment();
 
     node.insumos.forEach((ins, idx) => {
@@ -198,14 +210,14 @@ export function renderModalMatriz(node) {
       };
       tr.innerHTML = `
         <td class="p-2 align-top pt-2.5">
-          <input type="text" value="${ins.clave || ''}" 
+          <input type="text" value="${escapeMatrizHtml(ins.clave || '')}" ${disAttr}
                  onchange="updateModalInsumo(${idx}, 'clave', this.value)" 
                  placeholder="Clave" title="Clave del insumo" 
-                 class="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 font-mono text-xs font-semibold text-slate-700 px-1 py-0.5 rounded focus:bg-white">
+                 class="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 font-mono text-xs font-semibold text-slate-700 px-1 py-0.5 rounded focus:bg-white disabled:opacity-60">
         </td>
         <td class="p-2 align-top pt-2.5">
-          <select onchange="updateModalInsumo(${idx}, 'tipo', this.value)" 
-                  class="text-xs font-semibold rounded px-2 py-1 border cursor-pointer w-full ${ins.tipo === 'Material' ? 'bg-blue-100/80 text-blue-800 border-blue-200' : (ins.tipo === 'Mano de Obra' ? 'bg-amber-100/80 text-amber-800 border-amber-200' : (ins.tipo === 'Herramienta' ? 'bg-orange-100/80 text-orange-800 border-orange-200' : (ins.tipo === 'Equipo' ? 'bg-purple-100/80 text-purple-800 border-purple-200' : (ins.tipo === 'Maquinaria' ? 'bg-rose-100/80 text-rose-800 border-rose-200' : (ins.tipo === 'Subcontrato' ? 'bg-emerald-100/80 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200')))))}">
+          <select onchange="updateModalInsumo(${idx}, 'tipo', this.value)" ${disAttr}
+                  class="text-xs font-semibold rounded px-2 py-1 border cursor-pointer w-full disabled:opacity-60 disabled:cursor-not-allowed ${ins.tipo === 'Material' ? 'bg-blue-100/80 text-blue-800 border-blue-200' : (ins.tipo === 'Mano de Obra' ? 'bg-amber-100/80 text-amber-800 border-amber-200' : (ins.tipo === 'Herramienta' ? 'bg-orange-100/80 text-orange-800 border-orange-200' : (ins.tipo === 'Equipo' ? 'bg-purple-100/80 text-purple-800 border-purple-200' : (ins.tipo === 'Maquinaria' ? 'bg-rose-100/80 text-rose-800 border-rose-200' : (ins.tipo === 'Subcontrato' ? 'bg-emerald-100/80 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200')))))}">
             <option value="Material" ${ins.tipo === 'Material' ? 'selected' : ''}>Material</option>
             <option value="Mano de Obra" ${ins.tipo === 'Mano de Obra' ? 'selected' : ''}>Mano de Obra</option>
             <option value="Herramienta" ${ins.tipo === 'Herramienta' ? 'selected' : ''}>Herramienta</option>
@@ -217,36 +229,36 @@ export function renderModalMatriz(node) {
           </select>
         </td>
         <td class="p-2 align-top min-w-[260px]">
-          <textarea onchange="updateModalInsumo(${idx}, 'descripcion', this.value)" 
-                    class="desc-input w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white px-2 py-1 rounded text-xs font-sans text-justify leading-snug break-words whitespace-normal font-medium block" 
-                    rows="2" placeholder="Descripción detallada del insumo">${ins.descripcion || ''}</textarea>
+          <textarea onchange="updateModalInsumo(${idx}, 'descripcion', this.value)" ${disAttr}
+                    class="desc-input w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white px-2 py-1 rounded text-xs font-sans text-justify leading-snug break-words whitespace-normal font-medium block disabled:opacity-60" 
+                    rows="2" placeholder="Descripción detallada del insumo">${escapeMatrizHtml(ins.descripcion || '')}</textarea>
         </td>
         <td class="p-2 align-top pt-2.5 text-center">
-          <input type="text" value="${ins.unidad || 'pza'}" 
+          <input type="text" value="${escapeMatrizHtml(ins.unidad || 'pza')}" ${disAttr}
                  onchange="updateModalInsumo(${idx}, 'unidad', this.value)" 
-                 class="w-16 bg-transparent text-center text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white rounded px-1 py-1 font-mono">
+                 class="w-16 bg-transparent text-center text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white rounded px-1 py-1 font-mono disabled:opacity-60">
         </td>
         <td class="p-2 align-top pt-2.5 text-right w-28 min-w-[110px]">
-          <input type="number" step="0.00001" min="0" value="${Number(cant).toFixed(5)}" 
-                 title="Consumo unitario necesario para elaborar exactamente 1 ${node.unidad || 'ud'} de concepto" 
+          <input type="number" step="0.00001" min="0" value="${Number(cant).toFixed(5)}" ${disAttr}
+                 title="Consumo unitario necesario para elaborar exactamente 1 ${escapeMatrizHtml(node.unidad || 'ud')} de concepto" 
                  onchange="updateModalInsumo(${idx}, 'cantidad', parseFloat(this.value)||0)" 
-                 class="w-24 text-right bg-transparent border border-slate-200 hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-1 text-xs font-mono font-semibold text-slate-800">
+                 class="w-24 text-right bg-transparent border border-slate-200 hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-1 text-xs font-mono font-semibold text-slate-800 disabled:opacity-60">
         </td>
         <td class="p-2 align-top pt-2.5 text-right">
           <div class="flex items-center justify-end">
             <span class="text-slate-500 mr-1 text-xs font-semibold">${getCurrencySymbol()}</span>
-            <input type="number" step="0.01" value="${Number(costo).toFixed(2)}" 
+            <input type="number" step="0.01" value="${Number(costo).toFixed(2)}" ${disAttr}
                    onchange="updateModalInsumo(${idx}, 'costoUnitario', parseFloat(this.value)||0)" 
-                   class="w-28 text-right bg-transparent border border-slate-200 hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-1 text-xs font-semibold text-blue-700 font-mono">
+                   class="w-28 text-right bg-transparent border border-slate-200 hover:border-slate-400 focus:border-blue-500 focus:bg-white rounded px-2 py-1 text-xs font-semibold text-blue-700 font-mono disabled:opacity-60">
           </div>
         </td>
         <td class="p-2 align-top pt-3 text-right font-bold text-slate-800 font-mono text-xs">
           ${formatMoney(total)}
         </td>
         <td class="p-2 align-top pt-2.5 text-center">
-          <button onclick="removeModalInsumo(${idx})" 
-                  class="text-slate-400 hover:text-red-600 hover:bg-red-50 rounded p-1.5 transition cursor-pointer" 
-                  title="Eliminar insumo de la matriz">
+          <button onclick="removeModalInsumo(${idx})" ${disAttr}
+                  class="text-slate-400 hover:text-red-600 hover:bg-red-50 rounded p-1.5 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed" 
+                  title="${isCatLocked ? 'Catálogo bloqueado' : 'Eliminar insumo de la matriz'}">
             <i class="fa-solid fa-trash-can text-xs"></i>
           </button>
         </td>

@@ -1,13 +1,13 @@
 ﻿// js/modules/io/printService.js
 // Servicio de Impresión de Formatos Profesionales para TAB1-CAT-BASE y MATRIZ / INSUMOS UNITARIOS
 
-import { state } from '../../state/store.js?v=20261119_cf38';
-import { formatMoney, formatCurrency, formatQty, formatMatrixQty, getCurrencySymbol, getCurrencyCode, round2, round5 } from '../../core/formatters.js?v=20261119_cf38';
-import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal, leafImporte, leafDirectImporte, syncPercentInsumos, insumoImporte, explodeInsumoQty, explodeInsumoImporte } from '../../core/calculations.js?v=20261119_cf38';
-import { findNodeById } from '../catalog/treeService.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf38';
-import { getConsolidatedDataMap } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf38';
+import { state } from '../../state/store.js?v=20261119_cf39';
+import { formatMoney, formatCurrency, formatQty, formatMatrixQty, getCurrencySymbol, getCurrencyCode, round2, round5 } from '../../core/formatters.js?v=20261119_cf39';
+import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal, leafImporte, leafDirectImporte, syncPercentInsumos, insumoImporte, explodeInsumoQty, explodeInsumoImporte } from '../../core/calculations.js?v=20261119_cf39';
+import { findNodeById } from '../catalog/treeService.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf39';
+import { getConsolidatedDataMap } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf39';
 import {
   extractScheduleItems,
   getScheduleSettings,
@@ -22,11 +22,11 @@ import {
   getWorkdaysSettings,
   getDateWorkdayInfo,
   getProjectCreationDate
-} from '../calendario/calendarioModel.js?v=20261119_cf38';
-import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261119_cf38';
-import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js?v=20261119_cf38';
-import { resolveActivePrintBranding } from './printBrandingService.js?v=20261119_cf38';
-import { getBudgetSignatures } from '../catalog/signaturesModal.js?v=20261119_cf38';
+} from '../calendario/calendarioModel.js?v=20261119_cf39';
+import { getEstimacionesCalculatedData } from '../estimaciones/estimacionesModel.js?v=20261119_cf39';
+import { resolveManagedFileDataUrl } from '../../services/s3StorageService.js?v=20261119_cf39';
+import { resolveActivePrintBranding } from './printBrandingService.js?v=20261119_cf39';
+import { getBudgetSignatures } from '../catalog/signaturesModal.js?v=20261119_cf39';
 
 // Escapar caracteres especiales en texto HTML
 function escapeHtml(str) {
@@ -2410,7 +2410,7 @@ function buildCurvaSPrintHtml({
     const totalDaysCurva = Math.max(1, diffDays(pStart0, pEndLast) + 1);
     const daysOffset = diffDays(pStart0, todayDate);
     if (daysOffset >= 0 && daysOffset <= totalDaysCurva) {
-      const frac = Math.max(0, Math.min(1, daysOffset / (totalDaysCurva - 1)));
+      const frac = totalDaysCurva <= 1 ? 0 : Math.max(0, Math.min(1, daysOffset / (totalDaysCurva - 1)));
       const todayX = padLeft + frac * chartW;
       todayLineHtml = `
         <line x1="${todayX.toFixed(1)}" y1="${padTop - 8}" x2="${todayX.toFixed(1)}" y2="${(padTop + chartH).toFixed(1)}" stroke="#dc2626" stroke-width="2" stroke-dasharray="4 2" />
@@ -3529,20 +3529,7 @@ export async function printEstimacionesFormat() {
       </div>
 
       <!-- Área de Firmas Institucionales del Resumen -->
-      <div class="signatures-grid">
-        <div class="signature-box">
-          <strong>ELABORÓ / CONTRATISTA</strong>
-          <span>Superintendencia de Construcción</span>
-        </div>
-        <div class="signature-box">
-          <strong>REVISÓ / SUPERVISIÓN</strong>
-          <span>Supervisión Externa y Control de Calidad</span>
-        </div>
-        <div class="signature-box">
-          <strong>AUTORIZÓ / RESIDENCIA</strong>
-          <span>Dirección General de Obra y Supervisión</span>
-        </div>
-      </div>
+      ${renderInstitutionalSignaturesHtml(20)}
 
       <!-- Hojas individuales por cada concepto del Resumen + sus Fotografías desde la nube -->
       ${hojasConceptosConFotosHtml}
@@ -3768,20 +3755,7 @@ export async function printEstimacionesFormat() {
       </div>
 
       <!-- Área de Firmas Institucionales -->
-      <div class="signatures-grid">
-        <div class="signature-box">
-          <strong>ELABORÓ / CONTRATISTA</strong>
-          <span>Superintendencia de Construcción</span>
-        </div>
-        <div class="signature-box">
-          <strong>REVISÓ / SUPERVISIÓN</strong>
-          <span>Supervisión Externa y Control de Calidad</span>
-        </div>
-        <div class="signature-box">
-          <strong>AUTORIZÓ / RESIDENCIA</strong>
-          <span>Dirección General de Obra y Supervisión</span>
-        </div>
-      </div>
+      ${renderInstitutionalSignaturesHtml(20)}
     </div>
   `;
 

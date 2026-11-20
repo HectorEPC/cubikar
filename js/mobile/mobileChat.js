@@ -1,9 +1,9 @@
 // js/mobile/mobileChat.js
 // Chat de Obra en Tiempo Real: Canales por permiso, menciones @Usuario, etiquetas a conceptos y mensajes sin leer
 
-import { getActiveProjectId } from '../config/constants.js?v=20261119_cf38';
-import { state } from '../state/store.js?v=20261119_cf38';
-import { getCurrentUser } from '../modules/portal/projectService.js?v=20261119_cf38';
+import { getActiveProjectId } from '../config/constants.js?v=20261119_cf39';
+import { state } from '../state/store.js?v=20261119_cf39';
+import { getCurrentUser, canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf39';
 import {
   getAllowedChatChannelsForUser,
   getMessageSection,
@@ -13,11 +13,12 @@ import {
   markActiveProjectChatMessagesAsRead,
   getUsersForChatSection,
   deleteProjectChatMessage,
+  canUserDeleteChatMessage,
   isChatMessageReadForCurrentUser
-} from '../modules/chat/projectChat.js?v=20261119_cf38';
-import { broadcastChatMessage, hydrateProjectChatFromCloud } from '../core/realtimeSync.js?v=20261119_cf38';
-import { showToast } from '../ui/notifications.js?v=20261119_cf38';
-import { escapeHtml } from './mobileBridge.js?v=20261119_cf38';
+} from '../modules/chat/projectChat.js?v=20261119_cf39';
+import { broadcastChatMessage, hydrateProjectChatFromCloud } from '../core/realtimeSync.js?v=20261119_cf39';
+import { showToast } from '../ui/notifications.js?v=20261119_cf39';
+import { escapeHtml } from './mobileBridge.js?v=20261119_cf39';
 
 const CHANNEL_META = [
   { id: 'general', label: 'General', icon: 'fa-solid fa-comments' },
@@ -82,6 +83,7 @@ export function renderMobileChat(container, { onCloseChat }) {
   const channelUsers = getUsersForChatSection(activeChannel, pId) || [];
   const currentUser = getCurrentUser();
   const myEmail = (currentUser?.email || '').toLowerCase().trim();
+  const canWriteChat = canCurrentUserEditProject(pId);
 
   container.innerHTML = `
     <div class="m-row-between">
@@ -124,7 +126,7 @@ export function renderMobileChat(container, { onCloseChat }) {
               <span style="font-size:10px;color:var(--muted);">${escapeHtml(msg.time || '')}</span>
             </div>
             <div style="font-size:12.5px;line-height:1.4;white-space:pre-wrap;">${escapeHtml(msg.text || '')}</div>
-            ${mine ? `
+            ${canUserDeleteChatMessage(msg, pId) ? `
               <div style="text-align:right;margin-top:3px;">
                 <button type="button" data-del-msg="${escapeHtml(msg.id)}" style="border:none;background:none;color:var(--muted);font-size:10px;cursor:pointer;">Eliminar</button>
               </div>
@@ -134,7 +136,7 @@ export function renderMobileChat(container, { onCloseChat }) {
       }).join('')}
     </div>
 
-    ${channelUsers.length > 0 ? `
+    ${canWriteChat && channelUsers.length > 0 ? `
       <div class="m-chip-bar">
         ${channelUsers.map(u => `
           <button type="button" data-mention="${escapeHtml(u.shortHandle || u.handle || u.name)}" class="m-chip" style="padding:4px 9px;font-size:11px;">
@@ -144,12 +146,18 @@ export function renderMobileChat(container, { onCloseChat }) {
       </div>
     ` : ''}
 
-    <form id="m-chat-form" class="m-row" style="gap:8px;">
-      <input id="m-chat-input" class="m-input" required placeholder="Escribir en #${escapeHtml(activeChannel)}..." style="flex:1;">
-      <button type="submit" class="m-btn m-btn-primary">
-        <i class="fa-solid fa-paper-plane"></i>
-      </button>
-    </form>
+    ${canWriteChat ? `
+      <form id="m-chat-form" class="m-row" style="gap:8px;">
+        <input id="m-chat-input" class="m-input" required placeholder="Escribir en #${escapeHtml(activeChannel)}..." style="flex:1;">
+        <button type="submit" class="m-btn m-btn-primary">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </form>
+    ` : `
+      <div class="m-card-alt" style="text-align:center;font-size:12px;color:var(--muted);">
+        <i class="fa-solid fa-eye"></i> Modo solo lectura en chat.
+      </div>
+    `}
   `;
 
   const stream = container.querySelector('#m-chat-stream');
@@ -164,6 +172,7 @@ export function renderMobileChat(container, { onCloseChat }) {
 
   container.querySelectorAll('[data-chat-ch]').forEach(b => {
     b.addEventListener('click', () => {
+      if (!allowed.includes(b.dataset.chatCh)) return;
       activeChannel = b.dataset.chatCh;
       renderMobileChat(container, { onCloseChat });
     });
@@ -188,9 +197,35 @@ export function renderMobileChat(container, { onCloseChat }) {
 
   container.querySelector('#m-chat-form')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
+    if (!canCurrentUserEditProject(pId)) {
+      showToast('🔒 Modo solo lectura: no puedes enviar comentarios.', 'warning');
+      return;
+    }
     const inp = container.querySelector('#m-chat-input');
     const text = (inp?.value || '').trim();
     if (!text) return;
+
+    const extractedMentions = [];
+    const txtLower = text.toLowerCase();
+    const rawTags = text.match(/@[\w.\u00C0-\u017F-]+/g) || [];
+    rawTags.forEach(t => {
+      if (!extractedMentions.some(m => m.toLowerCase() === t.toLowerCase())) {
+        extractedMentions.push(t);
+      }
+    });
+    channelUsers.forEach(u => {
+      const hFull = u.handle ? String(u.handle) : '';
+      const hShort = u.shortHandle ? String(u.shortHandle) : '';
+      const matchFull = hFull && txtLower.includes(hFull.toLowerCase());
+      const matchShort = hShort && txtLower.includes(hShort.toLowerCase());
+      const alreadyPresent = extractedMentions.some(m => {
+        const ml = m.toLowerCase();
+        return (hFull && ml === hFull.toLowerCase()) || (hShort && ml === hShort.toLowerCase());
+      });
+      if ((matchFull || matchShort) && !alreadyPresent) {
+        extractedMentions.push(hShort || hFull);
+      }
+    });
 
     const u = getCurrentUser();
     const now = new Date();
@@ -211,7 +246,7 @@ export function renderMobileChat(container, { onCloseChat }) {
       time: `${dateStr} • ${timeStr}`,
       createdAt: now.toISOString(),
       partidaId: conceptFilterId || null,
-      mentions: [],
+      mentions: extractedMentions,
       estimaciones: [],
       compras: [],
       almacen: [],

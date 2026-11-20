@@ -13,12 +13,12 @@ import {
   getNoteTypeMeta,
   getWeatherMeta
 } from '../modules/bitacora/bitacoraModel.js?v=20261118_b6';
-import { uploadBitacoraEvidenceFile } from '../modules/bitacora/bitacoraDriveService.js?v=20261119_cf38';
-import { resolveManagedFileUrl, deleteManagedFile } from '../services/s3StorageService.js?v=20261119_cf38';
-import { canCurrentUserEditProject, getCurrentUser } from '../modules/portal/projectService.js?v=20261119_cf38';
-import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf38';
-import { showToast } from '../ui/notifications.js?v=20261119_cf38';
-import { escapeHtml } from './mobileBridge.js?v=20261119_cf38';
+import { uploadBitacoraEvidenceFile } from '../modules/bitacora/bitacoraDriveService.js?v=20261119_cf39';
+import { resolveManagedFileUrl, deleteManagedFile } from '../services/s3StorageService.js?v=20261119_cf39';
+import { canCurrentUserEditProject, getCurrentUser } from '../modules/portal/projectService.js?v=20261119_cf39';
+import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf39';
+import { showToast } from '../ui/notifications.js?v=20261119_cf39';
+import { escapeHtml } from './mobileBridge.js?v=20261119_cf39';
 
 const MAX_BITACORA_EVIDENCIAS = 6;
 let filterState = 'all'; // 'all' | 'draft' | 'sealed'
@@ -221,14 +221,23 @@ function openBitacoraComposerSheet(existingNote, editable, container, ctx) {
             <input id="m-b-ubi" class="m-input" placeholder="Ej. Nivel 2, Ejes A-D" value="${escapeHtml(existingNote?.ubicacion || '')}" ${editable ? '' : 'readonly'}>
           </div>
         </div>
-        ${concepts.length > 0 ? `
+        ${(concepts.length > 0 || (existingNote?.conceptosVinculados || []).length > 0) ? `
           <div>
             <label class="m-label" for="m-b-conc">Concepto vinculado (opcional)</label>
             <select id="m-b-conc" class="m-select" ${editable ? '' : 'disabled'}>
               <option value="">-- Ninguno --</option>
-              ${concepts.slice(0, 60).map(c => `
-                <option value="${escapeHtml(c.id)}">${escapeHtml(c.clave || '')} ${escapeHtml(c.descripcion || '')}</option>
-              `).join('')}
+              ${(() => {
+                const firstId = String(existingNote?.conceptosVinculados?.[0]?.id || '');
+                const baseList = concepts.slice(0, 60);
+                const mergedList = [...baseList];
+                if (firstId && !mergedList.some(c => String(c.id) === firstId)) {
+                  const fullMatch = concepts.find(c => String(c.id) === firstId);
+                  mergedList.unshift(fullMatch || existingNote.conceptosVinculados[0]);
+                }
+                return mergedList.map(c => `
+                  <option value="${escapeHtml(c.id)}" ${String(c.id) === firstId ? 'selected' : ''}>${escapeHtml(c.clave || '')} ${escapeHtml(c.descripcion || '')}</option>
+                `).join('');
+              })()}
             </select>
           </div>
         ` : ''}
@@ -374,9 +383,17 @@ function openBitacoraComposerSheet(existingNote, editable, container, ctx) {
   document.getElementById('m-b-cam')?.addEventListener('change', (ev) => handleMobileBitacoraFiles(ev.target.files, ev.target));
   document.getElementById('m-b-photo')?.addEventListener('change', (ev) => handleMobileBitacoraFiles(ev.target.files, ev.target));
 
+  const firstExistingId = String(existingNote?.conceptosVinculados?.[0]?.id || '');
   const buildPayload = () => {
-    const concId = document.getElementById('m-b-conc')?.value || '';
-    const conc = concepts.find(c => String(c.id) === String(concId));
+    const concEl = document.getElementById('m-b-conc');
+    const concId = concEl?.value || '';
+    const conc = concepts.find(c => String(c.id) === String(concId))
+      || (existingNote?.conceptosVinculados || []).find(c => String(c.id) === String(concId));
+    const nextConceptos = !concEl
+      ? (existingNote?.conceptosVinculados || [])
+      : (concId && concId === firstExistingId && Array.isArray(existingNote?.conceptosVinculados) && existingNote.conceptosVinculados.length > 0
+          ? existingNote.conceptosVinculados
+          : (conc ? [{ id: conc.id, clave: conc.clave, descripcion: conc.descripcion }] : []));
     const cleanEvidencias = evidencias.slice(0, MAX_BITACORA_EVIDENCIAS).map(({ __isNewTempUpload, ...clean }) => clean);
     return {
       id: existingNote?.id || null,
@@ -384,7 +401,7 @@ function openBitacoraComposerSheet(existingNote, editable, container, ctx) {
       clima: document.getElementById('m-b-clima').value,
       fecha: document.getElementById('m-b-fecha').value,
       ubicacion: document.getElementById('m-b-ubi').value.trim(),
-      conceptosVinculados: conc ? [{ id: conc.id, clave: conc.clave, descripcion: conc.descripcion }] : [],
+      conceptosVinculados: nextConceptos,
       descripcion: document.getElementById('m-b-desc').value.trim(),
       evidencias: cleanEvidencias
     };

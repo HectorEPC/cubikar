@@ -1,14 +1,14 @@
 // js/modules/almacen/almacenModel.js
 // Modelo de datos y lógica física para el módulo opcional de ALMACÉN DE OBRA (Aislado de costos/precios para el Bodeguero)
 
-import { state } from '../../state/store.js?v=20261119_cf38';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf38';
-import { round2, round5 } from '../../core/formatters.js?v=20261119_cf38';
-import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf38';
-import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261119_cf38';
-import { normalizeInsumoText, normalizeConsolidatedTipo, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf38';
-import { getExpensesRecords, getSupplierById } from '../compras/expensesModel.js?v=20261119_cf38';
-import { scheduleAlmacenCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261119_cf38';
+import { state } from '../../state/store.js?v=20261119_cf39';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf39';
+import { round2, round5 } from '../../core/formatters.js?v=20261119_cf39';
+import { generateIntegratedMatrixForConcept } from '../../core/matrixGenerator.js?v=20261119_cf39';
+import { getExactOpusInsumosForClave } from '../io/casaLauraData.js?v=20261119_cf39';
+import { normalizeInsumoText, normalizeConsolidatedTipo, getInsumoConsolidationKey } from '../insumosGenerales/insumosConsolidator.js?v=20261119_cf39';
+import { getExpensesRecords, getSupplierById } from '../compras/expensesModel.js?v=20261119_cf39';
+import { scheduleAlmacenCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261119_cf39';
 
 const STORAGE_KEY_PREFIX = 'adm_const_almacen_';
 
@@ -483,7 +483,20 @@ export function cancelWarehouseMovement(movementId) {
   const data = loadAlmacenData();
   const mov = data.movements.find(m => m.id === movementId);
   if (!mov) return false;
-  mov.status = mov.status === 'cancelled' ? 'active' : 'cancelled';
+  const reactivating = mov.status === 'cancelled';
+  if (reactivating && (mov.kind === 'exit' || mov.kind === 'transfer_out') && !mov.allowNegativeStock) {
+    const stockSummary = getWarehouseStockSummary();
+    const stockByKey = new Map(stockSummary.items.map(s => [s.insumoKey, s]));
+    for (const item of (mov.items || [])) {
+      const current = stockByKey.get(item.insumoKey);
+      const disp = current ? current.availableStock : 0;
+      const qty = parseFloat(item.qty) || 0;
+      if (qty > disp + 0.001) {
+        throw new Error(`Stock insuficiente para reactivar "${item.description}". Disponible: ${disp} ${item.unit}, requerido: ${qty} ${item.unit}.`);
+      }
+    }
+  }
+  mov.status = reactivating ? 'active' : 'cancelled';
   mov.updatedAt = new Date().toISOString();
   saveAlmacenData(data);
   return true;
@@ -501,7 +514,7 @@ export function deleteWarehouseMovement(movementId) {
  */
 export function getConceptCatalogForWarehouse() {
   const movements = getWarehouseMovements().filter(m => m.status !== 'cancelled' && m.kind === 'exit' && m.conceptId);
-  const directExpenses = getExpensesRecords().filter(r => r.paymentStatus !== 'cancelled' && r.destination !== 'warehouse' && r.conceptId && r.conceptMoveType !== 'replacement');
+  const directExpenses = getExpensesRecords().filter(r => r.paymentStatus !== 'cancelled' && r.destination !== 'warehouse' && r.conceptMoveType !== 'replacement' && (r.conceptId || (Array.isArray(r.conceptLinks) && r.conceptLinks.length > 0)));
 
   const deliveredByConcept = new Map();
   movements.forEach(m => {
@@ -510,11 +523,22 @@ export function getConceptCatalogForWarehouse() {
       deliveredByConcept.set(m.conceptId, round2((deliveredByConcept.get(m.conceptId) || 0) + qty));
     }
   });
+  const countedBatchTokens = new Set();
   directExpenses.forEach(r => {
-    const qty = parseFloat(r.conceptCoverageQty) || 0;
-    if (qty > 0) {
-      deliveredByConcept.set(r.conceptId, round2((deliveredByConcept.get(r.conceptId) || 0) + qty));
-    }
+    const links = Array.isArray(r.conceptLinks) && r.conceptLinks.length > 0
+      ? r.conceptLinks
+      : (r.conceptId ? [{ conceptId: r.conceptId, qtyCovered: r.conceptCoverageQty || 0, moveType: r.conceptMoveType || 'advance' }] : []);
+    const batchBase = r.conceptExplosionBatchId || r.orderGroupId || r.id;
+    links.forEach(lk => {
+      if (!lk.conceptId || lk.moveType === 'replacement') return;
+      const token = `${batchBase}::${lk.conceptId}`;
+      if (countedBatchTokens.has(token)) return;
+      countedBatchTokens.add(token);
+      const qty = parseFloat(lk.qtyCovered) || 0;
+      if (qty > 0) {
+        deliveredByConcept.set(lk.conceptId, round2((deliveredByConcept.get(lk.conceptId) || 0) + qty));
+      }
+    });
   });
 
   const concepts = [];

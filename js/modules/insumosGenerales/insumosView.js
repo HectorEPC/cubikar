@@ -1,15 +1,16 @@
-import { state, persistLocalData } from '../../state/store.js?v=20261119_cf38';
-import { saveState } from '../../state/history.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { formatMoney, formatQty, formatMatrixQty, getCurrencySymbol, round2, round5 } from '../../core/formatters.js?v=20261119_cf38';
-import { getFactorSobrecosto, updateGrandTotal, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf38';
-import { getConsolidatedDataMap, normalizeInsumoText, getInsumoConsolidationKey } from './insumosConsolidator.js?v=20261119_cf38';
-import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf38';
-import { findNodeById } from '../catalog/treeService.js?v=20261119_cf38';
-import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf38';
-import { updateModalIfOpen } from '../apu/matrizModal.js?v=20261119_cf38';
-import { estimarCostoInsumoConIA, queryGeminiLoteInsumos } from '../ai/insumoAiPricing.js?v=20261119_cf38';
-import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261119_cf38';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf39';
+import { saveState } from '../../state/history.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { formatMoney, formatQty, formatMatrixQty, getCurrencySymbol, round2, round5 } from '../../core/formatters.js?v=20261119_cf39';
+import { getFactorSobrecosto, updateGrandTotal, recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf39';
+import { getConsolidatedDataMap, normalizeInsumoText, getInsumoConsolidationKey } from './insumosConsolidator.js?v=20261119_cf39';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf39';
+import { findNodeById } from '../catalog/treeService.js?v=20261119_cf39';
+import { renderAPUInsumos, renderInsumosUnitarios } from '../apu/apuView.js?v=20261119_cf39';
+import { updateModalIfOpen } from '../apu/matrizModal.js?v=20261119_cf39';
+import { estimarCostoInsumoConIA, queryGeminiLoteInsumos } from '../ai/insumoAiPricing.js?v=20261119_cf39';
+import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261119_cf39';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf39';
 
 let globalConsolidatedMap = {};
 let activeCombinarContext = null;
@@ -401,6 +402,11 @@ export function selectCombinarTarget(key) {
 
 // Ejecutar combinación: el concepto elegido reemplaza a los demás en sus espacios de matriz, conservando su cantidad
 export function ejecutarCombinacionInsumos() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite combinar insumos.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('insumos')) return;
   if (!activeCombinarContext) return;
   const { tipo, selectedItems } = activeCombinarContext;
 

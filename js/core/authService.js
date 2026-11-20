@@ -1,10 +1,10 @@
 // js/core/authService.js
 // Servicio de Autenticación integrado con Supabase Auth y tabla public.perfiles
 
-import { STORAGE_KEY_USER } from '../config/constants.js?v=20261119_cf38';
-import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261119_cf38';
-import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261119_cf38';
-import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261119_cf38';
+import { STORAGE_KEY_USER } from '../config/constants.js?v=20261119_cf39';
+import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig } from './supabaseClient.js?v=20261119_cf39';
+import { getCurrentUser, saveCurrentUser, markSessionOpen, markSessionClosed, saveRegisteredUserAccount, getClosedSessionsList, enforceGlobalSessionRevocation } from '../modules/portal/projectService.js?v=20261119_cf39';
+import { restoreUserCollaborationFromCloud, autoSyncCollaborationOnStartup, isRecentInternalCloudAuthUpdate } from './collaborationCloudService.js?v=20261119_cf39';
 import {
   writeSharedSsoCookie,
   clearSharedSsoCookie,
@@ -14,7 +14,7 @@ import {
   scrubSsoHashParams,
   hasPendingIncomingSso,
   getLastSignOutTimestamp
-} from './ssoHelper.js?v=20261119_cf38';
+} from './ssoHelper.js?v=20261119_cf39';
 
 const GOOGLE_CLIENT_ID = '1097638023851-36b44hlrj7fgslfcmqlvf77dk89h7eus.apps.googleusercontent.com';
 const GOOGLE_GSI_SRC = 'https://accounts.google.com/gsi/client';
@@ -754,6 +754,9 @@ export async function signInWithGoogle() {
 
   if (error) throw error;
   if (data?.url && typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem('cubikar_google_oauth_pending_ts', String(Date.now()));
+    } catch (_) {}
     window.location.href = data.url;
   }
   return data;
@@ -1143,7 +1146,7 @@ export function syncLocalUserSession(user, perfil, force = false, remember = nul
       initialSyncedUserIds.add(user.id);
       setTimeout(() => {
         autoSyncCollaborationOnStartup(user, { force: Boolean(force && explicitAuthDepth > 0) });
-        import('../modules/ai/aiQuotaAndCacheService.js?v=20261119_cf38')
+        import('../modules/ai/aiQuotaAndCacheService.js?v=20261119_cf39')
           .then(m => m.syncAiQuotaFromSupabase())
           .catch(() => {});
       }, 50);
@@ -1309,6 +1312,11 @@ export async function hydrateIncomingSsoSession() {
 
     const email = (data.session.user.email || '').toLowerCase().trim();
     if (email) markSessionOpen(email);
+    try {
+      if (data.session?.access_token && typeof sb?.realtime?.setAuth === 'function') {
+        sb.realtime.setAuth(data.session.access_token);
+      }
+    } catch (_) {}
     syncLocalUserSession(data.session.user, null, true, effectiveRemember);
     if (effectiveRemember) {
       writeSharedSsoCookie(data.session);
@@ -1346,15 +1354,32 @@ export function initAuthListener(onAuthChangeCallback) {
       const current = getCurrentUser();
       const closedList = getClosedSessionsList();
       const isClosed = closedList.includes(email);
+      const hasOAuthPending = (() => {
+        try {
+          if (typeof sessionStorage === 'undefined') return false;
+          const ts = Number(sessionStorage.getItem('cubikar_google_oauth_pending_ts') || '0');
+          return ts > 0 && (Date.now() - ts) < 5 * 60 * 1000;
+        } catch (_) {
+          return false;
+        }
+      })();
+      const urlHasRecovery = typeof window !== 'undefined' && (
+        window.location.hash.includes('type=recovery') ||
+        window.location.search.includes('type=recovery')
+      );
       const isOAuthRedirect = typeof window !== 'undefined' && (
         window.location.hash.includes('cubikar_sso_at=') ||
         window.location.hash.includes('cubikar_sso_rt=') ||
         window.location.hash.includes('cubikar_sso_email=') ||
-        window.location.hash.includes('access_token') ||
-        window.location.hash.includes('refresh_token') ||
-        window.location.search.includes('code=')
+        (!urlHasRecovery && window.location.hash.includes('access_token')) ||
+        (!urlHasRecovery && window.location.hash.includes('refresh_token')) ||
+        window.location.search.includes('code=') ||
+        hasOAuthPending
       );
-      const isExplicitInteractive = explicitAuthDepth > 0 || isOAuthRedirect || ssoHydrationInProgress || hasPendingIncomingSso(false);
+      if (hasOAuthPending) {
+        try { sessionStorage.removeItem('cubikar_google_oauth_pending_ts'); } catch (_) {}
+      }
+      const isExplicitInteractive = explicitAuthDepth > 0 || isOAuthRedirect || urlHasRecovery || ssoHydrationInProgress || hasPendingIncomingSso(false);
       const hasActiveLocal = hasValidLocalSessionForEmail(email);
       const nowBoot = Date.now();
       const isPassiveBootPair = !isExplicitInteractive && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION');
@@ -1386,6 +1411,11 @@ export function initAuthListener(onAuthChangeCallback) {
 
       const isInternalSync = (event === 'USER_UPDATED' && isRecentInternalCloudAuthUpdate());
       const isExplicitLogin = !isInternalSync && (event === 'SIGNED_IN' || event === 'USER_UPDATED' || isOAuthRedirect);
+      try {
+        if (session?.access_token && typeof sb?.realtime?.setAuth === 'function') {
+          sb.realtime.setAuth(session.access_token);
+        }
+      } catch (_) {}
       const rememberPref = isExplicitInteractive ? explicitAuthRemember : null;
       const shouldKeepSsoCookie = rememberPref !== null ? rememberPref : resolveRememberPreference(null);
 

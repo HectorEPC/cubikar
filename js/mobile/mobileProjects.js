@@ -1,13 +1,13 @@
 // js/mobile/mobileProjects.js
 // Lista real de Proyectos ("Mis Proyectos" vs "Invitado"), invitaciones pendientes, papelera y creación de obra
 
-import { setActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261119_cf38';
-import { initStore } from '../state/store.js?v=20261119_cf38';
-import { fetchCloudProjects } from '../core/cloudProjectService.js?v=20261119_cf38';
-import { hydrateProjectModulesFromCloud } from '../core/cloudModulesSyncService.js?v=20261119_cf38';
-import { isSupabaseConfigured } from '../core/supabaseClient.js?v=20261119_cf38';
-import { subscribeToProjectRealtime, broadcastInvitationAccepted, broadcastInvitationRejected, requestPeerSync } from '../core/realtimeSync.js?v=20261119_cf38';
-import { autoSyncCollaborationOnStartup, syncHostWorkspaceProjects } from '../core/collaborationCloudService.js?v=20261119_cf38';
+import { setActiveProjectId, getStorageKey, getSettingsKey } from '../config/constants.js?v=20261119_cf39';
+import { initStore } from '../state/store.js?v=20261119_cf39';
+import { fetchCloudProjects } from '../core/cloudProjectService.js?v=20261119_cf39';
+import { hydrateProjectModulesFromCloud } from '../core/cloudModulesSyncService.js?v=20261119_cf39';
+import { isSupabaseConfigured } from '../core/supabaseClient.js?v=20261119_cf39';
+import { subscribeToProjectRealtime, broadcastInvitationAccepted, broadcastInvitationRejected, requestPeerSync } from '../core/realtimeSync.js?v=20261119_cf39';
+import { autoSyncCollaborationOnStartup, syncHostWorkspaceProjects } from '../core/collaborationCloudService.js?v=20261119_cf39';
 import {
   getCurrentUser,
   getProjectsList,
@@ -26,16 +26,16 @@ import {
   getUserPlanId,
   getUserRoleInProject,
   getDeletedProjectsList
-} from '../modules/portal/projectService.js?v=20261119_cf38';
+} from '../modules/portal/projectService.js?v=20261119_cf39';
 import {
   moveProjectToTrash,
   fetchTrashedProjectsForHost,
   restoreProjectFromTrash,
   permanentlyDeleteTrashedProject,
   getCachedTrashCount
-} from '../modules/portal/trashService.js?v=20261119_cf38';
-import { showToast } from '../ui/notifications.js?v=20261119_cf38';
-import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf38';
+} from '../modules/portal/trashService.js?v=20261119_cf39';
+import { showToast } from '../ui/notifications.js?v=20261119_cf39';
+import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf39';
 
 let scopeTab = 'owned'; // 'owned' | 'invited'
 let selectedInviterEmail = 'all';
@@ -276,7 +276,11 @@ export function renderMobileProjects(container, { openSheet, closeSheet, onOpenP
       const pId = btn.dataset.trashProj;
       const name = btn.dataset.trashName || 'esta obra';
       if (!confirm(`¿Mover "${name}" a la papelera de reciclaje?`)) return;
-      await moveProjectToTrash(pId);
+      const res = await moveProjectToTrash(pId);
+      if (!res?.success) {
+        showToast(res?.reason || 'No se pudo mover la obra a la papelera.', 'error');
+        return;
+      }
       showToast('Obra movida a la papelera.', 'info');
       renderMobileProjects(container, { openSheet, closeSheet, onOpenProject });
     });
@@ -476,7 +480,11 @@ async function openTrashSheet({ container, openSheet, closeSheet, onOpenProject 
 
   body.querySelectorAll('[data-restore-id]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await restoreProjectFromTrash(btn.dataset.restoreId);
+      const res = await restoreProjectFromTrash(btn.dataset.restoreId);
+      if (!res?.success) {
+        showToast(res?.reason || 'No se pudo restaurar la obra.', 'error');
+        return;
+      }
       closeSheet();
       showToast('Obra restaurada.', 'success');
       renderMobileProjects(container, { openSheet, closeSheet, onOpenProject });
@@ -486,7 +494,11 @@ async function openTrashSheet({ container, openSheet, closeSheet, onOpenProject 
   body.querySelectorAll('[data-purge-id]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('¿Eliminar permanentemente esta obra? Esta acción no se puede deshacer.')) return;
-      await permanentlyDeleteTrashedProject(btn.dataset.purgeId);
+      const res = await permanentlyDeleteTrashedProject(btn.dataset.purgeId);
+      if (!res?.success) {
+        showToast(res?.reason || 'No se pudo eliminar definitivamente la obra.', 'error');
+        return;
+      }
       closeSheet();
       showToast('Obra eliminada permanentemente.', 'info');
       renderMobileProjects(container, { openSheet, closeSheet, onOpenProject });

@@ -1,20 +1,20 @@
 // js/mobile/mobilePresupuesto.js
 // Presupuesto de Obra: Catálogo Base, Insumos Base (6 categorías), bloqueo seguro y Matriz APU por concepto
 
-import { state, persistLocalData } from '../state/store.js?v=20261119_cf38';
-import { formatMoney, formatQty, formatMatrixQty, round2, round5 } from '../core/formatters.js?v=20261119_cf38';
-import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal, syncPercentInsumos, computeMatrixDirectCost, explodeInsumoQty, explodeInsumoImporte } from '../core/calculations.js?v=20261119_cf38';
-import { generateIntegratedMatrixForConcept } from '../core/matrixGenerator.js?v=20261119_cf38';
-import { getExactOpusInsumosForClave } from '../modules/io/casaLauraData.js?v=20261119_cf38';
-import { findNodeById, updateNode, addRootRow, addChildRow } from '../modules/catalog/treeService.js?v=20261119_cf38';
-import { getConsolidatedDataMap, getInsumoConsolidationKey } from '../modules/insumosGenerales/insumosConsolidator.js?v=20261119_cf38';
-import { getExpensesRecords } from '../modules/compras/expensesModel.js?v=20261119_cf38';
-import { getWarehouseNetConsumptionMap, getWarehouseStockSummary } from '../modules/almacen/almacenModel.js?v=20261119_cf38';
-import { getPartidaChatCount } from '../modules/chat/projectChat.js?v=20261119_cf38';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf38';
-import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf38';
-import { showToast } from '../ui/notifications.js?v=20261119_cf38';
-import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf38';
+import { state, persistLocalData } from '../state/store.js?v=20261119_cf39';
+import { formatMoney, formatQty, formatMatrixQty, round2, round5 } from '../core/formatters.js?v=20261119_cf39';
+import { getFactorSobrecosto, calculateParentTotal, calculateParentDirectTotal, syncPercentInsumos, computeMatrixDirectCost, explodeInsumoQty, explodeInsumoImporte } from '../core/calculations.js?v=20261119_cf39';
+import { generateIntegratedMatrixForConcept } from '../core/matrixGenerator.js?v=20261119_cf39';
+import { getExactOpusInsumosForClave } from '../modules/io/casaLauraData.js?v=20261119_cf39';
+import { findNodeById, updateNode, addRootRow, addChildRow } from '../modules/catalog/treeService.js?v=20261119_cf39';
+import { getConsolidatedDataMap, getInsumoConsolidationKey } from '../modules/insumosGenerales/insumosConsolidator.js?v=20261119_cf39';
+import { getExpensesRecords } from '../modules/compras/expensesModel.js?v=20261119_cf39';
+import { getWarehouseNetConsumptionMap, getWarehouseStockSummary } from '../modules/almacen/almacenModel.js?v=20261119_cf39';
+import { getPartidaChatCount } from '../modules/chat/projectChat.js?v=20261119_cf39';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf39';
+import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf39';
+import { showToast } from '../ui/notifications.js?v=20261119_cf39';
+import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf39';
 
 let subTab = 'cat'; // 'cat' | 'insumos'
 let insumoCatFilter = 'Todos';
@@ -457,8 +457,8 @@ function openConceptSheet(conceptId, container, ctx) {
                 <input id="m-c-cant" type="number" step="0.01" class="m-input m-mono" value="${cantConc}">
               </div>
               <div>
-                <label class="m-label" for="m-c-pu">Precio Unitario</label>
-                <input id="m-c-pu" type="number" step="0.01" class="m-input m-mono" value="${pu}">
+                <label class="m-label" for="m-c-pu">Precio Unitario ${insList.length > 0 ? '<span style="font-size:10px;color:var(--muted);">(APU)</span>' : ''}</label>
+                <input id="m-c-pu" type="number" step="0.01" class="m-input m-mono" value="${pu}" ${insList.length > 0 ? 'disabled title="Calculado automáticamente por la matriz APU"' : ''}>
               </div>
             </div>
             <button type="button" id="m-c-save-fields" class="m-btn m-btn-primary m-btn-sm" style="margin-top:8px;width:100%;">
@@ -521,9 +521,13 @@ function openConceptSheet(conceptId, container, ctx) {
 
     document.getElementById('m-c-save-fields')?.addEventListener('click', () => {
       const nextCant = parseFloat(document.getElementById('m-c-cant')?.value) || 0;
+      const hasMat = Array.isArray(node.insumos) && node.insumos.length > 0;
       const nextPu = parseFloat(document.getElementById('m-c-pu')?.value) || 0;
-      updateNode(node.id, 'cantidad', nextCant);
-      updateNode(node.id, 'precioUnitario', nextPu);
+      const okCant = updateNode(node.id, 'cantidad', nextCant);
+      const okPu = hasMat ? true : updateNode(node.id, 'precioUnitario', nextPu);
+      if (okCant === false || okPu === false) {
+        return;
+      }
       showToast('Concepto actualizado y sincronizado.', 'success');
       renderMobilePresupuesto(container, ctx);
       renderSheetContent();

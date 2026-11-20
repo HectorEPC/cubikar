@@ -1,17 +1,27 @@
-﻿import { printCalendarioObraFormat } from '../io/printService.js?v=20261119_cf38';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf38';
-import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf38';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf38';
+﻿import { printCalendarioObraFormat } from '../io/printService.js?v=20261119_cf39';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf39';
+import { resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf39';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf39';
 // js/modules/calendario/calendarioView.js
 // Renderizador y controlador de la pestaña CALENDARIO DE OBRA
 // Diseño ejecutivo de alta fidelidad, interactivo y sincronizado 100% con Catálogo Base
 
-import { state } from '../../state/store.js?v=20261119_cf38';
-import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { isNightMode } from '../../ui/themeController.js?v=20261119_cf38';
-import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261119_cf38';
-import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261119_cf38';
+import { state } from '../../state/store.js?v=20261119_cf39';
+import { formatCurrency, formatNumber } from '../../core/formatters.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { isNightMode } from '../../ui/themeController.js?v=20261119_cf39';
+import { isTabLocked, guardTabUnlocked, applyTabLocksToDOM } from '../../ui/tabLockController.js?v=20261119_cf39';
+import { renderPartidaNivel1ChatButton, renderProjectChatDock } from '../chat/projectChat.js?v=20261119_cf39';
+
+function escapeCalHtml(val) {
+  if (val === null || val === undefined) return '';
+  return String(val)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 import {
   extractScheduleItems,
   ensureInitialDates,
@@ -52,14 +62,14 @@ import {
   hasScheduleRedoSnapshot,
   undoLastScheduleChange,
   redoLastScheduleChange
-} from './calendarioModel.js?v=20261119_cf38';
+} from './calendarioModel.js?v=20261119_cf39';
 import {
   WORK_TYPE_PROFILES,
   detectProjectWorkType,
   generateLocalConstructiveProposal,
   generateGeminiConstructiveProposal
-} from './calendarioAiService.js?v=20261119_cf38';
-import { exportScheduleToExcel } from './calendarioExporter.js?v=20261119_cf38';
+} from './calendarioAiService.js?v=20261119_cf39';
+import { exportScheduleToExcel } from './calendarioExporter.js?v=20261119_cf39';
 
 let currentScheduleData = null;
 let calendarioLinkClickMode = false;
@@ -219,7 +229,7 @@ export function renderCalendarioObra() {
           <select id="calendario-partida-select" onchange="filterCalendarioPartida(this.value)" class="bg-white border border-slate-300 text-slate-700 text-[11px] font-medium rounded px-2 py-1 outline-none focus:border-blue-500 cursor-pointer max-w-[155px] truncate shadow-sm shrink-0">
             <option value="all">Todas las partidas (${partidasList.length})</option>
             ${partidasList.map(p => `
-              <option value="${p.descripcion}" ${cfg.selectedPartida === p.descripcion ? 'selected' : ''}>${p.descripcion}</option>
+              <option value="${escapeCalHtml(p.descripcion)}" ${cfg.selectedPartida === p.descripcion ? 'selected' : ''}>${escapeCalHtml(p.descripcion)}</option>
             `).join('')}
           </select>
 
@@ -872,9 +882,9 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                      style="width: ${totalTimelineWidth}px; ${isJustifyConcepts ? `height: ${rowH}px;` : ''} ${item.rowBgColor ? `background-color: ${item.rowBgColor};` : ''} ${gridBackgroundStyle}">
                   <div class="absolute h-6 rounded-md shadow-xs ${parentCrit ? 'bg-slate-800 border-rose-500/80' : 'bg-slate-700 border-slate-800'} hover:bg-slate-600 border hover:border-blue-500 flex items-center justify-between px-2 text-[10px] text-white font-bold truncate transition cursor-pointer select-none z-10" 
                        style="left: ${leftPx}px; width: ${widthPx}px;"
-                       onclick="toggleCalendarioNodeGroup('${item.id}', event)"
-                       title="${item.descripcion}: ${item.startDate} al ${item.endDate} (${barDays} días)&#10;Total: ${formatCurrency(item.totalImporte, currencySymbol)}&#10;Clic para ${item.expanded ? 'agrupar' : 'desagrupar'}">
-                    <span class="truncate">${item.descripcion}</span>
+                       onclick="toggleCalendarioNodeGroup('${escapeCalHtml(item.id)}', event)"
+                       title="${escapeCalHtml(item.descripcion)}: ${escapeCalHtml(item.startDate)} al ${escapeCalHtml(item.endDate)} (${barDays} días)&#10;Total: ${formatCurrency(item.totalImporte, currencySymbol)}&#10;Clic para ${item.expanded ? 'agrupar' : 'desagrupar'}">
+                    <span class="truncate">${escapeCalHtml(item.descripcion)}</span>
                     <span class="shrink-0 text-[9px] font-mono opacity-85 ml-1">${barDays}d</span>
                   </div>
                 </div>
@@ -898,16 +908,16 @@ function renderGanttTimelineView(items, periods, currencySymbol, minDate, maxDat
                 <div data-gantt-right-row="${item.id}" onclick="selectCalendarioRow('${item.id}', event)" class="${isJustifyConcepts ? 'min-h-[40px]' : 'h-10'} py-1.5 px-1 relative ${item.rowBgColor ? '' : (isCritBar ? 'bg-rose-50/25 hover:bg-rose-50/50' : 'bg-white hover:bg-slate-50/80')} ${isSelectedRow ? 'selected-row' : ''} transition flex items-center cursor-pointer"
                      style="width: ${totalTimelineWidth}px; ${isJustifyConcepts ? `height: ${rowH}px;` : ''} ${item.rowBgColor ? `background-color: ${item.rowBgColor};` : ''} ${gridBackgroundStyle}">
                   <div class="gantt-bar-concept ${isCritBar ? 'gantt-bar-critical ring-1 ring-rose-950/25 shadow-sm' : 'shadow-xs'} ${isPendingPred ? 'ring-2 ring-amber-400 shadow-lg' : ''} absolute h-6 rounded-md flex items-center justify-between group select-none z-10 transition-shadow"
-                       data-concept-id="${item.id}"
-                       data-start-date="${item.startDate}"
+                       data-concept-id="${escapeCalHtml(item.id)}"
+                       data-start-date="${escapeCalHtml(item.startDate)}"
                        data-duration="${barDays}"
-                       data-clave="${item.clave}"
-                       data-desc="${item.descripcion}"
-                       data-min-start-date="${item.minAllowedStartDate || ''}"
-                       data-pred-claves="${predClaves.join(', ')}"
+                       data-clave="${escapeCalHtml(item.clave)}"
+                       data-desc="${escapeCalHtml(item.descripcion)}"
+                       data-min-start-date="${escapeCalHtml(item.minAllowedStartDate || '')}"
+                       data-pred-claves="${escapeCalHtml(predClaves.join(', '))}"
                        data-is-critical="${item.isCritical ? '1' : '0'}"
                        style="left: ${leftPx}px; width: ${widthPx}px; background-color: ${effectiveBarHex}; cursor: ${calendarioLinkClickMode ? 'pointer' : 'grab'};"
-                       title="${item.clave} - ${item.descripcion}&#10;Inicio: ${item.startDate} | Fin: ${item.endDate} (${barDays} días)${predTooltipLine}${cpmTooltipLine}&#10;Monto: ${formatCurrency(item.importe, currencySymbol)}&#10;• Arrastra el centro para mover fecha&#10;• Arrastra los bordes laterales para estirar o reducir">
+                       title="${escapeCalHtml(item.clave)} - ${escapeCalHtml(item.descripcion)}&#10;Inicio: ${escapeCalHtml(item.startDate)} | Fin: ${escapeCalHtml(item.endDate)} (${barDays} días)${escapeCalHtml(predTooltipLine)}${cpmTooltipLine}&#10;Monto: ${formatCurrency(item.importe, currencySymbol)}&#10;• Arrastra el centro para mover fecha&#10;• Arrastra los bordes laterales para estirar o reducir">
                     
                     <!-- Manija Izquierda: Reducir / Estirar Inicio -->
                     <div class="gantt-handle-left absolute left-0 top-0 bottom-0 w-2.5 rounded-l-md hover:bg-white/40 cursor-ew-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
@@ -2496,11 +2506,13 @@ export function initGanttTodayLineDrag() {
 
   pin.ondblclick = (e) => {
     if (e.stopPropagation) e.stopPropagation();
+    if (isTabLocked('calendario') || !canCurrentUserEditProject(getActiveProjectId())) return;
     resetGanttTodayDateAction();
   };
 
   pin.onmousedown = (e) => {
     if (e.button !== undefined && e.button !== 0) return;
+    if (isTabLocked('calendario') || !canCurrentUserEditProject(getActiveProjectId())) return;
     if (e.stopPropagation) e.stopPropagation();
     if (e.preventDefault) e.preventDefault();
 
@@ -2640,11 +2652,13 @@ export function initFinancialTodayLineDrag() {
 
   pin.ondblclick = (e) => {
     if (e.stopPropagation) e.stopPropagation();
+    if (isTabLocked('calendario') || !canCurrentUserEditProject(getActiveProjectId())) return;
     resetGanttTodayDateAction();
   };
 
   pin.onmousedown = (e) => {
     if (e.button !== undefined && e.button !== 0) return;
+    if (isTabLocked('calendario') || !canCurrentUserEditProject(getActiveProjectId())) return;
     if (e.stopPropagation) e.stopPropagation();
     if (e.preventDefault) e.preventDefault();
 
@@ -2807,11 +2821,13 @@ export function initCurvaSTodayLineDrag() {
 
   pin.ondblclick = (e) => {
     if (e.stopPropagation) e.stopPropagation();
+    if (isTabLocked('calendario') || !canCurrentUserEditProject(getActiveProjectId())) return;
     resetGanttTodayDateAction();
   };
 
   const handleStart = (e) => {
     if (e.button !== undefined && e.button !== 0) return;
+    if (isTabLocked('calendario') || !canCurrentUserEditProject(getActiveProjectId())) return;
     if (e.stopPropagation) e.stopPropagation();
     if (e.preventDefault) e.preventDefault();
 

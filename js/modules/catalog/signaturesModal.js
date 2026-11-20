@@ -2,8 +2,10 @@
 // Modal para configurar los responsables y firmantes del Catálogo y Presupuesto de Obra (TAB1-CAT-BASE)
 // Los nombres y cargos configurados se imprimen en la parte inferior del formato oficial.
 
-import { state, persistSettings } from '../../state/store.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
+import { state, persistSettings } from '../../state/store.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf39';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf39';
 
 // Sanitizar texto con posibles caracteres corruptos (mojibake)
 export function sanitizeSignatureText(str) {
@@ -226,6 +228,11 @@ export function resetDefaultPresupuestoSignatures() {
 
 // Guardar las firmas configuradas en el proyecto
 export function savePresupuestoSignatures() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite modificar las firmas del presupuesto.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('cat')) return;
   if (!state.settings) state.settings = {};
 
   // Limpiar y validar

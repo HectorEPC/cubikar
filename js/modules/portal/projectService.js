@@ -1,7 +1,7 @@
 // js/modules/portal/projectService.js
 // Servicio centralizado para usuarios, proyectos multi-obra y almacenamiento aislado
 
-import { enforceLocalDataOwner } from '../../core/localDataIsolation.js?v=20261119_cf38';
+import { enforceLocalDataOwner } from '../../core/localDataIsolation.js?v=20261119_cf39';
 import {
   STORAGE_KEY_USER,
   STORAGE_KEY_PROJECTS,
@@ -16,15 +16,15 @@ import {
   getActiveProjectId,
   DEFAULT_STORAGE_KEY,
   DEFAULT_SETTINGS_KEY
-} from '../../config/constants.js?v=20261119_cf38';
+} from '../../config/constants.js?v=20261119_cf39';
 
 export const STORAGE_KEY_DELETED_PROJECTS = 'cubikar_deleted_projects_v1';
 export const STORAGE_KEY_TRASHED_PROJECTS = 'cubikar_trashed_project_ids_v1';
-import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261119_cf38';
-import { cleanMojibake } from '../../core/textSanitizer.js?v=20261119_cf38';
-import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261119_cf38';
-import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261119_cf38';
-import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261119_cf38';
+import { defaultTreeData, defaultSettings } from '../../config/defaultData.js?v=20261119_cf39';
+import { cleanMojibake } from '../../core/textSanitizer.js?v=20261119_cf39';
+import { CASA_LAURA_PROJECT } from '../io/casaLauraData.js?v=20261119_cf39';
+import { deleteProjectFromCloud, invalidateCloudProjectsCache, fetchCloudProjects, generateUUID } from '../../core/cloudProjectService.js?v=20261119_cf39';
+import { getSupabaseClient } from '../../core/supabaseClient.js?v=20261119_cf39';
 
 // Avatares temáticos según sexo (SVGs ultraligeros de arquitectos e ingenieros con casco)
 export const AVATARS_BY_SEX = {
@@ -642,7 +642,7 @@ export function enforceGlobalSessionRevocation() {
                                  (window.location?.hash || '').includes('access_token=') ||
                                  (typeof document !== 'undefined' && (document.cookie || '').includes('cubikar_sso_v1='));
           if (!hasIncomingSso && hadLegacySessionData) {
-            import('../../core/supabaseClient.js?v=20261119_cf38').then(m => {
+            import('../../core/supabaseClient.js?v=20261119_cf39').then(m => {
               const sb = m.getSupabaseClient();
               if (sb) sb.auth.signOut({ scope: 'local' }).catch(() => {});
             }).catch(() => {});
@@ -2065,7 +2065,7 @@ export function getTabAssignedMembers(projectId, tabId) {
 // Enviar proyecto a la Papelera (retención 7 días - solo Anfitrión)
 export async function deleteProject(projectId) {
   if (!projectId) return { success: false, reason: 'Proyecto no especificado' };
-  const { moveProjectToTrash } = await import('./trashService.js?v=20261119_cf38');
+  const { moveProjectToTrash } = await import('./trashService.js?v=20261119_cf39');
   const res = await moveProjectToTrash(projectId);
   return (res && typeof res === 'object') ? res : { success: Boolean(res) };
 }
@@ -2100,6 +2100,8 @@ export async function permanentlyDeleteProject(projectId, opts = {}) {
       localStorage.removeItem(`adm_const_bitacora_${pid}`);
       localStorage.removeItem(`adm_const_expenses_${pid}`);
       localStorage.removeItem(`adm_const_suppliers_${pid}`);
+      localStorage.removeItem(`adm_const_almacen_${pid}`);
+      localStorage.removeItem(`adm_const_tab_locks_${pid}`);
       localStorage.removeItem(`adm_arq_signatures_${pid}`);
       localStorage.removeItem(`adm_arq_bitacora_${pid}`);
       localStorage.removeItem(`adm_arq_expenses_${pid}`);
@@ -2288,11 +2290,21 @@ export function getPendingInvitationsForUser(userEmail) {
   let dismissedSet = new Set();
   try {
     if (typeof localStorage !== 'undefined') {
-      const rawDismissed = localStorage.getItem('cubikar_dismissed_notifications_v1');
-      if (rawDismissed) {
-        const parsed = JSON.parse(rawDismissed);
-        if (Array.isArray(parsed)) dismissedSet = new Set(parsed);
-      }
+      const mergedDismissed = [];
+      const keysToCheck = [
+        `cubikar_dismissed_notifications_v1__${emailLower}`,
+        'cubikar_dismissed_notifications_v1'
+      ];
+      keysToCheck.forEach((k) => {
+        try {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) mergedDismissed.push(...parsed);
+          }
+        } catch (_) {}
+      });
+      if (mergedDismissed.length > 0) dismissedSet = new Set(mergedDismissed);
     }
   } catch (_) {}
 
@@ -2429,18 +2441,19 @@ export function createProjectInvitation({ projectId, email, name, role = 'editar
     pendingCloudAdd: true
   });
 
-  // Sincronizar colaborador directamente a Supabase PostgreSQL (public.proyecto_colaboradores)
-  pushCollaboratorToCloud(proj, newInvitation.email, newInvitation.role, 'pending');
-
-  // Emitir broadcast en tiempo real vía WebSockets a otros usuarios conectados
-  try {
-    if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastNewInvitation === 'function') {
-      const updatedProj = getProjectById(projectId);
-      window.CubikarRealtime.broadcastNewInvitation(newInvitation, updatedProj);
+  // Sincronizar colaborador primero en Postgres antes del broadcast privado Realtime (RLS verifica proyecto_colaboradores)
+  Promise.resolve(
+    pushCollaboratorToCloud(proj, newInvitation.email, newInvitation.role, 'pending')
+  ).finally(() => {
+    try {
+      if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastNewInvitation === 'function') {
+        const updatedProj = getProjectById(projectId);
+        window.CubikarRealtime.broadcastNewInvitation(newInvitation, updatedProj);
+      }
+    } catch (e) {
+      console.warn('[Realtime] Error emitiendo invitación:', e);
     }
-  } catch (e) {
-    console.warn('[Realtime] Error emitiendo invitación:', e);
-  }
+  });
 
   return newInvitation;
 }
@@ -3815,8 +3828,9 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
   allProjects.forEach(proj => {
     if ((proj.ownerEmail || '').toLowerCase().trim() === ownerEmail) {
       const exists = allStoredInvs.some(i => i.projectId === proj.id && (i.email || '').toLowerCase().trim() === cleanEmail);
+      let pInvEntry = null;
       if (!exists) {
-        const pInvEntry = {
+        pInvEntry = {
           id: 'inv-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
           projectId: proj.id,
           projectName: proj.projectName || 'Proyecto de Obra',
@@ -3832,18 +3846,22 @@ export function createPlanInvitation({ email, name, role = 'editar', avatar = nu
           createdAt: new Date().toISOString()
         };
         allStoredInvs.unshift(pInvEntry);
-
-        try {
-          if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastNewInvitation === 'function') {
-            window.CubikarRealtime.broadcastNewInvitation(pInvEntry, proj);
-          }
-        } catch (e) {}
       }
 
-      // Sincronizar fila de colaborador en Supabase PostgreSQL para acceso Multi-PC
+      // Sincronizar fila de colaborador en Supabase PostgreSQL ANTES de emitir broadcast privado Realtime
       const existingMem = Array.isArray(proj.members) ? proj.members.find(m => (m.email || '').toLowerCase().trim() === cleanEmail) : null;
       const cloudStatus = (existingMem && (existingMem.status === 'active' || existingMem.status === 'accepted')) ? 'accepted' : 'pending';
-      pushCollaboratorToCloud(proj, cleanEmail, newInv.role || 'editar', cloudStatus);
+      Promise.resolve(
+        pushCollaboratorToCloud(proj, cleanEmail, newInv.role || 'editar', cloudStatus)
+      ).finally(() => {
+        if (pInvEntry) {
+          try {
+            if (typeof window !== 'undefined' && window.CubikarRealtime && typeof window.CubikarRealtime.broadcastNewInvitation === 'function') {
+              window.CubikarRealtime.broadcastNewInvitation(pInvEntry, proj);
+            }
+          } catch (e) {}
+        }
+      });
     }
   });
   saveStoredInvitations(allStoredInvs);

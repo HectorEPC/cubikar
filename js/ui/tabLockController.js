@@ -3,10 +3,10 @@
 // y por Estimación Individual en la pestaña Estimaciones.
 // Cuando está bloqueado, solo permite consultar e imprimir la información (sin cambiar, mover ni editar).
 
-import { getActiveProjectId } from '../config/constants.js?v=20261119_cf38';
-import { showToast } from './notifications.js?v=20261119_cf38';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf38';
-import { isEstimacionLocked, toggleActiveEstimacionLockState, setEstimacionLocked } from '../modules/estimaciones/estimacionesModel.js?v=20261119_cf38';
+import { getActiveProjectId } from '../config/constants.js?v=20261119_cf39';
+import { showToast } from './notifications.js?v=20261119_cf39';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf39';
+import { isEstimacionLocked, toggleActiveEstimacionLockState, setEstimacionLocked, getActiveEstimacion } from '../modules/estimaciones/estimacionesModel.js?v=20261119_cf39';
 
 const STORAGE_KEY_TAB_LOCKS_PREFIX = 'adm_const_tab_locks_';
 
@@ -70,6 +70,9 @@ export function saveProjectTabLocks(locks, projectId = null) {
 }
 
 export function isTabLocked(tabKey) {
+  if (!canCurrentUserEditProject()) {
+    return true;
+  }
   if (tabKey === 'estimaciones') {
     return isEstimacionLocked();
   }
@@ -117,7 +120,8 @@ export function toggleTabLock(tabKey) {
     return isTabLocked(tabKey);
   }
   if (tabKey === 'estimaciones') {
-    const { locked, est } = toggleActiveEstimacionLockState();
+    const locked = Boolean(toggleActiveEstimacionLockState());
+    const est = typeof getActiveEstimacion === 'function' ? getActiveEstimacion() : null;
     if (typeof lockRenderCallback === 'function') {
       lockRenderCallback('estimaciones', locked);
     }
@@ -178,46 +182,46 @@ function updateStaticLockButtonUI(btnId, locked, tabLabel) {
 export function applyTabLocksToDOM() {
   if (typeof document === 'undefined') return;
 
+  const readOnly = !canCurrentUserEditProject();
   const locks = loadProjectTabLocks();
-  const estLocked = isEstimacionLocked();
+  const catLocked = readOnly || Boolean(locks.cat);
+  const insLocked = readOnly || Boolean(locks.insumos);
+  const calLocked = readOnly || Boolean(locks.calendario);
+  const estLocked = readOnly || isEstimacionLocked();
+  const comLocked = readOnly || Boolean(locks.compras);
+  const bitLocked = readOnly || Boolean(locks.bitacora);
+  const almLocked = readOnly || Boolean(locks.almacen);
 
   // 1. Actualizar botones estáticos en index.html (Catálogo Base e Insumos Base)
-  updateStaticLockButtonUI('btn-lock-cat', locks.cat, 'Catálogo Base');
-  updateStaticLockButtonUI('btn-lock-insumos', locks.insumos, 'Insumos Base');
+  updateStaticLockButtonUI('btn-lock-cat', catLocked, 'Catálogo Base');
+  updateStaticLockButtonUI('btn-lock-insumos', insLocked, 'Insumos Base');
 
-  // 2. Atributos data-tab-locked en los contenedores de las 4 pestañas
-  const viewCat = document.getElementById('view-cat');
-  if (viewCat && typeof viewCat.setAttribute === 'function') {
-    viewCat.setAttribute('data-tab-locked', locks.cat ? 'true' : 'false');
-  }
-  const viewInsumos = document.getElementById('view-insumos');
-  if (viewInsumos && typeof viewInsumos.setAttribute === 'function') {
-    viewInsumos.setAttribute('data-tab-locked', locks.insumos ? 'true' : 'false');
-  }
-  const viewCalendario = document.getElementById('view-calendario');
-  if (viewCalendario && typeof viewCalendario.setAttribute === 'function') {
-    viewCalendario.setAttribute('data-tab-locked', locks.calendario ? 'true' : 'false');
-  }
-  const viewEstimaciones = document.getElementById('view-estimaciones');
-  if (viewEstimaciones && typeof viewEstimaciones.setAttribute === 'function') {
-    viewEstimaciones.setAttribute('data-tab-locked', estLocked ? 'true' : 'false');
-  }
-  const viewBitacora = document.getElementById('view-bitacora');
-  if (viewBitacora && typeof viewBitacora.setAttribute === 'function') {
-    viewBitacora.setAttribute('data-tab-locked', locks.bitacora ? 'true' : 'false');
-  }
+  // 2. Atributos data-tab-locked en los contenedores de las pestañas
+  const setAttr = (id, flag) => {
+    const el = document.getElementById(id);
+    if (el && typeof el.setAttribute === 'function') {
+      el.setAttribute('data-tab-locked', flag ? 'true' : 'false');
+    }
+  };
+  setAttr('view-cat', catLocked);
+  setAttr('view-insumos', insLocked);
+  setAttr('view-calendario', calLocked);
+  setAttr('view-estimaciones', estLocked);
+  setAttr('view-compras', comLocked);
+  setAttr('view-bitacora', bitLocked);
+  setAttr('view-almacen', almLocked);
 
-  // 3. Bloquear campos de encabezado de proyecto en Catálogo Base e Insumos Base cuando están bloqueados
+  // 3. Bloquear campos de encabezado de proyecto en Catálogo Base e Insumos Base cuando están bloqueados o es solo lectura
   // Nota: 'select-all-checkbox' permanece siempre habilitado para permitir filtrado, consulta y visualización de insumos
   const catHeaderInputs = ['header-project-name', 'header-project-location', 'btn-toolbar-google-ia', 'btn-toolbar-ai-menu', 'btn-ai-apu', 'btn-apu-ai-menu', 'btn-ai-apu-max', 'btn-apu-max-ai-menu'];
   catHeaderInputs.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.disabled = locks.cat;
+    if (el) el.disabled = catLocked;
   });
 
   const insumosHeaderInputs = ['insumos-project-name', 'insumos-project-location', 'btn-ai-general-insumos', 'btn-insumos-ai-menu'];
   insumosHeaderInputs.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.disabled = locks.insumos;
+    if (el) el.disabled = insLocked;
   });
 }

@@ -3,19 +3,19 @@
 // Incluye: KPIs de obra, Timeline cronológico con filtros, Redacción con conceptos y fotos,
 // Canvas táctil de firma digital, Configuración S3 del Anfitrión y Lightbox de evidencias.
 
-import { state } from '../../state/store.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { guardTabUnlocked, isTabLocked, toggleTabLock } from '../../ui/tabLockController.js?v=20261119_cf38';
-import { getCurrentUser, resolveWorkspacePlanContext } from '../portal/projectService.js?v=20261119_cf38';
+import { state } from '../../state/store.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { guardTabUnlocked, isTabLocked, toggleTabLock } from '../../ui/tabLockController.js?v=20261119_cf39';
+import { getCurrentUser, resolveWorkspacePlanContext, canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf39';
 
 function isLegalBitacoraAllowed() {
   const planId = resolveWorkspacePlanContext()?.planId || 'free';
   return planId === 'plus' || planId === 'pro';
 }
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf38';
-import { formatDate } from '../calendario/calendarioModel.js?v=20261119_cf38';
-import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf38';
-import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261119_cf38';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf39';
+import { formatDate } from '../calendario/calendarioModel.js?v=20261119_cf39';
+import { mountStorageMeter } from '../../services/storageQuotaService.js?v=20261119_cf39';
+import { deleteManagedFile, downloadManagedFileToDevice } from '../../services/s3StorageService.js?v=20261119_cf39';
 import {
   BITACORA_NOTE_TYPES,
   BITACORA_WEATHER_OPTIONS,
@@ -42,12 +42,12 @@ import {
   openBitacoraPdfArtifact,
   resolveBitacoraPhotoUrl,
   syncPendingBitacoraArtifactsToCloud
-} from './bitacoraDriveService.js?v=20261119_cf38';
+} from './bitacoraDriveService.js?v=20261119_cf39';
 import {
   generateNotePdfArtifact,
   downloadSingleNotePdf,
   generateAndDownloadFullBitacoraBook
-} from './bitacoraPdfService.js?v=20261119_cf38';
+} from './bitacoraPdfService.js?v=20261119_cf39';
 
 // Estado de UI y filtros del Timeline
 const MAX_BITACORA_EVIDENCIAS = 6;
@@ -77,7 +77,7 @@ let isDrawingSignature = false;
 let lastSigPoint = null;
 
 function escapeHtml(str) {
-  if (!str) return '';
+  if (str === null || str === undefined) return '';
   return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -667,6 +667,7 @@ function renderTimelineNoteCard(note) {
 // ============================================================================
 
 export function onBitacoraTodayWeatherChange(clima) {
+  if (!canCurrentUserEditProject() || !guardTabUnlocked('bitacora')) return;
   updateBitacoraConfig({
     climaHoy: clima,
     climaFecha: formatDate(new Date())
@@ -1132,6 +1133,10 @@ function renderTempEvidencesGrid() {
 }
 
 export function saveBitacoraNoteFormAction(proceedToSign = false) {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite crear ni modificar notas de bitácora.', 'warning');
+    return;
+  }
   if (!guardTabUnlocked('bitacora')) return;
 
   const tipo = document.getElementById('bitacora-form-tipo')?.value || 'Avance de Obra';
@@ -1170,7 +1175,6 @@ export function saveBitacoraNoteFormAction(proceedToSign = false) {
     });
 
     if (proceedToSign) {
-      currentEditingNoteId = saved.id;
       if (!isLegalBitacoraAllowed()) {
         openSignBitacoraNoteModal(saved.id);
         return;
@@ -1189,7 +1193,7 @@ export function saveBitacoraNoteFormAction(proceedToSign = false) {
 }
 
 export function deleteBitacoraDraftAction(noteId) {
-  if (!guardTabUnlocked('bitacora')) return;
+  if (!canCurrentUserEditProject() || !guardTabUnlocked('bitacora')) return;
   const note = getBitacoraNoteById(noteId);
   if (!note) return;
   if (note.estado === 'sealed') {
@@ -1209,7 +1213,7 @@ export function deleteBitacoraDraftAction(noteId) {
 }
 
 export function createFeDeErratasAction(sourceNoteId) {
-  if (!guardTabUnlocked('bitacora')) return;
+  if (!canCurrentUserEditProject() || !guardTabUnlocked('bitacora')) return;
   const sourceNote = getBitacoraNoteById(sourceNoteId);
   if (!sourceNote || sourceNote.estado !== 'sealed') {
     showToast('Solo es posible crear Aclaración / Fe de Erratas sobre notas previamente asentadas.', 'warning');
@@ -1229,7 +1233,7 @@ export function createFeDeErratasAction(sourceNoteId) {
 // ============================================================================
 
 export function openSignBitacoraNoteModal(noteId) {
-  if (!guardTabUnlocked('bitacora')) return;
+  if (!canCurrentUserEditProject() || !guardTabUnlocked('bitacora')) return;
   if (!isLegalBitacoraAllowed()) {
     showToast('🔒 La Firma Digital Legal e Inmutabilidad LOPSRM/BESOP está disponible desde el Plan Plus. Tu Plan Gratuita te permite registrar notas básicas de bitácora.', 'warning');
     if (typeof window !== 'undefined') window.openSubscriptionModal?.();
@@ -1457,6 +1461,7 @@ export function clearBitacoraSignatureCanvas() {
 }
 
 export async function confirmAndSealBitacoraNoteAction() {
+  if (!canCurrentUserEditProject() || !guardTabUnlocked('bitacora')) return;
   if (!isLegalBitacoraAllowed()) {
     showToast('🔒 La Firma Digital Legal está disponible desde el Plan Plus.', 'warning');
     if (typeof window !== 'undefined') window.openSubscriptionModal?.();
@@ -1735,6 +1740,11 @@ export function openBitacoraConfigModal() {
 }
 
 export function saveBitacoraConfigModalAction() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite modificar la configuración de bitácora.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('bitacora')) return;
   const obraInicio = document.getElementById('bitacora-cfg-inicio')?.value || '';
   const obraFinProgramada = document.getElementById('bitacora-cfg-fin')?.value || '';
   const contratoNumero = document.getElementById('bitacora-cfg-contrato')?.value.trim() || '';

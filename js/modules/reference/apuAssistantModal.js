@@ -1,15 +1,17 @@
 // js/modules/reference/apuAssistantModal.js
 // Asistente de Insumos para Matrices de Precios Unitarios (Opción 2)
 
-import { state } from '../../state/store.js?v=20261119_cf38';
-import { saveState } from '../../state/history.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { formatMoney, round2 } from '../../core/formatters.js?v=20261119_cf38';
-import { findNodeById } from '../catalog/treeService.js?v=20261119_cf38';
-import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from '../apu/apuView.js?v=20261119_cf38';
-import { searchReferenceItems, listReferenceCatalogs } from './referenceDb.js?v=20261119_cf38';
-import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf38';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf38';
+import { state, persistLocalData } from '../../state/store.js?v=20261119_cf39';
+import { saveState } from '../../state/history.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { formatMoney, round2, round5 } from '../../core/formatters.js?v=20261119_cf39';
+import { recalcNodeFromMatrix } from '../../core/calculations.js?v=20261119_cf39';
+import { findNodeById } from '../catalog/treeService.js?v=20261119_cf39';
+import { renderTAB1 } from '../catalog/catalogView.js?v=20261119_cf39';
+import { renderAPUInsumos, renderInsumosUnitarios, toggleApuSection } from '../apu/apuView.js?v=20261119_cf39';
+import { searchReferenceItems, listReferenceCatalogs } from './referenceDb.js?v=20261119_cf39';
+import { canCurrentUserEditProject } from '../portal/projectService.js?v=20261119_cf39';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf39';
 
 let apuSearchDebounce = null;
 let currentApuSearchResults = [];
@@ -212,8 +214,8 @@ function renderApuAssistantResults(items) {
       </td>
       <td class="p-2 align-middle text-right w-40">
         <div class="flex items-center justify-end gap-1.5">
-          <input type="number" id="apu-qty-input-${index}" value="${Number(defaultQty || 1).toFixed(2)}" step="0.01" min="0.01" 
-                 class="w-16 border border-slate-300 rounded px-1.5 py-1 text-xs font-mono text-right focus:ring-1 focus:ring-blue-500" 
+          <input type="number" id="apu-qty-input-${index}" value="${round5(parseFloat(defaultQty) || 1).toFixed(4)}" step="0.0001" min="0.0001" 
+                 class="w-20 border border-slate-300 rounded px-1.5 py-1 text-xs font-mono text-right focus:ring-1 focus:ring-blue-500" 
                  title="Consumo unitario necesario para 1 ${node ? (node.unidad || 'ud') : 'ud'} de concepto">
           <button onclick="addInsumoToApuMatrix(${index})" id="btn-add-apu-${index}" 
                   class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 font-medium shadow-xs transition active:scale-95" 
@@ -243,7 +245,8 @@ export function addInsumoToApuMatrix(resultIndex) {
   if (!node) return;
 
   const qtyInput = document.getElementById(`apu-qty-input-${resultIndex}`);
-  const cantidad = qtyInput ? round2(parseFloat(qtyInput.value) || 1) : 1.00;
+  const parsedQty = qtyInput ? parseFloat(qtyInput.value) : 1;
+  const cantidad = (Number.isFinite(parsedQty) && parsedQty > 0) ? round5(parsedQty) : 1;
 
   saveState();
   toggleApuSection('matriz', true);
@@ -257,6 +260,8 @@ export function addInsumoToApuMatrix(resultIndex) {
   else if (item.tipo === 'Equipo') normalizedTipo = 'Equipo';
   else if (item.tipo === 'Maquinaria') normalizedTipo = 'Maquinaria';
   else if (item.tipo === 'Subcontrato') normalizedTipo = 'Subcontrato';
+  else if (item.tipo === 'Flete') normalizedTipo = 'Flete';
+  else if (item.tipo === 'Auxiliar') normalizedTipo = 'Auxiliar';
 
   node.insumos.push({
     clave: item.clave || `INS-${node.insumos.length + 1}`,
@@ -267,9 +272,15 @@ export function addInsumoToApuMatrix(resultIndex) {
     costoUnitario: round2(item.precioUnitario || 0)
   });
 
-  // Re-renderizar APU y recalcular
+  node.isMatrixCustomized = true;
+  node.userClearedMatrix = false;
+  recalcNodeFromMatrix(node);
+
+  // Re-renderizar APU, tabla principal y persistir
   renderAPUInsumos(node);
   renderInsumosUnitarios(node);
+  renderTAB1();
+  persistLocalData(true);
 
   // Efecto visual en el botón
   const btn = document.getElementById(`btn-add-apu-${resultIndex}`);

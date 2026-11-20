@@ -1,13 +1,13 @@
 ﻿// js/modules/almacen/almacenView.js
 // Interfaz gráfica de la 6ª pestaña principal ALMACÉN (Cero precios/costos $, apta para rol aislado de Bodeguero)
 
-import { state } from '../../state/store.js?v=20261119_cf38';
-import { formatNumber, round2, round5 } from '../../core/formatters.js?v=20261119_cf38';
-import { showToast } from '../../ui/notifications.js?v=20261119_cf38';
-import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf38';
-import { canCurrentUserEditProject, getCurrentUser } from '../portal/projectService.js?v=20261119_cf38';
-import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf38';
-import { processExpenseEvidenceUpload, openExpenseEvidence } from '../compras/driveExpenseService.js?v=20261119_cf38';
+import { state } from '../../state/store.js?v=20261119_cf39';
+import { formatNumber, round2, round5 } from '../../core/formatters.js?v=20261119_cf39';
+import { showToast } from '../../ui/notifications.js?v=20261119_cf39';
+import { guardTabUnlocked } from '../../ui/tabLockController.js?v=20261119_cf39';
+import { canCurrentUserEditProject, getCurrentUser } from '../portal/projectService.js?v=20261119_cf39';
+import { renderTabAssignedAvatars } from '../portal/portalController.js?v=20261119_cf39';
+import { processExpenseEvidenceUpload, openExpenseEvidence } from '../compras/driveExpenseService.js?v=20261119_cf39';
 import {
   getAlmacenSignatures,
   saveAlmacenSignatures,
@@ -21,12 +21,12 @@ import {
   cancelWarehouseMovement,
   deleteWarehouseMovement,
   getConceptCatalogForWarehouse
-} from './almacenModel.js?v=20261119_cf38';
+} from './almacenModel.js?v=20261119_cf39';
 import {
   printWarehouseExitVoucher,
   printAlmacenActiveReport,
   exportAlmacenToExcel
-} from './almacenExporter.js?v=20261119_cf38';
+} from './almacenExporter.js?v=20261119_cf39';
 
 let activeAlmacenSubTab = 'stock'; // 'stock' | 'recepciones' | 'salidas' | 'herramienta'
 let almacenSearchTerm = '';
@@ -168,9 +168,16 @@ export function switchAlmacenSubTab(subTab) {
 
 export function onAlmacenSearchChange(val) {
   almacenSearchTerm = val;
+  const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+  const cursorPos = activeEl && activeEl.id === 'almacen-search-input' ? activeEl.selectionStart : null;
   const subContainer = document.getElementById('almacen-subview-container');
   if (subContainer) {
     subContainer.innerHTML = renderAlmacenSubViewContent(getWarehouseStockSummary());
+  }
+  const nextEl = typeof document !== 'undefined' ? document.getElementById('almacen-search-input') : null;
+  if (nextEl && cursorPos !== null) {
+    nextEl.focus();
+    try { nextEl.setSelectionRange(cursorPos, cursorPos); } catch (_) {}
   }
 }
 
@@ -178,7 +185,7 @@ function renderAlmacenSearchBar(placeholder) {
   return `
     <div class="relative w-full">
       <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-      <input type="text" value="${escapeHtml(almacenSearchTerm)}" oninput="onAlmacenSearchChange(this.value)"
+      <input id="almacen-search-input" type="text" value="${escapeHtml(almacenSearchTerm)}" oninput="onAlmacenSearchChange(this.value)"
              placeholder="${escapeHtml(placeholder)}"
              class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-sky-500 shadow-2xs transition">
     </div>
@@ -838,7 +845,7 @@ function renderAlmacenReceptionEvidenceUI() {
     zone.innerHTML = `
       <div class="flex items-center justify-between p-2 bg-sky-50 border border-sky-200 rounded-lg text-xs">
         <span class="font-bold text-slate-800 truncate">${escapeHtml(currentReceptionEvidence.fileName)}</span>
-        <button type="button" onclick="currentReceptionEvidence=null;document.getElementById('alm-rec-evidence-zone').innerHTML=''" class="text-rose-600 font-bold text-[10px] cursor-pointer">Quitar</button>
+        <button type="button" onclick="clearAlmacenReceptionEvidenceAction()" class="text-rose-600 font-bold text-[10px] cursor-pointer">Quitar</button>
       </div>
     `;
   } else {
@@ -849,6 +856,11 @@ function renderAlmacenReceptionEvidenceUI() {
       </div>
     `;
   }
+}
+
+export function clearAlmacenReceptionEvidenceAction() {
+  currentReceptionEvidence = null;
+  renderAlmacenReceptionEvidenceUI();
 }
 
 export function saveWarehouseReceptionModal() {
@@ -1129,7 +1141,12 @@ export function returnAlmacenToolAction(movementId) {
 
 export function toggleCancelAlmacenMovementAction(movementId) {
   if (!canCurrentUserEditProject() || !guardTabUnlocked('almacen')) return;
-  cancelWarehouseMovement(movementId);
+  try {
+    cancelWarehouseMovement(movementId);
+  } catch (err) {
+    showToast(err?.message || 'No se pudo actualizar el estatus del movimiento.', 'error');
+    return;
+  }
   showToast('Estatus del movimiento actualizado.', 'info');
   renderAlmacenView();
 }
@@ -1157,6 +1174,11 @@ export function exportAlmacenExcelAction() {
 
 // --- Handlers Firmas de Almacén ---
 export function openAlmacenSignaturesModal() {
+  if (!canCurrentUserEditProject()) {
+    showToast('🔒 Modo solo lectura: tu rol no permite editar firmas de Almacén.', 'warning');
+    return;
+  }
+  if (!guardTabUnlocked('almacen')) return;
   ensureAlmacenModalsRoot();
   draftAlmacenSignatures = getAlmacenSignatures().map(s => ({ ...s }));
   renderAlmacenSignaturesForm();
@@ -1213,6 +1235,7 @@ export function resetDefaultAlmacenSignatures() {
 }
 
 export function saveAlmacenSignaturesModal() {
+  if (!canCurrentUserEditProject() || !guardTabUnlocked('almacen')) return;
   saveAlmacenSignatures(draftAlmacenSignatures);
   closeAlmacenSignaturesModal();
   showToast('Firmas de Almacén guardadas.', 'success');
@@ -1220,6 +1243,7 @@ export function saveAlmacenSignaturesModal() {
 
 if (typeof window !== 'undefined') {
   window.renderAlmacenView = renderAlmacenView;
+  window.clearAlmacenReceptionEvidenceAction = clearAlmacenReceptionEvidenceAction;
   window.switchAlmacenSubTab = switchAlmacenSubTab;
   window.onAlmacenSearchChange = onAlmacenSearchChange;
   window.openWarehouseReceptionModal = openWarehouseReceptionModal;

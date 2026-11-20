@@ -1,11 +1,11 @@
 // js/modules/bitacora/bitacoraModel.js
 // Modelo de datos, folios correlativos, métricas de obra y reglas legales de inviolabilidad (LOPSRM / BESOP)
 
-import { state } from '../../state/store.js?v=20261119_cf38';
-import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf38';
-import { getCurrentUser, getProjectById } from '../portal/projectService.js?v=20261119_cf38';
-import { getScheduleSettings, extractScheduleItems, parseDate, formatDate, diffDays } from '../calendario/calendarioModel.js?v=20261119_cf38';
-import { scheduleBitacoraCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261119_cf38';
+import { state } from '../../state/store.js?v=20261119_cf39';
+import { getActiveProjectId } from '../../config/constants.js?v=20261119_cf39';
+import { getCurrentUser, getProjectById } from '../portal/projectService.js?v=20261119_cf39';
+import { getScheduleSettings, extractScheduleItems, parseDate, formatDate, diffDays } from '../calendario/calendarioModel.js?v=20261119_cf39';
+import { scheduleBitacoraCloudSync, stripInlineBinaryPayloads } from '../../core/cloudModulesSyncService.js?v=20261119_cf39';
 
 const STORAGE_KEY_PREFIX = 'adm_const_bitacora_';
 export const MAX_BITACORA_EVIDENCIAS = 6;

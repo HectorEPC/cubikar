@@ -1,7 +1,7 @@
 // js/mobile/mobileCompras.js
 // Control de Compras y Gastos: Resumen, Órdenes, Explosión 7/15 días, Base vs Real, Evidencia S3 y Envío a Almacén
 
-import { formatMoney, formatQty, round2 } from '../core/formatters.js?v=20261119_cf38';
+import { formatMoney, formatQty, round2 } from '../core/formatters.js?v=20261119_cf39';
 import {
   getExpensesRecords,
   saveExpenseRecord,
@@ -10,14 +10,14 @@ import {
   toggleRecordPaymentStatus,
   getExpensesSuppliers,
   saveSupplier
-} from '../modules/compras/expensesModel.js?v=20261119_cf38';
-import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison, getAllBudgetInsumosExplosion } from '../modules/compras/expensesCalculations.js?v=20261119_cf38';
-import { getCalendarUpcomingConceptsSummary, explodeWeeklyConceptsBasket } from '../modules/compras/conceptExplosionHelper.js?v=20261119_cf38';
-import { processExpenseEvidenceUpload, openExpenseEvidence } from '../modules/compras/driveExpenseService.js?v=20261119_cf38';
-import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf38';
-import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf38';
-import { showToast } from '../ui/notifications.js?v=20261119_cf38';
-import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf38';
+} from '../modules/compras/expensesModel.js?v=20261119_cf39';
+import { getExpensesKpiMetrics, getInsumosBudgetVsActualComparison, getAllBudgetInsumosExplosion } from '../modules/compras/expensesCalculations.js?v=20261119_cf39';
+import { getCalendarUpcomingConceptsSummary, explodeWeeklyConceptsBasket } from '../modules/compras/conceptExplosionHelper.js?v=20261119_cf39';
+import { processExpenseEvidenceUpload, openExpenseEvidence } from '../modules/compras/driveExpenseService.js?v=20261119_cf39';
+import { canCurrentUserEditProject } from '../modules/portal/projectService.js?v=20261119_cf39';
+import { isTabLocked, setTabLocked } from '../ui/tabLockController.js?v=20261119_cf39';
+import { showToast } from '../ui/notifications.js?v=20261119_cf39';
+import { escapeHtml, isBodegueroRestricted } from './mobileBridge.js?v=20261119_cf39';
 
 let subTab = 'ordenes'; // 'resumen' | 'ordenes' | 'explosion' | 'comparativa'
 let statusFilter = 'all'; // 'all' | 'pending' | 'paid' | 'warehouse' | 'direct'
@@ -121,8 +121,10 @@ function renderComprasOrdenes(body, container, records, ctx) {
   let list = records;
   if (statusFilter === 'pending') list = list.filter(r => r.paymentStatus === 'pending' || r.paymentStatus === 'partial');
   else if (statusFilter === 'paid') list = list.filter(r => r.paymentStatus === 'paid');
-  else if (statusFilter === 'warehouse') list = list.filter(r => r.destination === 'warehouse');
-  else if (statusFilter === 'direct') list = list.filter(r => r.destination !== 'warehouse');
+  else if (statusFilter === 'cancelled') list = list.filter(r => r.paymentStatus === 'cancelled');
+  else if (statusFilter === 'warehouse') list = list.filter(r => r.paymentStatus !== 'cancelled' && r.destination === 'warehouse');
+  else if (statusFilter === 'direct') list = list.filter(r => r.paymentStatus !== 'cancelled' && r.destination !== 'warehouse');
+  else list = list.filter(r => r.paymentStatus !== 'cancelled');
 
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase();
@@ -148,7 +150,8 @@ function renderComprasOrdenes(body, container, records, ctx) {
         ['pending', 'Por pagar'],
         ['paid', 'Pagadas'],
         ['warehouse', 'A Almacén'],
-        ['direct', 'Directo Obra']
+        ['direct', 'Directo Obra'],
+        ['cancelled', 'Canceladas']
       ].map(([k, lbl]) => `
         <button type="button" data-comp-st="${k}" class="m-chip ${statusFilter === k ? 'is-active' : ''}">${lbl}</button>
       `).join('')}
@@ -161,14 +164,16 @@ function renderComprasOrdenes(body, container, records, ctx) {
     ` : list.map(rec => {
       const unitVal = Number(rec.unitPrice ?? rec.unitCost ?? 0);
       const total = round2(rec.total || rec.totalAmount || (Number(rec.quantity || 0) * unitVal));
+      const cancelled = rec.paymentStatus === 'cancelled';
       const paid = rec.paymentStatus === 'paid';
+      const partial = rec.paymentStatus === 'partial';
       const toWh = rec.destination === 'warehouse';
       return `
         <div class="m-card" style="display:flex;flex-direction:column;gap:7px;">
           <div class="m-row-between">
             <div class="m-row">
               <span class="m-pill ${toWh ? 'm-pill-blue' : 'm-pill-neutral'}">${toWh ? '<i class="fa-solid fa-warehouse"></i> Almacén' : 'Directo Obra'}</span>
-              <span class="m-pill ${paid ? 'm-pill-green' : 'm-pill-warn'}">${paid ? 'Pagada' : 'Pendiente'}</span>
+              <span class="m-pill ${cancelled ? 'm-pill-neutral' : (paid ? 'm-pill-green' : 'm-pill-warn')}">${cancelled ? 'Cancelada' : (paid ? 'Pagada' : (partial ? 'Parcial' : 'Pendiente'))}</span>
             </div>
             <span class="m-mono" style="font-size:13.5px;font-weight:800;color:var(--primary);">${escapeHtml(formatMoney(total))}</span>
           </div>
@@ -323,19 +328,50 @@ function renderComprasExplosion(body, container, ctx) {
   });
 
   body.querySelector('#m-exp-gen-all')?.addEventListener('click', () => {
-    const batch = exploded.map(r => ({
-      insumoId: r.insumoKey || '',
-      insumoClave: r.clave || '',
-      description: r.descripcion || r.description || '',
-      category: r.tipo || r.category || 'Material',
-      unit: r.unidad || r.unit || 'pza',
-      quantity: round2(r.cantidadCalculada ?? r.suggestedQty ?? 1),
-      unitPrice: round2(r.suggestedPrice ?? r.puPresupuestado ?? 0),
-      tax: 0,
-      destination: 'warehouse',
-      paymentStatus: 'pending',
-      date: new Date().toISOString().slice(0, 10)
-    }));
+    const batchId = `exp_mob_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const batch = exploded.map(r => {
+      const qty = Math.max(0, round2(r.cantidadCalculada ?? r.suggestedQty ?? 0));
+      const unitP = Math.max(0, round2(r.suggestedPrice ?? r.puPresupuestado ?? 0));
+      const subtotal = round2(qty * unitP);
+      const srcList = Array.isArray(r.sources) ? r.sources : [];
+      const firstSrc = srcList[0] || null;
+      const conceptLinks = srcList
+        .filter(s => s && s.conceptId)
+        .map(s => ({
+          conceptId: s.conceptId,
+          conceptClave: s.conceptClave || '',
+          qtyCovered: round2(s.qtyConcept || 0),
+          moveType: s.moveType || 'advance',
+          shareRatio: (r.cantidadCalculada > 0 && s.qtyInsumo > 0) ? (s.qtyInsumo / r.cantidadCalculada) : (1 / Math.max(1, srcList.length))
+        }));
+      return {
+        insumoId: r.insumoKey || r.key || '',
+        insumoClave: r.clave || '',
+        description: r.descripcion || r.description || '',
+        category: r.tipo || r.category || 'Material',
+        unit: r.unidad || r.unit || 'pza',
+        quantity: qty,
+        unitPrice: unitP,
+        subtotal,
+        tax: 0,
+        total: subtotal,
+        destination: 'warehouse',
+        paymentStatus: 'pending',
+        conceptId: firstSrc?.conceptId || '',
+        conceptClave: firstSrc?.conceptClave || '',
+        conceptDesc: firstSrc?.conceptDesc || '',
+        conceptCoverageQty: round2(firstSrc?.qtyConcept || 0),
+        conceptMoveType: firstSrc?.moveType || 'advance',
+        conceptExplosionBatchId: batchId,
+        conceptLinks,
+        date: todayStr
+      };
+    }).filter(item => item.quantity > 0);
+    if (batch.length === 0) {
+      showToast('No hay insumos con cantidad mayor a cero para generar.', 'warning');
+      return;
+    }
     saveExpenseRecordsBatch(batch);
     showToast(`${batch.length} partidas enviadas a Órdenes (Almacén).`, 'success');
     subTab = 'ordenes';

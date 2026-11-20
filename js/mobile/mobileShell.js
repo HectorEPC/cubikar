@@ -1,11 +1,11 @@
 ﻿// js/mobile/mobileShell.js
 // Cascarón móvil/tablet persistente: Header superior con icono de Cubikar, botón Día/Noche, Chat, Mi Cuenta y Bottom Nav (6 pestañas PC)
 
-import { getActiveProjectId, setActiveProjectId } from '../config/constants.js?v=20261119_cf38';
-import { state } from '../state/store.js?v=20261119_cf38';
-import { signOut } from '../core/authService.js?v=20261119_cf38';
-import { appendSsoToUrlFromStorage } from '../core/ssoHelper.js?v=20261119_cf38';
-import { unsubscribeFromProjectRealtime } from '../core/realtimeSync.js?v=20261119_cf38';
+import { getActiveProjectId, setActiveProjectId } from '../config/constants.js?v=20261119_cf39';
+import { state } from '../state/store.js?v=20261119_cf39';
+import { signOut } from '../core/authService.js?v=20261119_cf39';
+import { appendSsoToUrlFromStorage } from '../core/ssoHelper.js?v=20261119_cf39';
+import { unsubscribeFromProjectRealtime } from '../core/realtimeSync.js?v=20261119_cf39';
 import {
   getCurrentUser,
   saveCurrentUser,
@@ -14,20 +14,20 @@ import {
   markSessionClosed,
   getPlanLimits,
   getUserPlanId
-} from '../modules/portal/projectService.js?v=20261119_cf38';
-import { isNightMode, toggleThemeMode } from '../ui/themeController.js?v=20261119_cf38';
-import { showToast } from '../ui/notifications.js?v=20261119_cf38';
-import { uploadManagedFile } from '../services/s3StorageService.js?v=20261119_cf38';
-import { escapeHtml, syncThemeDataset, canAccessTab, renderAvatarHtml } from './mobileBridge.js?v=20261119_cf38';
-import { renderMobileAuth } from './mobileAuth.js?v=20261119_cf38';
-import { renderMobileProjects, openMobileProjectById } from './mobileProjects.js?v=20261119_cf38';
-import { renderMobilePresupuesto } from './mobilePresupuesto.js?v=20261119_cf38';
+} from '../modules/portal/projectService.js?v=20261119_cf39';
+import { isNightMode, toggleThemeMode } from '../ui/themeController.js?v=20261119_cf39';
+import { showToast } from '../ui/notifications.js?v=20261119_cf39';
+import { uploadManagedFile } from '../services/s3StorageService.js?v=20261119_cf39';
+import { escapeHtml, syncThemeDataset, canAccessTab, renderAvatarHtml } from './mobileBridge.js?v=20261119_cf39';
+import { renderMobileAuth } from './mobileAuth.js?v=20261119_cf39';
+import { renderMobileProjects, openMobileProjectById } from './mobileProjects.js?v=20261119_cf39';
+import { renderMobilePresupuesto } from './mobilePresupuesto.js?v=20261119_cf39';
 import { renderMobileCalendario } from './mobileCalendario.js?v=20261118_c2';
-import { renderMobileCompras, setComprasExplosionMode } from './mobileCompras.js?v=20261119_cf38';
-import { renderMobileAlmacen } from './mobileAlmacen.js?v=20261119_cf38';
-import { renderMobileEstimaciones } from './mobileEstimaciones.js?v=20261119_cf38';
+import { renderMobileCompras, setComprasExplosionMode } from './mobileCompras.js?v=20261119_cf39';
+import { renderMobileAlmacen } from './mobileAlmacen.js?v=20261119_cf39';
+import { renderMobileEstimaciones } from './mobileEstimaciones.js?v=20261119_cf39';
 import { renderMobileBitacora } from './mobileBitacora.js?v=20261118_b6';
-import { renderMobileChat, setChatConceptFilter, getUnreadChatCount } from './mobileChat.js?v=20261119_cf38';
+import { renderMobileChat, setChatConceptFilter, getUnreadChatCount } from './mobileChat.js?v=20261119_cf39';
 
 export const CONST_TABS = [
   { id: 'presupuesto', label: 'Presupuesto', icon: 'fa-solid fa-coins' },
